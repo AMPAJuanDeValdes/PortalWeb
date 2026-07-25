@@ -1,0 +1,9 @@
+[build]
+  publish = "."
+  functions = "netlify/functions"
+  command = "npm install"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 404

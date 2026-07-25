@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Alta de socios · Admin AMPA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared/styles.css">
+<style>
+  .two-col{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .three-col{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; }
+  @media (max-width:560px){ .two-col, .three-col{ grid-template-columns:1fr; } }
+  code{ background:#F0F6FC; padding:1px 6px; border-radius:3px; font-size:12.5px; }
+  .cols-hint{ font-size:12.5px; color:var(--ink-soft); line-height:1.7; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">AMPA · Administración</div>
+  <h1>Alta de socios</h1>
+  <p class="lede">
+    Puedes dar de alta a los socios en bloque desde un CSV, o de uno en uno más abajo.
+    En ambos casos se crea la cuenta de socio y el progenitor principal, con una contraseña
+    provisional que el socio deberá cambiar en su primer acceso. El segundo progenitor y los
+    hijos/as los añade la propia familia desde "Mis datos" y "Préstamo de libros".
+  </p>
+
+  <div class="card">
+    <p class="section-label">1. Importar por CSV</p>
+    <p class="cols-hint">
+      Columnas obligatorias en la cabecera:<br>
+      <code>anio_ultima_cuota, numero_secuencial, nombre, apellidos, dni_nie, email, direccion, ciudad, provincia, codigo_postal</code><br>
+      Columnas opcionales: <code>forma_pago</code> (Metálico / Transferencia / Domiciliación Bancaria),
+      <code>iban</code>, <code>es_pasaporte</code> (sí/no), <code>sexo</code> (Masculino/Femenino/Otro),
+      <code>telefono_fijo</code>, <code>movil</code>.
+    </p>
+    <input type="file" id="csvFile" accept=".csv" style="margin-top:14px;">
+    <div style="margin-top:16px;">
+      <button type="button" class="btn btn-primary" id="importBtn" disabled>Importar socios</button>
+    </div>
+    <p id="statusMsg" class="msg-ok" style="display:none; margin-top:14px;"></p>
+    <p id="errorMsg" class="msg-error" style="display:none; margin-top:14px;"></p>
+  </div>
+
+  <div class="card" id="resultsCard" style="display:none;">
+    <p class="section-label">Resultado de la importación</p>
+    <div id="resultsTable"></div>
+    <button type="button" class="btn btn-outline" id="downloadBtn" style="margin-top:14px;">
+      Descargar credenciales (CSV)
+    </button>
+  </div>
+
+  <div class="card">
+    <p class="section-label">2. Dar de alta un socio manualmente</p>
+
+    <p class="section-label" style="margin-top:6px;">Cuenta de socio</p>
+    <div class="two-col">
+      <div class="field"><label>Año de última cuota *</label><input type="number" id="mAnio"></div>
+      <div class="field"><label>Número secuencial (4 cifras) *</label><input type="text" id="mSecuencial" maxlength="4" placeholder="0001"></div>
+    </div>
+    <div class="two-col" style="margin-top:14px;">
+      <div class="field">
+        <label>Forma de pago</label>
+        <select id="mFormaPago">
+          <option value="">Sin especificar</option>
+          <option value="Metálico">Metálico</option>
+          <option value="Transferencia">Transferencia</option>
+          <option value="Domiciliación Bancaria">Domiciliación Bancaria</option>
+        </select>
+      </div>
+      <div class="field"><label>IBAN</label><input type="text" id="mIban"></div>
+    </div>
+
+    <p class="section-label" style="margin-top:22px;">Progenitor principal</p>
+    <div class="two-col">
+      <div class="field"><label>Nombre *</label><input type="text" id="mNombre"></div>
+      <div class="field"><label>Apellidos *</label><input type="text" id="mApellidos"></div>
+    </div>
+    <div class="two-col" style="margin-top:14px;">
+      <div class="field"><label>DNI / NIE / Pasaporte *</label><input type="text" id="mDni"></div>
+      <div class="field">
+        <label>&nbsp;</label>
+        <label style="display:flex; align-items:center; gap:8px; font-weight:400;">
+          <input type="checkbox" id="mEsPasaporte" style="width:auto;"> Es número de pasaporte
+        </label>
+      </div>
+    </div>
+    <div class="two-col" style="margin-top:14px;">
+      <div class="field">
+        <label>Sexo</label>
+        <select id="mSexo">
+          <option value="">Sin especificar</option>
+          <option value="Masculino">Masculino</option>
+          <option value="Femenino">Femenino</option>
+          <option value="Otro">Otro</option>
+        </select>
+      </div>
+      <div class="field"><label>Correo electrónico *</label><input type="email" id="mEmail"></div>
+    </div>
+    <div class="field" style="margin-top:14px;"><label>Dirección *</label><input type="text" id="mDireccion"></div>
+    <div class="three-col" style="margin-top:14px;">
+      <div class="field"><label>Ciudad *</label><input type="text" id="mCiudad"></div>
+      <div class="field"><label>Provincia *</label><input type="text" id="mProvincia"></div>
+      <div class="field"><label>Código postal *</label><input type="text" id="mCp"></div>
+    </div>
+    <div class="two-col" style="margin-top:14px;">
+      <div class="field"><label>Teléfono fijo</label><input type="text" id="mTelefonoFijo"></div>
+      <div class="field"><label>Móvil</label><input type="text" id="mMovil"></div>
+    </div>
+
+    <button type="button" class="btn btn-primary" id="manualBtn" style="margin-top:18px;">Dar de alta</button>
+    <p id="manualStatusMsg" class="msg-ok" style="display:none; margin-top:14px;"></p>
+    <p id="manualErrorMsg" class="msg-error" style="display:none; margin-top:14px;"></p>
+    <div id="manualResultCard" style="display:none; margin-top:14px;">
+      <table>
+        <thead><tr><th>Email</th><th>Contraseña provisional</th></tr></thead>
+        <tbody id="manualResultBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <p class="section-label">Socios existentes</p>
+    <div id="socioListWrap"><p class="loading">Cargando...</p></div>
+  </div>
+
+  <footer class="note"><b>AMPA Colegio Juan de Valdés</b> — panel de administración</footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="shared/supabaseClient.js"></script>
+<script src="shared/nav.js"></script>
+<script src="shared/csv.js"></script>
+<script src="shared/helpers.js"></script>
+<script>
+let filas = [];
+let ultimosResultados = [];
+
+document.getElementById('csvFile').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  const errorMsg = document.getElementById('errorMsg');
+  errorMsg.style.display = 'none';
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    const parsed = parsearCSV(reader.result);
+    if (parsed.length < 2) {
+      errorMsg.textContent = 'El archivo no parece tener filas de datos.';
+      errorMsg.style.display = 'block';
+      return;
+    }
+    filas = csvAObjetos(parsed);
+    const obligatorios = ['anio_ultima_cuota', 'numero_secuencial', 'nombre', 'apellidos', 'dni_nie', 'email', 'direccion', 'ciudad', 'provincia', 'codigo_postal'];
+    const faltan = filas.some(f => obligatorios.some(c => !f[c]));
+    if (faltan) {
+      errorMsg.textContent = 'Revisa que todas las filas tengan los campos obligatorios: ' + obligatorios.join(', ');
+      errorMsg.style.display = 'block';
+      document.getElementById('importBtn').disabled = true;
+      return;
+    }
+    document.getElementById('importBtn').disabled = false;
+  };
+  reader.readAsText(file, 'UTF-8');
+});
+
+async function llamarFuncionAlta(sociosArray) {
+  const session = await getSession();
+  const resp = await fetch('/.netlify/functions/admin-import-socios', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + session.access_token
+    },
+    body: JSON.stringify({ socios: sociosArray })
+  });
+  const data = await resp.json();
+  if (!resp.ok) throw new Error(data.error || 'Error en el alta');
+  return data.resultados;
+}
+
+document.getElementById('importBtn').addEventListener('click', async () => {
+  const btn = document.getElementById('importBtn');
+  const statusMsg = document.getElementById('statusMsg');
+  const errorMsg = document.getElementById('errorMsg');
+  btn.disabled = true;
+  btn.textContent = 'Importando...';
+  errorMsg.style.display = 'none';
+
+  try {
+    ultimosResultados = await llamarFuncionAlta(filas);
+    mostrarResultados(ultimosResultados);
+    statusMsg.textContent = 'Importación completada.';
+    statusMsg.style.display = 'block';
+    cargarSocios();
+  } catch (err) {
+    errorMsg.textContent = err.message;
+    errorMsg.style.display = 'block';
+  }
+  btn.textContent = 'Importar socios';
+  btn.disabled = false;
+});
+
+function mostrarResultados(resultados) {
+  const wrap = document.getElementById('resultsTable');
+  const card = document.getElementById('resultsCard');
+  card.style.display = 'block';
+  const ok = resultados.filter(r => r.ok).length;
+  const fail = resultados.length - ok;
+  wrap.innerHTML = `
+    <p style="font-size:13.5px; margin-bottom:10px;">✓ ${ok} creados correctamente ${fail ? ' · ✗ ' + fail + ' con error' : ''}</p>
+    <table>
+      <thead><tr><th>Titular</th><th>Email</th><th>Estado</th></tr></thead>
+      <tbody>
+        ${resultados.map(r => `
+          <tr>
+            <td>${r.nombre_titular}</td>
+            <td>${r.email}</td>
+            <td>${r.ok ? '<span class="badge badge-socio">Creado</span>' : '<span class="msg-error" style="margin:0;">' + (r.error || 'Error') + '</span>'}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+document.getElementById('downloadBtn').addEventListener('click', () => {
+  const filasCsv = ultimosResultados.filter(r => r.ok).map(r => ({
+    nombre_titular: r.nombre_titular,
+    email: r.email,
+    contraseña_inicial: r.password
+  }));
+  descargarCSV(filasCsv, 'credenciales-ampa.csv');
+});
+
+document.getElementById('manualBtn').addEventListener('click', async () => {
+  const btn = document.getElementById('manualBtn');
+  const statusMsg = document.getElementById('manualStatusMsg');
+  const errorMsg = document.getElementById('manualErrorMsg');
+  const resultCard = document.getElementById('manualResultCard');
+  const resultBody = document.getElementById('manualResultBody');
+
+  statusMsg.style.display = 'none';
+  errorMsg.style.display = 'none';
+
+  const fila = {
+    anio_ultima_cuota: document.getElementById('mAnio').value.trim(),
+    numero_secuencial: document.getElementById('mSecuencial').value.trim(),
+    forma_pago: document.getElementById('mFormaPago').value,
+    iban: document.getElementById('mIban').value.trim(),
+    nombre: document.getElementById('mNombre').value.trim(),
+    apellidos: document.getElementById('mApellidos').value.trim(),
+    dni_nie: document.getElementById('mDni').value.trim(),
+    es_pasaporte: document.getElementById('mEsPasaporte').checked ? 'si' : 'no',
+    sexo: document.getElementById('mSexo').value,
+    email: document.getElementById('mEmail').value.trim(),
+    direccion: document.getElementById('mDireccion').value.trim(),
+    ciudad: document.getElementById('mCiudad').value.trim(),
+    provincia: document.getElementById('mProvincia').value.trim(),
+    codigo_postal: document.getElementById('mCp').value.trim(),
+    telefono_fijo: document.getElementById('mTelefonoFijo').value.trim(),
+    movil: document.getElementById('mMovil').value.trim()
+  };
+
+  const obligatorios = ['anio_ultima_cuota', 'numero_secuencial', 'nombre', 'apellidos', 'dni_nie', 'email', 'direccion', 'ciudad', 'provincia', 'codigo_postal'];
+  const faltan = obligatorios.filter(c => !fila[c]);
+  if (faltan.length) {
+    errorMsg.textContent = 'Completa los campos obligatorios: ' + faltan.join(', ');
+    errorMsg.style.display = 'block';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Dando de alta...';
+
+  try {
+    const resultados = await llamarFuncionAlta([fila]);
+    const r = resultados[0];
+    if (!r.ok) throw new Error(r.error || 'Error al dar de alta');
+
+    resultBody.innerHTML = `<tr><td>${r.email}</td><td><b>${r.password}</b></td></tr>`;
+    resultCard.style.display = 'block';
+    statusMsg.textContent = 'Socio dado de alta ✓. Copia la contraseña y pásasela por un canal seguro (no queda guardada en ningún sitio).';
+    statusMsg.style.display = 'block';
+
+    ['mAnio','mSecuencial','mIban','mNombre','mApellidos','mDni','mEmail','mDireccion','mCiudad','mProvincia','mCp','mTelefonoFijo','mMovil']
+      .forEach(id => document.getElementById(id).value = '');
+    document.getElementById('mEsPasaporte').checked = false;
+    document.getElementById('mFormaPago').value = '';
+    document.getElementById('mSexo').value = '';
+
+    cargarSocios();
+  } catch (err) {
+    errorMsg.textContent = err.message;
+    errorMsg.style.display = 'block';
+  }
+  btn.disabled = false;
+  btn.textContent = 'Dar de alta';
+});
+
+async function cargarSocios() {
+  const wrap = document.getElementById('socioListWrap');
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, numero_socio_completo, email, role, anio_ultima_cuota')
+    .order('created_at', { ascending: false });
+  if (error) { wrap.innerHTML = '<p class="msg-error">No se pudo cargar la lista.</p>'; return; }
+
+  const resumen = await getResumenSocios(data.map(p => p.id));
+
+  wrap.innerHTML = `
+    <table>
+      <thead><tr><th>Nº socio</th><th>Titular</th><th>Email</th><th>Rol</th><th></th></tr></thead>
+      <tbody>
+        ${data.map(p => `
+          <tr>
+            <td>${p.numero_socio_completo}</td>
+            <td>${resumen[p.id]?.nombre || ''}</td>
+            <td>${p.email}</td>
+            <td><span class="badge ${p.role === 'admin' ? 'badge-admin' : 'badge-socio'}">${p.role}</span></td>
+            <td><button class="btn-danger-link toggle-role" data-id="${p.id}" data-role="${p.role}">
+              ${p.role === 'admin' ? 'Quitar admin' : 'Hacer admin'}
+            </button></td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+
+  wrap.querySelectorAll('.toggle-role').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const nuevoRol = btn.dataset.role === 'admin' ? 'socio' : 'admin';
+      await supabase.from('profiles').update({ role: nuevoRol }).eq('id', btn.dataset.id);
+      cargarSocios();
+    });
+  });
+}
+
+(async () => {
+  const ctx = await requireAdmin();
+  if (!ctx) return;
+  renderNav('admin-importar', ctx.profile);
+  await cargarSocios();
+})();
+</script>
+</body>
+</html>

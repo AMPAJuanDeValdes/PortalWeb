@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Iniciar sesión · AMPA Juan de Valdés</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared/styles.css">
+<style>
+  .login-wrap{ max-width:420px; margin:0 auto; padding:60px 20px; }
+  .login-logos{ display:flex; align-items:center; justify-content:center; gap:18px; margin-bottom:18px; flex-wrap:wrap; }
+  .login-logos img{ display:block; }
+  .login-logos .logo-ampa{ height:52px; }
+  .login-logos .logo-colegio{ height:38px; }
+  .rainbow-rule{ height:4px; border-radius:4px; margin-bottom:26px;
+    background:linear-gradient(90deg,var(--rainbow-3),var(--rainbow-2),var(--rainbow-1),var(--rainbow-4)); }
+  h1{ text-align:center; }
+  .lede{ text-align:center; margin:0 auto 26px; }
+  .reset-link{ text-align:center; margin-top:14px; }
+  .reset-link a{ color:var(--navy); font-size:13px; }
+</style>
+</head>
+<body>
+<div class="login-wrap">
+  <div class="login-logos">
+    <img class="logo-ampa" src="assets/logo-ampa.png" alt="AMPA">
+    <img class="logo-colegio" src="assets/logo-colegio.png" alt="Colegio Juan de Valdés">
+  </div>
+  <div class="rainbow-rule"></div>
+  <h1>Portal del AMPA</h1>
+  <p class="lede">Accede con el email y la contraseña que te ha facilitado el AMPA.</p>
+
+  <div class="card">
+    <form id="loginForm">
+      <div class="field">
+        <label for="email">Correo electrónico</label>
+        <input type="email" id="email" required autocomplete="username">
+      </div>
+      <div class="field">
+        <label for="password">Contraseña</label>
+        <input type="password" id="password" required autocomplete="current-password">
+      </div>
+      <p id="errorMsg" class="msg-error" hidden></p>
+      <button type="submit" class="btn btn-primary btn-block" id="submitBtn">Iniciar sesión</button>
+    </form>
+    <p class="reset-link"><a href="#" id="resetLink">¿Has olvidado tu contraseña?</a></p>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="shared/supabaseClient.js"></script>
+<script>
+  (async () => {
+    const session = await getSession();
+    if (session) window.location.href = 'dashboard.html';
+  })();
+
+  const form = document.getElementById('loginForm');
+  const errorMsg = document.getElementById('errorMsg');
+  const submitBtn = document.getElementById('submitBtn');
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    errorMsg.hidden = true;
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Entrando...';
+
+    const email = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value;
+
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+
+    if (error) {
+      errorMsg.textContent = 'Email o contraseña incorrectos.';
+      errorMsg.hidden = false;
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Iniciar sesión';
+      return;
+    }
+    window.location.href = 'dashboard.html';
+  });
+
+  document.getElementById('resetLink').addEventListener('click', async (e) => {
+    e.preventDefault();
+    const email = document.getElementById('email').value.trim();
+    if (!email) {
+      errorMsg.textContent = 'Escribe primero tu email arriba y vuelve a pulsar el enlace.';
+      errorMsg.hidden = false;
+      return;
+    }
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin + '/cambiar-clave.html'
+    });
+    errorMsg.hidden = false;
+    errorMsg.className = error ? 'msg-error' : 'msg-ok';
+    errorMsg.textContent = error
+      ? 'No se pudo enviar el correo de recuperación.'
+      : 'Te hemos enviado un correo con instrucciones para restablecer tu contraseña.';
+  });
+</script>
+</body>
+</html>

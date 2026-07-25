@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mis datos · AMPA Juan de Valdés</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared/styles.css">
+<style>
+  .two-col{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .three-col{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; }
+  @media (max-width:560px){ .two-col, .three-col{ grid-template-columns:1fr; } }
+  .readonly-value{
+    background:#F0F6FC; border:1px solid var(--line); border-radius:var(--radius);
+    padding:10px 12px; font-family:'IBM Plex Mono', monospace; font-size:14px; color:var(--ink-soft);
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">AMPA · Mi cuenta</div>
+  <h1>Mis datos</h1>
+  <p class="lede">Datos de la cuenta de socio y de los progenitores de la familia.</p>
+
+  <div class="card">
+    <p class="section-label">Datos de la cuenta</p>
+    <div class="two-col">
+      <div class="field">
+        <label>Número de socio</label>
+        <div class="readonly-value" id="numeroSocioValue">—</div>
+      </div>
+      <div class="field">
+        <label>Año de última cuota</label>
+        <div class="readonly-value" id="anioValue">—</div>
+      </div>
+    </div>
+    <p style="font-size:12.5px; color:var(--ink-soft); margin:10px 0 18px;">
+      Estos datos los gestiona el AMPA. Si hay algún error, contacta con la Junta.
+    </p>
+    <div class="two-col">
+      <div class="field">
+        <label>Forma de pago</label>
+        <select id="formaPago">
+          <option value="">Sin especificar</option>
+          <option value="Metálico">Metálico</option>
+          <option value="Transferencia">Transferencia</option>
+          <option value="Domiciliación Bancaria">Domiciliación Bancaria</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>IBAN</label>
+        <input type="text" id="iban" placeholder="ES00 0000 0000 0000 0000 0000">
+      </div>
+    </div>
+    <button type="button" class="btn btn-primary" id="guardarCuentaBtn" style="margin-top:16px;">Guardar cuenta</button>
+    <p id="cuentaMsg" class="msg-ok" style="display:none;"></p>
+  </div>
+
+  <div id="progenitoresContainer"></div>
+  <button type="button" class="btn btn-outline btn-block" id="addSecundarioBtn" style="display:none;">
+    + Añadir segundo progenitor
+  </button>
+
+  <footer class="note"><b>AMPA Colegio Juan de Valdés</b></footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="shared/supabaseClient.js"></script>
+<script src="shared/nav.js"></script>
+<script>
+let profile = null;
+let progenitores = { principal: null, secundario: null };
+
+const PROVINCIAS = [
+  'A Coruña','Álava','Albacete','Alicante','Almería','Asturias','Ávila','Badajoz','Barcelona',
+  'Burgos','Cáceres','Cádiz','Cantabria','Castellón','Ciudad Real','Córdoba','Cuenca','Girona',
+  'Granada','Guadalajara','Guipúzcoa','Huelva','Huesca','Islas Baleares','Jaén','La Rioja',
+  'Las Palmas','León','Lleida','Lugo','Madrid','Málaga','Murcia','Navarra','Ourense','Palencia',
+  'Pontevedra','Salamanca','Santa Cruz de Tenerife','Segovia','Sevilla','Soria','Tarragona',
+  'Teruel','Toledo','Valencia','Valladolid','Vizcaya','Zamora','Zaragoza','Ceuta','Melilla'
+];
+
+function campoTexto(label, valor, onInput, required = false, tipo = 'text') {
+  const wrap = document.createElement('div');
+  wrap.className = 'field';
+  wrap.innerHTML = `<label>${label}${required ? ' *' : ''}</label>`;
+  const input = document.createElement('input');
+  input.type = tipo;
+  input.value = valor || '';
+  input.addEventListener('input', e => onInput(e.target.value));
+  wrap.appendChild(input);
+  return wrap;
+}
+
+function campoSelect(label, opciones, valor, onChange, required = false) {
+  const wrap = document.createElement('div');
+  wrap.className = 'field';
+  wrap.innerHTML = `<label>${label}${required ? ' *' : ''}</label>`;
+  const select = document.createElement('select');
+  const optDefault = document.createElement('option');
+  optDefault.value = ''; optDefault.textContent = 'Selecciona...';
+  select.appendChild(optDefault);
+  opciones.forEach(op => {
+    const opt = document.createElement('option');
+    opt.value = op; opt.textContent = op;
+    if (op === valor) opt.selected = true;
+    select.appendChild(opt);
+  });
+  select.addEventListener('change', e => onChange(e.target.value));
+  wrap.appendChild(select);
+  return wrap;
+}
+
+function renderProgenitorCard(tipo) {
+  const p = progenitores[tipo] || {
+    tipo, nombre: '', apellidos: '', es_pasaporte: false, dni_nie: '', sexo: '',
+    email: '', direccion: '', ciudad: '', provincia: '', codigo_postal: '',
+    telefono_fijo: '', movil: ''
+  };
+
+  const card = document.createElement('div');
+  card.className = 'card';
+
+  const titleRow = document.createElement('div');
+  titleRow.style.display = 'flex';
+  titleRow.style.justifyContent = 'space-between';
+  titleRow.style.alignItems = 'center';
+  titleRow.innerHTML = `<p class="section-label" style="margin:0;">Progenitor ${tipo === 'principal' ? 'principal' : 'secundario'}</p>`;
+
+  if (tipo === 'secundario') {
+    const delBtn = document.createElement('button');
+    delBtn.className = 'btn-danger-link';
+    delBtn.textContent = 'Quitar';
+    delBtn.addEventListener('click', async () => {
+      if (!confirm('¿Quitar al segundo progenitor?')) return;
+      if (progenitores.secundario?.id) {
+        await supabase.from('progenitores').delete().eq('id', progenitores.secundario.id);
+      }
+      progenitores.secundario = null;
+      renderTodo();
+    });
+    titleRow.appendChild(delBtn);
+  }
+  card.appendChild(titleRow);
+  card.style.marginTop = '20px';
+
+  const rowNombre = document.createElement('div');
+  rowNombre.className = 'two-col';
+  rowNombre.style.marginTop = '14px';
+  rowNombre.appendChild(campoTexto('Nombre', p.nombre, v => p.nombre = v, true));
+  rowNombre.appendChild(campoTexto('Apellidos', p.apellidos, v => p.apellidos = v, true));
+  card.appendChild(rowNombre);
+
+  const rowDoc = document.createElement('div');
+  rowDoc.className = 'two-col';
+  rowDoc.style.marginTop = '14px';
+  rowDoc.appendChild(campoTexto('DNI / NIE / Pasaporte', p.dni_nie, v => p.dni_nie = v, true));
+  const pasaporteWrap = document.createElement('div');
+  pasaporteWrap.className = 'field';
+  pasaporteWrap.innerHTML = `<label>&nbsp;</label>`;
+  const pasaporteLabel = document.createElement('label');
+  pasaporteLabel.style.display = 'flex';
+  pasaporteLabel.style.alignItems = 'center';
+  pasaporteLabel.style.gap = '8px';
+  pasaporteLabel.style.fontWeight = '400';
+  const pasaporteCb = document.createElement('input');
+  pasaporteCb.type = 'checkbox';
+  pasaporteCb.style.width = 'auto';
+  pasaporteCb.checked = !!p.es_pasaporte;
+  pasaporteCb.addEventListener('change', e => p.es_pasaporte = e.target.checked);
+  pasaporteLabel.appendChild(pasaporteCb);
+  pasaporteLabel.appendChild(document.createTextNode('Es número de pasaporte'));
+  pasaporteWrap.appendChild(pasaporteLabel);
+  rowDoc.appendChild(pasaporteWrap);
+  card.appendChild(rowDoc);
+
+  const rowSexoEmail = document.createElement('div');
+  rowSexoEmail.className = 'two-col';
+  rowSexoEmail.style.marginTop = '14px';
+  rowSexoEmail.appendChild(campoSelect('Sexo', ['Masculino', 'Femenino', 'Otro'], p.sexo, v => p.sexo = v));
+  rowSexoEmail.appendChild(campoTexto('Correo electrónico', p.email, v => p.email = v, true, 'email'));
+  card.appendChild(rowSexoEmail);
+
+  card.appendChild(campoTexto('Dirección', p.direccion, v => p.direccion = v, true));
+
+  const rowCiudad = document.createElement('div');
+  rowCiudad.className = 'three-col';
+  rowCiudad.style.marginTop = '14px';
+  rowCiudad.appendChild(campoTexto('Ciudad', p.ciudad, v => p.ciudad = v, true));
+  rowCiudad.appendChild(campoSelect('Provincia', PROVINCIAS, p.provincia, v => p.provincia = v, true));
+  rowCiudad.appendChild(campoTexto('Código postal', p.codigo_postal, v => p.codigo_postal = v, true));
+  card.appendChild(rowCiudad);
+
+  const rowTelefonos = document.createElement('div');
+  rowTelefonos.className = 'two-col';
+  rowTelefonos.style.marginTop = '14px';
+  rowTelefonos.appendChild(campoTexto('Teléfono fijo', p.telefono_fijo, v => p.telefono_fijo = v));
+  rowTelefonos.appendChild(campoTexto('Móvil', p.movil, v => p.movil = v));
+  card.appendChild(rowTelefonos);
+
+  const msg = document.createElement('p');
+  msg.style.display = 'none';
+  msg.style.marginTop = '12px';
+
+  const saveBtn = document.createElement('button');
+  saveBtn.type = 'button';
+  saveBtn.className = 'btn btn-primary';
+  saveBtn.style.marginTop = '16px';
+  saveBtn.textContent = 'Guardar';
+  saveBtn.addEventListener('click', async () => {
+    if (!p.nombre.trim() || !p.apellidos.trim() || !p.dni_nie.trim() || !p.email.trim() ||
+        !p.direccion.trim() || !p.ciudad.trim() || !p.provincia || !p.codigo_postal.trim()) {
+      msg.className = 'msg-error';
+      msg.textContent = 'Completa los campos obligatorios (*).';
+      msg.style.display = 'block';
+      return;
+    }
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Guardando...';
+
+    const payload = {
+      profile_id: profile.id, tipo,
+      nombre: p.nombre.trim(), apellidos: p.apellidos.trim(),
+      es_pasaporte: p.es_pasaporte, dni_nie: p.dni_nie.trim(),
+      sexo: p.sexo || null, email: p.email.trim(),
+      direccion: p.direccion.trim(), ciudad: p.ciudad.trim(),
+      provincia: p.provincia, codigo_postal: p.codigo_postal.trim(),
+      telefono_fijo: p.telefono_fijo || null, movil: p.movil || null
+    };
+
+    const { data, error } = await supabase
+      .from('progenitores')
+      .upsert(payload, { onConflict: 'profile_id,tipo' })
+      .select('*')
+      .single();
+
+    saveBtn.disabled = false;
+    saveBtn.textContent = 'Guardar';
+    msg.style.display = 'block';
+    msg.className = error ? 'msg-error' : 'msg-ok';
+    msg.textContent = error ? 'Error: ' + error.message : 'Guardado ✓';
+    if (!error) progenitores[tipo] = data;
+  });
+
+  card.appendChild(saveBtn);
+  card.appendChild(msg);
+  return card;
+}
+
+function renderTodo() {
+  const cont = document.getElementById('progenitoresContainer');
+  cont.innerHTML = '';
+  cont.appendChild(renderProgenitorCard('principal'));
+  if (progenitores.secundario) cont.appendChild(renderProgenitorCard('secundario'));
+
+  document.getElementById('addSecundarioBtn').style.display = progenitores.secundario ? 'none' : 'block';
+}
+
+document.getElementById('addSecundarioBtn').addEventListener('click', () => {
+  progenitores.secundario = {
+    tipo: 'secundario', nombre: '', apellidos: '', es_pasaporte: false, dni_nie: '', sexo: '',
+    email: '', direccion: '', ciudad: '', provincia: '', codigo_postal: '', telefono_fijo: '', movil: ''
+  };
+  renderTodo();
+});
+
+document.getElementById('guardarCuentaBtn').addEventListener('click', async () => {
+  const formaPago = document.getElementById('formaPago').value;
+  const iban = document.getElementById('iban').value.trim();
+  const { error } = await supabase
+    .from('profiles')
+    .update({ forma_pago: formaPago || null, iban: iban || null })
+    .eq('id', profile.id);
+
+  const msg = document.getElementById('cuentaMsg');
+  msg.style.display = 'block';
+  msg.className = error ? 'msg-error' : 'msg-ok';
+  msg.textContent = error ? 'Error: ' + error.message : 'Datos de cuenta guardados ✓';
+});
+
+async function cargarDatos() {
+  document.getElementById('numeroSocioValue').textContent = profile.numero_socio_completo;
+  document.getElementById('anioValue').textContent = profile.anio_ultima_cuota;
+  document.getElementById('formaPago').value = profile.forma_pago || '';
+  document.getElementById('iban').value = profile.iban || '';
+
+  const { data } = await supabase.from('progenitores').select('*').eq('profile_id', profile.id);
+  (data || []).forEach(p => { progenitores[p.tipo] = p; });
+  renderTodo();
+}
+
+(async () => {
+  const ctx = await requireAuth();
+  if (!ctx) return;
+  profile = ctx.profile;
+  renderNav('mis-datos', profile);
+  await cargarDatos();
+})();
+</script>
+</body>
+</html>

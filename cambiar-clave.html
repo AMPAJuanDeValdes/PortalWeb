@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cambiar contraseña · AMPA Juan de Valdés</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared/styles.css">
+<style>
+  .center-wrap{ max-width:420px; margin:0 auto; padding:60px 20px; }
+</style>
+</head>
+<body>
+<div class="center-wrap">
+  <div class="eyebrow">AMPA · Seguridad</div>
+  <h1>Elige una nueva contraseña</h1>
+  <p class="lede">Por seguridad, la primera vez que entras debes cambiar la contraseña provisional que te dio el AMPA.</p>
+
+  <div class="card">
+    <form id="pwdForm">
+      <div class="field">
+        <label for="password">Nueva contraseña (mínimo 6 caracteres)</label>
+        <input type="password" id="password" required minlength="6" autocomplete="new-password">
+      </div>
+      <div class="field">
+        <label for="password2">Repite la contraseña</label>
+        <input type="password" id="password2" required minlength="6" autocomplete="new-password">
+      </div>
+      <p id="errorMsg" class="msg-error" hidden></p>
+      <button type="submit" class="btn btn-primary btn-block" id="submitBtn">Guardar y continuar</button>
+    </form>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="shared/supabaseClient.js"></script>
+<script>
+  (async () => {
+    const session = await getSession();
+    if (!session) window.location.href = 'login.html';
+  })();
+
+  const form = document.getElementById('pwdForm');
+  const errorMsg = document.getElementById('errorMsg');
+  const submitBtn = document.getElementById('submitBtn');
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    errorMsg.hidden = true;
+    const p1 = document.getElementById('password').value;
+    const p2 = document.getElementById('password2').value;
+    if (p1 !== p2) {
+      errorMsg.textContent = 'Las dos contraseñas no coinciden.';
+      errorMsg.hidden = false;
+      return;
+    }
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Guardando...';
+
+    const { error: updError } = await supabase.auth.updateUser({ password: p1 });
+    if (updError) {
+      errorMsg.textContent = 'No se pudo actualizar la contraseña: ' + updError.message;
+      errorMsg.hidden = false;
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Guardar y continuar';
+      return;
+    }
+
+    const session = await getSession();
+    await supabase.from('profiles').update({ force_password_change: false }).eq('id', session.user.id);
+
+    window.location.href = 'dashboard.html';
+  });
+</script>
+</body>
+</html>

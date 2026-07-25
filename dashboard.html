@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Inicio · AMPA Juan de Valdés</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared/styles.css">
+<style>
+  .grid{ display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  @media (max-width:560px){ .grid{ grid-template-columns:1fr; } }
+  .tile{
+    background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
+    padding:22px; text-decoration:none; display:block;
+  }
+  .tile h2{ margin-bottom:6px; }
+  .tile p{ color:var(--ink-soft); font-size:13.5px; margin:0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">AMPA · Portal de socios</div>
+  <h1 id="saludo">Hola</h1>
+  <p class="lede">Desde aquí puedes gestionar el préstamo de libros de tus hijos/as, apuntarte a eventos del AMPA y responder a los formularios abiertos.</p>
+
+  <div class="grid">
+    <a class="tile" href="mis-datos.html">
+      <h2>👪 Mis datos</h2>
+      <p>Revisa y actualiza los datos de la familia y los progenitores.</p>
+    </a>
+    <a class="tile" href="prestamo.html">
+      <h2>📚 Préstamo de libros</h2>
+      <p>Añade a tus hijos/as y marca los libros de lectura que necesitáis.</p>
+    </a>
+    <a class="tile" href="eventos.html">
+      <h2>🎉 Eventos</h2>
+      <p>Consulta los próximos eventos del AMPA y apúntate.</p>
+    </a>
+    <a class="tile" href="formularios.html">
+      <h2>📝 Formularios</h2>
+      <p>Responde a las encuestas y formularios abiertos actualmente.</p>
+    </a>
+  </div>
+
+  <footer class="note"><b>AMPA Colegio Juan de Valdés</b></footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="shared/supabaseClient.js"></script>
+<script src="shared/nav.js"></script>
+<script>
+  (async () => {
+    const ctx = await requireAuth();
+    if (!ctx) return;
+    renderNav('dashboard', ctx.profile);
+    document.getElementById('saludo').textContent = 'Hola, ' + (ctx.profile.nombre_mostrar || '') + ' 👋';
+  })();
+</script>
+</body>
+</html>

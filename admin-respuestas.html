@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Respuestas · Admin AMPA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared/styles.css">
+<style>
+  .tabs{ display:flex; gap:6px; margin-bottom:20px; flex-wrap:wrap; }
+  .tabs button{
+    font-family:'IBM Plex Mono', monospace; font-size:12.5px; letter-spacing:.04em; text-transform:uppercase;
+    padding:9px 14px; border-radius:var(--radius); border:1px solid var(--line); background:#fff;
+    color:var(--ink-soft); cursor:pointer;
+  }
+  .tabs button.active{ background:var(--navy); color:#fff; border-color:var(--navy); }
+  .panel{ display:none; }
+  .panel.active{ display:block; }
+  select#formularioSelect{ max-width:360px; margin-bottom:16px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">AMPA · Administración</div>
+  <h1>Respuestas y solicitudes</h1>
+  <p class="lede">Consulta y exporta en CSV el préstamo de libros, las inscripciones a eventos y las respuestas a formularios.</p>
+
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="prestamo">Préstamo de libros</button>
+    <button class="tab-btn" data-tab="eventos">Eventos</button>
+    <button class="tab-btn" data-tab="formularios">Formularios</button>
+  </div>
+
+  <div class="panel active" id="panel-prestamo">
+    <div class="card">
+      <p class="section-label">Solicitudes de préstamo por hijo/a</p>
+      <div id="prestamoWrap"><p class="loading">Cargando...</p></div>
+    </div>
+  </div>
+
+  <div class="panel" id="panel-eventos">
+    <div class="card">
+      <p class="section-label">Inscripciones por evento</p>
+      <select id="eventoSelect"></select>
+      <div id="eventoInscritosWrap"></div>
+    </div>
+  </div>
+
+  <div class="panel" id="panel-formularios">
+    <div class="card">
+      <p class="section-label">Respuestas por formulario</p>
+      <select id="formularioSelect"></select>
+      <div id="formularioRespuestasWrap"></div>
+    </div>
+  </div>
+
+  <footer class="note"><b>AMPA Colegio Juan de Valdés</b> — panel de administración</footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="shared/supabaseClient.js"></script>
+<script src="shared/nav.js"></script>
+<script src="shared/csv.js"></script>
+<script src="shared/helpers.js"></script>
+<script>
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
+  });
+});
+
+// ---------- PRÉSTAMO DE LIBROS ----------
+async function cargarPrestamos() {
+  const wrap = document.getElementById('prestamoWrap');
+  const { data, error } = await supabase
+    .from('prestamo_items')
+    .select('curso, libro, created_at, profile_id, hijos(nombre, apellidos)')
+    .order('curso', { ascending: true });
+
+  if (error) { wrap.innerHTML = '<p class="msg-error">No se pudieron cargar las solicitudes.</p>'; return; }
+  if (!data || data.length === 0) { wrap.innerHTML = '<p class="empty-hint">Todavía no hay ninguna solicitud.</p>'; return; }
+
+  const resumen = await getResumenSocios(data.map(d => d.profile_id));
+
+  wrap.innerHTML = `
+    <p style="font-size:13.5px; margin-bottom:10px;">${data.length} libros solicitados en total</p>
+    <table>
+      <thead><tr><th>Curso</th><th>Libro</th><th>Niño/a</th><th>Titular</th><th>Nº socio</th></tr></thead>
+      <tbody>
+        ${data.map(d => `
+          <tr>
+            <td>${d.curso}</td>
+            <td>${d.libro}</td>
+            <td>${d.hijos?.nombre || ''} ${d.hijos?.apellidos || ''}</td>
+            <td>${resumen[d.profile_id]?.nombre || ''}</td>
+            <td>${resumen[d.profile_id]?.numero_socio || ''}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+    <button class="btn btn-outline" id="descargarPrestamosBtn" style="margin-top:14px;">Descargar CSV</button>
+  `;
+
+  document.getElementById('descargarPrestamosBtn').addEventListener('click', () => {
+    descargarCSV(data.map(d => ({
+      curso: d.curso,
+      libro: d.libro,
+      niño: `${d.hijos?.nombre || ''} ${d.hijos?.apellidos || ''}`.trim(),
+      titular: resumen[d.profile_id]?.nombre || '',
+      numero_socio: resumen[d.profile_id]?.numero_socio || ''
+    })), 'prestamo-libros.csv');
+  });
+}
+
+// ---------- EVENTOS ----------
+async function cargarEventosSelect() {
+  const select = document.getElementById('eventoSelect');
+  const { data, error } = await supabase.from('eventos').select('id, titulo').order('fecha', { ascending: true });
+  if (error || !data || data.length === 0) {
+    select.innerHTML = '<option value="">No hay eventos</option>';
+    return;
+  }
+  select.innerHTML = data.map(e => `<option value="${e.id}">${e.titulo}</option>`).join('');
+  select.addEventListener('change', () => cargarInscritosDe(select.value, data.find(e => e.id === select.value)?.titulo));
+  cargarInscritosDe(select.value, data[0].titulo);
+}
+
+async function cargarInscritosDe(eventoId, titulo) {
+  const wrap = document.getElementById('eventoInscritosWrap');
+  if (!eventoId) { wrap.innerHTML = ''; return; }
+  wrap.innerHTML = '<p class="loading">Cargando...</p>';
+
+  const { data, error } = await supabase
+    .from('evento_inscripciones')
+    .select('profile_id, num_asistentes, notas')
+    .eq('evento_id', eventoId);
+
+  if (error) { wrap.innerHTML = '<p class="msg-error">No se pudo cargar.</p>'; return; }
+  if (!data || data.length === 0) { wrap.innerHTML = '<p class="empty-hint">Nadie se ha apuntado todavía.</p>'; return; }
+
+  const resumen = await getResumenSocios(data.map(i => i.profile_id));
+  const total = data.reduce((s, i) => s + i.num_asistentes, 0);
+
+  wrap.innerHTML = `
+    <p style="font-size:13.5px; margin:14px 0 10px;">${data.length} familias · ${total} asistentes</p>
+    <table>
+      <thead><tr><th>Titular</th><th>Nº socio</th><th>Asistentes</th><th>Notas</th></tr></thead>
+      <tbody>
+        ${data.map(i => `
+          <tr>
+            <td>${resumen[i.profile_id]?.nombre || ''}</td>
+            <td>${resumen[i.profile_id]?.numero_socio || ''}</td>
+            <td>${i.num_asistentes}</td>
+            <td>${i.notas || ''}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+    <button class="btn btn-outline" id="descargarInscritosBtn" style="margin-top:14px;">Descargar CSV</button>
+  `;
+
+  document.getElementById('descargarInscritosBtn').addEventListener('click', () => {
+    descargarCSV(data.map(i => ({
+      titular: resumen[i.profile_id]?.nombre || '',
+      numero_socio: resumen[i.profile_id]?.numero_socio || '',
+      asistentes: i.num_asistentes,
+      notas: i.notas || ''
+    })), 'inscritos-' + (titulo || 'evento').replace(/\s+/g, '-') + '.csv');
+  });
+}
+
+// ---------- FORMULARIOS GENÉRICOS ----------
+let formulariosCache = [];
+
+async function cargarFormulariosSelect() {
+  const select = document.getElementById('formularioSelect');
+  const { data, error } = await supabase.from('formularios').select('*').order('created_at', { ascending: false });
+  if (error || !data || data.length === 0) {
+    select.innerHTML = '<option value="">No hay formularios</option>';
+    return;
+  }
+  formulariosCache = data;
+  select.innerHTML = data.map(f => `<option value="${f.id}">${f.titulo}</option>`).join('');
+  select.addEventListener('change', () => cargarRespuestasDe(select.value));
+
+  const params = new URLSearchParams(window.location.search);
+  const preseleccion = params.get('formulario_id');
+  if (preseleccion && data.some(f => f.id === preseleccion)) {
+    select.value = preseleccion;
+  }
+  cargarRespuestasDe(select.value);
+}
+
+async function cargarRespuestasDe(formularioId) {
+  const wrap = document.getElementById('formularioRespuestasWrap');
+  if (!formularioId) { wrap.innerHTML = ''; return; }
+  wrap.innerHTML = '<p class="loading">Cargando...</p>';
+
+  const formulario = formulariosCache.find(f => f.id === formularioId);
+  const campos = formulario?.campos || [];
+
+  const { data, error } = await supabase
+    .from('formulario_respuestas')
+    .select('respuestas, created_at, profile_id')
+    .eq('formulario_id', formularioId);
+
+  if (error) { wrap.innerHTML = '<p class="msg-error">No se pudo cargar.</p>'; return; }
+  if (!data || data.length === 0) { wrap.innerHTML = '<p class="empty-hint">Nadie ha respondido todavía.</p>'; return; }
+
+  const resumen = await getResumenSocios(data.map(r => r.profile_id));
+
+  wrap.innerHTML = `
+    <p style="font-size:13.5px; margin:14px 0 10px;">${data.length} respuestas</p>
+    <table>
+      <thead>
+        <tr>
+          <th>Titular</th><th>Nº socio</th>
+          ${campos.map(c => `<th>${c.label}</th>`).join('')}
+        </tr>
+      </thead>
+      <tbody>
+        ${data.map(r => `
+          <tr>
+            <td>${resumen[r.profile_id]?.nombre || ''}</td>
+            <td>${resumen[r.profile_id]?.numero_socio || ''}</td>
+            ${campos.map(c => {
+              const v = r.respuestas[c.id];
+              return `<td>${Array.isArray(v) ? v.join(', ') : (v || '')}</td>`;
+            }).join('')}
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+    <button class="btn btn-outline" id="descargarRespuestasBtn" style="margin-top:14px;">Descargar CSV</button>
+  `;
+
+  document.getElementById('descargarRespuestasBtn').addEventListener('click', () => {
+    descargarCSV(data.map(r => {
+      const fila = {
+        titular: resumen[r.profile_id]?.nombre || '',
+        numero_socio: resumen[r.profile_id]?.numero_socio || ''
+      };
+      campos.forEach(c => {
+        const v = r.respuestas[c.id];
+        fila[c.label] = Array.isArray(v) ? v.join('; ') : (v || '');
+      });
+      return fila;
+    }), 'respuestas-' + (formulario?.titulo || 'formulario').replace(/\s+/g, '-') + '.csv');
+  });
+}
+
+(async () => {
+  const ctx = await requireAdmin();
+  if (!ctx) return;
+  renderNav('admin-respuestas', ctx.profile);
+  await cargarPrestamos();
+  await cargarEventosSelect();
+  await cargarFormulariosSelect();
+})();
+</script>
+</body>
+</html>

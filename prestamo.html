@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Préstamo de libros · AMPA Juan de Valdés</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared/styles.css">
+<style>
+  .two-col{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:520px){ .two-col{ grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">AMPA · Ficha de préstamo</div>
+  <h1>Préstamo de libros de lectura</h1>
+  <p class="lede">Añade a cada hijo/a con su etapa y curso. Si su curso tiene libros de lectura obligatoria asociados, podrás marcar los que necesitáis. Pulsa "Guardar" en cada ficha; puedes volver cuando quieras para editarla.</p>
+
+  <p id="loadingMsg" class="loading">Cargando tus datos...</p>
+  <div id="hijosContainer" style="display:none;"></div>
+  <button type="button" class="btn btn-outline btn-block" id="addHijoBtn" style="display:none;">+ Añadir hijo/a</button>
+
+  <footer class="note"><b>AMPA Colegio Juan de Valdés</b> — préstamo de libros de lectura obligatoria</footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="shared/supabaseClient.js"></script>
+<script src="shared/nav.js"></script>
+<script>
+const CURSOS_POR_ETAPA = {
+  'Infantil': ['0 años', '1 año', '2 años', '3 años'],
+  'Primaria': ['1º', '2º', '3º', '4º', '5º', '6º'],
+  'ESO': ['1º', '2º', '3º', '4º'],
+  'Bachillerato': ['1º', '2º']
+};
+const AULAS = ['A', 'B', 'C', 'D'];
+
+// Clave = `${curso} ${etapa}` tal cual aparece en el listado de libros.
+const LIBROS_POR_CLAVE = {
+  '3º Primaria': [
+    'Un intruso en mi cuaderno (libro de lectura)',
+    'Lucas se tragó un dragón (libro de lectura)',
+    'Nasreddin - Ten stories (libro de lectura en inglés)'
+  ],
+  '4º Primaria': [
+    'El Colegio de los animales mágicos (libro de lectura)',
+    'El monstruo y la bibliotecaria (libro de lectura)',
+    'The Lighthouse Ghost (libro de lectura en inglés)'
+  ],
+  '5º Primaria': [
+    'El ojo que todo lo ve (libro de lectura)',
+    'Aurora y en la hora (libro de lectura)',
+    '¿Dónde está Morrison? (libro de lectura)',
+    'The Adventures of Tom Sawyer - versión Life Skills (libro de lectura en inglés)'
+  ],
+  '6º Primaria': [
+    'El cartero de Bagdad (libro de lectura)',
+    'El secreto de Enola (libro de lectura)',
+    'Padres Padrísimos (libro de lectura)',
+    'Tales from Camelot (libro de lectura en inglés)'
+  ],
+  '1º ESO': [
+    'Coraline, Neil Gaiman (libro de lectura en inglés)',
+    'Unheimliches im Wald (libro de lectura en alemán)'
+  ],
+  '2º ESO': [
+    'Coraline, Neil Gaiman (libro de lectura en inglés)',
+    'Diebstahl im Museum (libro de lectura en alemán)'
+  ],
+  '3º ESO': [
+    'The curious incident of the dog in the night-time, Mark Haddon (libro de lectura en inglés)'
+  ],
+  '4º ESO': [
+    'The curious incident of the dog in the night-time, Mark Haddon (libro de lectura en inglés)'
+  ],
+  '1º Bachillerato': [
+    'The Outsiders, S.E. Hinton (libro de lectura en inglés)'
+  ],
+  '2º Bachillerato': [
+    'Persépolis, de Marjane Satrapi (libro de lectura en inglés)'
+  ]
+};
+
+const RAINBOW = ['#F93F94', '#E0A400', '#7DAE34', '#0098D8'];
+
+let profile = null;
+let hijos = []; // {id, tempId, nombre, apellidos, fecha_nacimiento, sexo, etapa, curso, aula, libros:Set, status}
+let tempCounter = 0;
+
+const hijosContainer = document.getElementById('hijosContainer');
+const addHijoBtn = document.getElementById('addHijoBtn');
+const loadingMsg = document.getElementById('loadingMsg');
+
+function claveLibros(hijo) {
+  return hijo.curso && hijo.etapa ? `${hijo.curso} ${hijo.etapa}` : null;
+}
+
+async function cargarDatos() {
+  const { data: hijosData, error } = await supabase
+    .from('hijos')
+    .select('*')
+    .eq('profile_id', profile.id)
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    loadingMsg.textContent = 'No se pudieron cargar tus datos.';
+    return;
+  }
+
+  hijos = [];
+  for (const h of (hijosData || [])) {
+    const { data: items } = await supabase
+      .from('prestamo_items')
+      .select('libro')
+      .eq('hijo_id', h.id);
+    hijos.push({
+      id: h.id,
+      tempId: 'db-' + h.id,
+      nombre: h.nombre,
+      apellidos: h.apellidos,
+      fecha_nacimiento: h.fecha_nacimiento || '',
+      sexo: h.sexo || '',
+      etapa: h.etapa,
+      curso: h.curso,
+      aula: h.aula || '',
+      libros: new Set((items || []).map(i => i.libro)),
+      status: ''
+    });
+  }
+
+  if (hijos.length === 0) añadirHijo(false);
+
+  loadingMsg.style.display = 'none';
+  hijosContainer.style.display = 'block';
+  addHijoBtn.style.display = 'block';
+  render();
+}
+
+function añadirHijo(doRender = true) {
+  hijos.push({
+    id: null, tempId: 'new-' + (tempCounter++),
+    nombre: '', apellidos: '', fecha_nacimiento: '', sexo: '',
+    etapa: '', curso: '', aula: '', libros: new Set(), status: ''
+  });
+  if (doRender) render();
+}
+
+async function quitarHijo(tempId) {
+  const hijo = hijos.find(h => h.tempId === tempId);
+  if (!hijo) return;
+  if (hijo.id) {
+    if (!confirm('¿Eliminar a este hijo/a y sus solicitudes de préstamo?')) return;
+    await supabase.from('hijos').delete().eq('id', hijo.id);
+  }
+  hijos = hijos.filter(h => h.tempId !== tempId);
+  render();
+}
+
+async function guardarHijo(tempId) {
+  const hijo = hijos.find(h => h.tempId === tempId);
+  if (!hijo) return;
+
+  if (!hijo.nombre.trim() || !hijo.apellidos.trim() || !hijo.etapa || !hijo.curso) {
+    hijo.status = 'error:Completa nombre, apellidos, etapa y curso antes de guardar.';
+    render();
+    return;
+  }
+
+  hijo.status = 'guardando';
+  render();
+
+  const payload = {
+    nombre: hijo.nombre.trim(),
+    apellidos: hijo.apellidos.trim(),
+    fecha_nacimiento: hijo.fecha_nacimiento || null,
+    sexo: hijo.sexo || null,
+    etapa: hijo.etapa,
+    curso: hijo.curso,
+    aula: hijo.aula || null
+  };
+
+  if (!hijo.id) {
+    const { data, error } = await supabase
+      .from('hijos')
+      .insert({ profile_id: profile.id, ...payload })
+      .select('id')
+      .single();
+    if (error) { hijo.status = 'error:' + error.message; render(); return; }
+    hijo.id = data.id;
+  } else {
+    const { error } = await supabase.from('hijos').update(payload).eq('id', hijo.id);
+    if (error) { hijo.status = 'error:' + error.message; render(); return; }
+  }
+
+  await supabase.from('prestamo_items').delete().eq('hijo_id', hijo.id);
+
+  const clave = claveLibros(hijo);
+  const libros = Array.from(hijo.libros);
+  if (clave && libros.length > 0) {
+    const filas = libros.map(libro => ({
+      hijo_id: hijo.id, profile_id: profile.id, curso: clave, libro
+    }));
+    const { error: insError } = await supabase.from('prestamo_items').insert(filas);
+    if (insError) { hijo.status = 'error:' + insError.message; render(); return; }
+  }
+
+  hijo.status = 'ok';
+  render();
+}
+
+function campoTexto(label, valor, onInput, tipo = 'text') {
+  const wrap = document.createElement('div');
+  wrap.className = 'field';
+  wrap.innerHTML = `<label>${label}</label>`;
+  const input = document.createElement('input');
+  input.type = tipo;
+  input.value = valor || '';
+  input.addEventListener('input', e => onInput(e.target.value));
+  wrap.appendChild(input);
+  return wrap;
+}
+
+function campoSelect(label, opciones, valor, onChange, placeholder) {
+  const wrap = document.createElement('div');
+  wrap.className = 'field';
+  wrap.innerHTML = `<label>${label}</label>`;
+  const select = document.createElement('select');
+  const optDefault = document.createElement('option');
+  optDefault.value = '';
+  optDefault.textContent = placeholder || 'Selecciona...';
+  select.appendChild(optDefault);
+  opciones.forEach(op => {
+    const opt = document.createElement('option');
+    opt.value = op; opt.textContent = op;
+    if (op === valor) opt.selected = true;
+    select.appendChild(opt);
+  });
+  select.addEventListener('change', e => onChange(e.target.value));
+  wrap.appendChild(select);
+  return wrap;
+}
+
+function render() {
+  hijosContainer.innerHTML = '';
+  hijos.forEach((hijo, idx) => {
+    const card = document.createElement('div');
+    card.className = 'hijo-card';
+    card.style.borderLeftColor = RAINBOW[idx % RAINBOW.length];
+
+    const head = document.createElement('div');
+    head.className = 'hijo-head';
+    head.innerHTML = `<span class="hijo-tag">Ficha <b>Hijo/a ${idx + 1}</b></span>`;
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'btn-danger-link';
+    removeBtn.textContent = 'Quitar';
+    removeBtn.addEventListener('click', () => quitarHijo(hijo.tempId));
+    head.appendChild(removeBtn);
+
+    const body = document.createElement('div');
+    body.className = 'hijo-body';
+
+    const rowNombre = document.createElement('div');
+    rowNombre.className = 'two-col';
+    rowNombre.appendChild(campoTexto('Nombre', hijo.nombre, v => { hijo.nombre = v; }));
+    rowNombre.appendChild(campoTexto('Apellidos', hijo.apellidos, v => { hijo.apellidos = v; }));
+    body.appendChild(rowNombre);
+
+    const rowNacSexo = document.createElement('div');
+    rowNacSexo.className = 'two-col';
+    rowNacSexo.style.marginTop = '14px';
+    rowNacSexo.appendChild(campoTexto('Fecha de nacimiento', hijo.fecha_nacimiento, v => { hijo.fecha_nacimiento = v; }, 'date'));
+    rowNacSexo.appendChild(campoSelect('Sexo', ['Masculino', 'Femenino', 'Otro'], hijo.sexo, v => { hijo.sexo = v; }));
+    body.appendChild(rowNacSexo);
+
+    const rowEtapaCurso = document.createElement('div');
+    rowEtapaCurso.className = 'two-col';
+    rowEtapaCurso.style.marginTop = '14px';
+    rowEtapaCurso.appendChild(campoSelect('Etapa', Object.keys(CURSOS_POR_ETAPA), hijo.etapa, v => {
+      hijo.etapa = v; hijo.curso = ''; hijo.libros = new Set(); render();
+    }));
+    const cursoOpciones = hijo.etapa ? CURSOS_POR_ETAPA[hijo.etapa] : [];
+    const cursoField = campoSelect('Curso', cursoOpciones, hijo.curso, v => {
+      hijo.curso = v; hijo.libros = new Set(); render();
+    }, hijo.etapa ? 'Selecciona...' : 'Elige antes una etapa');
+    if (!hijo.etapa) cursoField.querySelector('select').disabled = true;
+    rowEtapaCurso.appendChild(cursoField);
+    body.appendChild(rowEtapaCurso);
+
+    const aulaField = campoSelect('Aula (opcional)', AULAS, hijo.aula, v => { hijo.aula = v; });
+    aulaField.style.marginTop = '14px';
+    aulaField.style.maxWidth = '160px';
+    body.appendChild(aulaField);
+
+    const clave = claveLibros(hijo);
+    if (clave) {
+      const stamp = document.createElement('span');
+      stamp.className = 'curso-stamp';
+      stamp.textContent = clave;
+      body.appendChild(stamp);
+
+      const libros = LIBROS_POR_CLAVE[clave];
+      if (libros) {
+        const bookList = document.createElement('div');
+        bookList.className = 'book-list';
+        bookList.innerHTML = `<p class="book-list-title">Libros de ${clave}</p>`;
+        libros.forEach(libro => {
+          const item = document.createElement('label');
+          item.className = 'book-item';
+          const cb = document.createElement('input');
+          cb.type = 'checkbox';
+          cb.checked = hijo.libros.has(libro);
+          cb.addEventListener('change', () => {
+            if (cb.checked) hijo.libros.add(libro); else hijo.libros.delete(libro);
+          });
+          const span = document.createElement('span');
+          span.textContent = libro;
+          item.appendChild(cb); item.appendChild(span);
+          bookList.appendChild(item);
+        });
+        body.appendChild(bookList);
+      } else {
+        const hint = document.createElement('p');
+        hint.className = 'empty-hint';
+        hint.style.marginTop = '14px';
+        hint.textContent = 'Este curso no tiene libros de préstamo asociados.';
+        body.appendChild(hint);
+      }
+    } else if (hijo.etapa) {
+      const hint = document.createElement('p');
+      hint.className = 'empty-hint';
+      hint.style.marginTop = '14px';
+      hint.textContent = 'Elige el curso para ver los libros disponibles (si los hay).';
+      body.appendChild(hint);
+    }
+
+    const saveRow = document.createElement('div');
+    saveRow.style.marginTop = '18px';
+    saveRow.style.display = 'flex';
+    saveRow.style.alignItems = 'center';
+    saveRow.style.gap = '12px';
+
+    const saveBtn = document.createElement('button');
+    saveBtn.type = 'button';
+    saveBtn.className = 'btn btn-primary';
+    saveBtn.textContent = hijo.status === 'guardando' ? 'Guardando...' : 'Guardar';
+    saveBtn.disabled = hijo.status === 'guardando';
+    saveBtn.addEventListener('click', () => guardarHijo(hijo.tempId));
+    saveRow.appendChild(saveBtn);
+
+    if (hijo.status === 'ok') {
+      const ok = document.createElement('span');
+      ok.className = 'msg-ok'; ok.style.margin = '0';
+      ok.textContent = 'Guardado ✓';
+      saveRow.appendChild(ok);
+    } else if (hijo.status && hijo.status.startsWith('error:')) {
+      const err = document.createElement('span');
+      err.className = 'msg-error'; err.style.margin = '0';
+      err.textContent = hijo.status.replace('error:', '');
+      saveRow.appendChild(err);
+    }
+
+    body.appendChild(saveRow);
+    card.appendChild(head);
+    card.appendChild(body);
+    hijosContainer.appendChild(card);
+  });
+}
+
+addHijoBtn.addEventListener('click', () => añadirHijo());
+
+(async () => {
+  const ctx = await requireAuth();
+  if (!ctx) return;
+  profile = ctx.profile;
+  renderNav('prestamo', profile);
+  await cargarDatos();
+})();
+</script>
+</body>
+</html>

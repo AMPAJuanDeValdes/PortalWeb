@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Eventos · AMPA Juan de Valdés</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared/styles.css">
+<style>
+  .evento-card{ margin-bottom:18px; }
+  .evento-fecha{ font-family:'IBM Plex Mono', monospace; font-size:12.5px; color:var(--ink-soft); margin-bottom:4px; }
+  .evento-plazas{ font-size:13px; color:var(--gold); font-family:'IBM Plex Mono', monospace; margin-top:6px; }
+  .inline-form{ display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap; margin-top:14px; }
+  .inline-form .field{ margin:0; }
+  .inline-form input[type=number]{ width:90px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">AMPA · Actividades</div>
+  <h1>Eventos del AMPA</h1>
+  <p class="lede">Consulta los próximos eventos y apúntate directamente desde aquí.</p>
+
+  <p id="loadingMsg" class="loading">Cargando eventos...</p>
+  <div id="eventosContainer"></div>
+
+  <footer class="note"><b>AMPA Colegio Juan de Valdés</b></footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="shared/supabaseClient.js"></script>
+<script src="shared/nav.js"></script>
+<script>
+let profile = null;
+
+function formatFecha(f) {
+  if (!f) return 'Fecha por confirmar';
+  const d = new Date(f);
+  return d.toLocaleString('es-ES', { dateStyle: 'full', timeStyle: 'short' });
+}
+
+async function cargarEventos() {
+  const cont = document.getElementById('eventosContainer');
+  const { data: eventos, error } = await supabase
+    .from('eventos')
+    .select('*')
+    .eq('activo', true)
+    .order('fecha', { ascending: true });
+
+  document.getElementById('loadingMsg').style.display = 'none';
+
+  if (error) {
+    cont.innerHTML = '<p class="msg-error">No se pudieron cargar los eventos.</p>';
+    return;
+  }
+  if (!eventos || eventos.length === 0) {
+    cont.innerHTML = '<p class="empty-hint">No hay eventos activos por ahora.</p>';
+    return;
+  }
+
+  const { data: misInscripciones } = await supabase
+    .from('evento_inscripciones')
+    .select('*')
+    .eq('profile_id', profile.id);
+
+  const inscritoPorEvento = {};
+  (misInscripciones || []).forEach(i => { inscritoPorEvento[i.evento_id] = i; });
+
+  cont.innerHTML = '';
+  for (const ev of eventos) {
+    const card = document.createElement('div');
+    card.className = 'card evento-card';
+
+    const insc = inscritoPorEvento[ev.id];
+
+    let plazasHtml = '';
+    if (ev.aforo !== null && ev.aforo !== undefined) {
+      const { data: plazas } = await supabase.rpc('evento_plazas_disponibles', { p_evento_id: ev.id });
+      plazasHtml = `<p class="evento-plazas">${plazas > 0 ? plazas + ' plazas libres' : 'Aforo completo'}</p>`;
+    }
+
+    card.innerHTML = `
+      <p class="evento-fecha">${formatFecha(ev.fecha)}</p>
+      <h2>${ev.titulo}</h2>
+      <p style="color:var(--ink-soft); font-size:14px;">${ev.descripcion || ''}</p>
+      ${plazasHtml}
+    `;
+
+    const accionesDiv = document.createElement('div');
+
+    if (insc) {
+      accionesDiv.innerHTML = `<p class="msg-ok">Inscrito/a ✓ (${insc.num_asistentes} asistente${insc.num_asistentes > 1 ? 's' : ''})</p>`;
+      const cancelBtn = document.createElement('button');
+      cancelBtn.className = 'btn-danger-link';
+      cancelBtn.textContent = 'Cancelar inscripción';
+      cancelBtn.addEventListener('click', async () => {
+        await supabase.from('evento_inscripciones').delete().eq('id', insc.id);
+        cargarEventos();
+      });
+      accionesDiv.appendChild(cancelBtn);
+    } else {
+      const form = document.createElement('div');
+      form.className = 'inline-form';
+      form.innerHTML = `
+        <div class="field">
+          <label>Nº asistentes</label>
+          <input type="number" min="1" value="1" class="numAsistentes">
+        </div>
+        <button type="button" class="btn btn-primary">Apuntarme</button>
+      `;
+      form.querySelector('button').addEventListener('click', async () => {
+        const num = parseInt(form.querySelector('.numAsistentes').value, 10) || 1;
+        const { error: insError } = await supabase.from('evento_inscripciones').insert({
+          evento_id: ev.id, profile_id: profile.id, num_asistentes: num
+        });
+        if (insError) { alert('No se pudo completar la inscripción: ' + insError.message); return; }
+        cargarEventos();
+      });
+      accionesDiv.appendChild(form);
+    }
+
+    card.appendChild(accionesDiv);
+    cont.appendChild(card);
+  }
+}
+
+(async () => {
+  const ctx = await requireAuth();
+  if (!ctx) return;
+  profile = ctx.profile;
+  renderNav('eventos', profile);
+  await cargarEventos();
+})();
+</script>
+</body>
+</html>

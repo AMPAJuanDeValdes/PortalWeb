@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Formularios · AMPA Juan de Valdés</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared/styles.css">
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">AMPA · Encuestas y formularios</div>
+  <h1>Formularios abiertos</h1>
+  <p class="lede">Responde a las encuestas y formularios que el AMPA tenga activos en cada momento. Puedes editar tu respuesta mientras el formulario siga abierto.</p>
+
+  <p id="loadingMsg" class="loading">Cargando...</p>
+  <div id="formulariosContainer"></div>
+
+  <footer class="note"><b>AMPA Colegio Juan de Valdés</b></footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="shared/supabaseClient.js"></script>
+<script src="shared/nav.js"></script>
+<script>
+let profile = null;
+
+function renderCampo(campo, valorActual) {
+  const wrap = document.createElement('div');
+  wrap.className = 'field';
+  const label = document.createElement('label');
+  label.textContent = campo.label + (campo.required ? ' *' : '');
+  wrap.appendChild(label);
+
+  let input;
+  if (campo.type === 'select') {
+    input = document.createElement('select');
+    const optDefault = document.createElement('option');
+    optDefault.value = '';
+    optDefault.textContent = 'Selecciona...';
+    input.appendChild(optDefault);
+    (campo.options || []).forEach(op => {
+      const opt = document.createElement('option');
+      opt.value = op; opt.textContent = op;
+      if (valorActual === op) opt.selected = true;
+      input.appendChild(opt);
+    });
+  } else if (campo.type === 'checkbox') {
+    input = document.createElement('div');
+    (campo.options || []).forEach(op => {
+      const item = document.createElement('label');
+      item.className = 'book-item';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.value = op;
+      cb.checked = Array.isArray(valorActual) && valorActual.includes(op);
+      const span = document.createElement('span');
+      span.textContent = op;
+      item.appendChild(cb); item.appendChild(span);
+      input.appendChild(item);
+    });
+  } else if (campo.type === 'numero') {
+    input = document.createElement('input');
+    input.type = 'number';
+    input.value = valorActual || '';
+  } else {
+    input = document.createElement('input');
+    input.type = 'text';
+    input.value = valorActual || '';
+  }
+  input.dataset.campoId = campo.id;
+  input.dataset.campoType = campo.type;
+  wrap.appendChild(input);
+  return wrap;
+}
+
+function leerRespuestas(formEl, campos) {
+  const respuestas = {};
+  campos.forEach(campo => {
+    if (campo.type === 'checkbox') {
+      const checks = formEl.querySelectorAll(`input[data-campo-id="${campo.id}"]`);
+      respuestas[campo.id] = Array.from(checks).filter(c => c.checked).map(c => c.value);
+    } else {
+      const el = formEl.querySelector(`[data-campo-id="${campo.id}"]`);
+      respuestas[campo.id] = el ? el.value : '';
+    }
+  });
+  return respuestas;
+}
+
+async function cargarFormularios() {
+  const cont = document.getElementById('formulariosContainer');
+  const { data: formularios, error } = await supabase
+    .from('formularios')
+    .select('*')
+    .eq('activo', true)
+    .order('created_at', { ascending: false });
+
+  document.getElementById('loadingMsg').style.display = 'none';
+
+  if (error) { cont.innerHTML = '<p class="msg-error">No se pudieron cargar los formularios.</p>'; return; }
+  if (!formularios || formularios.length === 0) {
+    cont.innerHTML = '<p class="empty-hint">No hay formularios abiertos por ahora.</p>';
+    return;
+  }
+
+  cont.innerHTML = '';
+  for (const f of formularios) {
+    const { data: miRespuesta } = await supabase
+      .from('formulario_respuestas')
+      .select('*')
+      .eq('formulario_id', f.id)
+      .eq('profile_id', profile.id)
+      .maybeSingle();
+
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `<h2>${f.titulo}</h2><p style="color:var(--ink-soft); font-size:14px;">${f.descripcion || ''}</p>`;
+
+    const formEl = document.createElement('form');
+    (f.campos || []).forEach(campo => {
+      const valor = miRespuesta ? miRespuesta.respuestas[campo.id] : null;
+      formEl.appendChild(renderCampo(campo, valor));
+    });
+
+    const msg = document.createElement('p');
+    msg.className = 'msg-ok';
+    msg.style.display = 'none';
+
+    const btn = document.createElement('button');
+    btn.type = 'submit';
+    btn.className = 'btn btn-primary';
+    btn.style.marginTop = '14px';
+    btn.textContent = miRespuesta ? 'Actualizar respuesta' : 'Enviar respuesta';
+
+    formEl.appendChild(btn);
+    formEl.appendChild(msg);
+
+    formEl.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const respuestas = leerRespuestas(formEl, f.campos || []);
+      const { error: upErr } = await supabase.from('formulario_respuestas').upsert({
+        formulario_id: f.id, profile_id: profile.id, respuestas
+      }, { onConflict: 'formulario_id,profile_id' });
+      msg.style.display = 'block';
+      msg.className = upErr ? 'msg-error' : 'msg-ok';
+      msg.textContent = upErr ? 'No se pudo guardar: ' + upErr.message : 'Respuesta guardada ✓';
+      if (!upErr) btn.textContent = 'Actualizar respuesta';
+    });
+
+    card.appendChild(formEl);
+    cont.appendChild(card);
+  }
+}
+
+(async () => {
+  const ctx = await requireAuth();
+  if (!ctx) return;
+  profile = ctx.profile;
+  renderNav('formularios', profile);
+  await cargarFormularios();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Formularios (admin) · AMPA Juan de Valdés</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared/styles.css">
+<style>
+  .campo-row{ display:flex; gap:8px; align-items:flex-end; flex-wrap:wrap; margin-bottom:10px; padding-bottom:10px; border-bottom:1px dashed var(--line); }
+  .campo-row .field{ margin:0; flex:1; min-width:140px; }
+  .campo-row .field.small{ flex:0 0 130px; min-width:110px; }
+  .formulario-row{ display:flex; justify-content:space-between; align-items:flex-start; gap:12px; padding:14px 0; border-bottom:1px solid var(--line); }
+  .formulario-row:last-child{ border-bottom:none; }
+  .formulario-row-actions{ display:flex; gap:8px; flex-wrap:wrap; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">AMPA · Administración</div>
+  <h1>Formularios genéricos</h1>
+  <p class="lede">Crea encuestas o formularios a medida (por ejemplo: inscripción a un taller, encuesta de satisfacción...). Los socios los verán en su sección "Formularios".</p>
+
+  <div class="card">
+    <p class="section-label">Nuevo formulario</p>
+    <div class="field">
+      <label>Título</label>
+      <input type="text" id="fTitulo" required>
+    </div>
+    <div class="field">
+      <label>Descripción</label>
+      <textarea id="fDescripcion"></textarea>
+    </div>
+
+    <p class="section-label" style="margin-top:20px;">Campos</p>
+    <div id="camposList"></div>
+    <button type="button" class="btn btn-outline" id="addCampoBtn" style="margin-bottom:16px;">+ Añadir campo</button>
+
+    <button type="button" class="btn btn-primary" id="crearFormularioBtn">Crear formulario</button>
+    <p id="createMsg" class="msg-ok" style="display:none;"></p>
+  </div>
+
+  <div class="card">
+    <p class="section-label">Formularios existentes</p>
+    <div id="formulariosList"><p class="loading">Cargando...</p></div>
+  </div>
+
+  <footer class="note"><b>AMPA Colegio Juan de Valdés</b> — panel de administración</footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="shared/supabaseClient.js"></script>
+<script src="shared/nav.js"></script>
+<script>
+let campoCounter = 0;
+const camposList = document.getElementById('camposList');
+
+function añadirCampo() {
+  const id = 'campo_' + (campoCounter++);
+  const row = document.createElement('div');
+  row.className = 'campo-row';
+  row.dataset.campoId = id;
+  row.innerHTML = `
+    <div class="field">
+      <label>Etiqueta</label>
+      <input type="text" class="campo-label" placeholder="Ej: ¿Vendrás al taller?">
+    </div>
+    <div class="field small">
+      <label>Tipo</label>
+      <select class="campo-tipo">
+        <option value="texto">Texto</option>
+        <option value="numero">Número</option>
+        <option value="select">Selección única</option>
+        <option value="checkbox">Casillas (varias)</option>
+      </select>
+    </div>
+    <div class="field campo-opciones-wrap" style="display:none;">
+      <label>Opciones (separadas por coma)</label>
+      <input type="text" class="campo-opciones" placeholder="Sí, No, Tal vez">
+    </div>
+    <div class="field small" style="flex:0 0 90px;">
+      <label>Obligatorio</label>
+      <input type="checkbox" class="campo-required" style="width:auto; margin-top:8px;">
+    </div>
+    <button type="button" class="btn-danger-link">Quitar</button>
+  `;
+  row.querySelector('.campo-tipo').addEventListener('change', (e) => {
+    const opcionesWrap = row.querySelector('.campo-opciones-wrap');
+    opcionesWrap.style.display = ['select', 'checkbox'].includes(e.target.value) ? 'block' : 'none';
+  });
+  row.querySelector('.btn-danger-link').addEventListener('click', () => row.remove());
+  camposList.appendChild(row);
+}
+
+document.getElementById('addCampoBtn').addEventListener('click', () => añadirCampo());
+añadirCampo();
+
+document.getElementById('crearFormularioBtn').addEventListener('click', async () => {
+  const titulo = document.getElementById('fTitulo').value.trim();
+  const descripcion = document.getElementById('fDescripcion').value.trim();
+  const msg = document.getElementById('createMsg');
+
+  if (!titulo) {
+    msg.style.display = 'block'; msg.className = 'msg-error'; msg.textContent = 'Pon un título.';
+    return;
+  }
+
+  const campos = Array.from(camposList.children).map((row, idx) => {
+    const label = row.querySelector('.campo-label').value.trim();
+    const type = row.querySelector('.campo-tipo').value;
+    const opcionesRaw = row.querySelector('.campo-opciones').value.trim();
+    const required = row.querySelector('.campo-required').checked;
+    return {
+      id: 'campo_' + idx,
+      label,
+      type,
+      required,
+      options: opcionesRaw ? opcionesRaw.split(',').map(o => o.trim()).filter(Boolean) : []
+    };
+  }).filter(c => c.label);
+
+  if (campos.length === 0) {
+    msg.style.display = 'block'; msg.className = 'msg-error'; msg.textContent = 'Añade al menos un campo con etiqueta.';
+    return;
+  }
+
+  const { error } = await supabase.from('formularios').insert({ titulo, descripcion, campos, activo: true });
+  msg.style.display = 'block';
+  msg.className = error ? 'msg-error' : 'msg-ok';
+  msg.textContent = error ? 'Error: ' + error.message : 'Formulario creado ✓';
+  if (!error) {
+    document.getElementById('fTitulo').value = '';
+    document.getElementById('fDescripcion').value = '';
+    camposList.innerHTML = '';
+    añadirCampo();
+    cargarFormularios();
+  }
+});
+
+async function cargarFormularios() {
+  const wrap = document.getElementById('formulariosList');
+  const { data, error } = await supabase.from('formularios').select('*').order('created_at', { ascending: false });
+  if (error) { wrap.innerHTML = '<p class="msg-error">No se pudieron cargar.</p>'; return; }
+  if (!data || data.length === 0) { wrap.innerHTML = '<p class="empty-hint">Todavía no has creado ningún formulario.</p>'; return; }
+
+  wrap.innerHTML = '';
+  data.forEach(f => {
+    const row = document.createElement('div');
+    row.className = 'formulario-row';
+    row.innerHTML = `
+      <div>
+        <div style="font-weight:600;">${f.titulo} ${f.activo ? '' : '<span class="badge badge-socio">Oculto</span>'}</div>
+        <div style="font-size:12.5px; color:var(--ink-soft);">${(f.campos || []).length} campos</div>
+      </div>
+    `;
+    const actions = document.createElement('div');
+    actions.className = 'formulario-row-actions';
+
+    const verBtn = document.createElement('a');
+    verBtn.href = 'admin-respuestas.html?formulario_id=' + f.id;
+    verBtn.className = 'btn btn-outline';
+    verBtn.textContent = 'Ver respuestas';
+    actions.appendChild(verBtn);
+
+    const toggleBtn = document.createElement('button');
+    toggleBtn.className = 'btn-danger-link';
+    toggleBtn.textContent = f.activo ? 'Ocultar' : 'Reactivar';
+    toggleBtn.addEventListener('click', async () => {
+      await supabase.from('formularios').update({ activo: !f.activo }).eq('id', f.id);
+      cargarFormularios();
+    });
+    actions.appendChild(toggleBtn);
+
+    const delBtn = document.createElement('button');
+    delBtn.className = 'btn-danger-link';
+    delBtn.textContent = 'Borrar';
+    delBtn.addEventListener('click', async () => {
+      if (!confirm('¿Borrar este formulario y todas sus respuestas?')) return;
+      await supabase.from('formularios').delete().eq('id', f.id);
+      cargarFormularios();
+    });
+    actions.appendChild(delBtn);
+
+    row.appendChild(actions);
+    wrap.appendChild(row);
+  });
+}
+
+(async () => {
+  const ctx = await requireAdmin();
+  if (!ctx) return;
+  renderNav('admin-formularios', ctx.profile);
+  await cargarFormularios();
+})();
+</script>
+</body>
+</html>
