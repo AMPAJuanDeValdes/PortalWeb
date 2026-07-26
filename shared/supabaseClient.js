@@ -4,27 +4,27 @@
 // La "anon key" es pública por diseño: la seguridad real la dan
 // las políticas de RLS definidas en supabase/schema.sql.
 // ============================================================
-const SUPABASE_URL = 'https://TU-PROYECTO.supabase.co';
-const SUPABASE_ANON_KEY = 'TU-ANON-KEY';
+const SUPABASE_URL = 'https://wvqthtfxvcwsdbwbwadb.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_AGFoOoVCOHsH_n5RTWv24A_iTb5xCn2';
 
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 async function getSession() {
-  const { data } = await supabase.auth.getSession();
+  const { data } = await sb.auth.getSession();
   return data.session || null;
 }
 
 async function getProfile() {
   const session = await getSession();
   if (!session) return null;
-  const { data, error } = await supabase
+  const { data, error } = await sb
     .from('profiles')
     .select('*')
     .eq('id', session.user.id)
     .single();
   if (error) return null;
 
-  const { data: principal } = await supabase
+  const { data: principal } = await sb
     .from('progenitores')
     .select('nombre, apellidos')
     .eq('profile_id', data.id)
@@ -62,6 +62,6 @@ async function requireAdmin() {
 }
 
 async function signOut() {
-  await supabase.auth.signOut();
+  await sb.auth.signOut();
   window.location.href = 'login.html';
 }

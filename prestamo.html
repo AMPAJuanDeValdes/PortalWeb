@@ -98,7 +98,7 @@ function claveLibros(hijo) {
 }
 
 async function cargarDatos() {
-  const { data: hijosData, error } = await supabase
+  const { data: hijosData, error } = await sb
     .from('hijos')
     .select('*')
     .eq('profile_id', profile.id)
@@ -111,7 +111,7 @@ async function cargarDatos() {
 
   hijos = [];
   for (const h of (hijosData || [])) {
-    const { data: items } = await supabase
+    const { data: items } = await sb
       .from('prestamo_items')
       .select('libro')
       .eq('hijo_id', h.id);
@@ -152,7 +152,7 @@ async function quitarHijo(tempId) {
   if (!hijo) return;
   if (hijo.id) {
     if (!confirm('¿Eliminar a este hijo/a y sus solicitudes de préstamo?')) return;
-    await supabase.from('hijos').delete().eq('id', hijo.id);
+    await sb.from('hijos').delete().eq('id', hijo.id);
   }
   hijos = hijos.filter(h => h.tempId !== tempId);
   render();
@@ -182,7 +182,7 @@ async function guardarHijo(tempId) {
   };
 
   if (!hijo.id) {
-    const { data, error } = await supabase
+    const { data, error } = await sb
       .from('hijos')
       .insert({ profile_id: profile.id, ...payload })
       .select('id')
@@ -190,11 +190,11 @@ async function guardarHijo(tempId) {
     if (error) { hijo.status = 'error:' + error.message; render(); return; }
     hijo.id = data.id;
   } else {
-    const { error } = await supabase.from('hijos').update(payload).eq('id', hijo.id);
+    const { error } = await sb.from('hijos').update(payload).eq('id', hijo.id);
     if (error) { hijo.status = 'error:' + error.message; render(); return; }
   }
 
-  await supabase.from('prestamo_items').delete().eq('hijo_id', hijo.id);
+  await sb.from('prestamo_items').delete().eq('hijo_id', hijo.id);
 
   const clave = claveLibros(hijo);
   const libros = Array.from(hijo.libros);
@@ -202,7 +202,7 @@ async function guardarHijo(tempId) {
     const filas = libros.map(libro => ({
       hijo_id: hijo.id, profile_id: profile.id, curso: clave, libro
     }));
-    const { error: insError } = await supabase.from('prestamo_items').insert(filas);
+    const { error: insError } = await sb.from('prestamo_items').insert(filas);
     if (insError) { hijo.status = 'error:' + insError.message; render(); return; }
   }
 

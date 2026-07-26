@@ -42,7 +42,7 @@ function formatFecha(f) {
 
 async function cargarEventos() {
   const cont = document.getElementById('eventosContainer');
-  const { data: eventos, error } = await supabase
+  const { data: eventos, error } = await sb
     .from('eventos')
     .select('*')
     .eq('activo', true)
@@ -59,7 +59,7 @@ async function cargarEventos() {
     return;
   }
 
-  const { data: misInscripciones } = await supabase
+  const { data: misInscripciones } = await sb
     .from('evento_inscripciones')
     .select('*')
     .eq('profile_id', profile.id);
@@ -76,7 +76,7 @@ async function cargarEventos() {
 
     let plazasHtml = '';
     if (ev.aforo !== null && ev.aforo !== undefined) {
-      const { data: plazas } = await supabase.rpc('evento_plazas_disponibles', { p_evento_id: ev.id });
+      const { data: plazas } = await sb.rpc('evento_plazas_disponibles', { p_evento_id: ev.id });
       plazasHtml = `<p class="evento-plazas">${plazas > 0 ? plazas + ' plazas libres' : 'Aforo completo'}</p>`;
     }
 
@@ -95,7 +95,7 @@ async function cargarEventos() {
       cancelBtn.className = 'btn-danger-link';
       cancelBtn.textContent = 'Cancelar inscripción';
       cancelBtn.addEventListener('click', async () => {
-        await supabase.from('evento_inscripciones').delete().eq('id', insc.id);
+        await sb.from('evento_inscripciones').delete().eq('id', insc.id);
         cargarEventos();
       });
       accionesDiv.appendChild(cancelBtn);
@@ -111,7 +111,7 @@ async function cargarEventos() {
       `;
       form.querySelector('button').addEventListener('click', async () => {
         const num = parseInt(form.querySelector('.numAsistentes').value, 10) || 1;
-        const { error: insError } = await supabase.from('evento_inscripciones').insert({
+        const { error: insError } = await sb.from('evento_inscripciones').insert({
           evento_id: ev.id, profile_id: profile.id, num_asistentes: num
         });
         if (insError) { alert('No se pudo completar la inscripción: ' + insError.message); return; }

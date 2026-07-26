@@ -125,7 +125,7 @@ document.getElementById('crearFormularioBtn').addEventListener('click', async ()
     return;
   }
 
-  const { error } = await supabase.from('formularios').insert({ titulo, descripcion, campos, activo: true });
+  const { error } = await sb.from('formularios').insert({ titulo, descripcion, campos, activo: true });
   msg.style.display = 'block';
   msg.className = error ? 'msg-error' : 'msg-ok';
   msg.textContent = error ? 'Error: ' + error.message : 'Formulario creado ✓';
@@ -140,7 +140,7 @@ document.getElementById('crearFormularioBtn').addEventListener('click', async ()
 
 async function cargarFormularios() {
   const wrap = document.getElementById('formulariosList');
-  const { data, error } = await supabase.from('formularios').select('*').order('created_at', { ascending: false });
+  const { data, error } = await sb.from('formularios').select('*').order('created_at', { ascending: false });
   if (error) { wrap.innerHTML = '<p class="msg-error">No se pudieron cargar.</p>'; return; }
   if (!data || data.length === 0) { wrap.innerHTML = '<p class="empty-hint">Todavía no has creado ningún formulario.</p>'; return; }
 
@@ -167,7 +167,7 @@ async function cargarFormularios() {
     toggleBtn.className = 'btn-danger-link';
     toggleBtn.textContent = f.activo ? 'Ocultar' : 'Reactivar';
     toggleBtn.addEventListener('click', async () => {
-      await supabase.from('formularios').update({ activo: !f.activo }).eq('id', f.id);
+      await sb.from('formularios').update({ activo: !f.activo }).eq('id', f.id);
       cargarFormularios();
     });
     actions.appendChild(toggleBtn);
@@ -177,7 +177,7 @@ async function cargarFormularios() {
     delBtn.textContent = 'Borrar';
     delBtn.addEventListener('click', async () => {
       if (!confirm('¿Borrar este formulario y todas sus respuestas?')) return;
-      await supabase.from('formularios').delete().eq('id', f.id);
+      await sb.from('formularios').delete().eq('id', f.id);
       cargarFormularios();
     });
     actions.appendChild(delBtn);

@@ -58,7 +58,7 @@
     submitBtn.disabled = true;
     submitBtn.textContent = 'Guardando...';
 
-    const { error: updError } = await supabase.auth.updateUser({ password: p1 });
+    const { error: updError } = await sb.auth.updateUser({ password: p1 });
     if (updError) {
       errorMsg.textContent = 'No se pudo actualizar la contraseña: ' + updError.message;
       errorMsg.hidden = false;
@@ -68,7 +68,7 @@
     }
 
     const session = await getSession();
-    await supabase.from('profiles').update({ force_password_change: false }).eq('id', session.user.id);
+    await sb.from('profiles').update({ force_password_change: false }).eq('id', session.user.id);
 
     window.location.href = 'dashboard.html';
   });

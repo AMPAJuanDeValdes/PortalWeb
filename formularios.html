@@ -91,7 +91,7 @@ function leerRespuestas(formEl, campos) {
 
 async function cargarFormularios() {
   const cont = document.getElementById('formulariosContainer');
-  const { data: formularios, error } = await supabase
+  const { data: formularios, error } = await sb
     .from('formularios')
     .select('*')
     .eq('activo', true)
@@ -107,7 +107,7 @@ async function cargarFormularios() {
 
   cont.innerHTML = '';
   for (const f of formularios) {
-    const { data: miRespuesta } = await supabase
+    const { data: miRespuesta } = await sb
       .from('formulario_respuestas')
       .select('*')
       .eq('formulario_id', f.id)
@@ -140,7 +140,7 @@ async function cargarFormularios() {
     formEl.addEventListener('submit', async (e) => {
       e.preventDefault();
       const respuestas = leerRespuestas(formEl, f.campos || []);
-      const { error: upErr } = await supabase.from('formulario_respuestas').upsert({
+      const { error: upErr } = await sb.from('formulario_respuestas').upsert({
         formulario_id: f.id, profile_id: profile.id, respuestas
       }, { onConflict: 'formulario_id,profile_id' });
       msg.style.display = 'block';

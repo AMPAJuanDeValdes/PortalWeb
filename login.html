@@ -69,7 +69,7 @@
     const email = document.getElementById('email').value.trim();
     const password = document.getElementById('password').value;
 
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error } = await sb.auth.signInWithPassword({ email, password });
 
     if (error) {
       errorMsg.textContent = 'Email o contraseña incorrectos.';
@@ -89,7 +89,7 @@
       errorMsg.hidden = false;
       return;
     }
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    const { error } = await sb.auth.resetPasswordForEmail(email, {
       redirectTo: window.location.origin + '/cambiar-clave.html'
     });
     errorMsg.hidden = false;

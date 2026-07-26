@@ -135,7 +135,7 @@ function renderProgenitorCard(tipo) {
     delBtn.addEventListener('click', async () => {
       if (!confirm('¿Quitar al segundo progenitor?')) return;
       if (progenitores.secundario?.id) {
-        await supabase.from('progenitores').delete().eq('id', progenitores.secundario.id);
+        await sb.from('progenitores').delete().eq('id', progenitores.secundario.id);
       }
       progenitores.secundario = null;
       renderTodo();
@@ -229,7 +229,7 @@ function renderProgenitorCard(tipo) {
       telefono_fijo: p.telefono_fijo || null, movil: p.movil || null
     };
 
-    const { data, error } = await supabase
+    const { data, error } = await sb
       .from('progenitores')
       .upsert(payload, { onConflict: 'profile_id,tipo' })
       .select('*')
@@ -268,7 +268,7 @@ document.getElementById('addSecundarioBtn').addEventListener('click', () => {
 document.getElementById('guardarCuentaBtn').addEventListener('click', async () => {
   const formaPago = document.getElementById('formaPago').value;
   const iban = document.getElementById('iban').value.trim();
-  const { error } = await supabase
+  const { error } = await sb
     .from('profiles')
     .update({ forma_pago: formaPago || null, iban: iban || null })
     .eq('id', profile.id);
@@ -285,7 +285,7 @@ async function cargarDatos() {
   document.getElementById('formaPago').value = profile.forma_pago || '';
   document.getElementById('iban').value = profile.iban || '';
 
-  const { data } = await supabase.from('progenitores').select('*').eq('profile_id', profile.id);
+  const { data } = await sb.from('progenitores').select('*').eq('profile_id', profile.id);
   (data || []).forEach(p => { progenitores[p.tipo] = p; });
   renderTodo();
 }

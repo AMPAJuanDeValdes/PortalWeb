@@ -5,12 +5,12 @@ async function getResumenSocios(profileIds) {
   const idsUnicos = Array.from(new Set((profileIds || []).filter(Boolean)));
   if (idsUnicos.length === 0) return {};
 
-  const { data: profs } = await supabase
+  const { data: profs } = await sb
     .from('profiles')
     .select('id, numero_socio_completo, email, role')
     .in('id', idsUnicos);
 
-  const { data: progs } = await supabase
+  const { data: progs } = await sb
     .from('progenitores')
     .select('profile_id, nombre, apellidos')
     .in('profile_id', idsUnicos)

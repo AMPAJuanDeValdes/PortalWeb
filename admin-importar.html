@@ -300,7 +300,7 @@ document.getElementById('manualBtn').addEventListener('click', async () => {
 
 async function cargarSocios() {
   const wrap = document.getElementById('socioListWrap');
-  const { data, error } = await supabase
+  const { data, error } = await sb
     .from('profiles')
     .select('id, numero_socio_completo, email, role, anio_ultima_cuota')
     .order('created_at', { ascending: false });
@@ -330,7 +330,7 @@ async function cargarSocios() {
   wrap.querySelectorAll('.toggle-role').forEach(btn => {
     btn.addEventListener('click', async () => {
       const nuevoRol = btn.dataset.role === 'admin' ? 'socio' : 'admin';
-      await supabase.from('profiles').update({ role: nuevoRol }).eq('id', btn.dataset.id);
+      await sb.from('profiles').update({ role: nuevoRol }).eq('id', btn.dataset.id);
       cargarSocios();
     });
   });

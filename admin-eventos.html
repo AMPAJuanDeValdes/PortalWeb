@@ -70,7 +70,7 @@ document.getElementById('eventoForm').addEventListener('submit', async (e) => {
   const fecha = document.getElementById('fecha').value;
   const aforo = document.getElementById('aforo').value;
 
-  const { error } = await supabase.from('eventos').insert({
+  const { error } = await sb.from('eventos').insert({
     titulo,
     descripcion,
     fecha: fecha ? new Date(fecha).toISOString() : null,
@@ -86,7 +86,7 @@ document.getElementById('eventoForm').addEventListener('submit', async (e) => {
 
 async function cargarEventos() {
   const wrap = document.getElementById('eventosList');
-  const { data, error } = await supabase.from('eventos').select('*').order('fecha', { ascending: true });
+  const { data, error } = await sb.from('eventos').select('*').order('fecha', { ascending: true });
   if (error) { wrap.innerHTML = '<p class="msg-error">No se pudieron cargar los eventos.</p>'; return; }
   if (!data || data.length === 0) { wrap.innerHTML = '<p class="empty-hint">Aún no hay eventos creados.</p>'; return; }
 
@@ -115,7 +115,7 @@ async function cargarEventos() {
     toggleBtn.className = 'btn-danger-link';
     toggleBtn.textContent = ev.activo ? 'Ocultar' : 'Reactivar';
     toggleBtn.addEventListener('click', async () => {
-      await supabase.from('eventos').update({ activo: !ev.activo }).eq('id', ev.id);
+      await sb.from('eventos').update({ activo: !ev.activo }).eq('id', ev.id);
       cargarEventos();
     });
     actions.appendChild(toggleBtn);
@@ -125,7 +125,7 @@ async function cargarEventos() {
     delBtn.textContent = 'Borrar';
     delBtn.addEventListener('click', async () => {
       if (!confirm('¿Borrar este evento y todas sus inscripciones?')) return;
-      await supabase.from('eventos').delete().eq('id', ev.id);
+      await sb.from('eventos').delete().eq('id', ev.id);
       cargarEventos();
     });
     actions.appendChild(delBtn);
@@ -143,7 +143,7 @@ async function mostrarInscritos(ev) {
   titulo.textContent = 'Inscritos en: ' + ev.titulo;
   list.innerHTML = '<p class="loading">Cargando...</p>';
 
-  const { data, error } = await supabase
+  const { data, error } = await sb
     .from('evento_inscripciones')
     .select('profile_id, num_asistentes, notas, created_at')
     .eq('evento_id', ev.id);
