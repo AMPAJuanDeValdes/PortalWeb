@@ -1,31 +1,24 @@
-// Dado un array de profile_id, devuelve un mapa:
-// { [profileId]: { numero_socio, nombre, email, role } }
-// nombre = nombre + apellidos del progenitor "principal"; si no existe, cae al email.
-async function getResumenSocios(profileIds) {
-  const idsUnicos = Array.from(new Set((profileIds || []).filter(Boolean)));
+// Dado un array de socio_id, devuelve un mapa:
+// { [socioId]: { numero_socio, nombre (adultos concatenados), estado } }
+async function getResumenSocios(socioIds) {
+  const idsUnicos = Array.from(new Set((socioIds || []).filter(Boolean)));
   if (idsUnicos.length === 0) return {};
 
-  const { data: profs } = await sb
-    .from('profiles')
-    .select('id, numero_socio_completo, email, role')
-    .in('id', idsUnicos);
+  const { data: socios } = await sb.from('socios').select('id, numero_socio_completo, estado').in('id', idsUnicos);
+  const { data: adultos } = await sb.from('adultos').select('socio_id, nombre, apellidos').in('socio_id', idsUnicos);
 
-  const { data: progs } = await sb
-    .from('progenitores')
-    .select('profile_id, nombre, apellidos')
-    .in('profile_id', idsUnicos)
-    .eq('tipo', 'principal');
-
-  const nombrePorId = {};
-  (progs || []).forEach(p => { nombrePorId[p.profile_id] = `${p.nombre} ${p.apellidos}`; });
+  const nombrePorSocio = {};
+  (adultos || []).forEach(a => {
+    const n = a.nombre + ' ' + a.apellidos;
+    nombrePorSocio[a.socio_id] = nombrePorSocio[a.socio_id] ? nombrePorSocio[a.socio_id] + ' / ' + n : n;
+  });
 
   const resumen = {};
-  (profs || []).forEach(p => {
-    resumen[p.id] = {
-      numero_socio: p.numero_socio_completo,
-      nombre: nombrePorId[p.id] || p.email,
-      email: p.email,
-      role: p.role
+  (socios || []).forEach(s => {
+    resumen[s.id] = {
+      numero_socio: s.numero_socio_completo,
+      nombre: nombrePorSocio[s.id] || '',
+      estado: s.estado
     };
   });
   return resumen;

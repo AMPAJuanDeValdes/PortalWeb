@@ -8,19 +8,23 @@
 <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="shared/styles.css">
 <style>
-  .evento-card{ margin-bottom:18px; }
-  .evento-fecha{ font-family:'IBM Plex Mono', monospace; font-size:12.5px; color:var(--ink-soft); margin-bottom:4px; }
-  .evento-plazas{ font-size:13px; color:var(--gold); font-family:'IBM Plex Mono', monospace; margin-top:6px; }
-  .inline-form{ display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap; margin-top:14px; }
-  .inline-form .field{ margin:0; }
-  .inline-form input[type=number]{ width:90px; }
+  .evento-card{ margin-bottom:20px; }
+  .evento-fecha{ font-family:'IBM Plex Mono',monospace; font-size:12.5px; color:var(--ink-soft); margin-bottom:4px; }
+  .aforo-tag{ font-family:'IBM Plex Mono',monospace; font-size:11.5px; color:var(--gold); margin-top:6px; display:inline-block; }
+  .miembro-row{ display:flex; justify-content:space-between; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid #EDF3F9; }
+  .miembro-row:last-child{ border-bottom:none; }
+  .actividad-block{ border:1px solid var(--line); border-radius:var(--radius); padding:14px; margin-top:14px; }
+  .actividad-block h3{ font-family:'Lora',serif; font-size:15px; margin:0 0 4px; color:var(--navy-deep); }
+  .voluntariado-block{ margin-top:16px; padding-top:14px; border-top:1px dashed var(--line); }
+  .invitados-block{ margin-top:16px; padding-top:14px; border-top:1px dashed var(--line); }
+  .completo-tag{ font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--red); }
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="eyebrow">AMPA · Actividades</div>
-  <h1>Eventos del AMPA</h1>
-  <p class="lede">Consulta los próximos eventos y apúntate directamente desde aquí.</p>
+  <h1>Eventos</h1>
+  <p class="lede">Solo se muestran los eventos en los que algún miembro de tu familia puede participar.</p>
 
   <p id="loadingMsg" class="loading">Cargando eventos...</p>
   <div id="eventosContainer"></div>
@@ -32,104 +36,287 @@
 <script src="shared/supabaseClient.js"></script>
 <script src="shared/nav.js"></script>
 <script>
-let profile = null;
+let ctxGlobal = null;
+let misAdultos = [];
+let misAlumnos = [];
 
-function formatFecha(f) {
-  if (!f) return 'Fecha por confirmar';
-  const d = new Date(f);
-  return d.toLocaleString('es-ES', { dateStyle: 'full', timeStyle: 'short' });
+function edadDe(alumno) { return calcularEdad(alumno.fecha_nacimiento); }
+
+function cumpleElegibilidad(alumno, modo, cursos, edadMin, edadMax) {
+  if (modo === 'edad') {
+    const edad = edadDe(alumno);
+    if (edad === null) return false;
+    return (edadMin == null || edad >= edadMin) && (edadMax == null || edad <= edadMax);
+  }
+  if (!cursos || cursos.length === 0) return false;
+  return cursos.some(c => c.etapa === alumno.etapa && c.curso === alumno.curso);
 }
+
+function miembrosElegiblesEvento(evento) {
+  if (evento.tipo_elegibilidad === 'toda_familia') {
+    return { adultos: misAdultos, alumnos: misAlumnos };
+  }
+  if (evento.tipo_elegibilidad === 'adultos') {
+    return { adultos: misAdultos, alumnos: [] };
+  }
+  const alumnosOk = misAlumnos.filter(a => cumpleElegibilidad(a, evento.elegibilidad_modo, evento.cursos_permitidos, evento.edad_min, evento.edad_max));
+  return { adultos: [], alumnos: alumnosOk };
+}
+
+function miembrosElegiblesActividad(actividad, elegiblesEvento) {
+  if (!actividad.elegibilidad_modo) return elegiblesEvento;
+  const alumnosOk = elegiblesEvento.alumnos.filter(a => cumpleElegibilidad(a, actividad.elegibilidad_modo, actividad.cursos_permitidos, actividad.edad_min, actividad.edad_max));
+  return { adultos: elegiblesEvento.adultos, alumnos: alumnosOk };
+}
+
+function claveMiembro(tipo, id) { return tipo + ':' + id; }
 
 async function cargarEventos() {
   const cont = document.getElementById('eventosContainer');
-  const { data: eventos, error } = await sb
-    .from('eventos')
-    .select('*')
-    .eq('activo', true)
-    .order('fecha', { ascending: true });
-
+  const { data: eventos, error } = await sb.from('eventos').select('*').eq('activo', true).order('fecha', { ascending: true });
   document.getElementById('loadingMsg').style.display = 'none';
 
-  if (error) {
-    cont.innerHTML = '<p class="msg-error">No se pudieron cargar los eventos.</p>';
-    return;
-  }
-  if (!eventos || eventos.length === 0) {
-    cont.innerHTML = '<p class="empty-hint">No hay eventos activos por ahora.</p>';
-    return;
-  }
+  if (error) { cont.innerHTML = '<p class="msg-error">No se pudieron cargar los eventos.</p>'; return; }
 
+  const visibles = (eventos || []).filter(ev => {
+    const el = miembrosElegiblesEvento(ev);
+    return el.adultos.length > 0 || el.alumnos.length > 0;
+  });
+
+  if (visibles.length === 0) { cont.innerHTML = '<p class="empty-hint">No hay eventos activos para tu familia ahora mismo.</p>'; return; }
+
+  cont.innerHTML = '';
+  for (const ev of visibles) {
+    cont.appendChild(await renderEvento(ev));
+  }
+}
+
+async function renderEvento(evento) {
+  const elegibles = miembrosElegiblesEvento(evento);
+
+  const { data: actividades } = await sb.from('evento_actividades').select('*').eq('evento_id', evento.id).order('created_at');
+  const { data: exclusiones } = await sb.from('actividad_exclusiones').select('*');
   const { data: misInscripciones } = await sb
     .from('evento_inscripciones')
     .select('*')
-    .eq('profile_id', profile.id);
+    .eq('evento_id', evento.id)
+    .eq('socio_id', ctxGlobal.socio.id);
 
-  const inscritoPorEvento = {};
-  (misInscripciones || []).forEach(i => { inscritoPorEvento[i.evento_id] = i; });
+  const card = document.createElement('div');
+  card.className = 'card evento-card';
 
-  cont.innerHTML = '';
-  for (const ev of eventos) {
-    const card = document.createElement('div');
-    card.className = 'card evento-card';
+  const plazasEvento = evento.aforo_total != null ? await sb.rpc('evento_plazas_disponibles', { p_evento_id: evento.id }) : null;
 
-    const insc = inscritoPorEvento[ev.id];
+  card.innerHTML = `
+    <p class="evento-fecha">${evento.fecha ? new Date(evento.fecha).toLocaleString('es-ES', { dateStyle: 'full', timeStyle: 'short' }) : 'Fecha por confirmar'}</p>
+    <h2>${evento.titulo}</h2>
+    <p style="color:var(--ink-soft); font-size:14px;">${evento.descripcion || ''}</p>
+    ${plazasEvento && plazasEvento.data != null ? `<span class="aforo-tag">${plazasEvento.data > 0 ? plazasEvento.data + ' plazas libres en total' : 'Aforo del evento completo'}</span>` : ''}
+  `;
 
-    let plazasHtml = '';
-    if (ev.aforo !== null && ev.aforo !== undefined) {
-      const { data: plazas } = await sb.rpc('evento_plazas_disponibles', { p_evento_id: ev.id });
-      plazasHtml = `<p class="evento-plazas">${plazas > 0 ? plazas + ' plazas libres' : 'Aforo completo'}</p>`;
-    }
+  const inscritosPorClave = {};
+  (misInscripciones || []).forEach(i => {
+    const clave = i.tipo_miembro === 'adulto' ? claveMiembro('adulto', i.adulto_id) : claveMiembro('alumno', i.alumno_id);
+    if (!inscritosPorClave[clave]) inscritosPorClave[clave] = [];
+    inscritosPorClave[clave].push(i);
+  });
 
-    card.innerHTML = `
-      <p class="evento-fecha">${formatFecha(ev.fecha)}</p>
-      <h2>${ev.titulo}</h2>
-      <p style="color:var(--ink-soft); font-size:14px;">${ev.descripcion || ''}</p>
-      ${plazasHtml}
-    `;
-
-    const accionesDiv = document.createElement('div');
-
-    if (insc) {
-      accionesDiv.innerHTML = `<p class="msg-ok">Inscrito/a ✓ (${insc.num_asistentes} asistente${insc.num_asistentes > 1 ? 's' : ''})</p>`;
-      const cancelBtn = document.createElement('button');
-      cancelBtn.className = 'btn-danger-link';
-      cancelBtn.textContent = 'Cancelar inscripción';
-      cancelBtn.addEventListener('click', async () => {
-        await sb.from('evento_inscripciones').delete().eq('id', insc.id);
-        cargarEventos();
-      });
-      accionesDiv.appendChild(cancelBtn);
-    } else {
-      const form = document.createElement('div');
-      form.className = 'inline-form';
-      form.innerHTML = `
-        <div class="field">
-          <label>Nº asistentes</label>
-          <input type="number" min="1" value="1" class="numAsistentes">
-        </div>
-        <button type="button" class="btn btn-primary">Apuntarme</button>
-      `;
-      form.querySelector('button').addEventListener('click', async () => {
-        const num = parseInt(form.querySelector('.numAsistentes').value, 10) || 1;
-        const { error: insError } = await sb.from('evento_inscripciones').insert({
-          evento_id: ev.id, profile_id: profile.id, num_asistentes: num
-        });
-        if (insError) { alert('No se pudo completar la inscripción: ' + insError.message); return; }
-        cargarEventos();
-      });
-      accionesDiv.appendChild(form);
-    }
-
-    card.appendChild(accionesDiv);
-    cont.appendChild(card);
+  function actividadesExcluyentesDe(actividadId) {
+    return (exclusiones || [])
+      .filter(x => x.actividad_id_1 === actividadId || x.actividad_id_2 === actividadId)
+      .map(x => x.actividad_id_1 === actividadId ? x.actividad_id_2 : x.actividad_id_1);
   }
+
+  function miembroTieneExcluyente(clave, actividadId) {
+    const excluyentes = actividadesExcluyentesDe(actividadId);
+    const inscripcionesMiembro = inscritosPorClave[clave] || [];
+    return inscripcionesMiembro.some(i => i.actividad_id && excluyentes.includes(i.actividad_id));
+  }
+
+  async function toggleInscripcion(tipoMiembro, miembroId, actividadId) {
+    const clave = claveMiembro(tipoMiembro, miembroId);
+    const yaInscrito = (inscritosPorClave[clave] || []).find(i => (i.actividad_id || null) === (actividadId || null));
+
+    if (yaInscrito) {
+      await sb.from('evento_inscripciones').delete().eq('id', yaInscrito.id);
+    } else {
+      const payload = {
+        evento_id: evento.id, actividad_id: actividadId || null,
+        tipo_miembro: tipoMiembro, socio_id: ctxGlobal.socio.id
+      };
+      if (tipoMiembro === 'adulto') payload.adulto_id = miembroId; else payload.alumno_id = miembroId;
+      const { error } = await sb.from('evento_inscripciones').insert(payload);
+      if (error) { alert('No se pudo completar: ' + error.message); return; }
+    }
+    card.replaceWith(await renderEvento(evento));
+  }
+
+  function renderListaMiembros(elegiblesLocal, actividadId, aforoDisponible) {
+    const wrap = document.createElement('div');
+    const todos = [
+      ...elegiblesLocal.adultos.map(a => ({ tipo: 'adulto', id: a.id, nombre: a.nombre + ' ' + a.apellidos })),
+      ...elegiblesLocal.alumnos.map(a => ({ tipo: 'alumno', id: a.id, nombre: a.nombre + ' ' + a.apellidos + ' (' + a.curso + ' ' + a.etapa + ')' }))
+    ];
+    todos.forEach(m => {
+      const clave = claveMiembro(m.tipo, m.id);
+      const yaInscrito = (inscritosPorClave[clave] || []).some(i => (i.actividad_id || null) === (actividadId || null));
+      const excluido = actividadId && !yaInscrito && miembroTieneExcluyente(clave, actividadId);
+      const completo = !yaInscrito && aforoDisponible !== null && aforoDisponible <= 0;
+
+      const row = document.createElement('div');
+      row.className = 'miembro-row';
+      const label = document.createElement('span');
+      label.textContent = m.nombre;
+      row.appendChild(label);
+
+      if (excluido) {
+        const tag = document.createElement('span');
+        tag.className = 'completo-tag';
+        tag.textContent = 'No compatible con otra actividad ya elegida';
+        row.appendChild(tag);
+      } else if (completo) {
+        const tag = document.createElement('span');
+        tag.className = 'completo-tag';
+        tag.textContent = 'Completo';
+        row.appendChild(tag);
+      } else {
+        const btn = document.createElement('button');
+        btn.className = yaInscrito ? 'btn-danger-link' : 'btn btn-outline';
+        btn.textContent = yaInscrito ? 'Quitar' : 'Apuntar';
+        btn.addEventListener('click', () => toggleInscripcion(m.tipo, m.id, actividadId));
+        row.appendChild(btn);
+      }
+      wrap.appendChild(row);
+    });
+    return wrap;
+  }
+
+  if (!actividades || actividades.length === 0) {
+    card.appendChild(renderListaMiembros(elegibles, null, plazasEvento ? plazasEvento.data : null));
+  } else {
+    for (const act of actividades) {
+      const elegiblesAct = miembrosElegiblesActividad(act, elegibles);
+      if (elegiblesAct.adultos.length === 0 && elegiblesAct.alumnos.length === 0) continue;
+
+      const plazasAct = act.aforo != null ? (await sb.rpc('actividad_plazas_disponibles', { p_actividad_id: act.id })).data : null;
+
+      const block = document.createElement('div');
+      block.className = 'actividad-block';
+      block.innerHTML = `
+        <h3>${act.nombre}</h3>
+        <p style="font-size:12.5px; color:var(--ink-soft); margin:0 0 8px;">${act.horario || ''}
+          ${plazasAct != null ? ' · ' + (plazasAct > 0 ? plazasAct + ' plazas libres' : 'Completo') : ''}
+        </p>
+      `;
+      block.appendChild(renderListaMiembros(elegiblesAct, act.id, plazasAct));
+      card.appendChild(block);
+    }
+  }
+
+  if (evento.voluntariado_habilitado && misAdultos.length > 0) {
+    const vBlock = document.createElement('div');
+    vBlock.className = 'voluntariado-block';
+    const yaVoluntario = (misInscripciones || []).find(i => i.tipo_miembro === 'adulto' && i.es_voluntario && !i.actividad_id);
+    vBlock.innerHTML = `<p class="section-label" style="margin:0 0 8px;">Voluntariado en este evento</p>`;
+    if (yaVoluntario) {
+      const adultoNombre = misAdultos.find(a => a.id === yaVoluntario.adulto_id);
+      vBlock.innerHTML += `<p style="font-size:14px;">Voluntario/a: <b>${adultoNombre ? adultoNombre.nombre : ''}</b></p>`;
+      const quitarBtn = document.createElement('button');
+      quitarBtn.className = 'btn-danger-link';
+      quitarBtn.textContent = 'Quitar voluntariado';
+      quitarBtn.addEventListener('click', async () => {
+        await sb.from('evento_inscripciones').delete().eq('id', yaVoluntario.id);
+        card.replaceWith(await renderEvento(evento));
+      });
+      vBlock.appendChild(quitarBtn);
+    } else {
+      const select = document.createElement('select');
+      select.innerHTML = misAdultos.map(a => `<option value="${a.id}">${a.nombre} ${a.apellidos}</option>`).join('');
+      const btn = document.createElement('button');
+      btn.className = 'btn btn-outline';
+      btn.textContent = 'Quiero ser voluntario/a';
+      btn.style.marginLeft = '8px';
+      btn.addEventListener('click', async () => {
+        const { error } = await sb.from('evento_inscripciones').insert({
+          evento_id: evento.id, tipo_miembro: 'adulto', adulto_id: select.value,
+          socio_id: ctxGlobal.socio.id, es_voluntario: true
+        });
+        if (error) { alert('No se pudo registrar: ' + error.message); return; }
+        card.replaceWith(await renderEvento(evento));
+      });
+      vBlock.appendChild(select);
+      vBlock.appendChild(btn);
+    }
+    card.appendChild(vBlock);
+  }
+
+  if (evento.permite_invitados) {
+    const iBlock = document.createElement('div');
+    iBlock.className = 'invitados-block';
+    iBlock.innerHTML = `
+      <p class="section-label" style="margin:0 0 8px;">Invitar a alguien (pagando su entrada)</p>
+      ${evento.precio_invitado ? `<p style="font-size:13px; color:var(--ink-soft);">Precio por invitado: ${Number(evento.precio_invitado).toFixed(2)} €</p>` : ''}
+    `;
+    const invitadosExistentes = (misInscripciones || []).filter(i => i.tipo_miembro === 'invitado');
+    invitadosExistentes.forEach(inv => {
+      const p = document.createElement('p');
+      p.style.fontSize = '14px';
+      p.textContent = '✓ ' + inv.nombre_invitado;
+      iBlock.appendChild(p);
+    });
+
+    const nombreInput = document.createElement('input');
+    nombreInput.type = 'text'; nombreInput.placeholder = 'Nombre del invitado/a';
+    nombreInput.style.marginBottom = '8px';
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file'; fileInput.accept = 'image/*,.pdf';
+    fileInput.style.marginBottom = '8px'; fileInput.style.display = 'block';
+    const btnInvitar = document.createElement('button');
+    btnInvitar.className = 'btn btn-primary';
+    btnInvitar.textContent = 'Añadir invitado';
+    const msgInv = document.createElement('p');
+
+    btnInvitar.addEventListener('click', async () => {
+      const nombre = nombreInput.value.trim();
+      const file = fileInput.files[0];
+      if (!nombre || !file) { msgInv.className = 'msg-error'; msgInv.textContent = 'Pon el nombre y sube el comprobante.'; return; }
+
+      const { data: inscripcion, error } = await sb.from('evento_inscripciones').insert({
+        evento_id: evento.id, tipo_miembro: 'invitado', nombre_invitado: nombre, socio_id: ctxGlobal.socio.id
+      }).select('id').single();
+      if (error) { msgInv.className = 'msg-error'; msgInv.textContent = error.message; return; }
+
+      const path = `${ctxGlobal.socio.id}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_')}`;
+      await sb.storage.from('comprobantes').upload(path, file);
+      await sb.from('comprobantes_pago').insert({
+        tipo: 'invitado_evento', evento_inscripcion_id: inscripcion.id, archivo_url: path
+      });
+
+      card.replaceWith(await renderEvento(evento));
+    });
+
+    iBlock.appendChild(document.createElement('br'));
+    iBlock.appendChild(nombreInput);
+    iBlock.appendChild(fileInput);
+    iBlock.appendChild(btnInvitar);
+    iBlock.appendChild(msgInv);
+    card.appendChild(iBlock);
+  }
+
+  return card;
 }
 
 (async () => {
   const ctx = await requireAuth();
   if (!ctx) return;
-  profile = ctx.profile;
-  renderNav('eventos', profile);
+  ctxGlobal = ctx;
+  renderNav('eventos', ctx);
+
+  const { data: adultosData } = await sb.from('adultos').select('*').eq('socio_id', ctx.socio.id);
+  const { data: alumnosData } = await sb.from('alumnos').select('*').eq('socio_id', ctx.socio.id);
+  misAdultos = adultosData || [];
+  misAlumnos = alumnosData || [];
+
   await cargarEventos();
 })();
 </script>

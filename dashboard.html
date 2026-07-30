@@ -10,37 +10,34 @@
 <style>
   .grid{ display:grid; grid-template-columns:1fr 1fr; gap:16px; }
   @media (max-width:560px){ .grid{ grid-template-columns:1fr; } }
-  .tile{
-    background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
-    padding:22px; text-decoration:none; display:block;
-  }
+  .tile{ background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:22px; text-decoration:none; display:block; }
   .tile h2{ margin-bottom:6px; }
   .tile p{ color:var(--ink-soft); font-size:13.5px; margin:0; }
+  .evento-mini{ padding:10px 0; border-bottom:1px solid var(--line); font-size:14px; }
+  .evento-mini:last-child{ border-bottom:none; }
+  .evento-mini .f{ font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--ink-soft); }
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="eyebrow">AMPA · Portal de socios</div>
   <h1 id="saludo">Hola</h1>
-  <p class="lede">Desde aquí puedes gestionar el préstamo de libros de tus hijos/as, apuntarte a eventos del AMPA y responder a los formularios abiertos.</p>
+  <p class="lede">Desde aquí puedes gestionar los datos de tu familia, el préstamo de libros y apuntarte a los eventos del AMPA.</p>
 
   <div class="grid">
     <a class="tile" href="mis-datos.html">
       <h2>👪 Mis datos</h2>
-      <p>Revisa y actualiza los datos de la familia y los progenitores.</p>
-    </a>
-    <a class="tile" href="prestamo.html">
-      <h2>📚 Préstamo de libros</h2>
-      <p>Añade a tus hijos/as y marca los libros de lectura que necesitáis.</p>
+      <p>Adultos, alumnos, forma de pago y domiciliación.</p>
     </a>
     <a class="tile" href="eventos.html">
       <h2>🎉 Eventos</h2>
-      <p>Consulta los próximos eventos del AMPA y apúntate.</p>
+      <p>Consulta y apúntate a los próximos eventos del AMPA.</p>
     </a>
-    <a class="tile" href="formularios.html">
-      <h2>📝 Formularios</h2>
-      <p>Responde a las encuestas y formularios abiertos actualmente.</p>
-    </a>
+  </div>
+
+  <div class="card" style="margin-top:20px;">
+    <p class="section-label">Próximos eventos</p>
+    <div id="proximosWrap"><p class="loading">Cargando...</p></div>
   </div>
 
   <footer class="note"><b>AMPA Colegio Juan de Valdés</b></footer>
@@ -53,8 +50,27 @@
   (async () => {
     const ctx = await requireAuth();
     if (!ctx) return;
-    renderNav('dashboard', ctx.profile);
-    document.getElementById('saludo').textContent = 'Hola, ' + (ctx.profile.nombre_mostrar || '') + ' 👋';
+    renderNav('dashboard', ctx);
+    document.getElementById('saludo').textContent = 'Hola, ' + ctx.adulto.nombre + ' 👋';
+
+    const { data: eventos } = await sb
+      .from('eventos')
+      .select('*')
+      .eq('activo', true)
+      .order('fecha', { ascending: true })
+      .limit(5);
+
+    const wrap = document.getElementById('proximosWrap');
+    if (!eventos || eventos.length === 0) {
+      wrap.innerHTML = '<p class="empty-hint">No hay eventos próximos.</p>';
+      return;
+    }
+    wrap.innerHTML = eventos.map(ev => `
+      <div class="evento-mini">
+        <div class="f">${ev.fecha ? new Date(ev.fecha).toLocaleDateString('es-ES', { dateStyle: 'long' }) : 'Fecha por confirmar'}</div>
+        <div>${ev.titulo}</div>
+      </div>
+    `).join('');
   })();
 </script>
 </body>

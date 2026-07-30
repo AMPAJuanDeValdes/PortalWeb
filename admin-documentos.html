@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Documentos (admin) · AMPA Juan de Valdés</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared/styles.css">
+<style>
+  .doc-row{ display:flex; justify-content:space-between; align-items:center; gap:12px; padding:12px 0; border-bottom:1px solid var(--line); }
+  .doc-row:last-child{ border-bottom:none; }
+  .doc-row-actions{ display:flex; gap:8px; flex-wrap:wrap; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">AMPA · Administración</div>
+  <h1>Documentos y newsletters</h1>
+  <p class="lede">Sube aquí las newsletters y documentos que quieres que aparezcan descargables en la web pública del AMPA.</p>
+
+  <div class="card">
+    <p class="section-label">Subir nuevo documento</p>
+    <div class="field"><label>Título</label><input type="text" id="dTitulo"></div>
+    <div class="field" style="margin-top:14px;">
+      <label>Categoría</label>
+      <select id="dCategoria"><option value="newsletter">Newsletter</option><option value="documento">Otro documento</option></select>
+    </div>
+    <div class="field" style="margin-top:14px;"><label>Fecha</label><input type="date" id="dFecha"></div>
+    <div class="field" style="margin-top:14px;"><label>Archivo</label><input type="file" id="dArchivo"></div>
+    <button type="button" class="btn btn-primary" id="subirBtn" style="margin-top:16px;">Subir y publicar</button>
+    <p id="msg" style="display:none; margin-top:14px;"></p>
+  </div>
+
+  <div class="card">
+    <p class="section-label">Documentos publicados</p>
+    <div id="listaWrap"><p class="loading">Cargando...</p></div>
+  </div>
+
+  <footer class="note"><b>AMPA Colegio Juan de Valdés</b> — panel de administración</footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="shared/supabaseClient.js"></script>
+<script src="shared/nav.js"></script>
+<script>
+document.getElementById('subirBtn').addEventListener('click', async () => {
+  const titulo = document.getElementById('dTitulo').value.trim();
+  const categoria = document.getElementById('dCategoria').value;
+  const fecha = document.getElementById('dFecha').value;
+  const archivo = document.getElementById('dArchivo').files[0];
+  const msg = document.getElementById('msg');
+  const btn = document.getElementById('subirBtn');
+
+  if (!titulo || !archivo) {
+    msg.style.display = 'block'; msg.className = 'msg-error'; msg.textContent = 'Pon un título y selecciona un archivo.';
+    return;
+  }
+  btn.disabled = true; btn.textContent = 'Subiendo...';
+
+  const path = `${Date.now()}-${archivo.name.replace(/[^a-zA-Z0-9.\-_]/g, '_')}`;
+  const { error: uploadError } = await sb.storage.from('documentos').upload(path, archivo);
+  if (uploadError) {
+    msg.style.display = 'block'; msg.className = 'msg-error'; msg.textContent = 'Error al subir: ' + uploadError.message;
+    btn.disabled = false; btn.textContent = 'Subir y publicar';
+    return;
+  }
+
+  const { data: urlData } = sb.storage.from('documentos').getPublicUrl(path);
+  const { error: insertError } = await sb.from('documentos').insert({
+    titulo, categoria, fecha: fecha || null, url: urlData.publicUrl, activo: true
+  });
+
+  msg.style.display = 'block';
+  msg.className = insertError ? 'msg-error' : 'msg-ok';
+  msg.textContent = insertError ? 'Error: ' + insertError.message : 'Documento publicado ✓';
+  btn.disabled = false; btn.textContent = 'Subir y publicar';
+
+  if (!insertError) {
+    document.getElementById('dTitulo').value = '';
+    document.getElementById('dFecha').value = '';
+    document.getElementById('dArchivo').value = '';
+    cargarLista();
+  }
+});
+
+async function cargarLista() {
+  const wrap = document.getElementById('listaWrap');
+  const { data, error } = await sb.from('documentos').select('*').order('created_at', { ascending: false });
+  if (error) { wrap.innerHTML = '<p class="msg-error">No se pudo cargar.</p>'; return; }
+  if (!data || data.length === 0) { wrap.innerHTML = '<p class="empty-hint">Todavía no has subido ningún documento.</p>'; return; }
+
+  wrap.innerHTML = '';
+  data.forEach(d => {
+    const row = document.createElement('div');
+    row.className = 'doc-row';
+    row.innerHTML = `
+      <div>
+        <div style="font-weight:600;">${d.titulo} ${d.activo ? '' : '<span class="badge badge-socio">Oculto</span>'}</div>
+        <div style="font-size:12.5px; color:var(--ink-soft);">${d.categoria === 'newsletter' ? 'Newsletter' : 'Documento'} ${d.fecha ? '· ' + d.fecha : ''}</div>
+      </div>
+    `;
+    const actions = document.createElement('div');
+    actions.className = 'doc-row-actions';
+
+    const verLink = document.createElement('a');
+    verLink.href = d.url; verLink.target = '_blank'; verLink.rel = 'noopener';
+    verLink.className = 'btn btn-outline'; verLink.textContent = 'Ver archivo';
+    actions.appendChild(verLink);
+
+    const toggleBtn = document.createElement('button');
+    toggleBtn.className = 'btn-danger-link';
+    toggleBtn.textContent = d.activo ? 'Ocultar' : 'Reactivar';
+    toggleBtn.addEventListener('click', async () => { await sb.from('documentos').update({ activo: !d.activo }).eq('id', d.id); cargarLista(); });
+    actions.appendChild(toggleBtn);
+
+    const delBtn = document.createElement('button');
+    delBtn.className = 'btn-danger-link'; delBtn.textContent = 'Borrar';
+    delBtn.addEventListener('click', async () => {
+      if (!confirm('¿Borrar esta entrada? (el archivo subido no se elimina del almacenamiento)')) return;
+      await sb.from('documentos').delete().eq('id', d.id);
+      cargarLista();
+    });
+    actions.appendChild(delBtn);
+
+    row.appendChild(actions);
+    wrap.appendChild(row);
+  });
+}
+
+(async () => {
+  const ctx = await requireAdmin();
+  if (!ctx) return;
+  renderNav('admin-documentos', ctx);
+  await cargarLista();
+})();
+</script>
+</body>
+</html>

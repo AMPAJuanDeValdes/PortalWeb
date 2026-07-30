@@ -1,17 +1,15 @@
-// Netlify Function: alta de socios (cuenta + progenitor principal).
-// Solo puede ejecutarla un usuario cuyo perfil tenga role = 'admin'.
-// Usa la SERVICE ROLE KEY de Supabase, que solo vive aquí (variables
-// de entorno de Netlify), nunca se envía al navegador.
+// Alta de socios: crea la cuenta (socios), 1 o 2 adultos (con login propio
+// y contraseña provisional enviada por email) y sus alumnos.
+// Solo puede ejecutarla un adulto con role = 'admin'.
 
 const { createClient } = require('@supabase/supabase-js');
+const { enviarEmail, plantillaCredenciales } = require('./_lib/email');
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-const CAMPOS_CUENTA_OBLIGATORIOS = ['anio_ultima_cuota', 'numero_secuencial'];
-const CAMPOS_PROGENITOR_OBLIGATORIOS = [
-  'nombre', 'apellidos', 'dni_nie', 'email', 'direccion', 'ciudad', 'provincia', 'codigo_postal'
-];
+const ETAPAS_VALIDAS = ['Infantil', 'Primaria', 'ESO', 'Bachillerato'];
+const AULAS_VALIDAS = ['A', 'B', 'C', 'D'];
 const FORMAS_PAGO_VALIDAS = ['Metálico', 'Transferencia', 'Domiciliación Bancaria'];
 
 function generarPassword() {
@@ -21,156 +19,130 @@ function generarPassword() {
   return out;
 }
 
-function esVerdadero(valor) {
-  const v = String(valor || '').trim().toLowerCase();
-  return ['si', 'sí', 'true', '1', 'x', 'yes'].includes(v);
-}
+function esVerdadero(v) { return ['si', 'sí', 'true', '1', 'x', 'yes'].includes(String(v || '').trim().toLowerCase()); }
 
-function normalizarFilaCuenta(fila) {
-  const numero_secuencial = String(fila.numero_secuencial || '').trim().padStart(4, '0');
-  const anio_ultima_cuota = parseInt(String(fila.anio_ultima_cuota || '').trim(), 10);
-  const forma_pago = String(fila.forma_pago || '').trim();
+function normalizarAdulto(fila, prefijo) {
+  const g = (campo) => fila[`${prefijo}_${campo}`];
+  const nombre = String(g('nombre') || '').trim();
+  if (!nombre) return null;
   return {
-    anio_ultima_cuota: Number.isFinite(anio_ultima_cuota) ? anio_ultima_cuota : null,
-    codigo_asociacion: '0300',
-    numero_secuencial,
-    forma_pago: FORMAS_PAGO_VALIDAS.includes(forma_pago) ? forma_pago : null,
-    iban: String(fila.iban || '').trim() || null
+    nombre,
+    apellidos: String(g('apellidos') || '').trim(),
+    es_pasaporte: esVerdadero(g('es_pasaporte')),
+    dni_nie: String(g('dni_nie') || '').trim(),
+    sexo: ['Masculino', 'Femenino', 'Otro'].includes(String(g('sexo') || '').trim()) ? String(g('sexo')).trim() : null,
+    email: String(g('email') || '').trim().toLowerCase(),
+    direccion: String(g('direccion') || '').trim(),
+    ciudad: String(g('ciudad') || '').trim(),
+    provincia: String(g('provincia') || '').trim(),
+    codigo_postal: String(g('codigo_postal') || '').trim(),
+    telefono_fijo: String(g('telefono_fijo') || '').trim() || null,
+    movil: String(g('movil') || '').trim() || null,
+    relacion_alumnos: String(g('relacion_alumnos') || '').trim() || null
   };
 }
 
-function normalizarProgenitor(fila) {
+function normalizarAlumno(fila, prefijo) {
+  const g = (campo) => fila[`${prefijo}_${campo}`];
+  const nombre = String(g('nombre') || '').trim();
+  if (!nombre) return null;
   return {
-    tipo: 'principal',
-    nombre: String(fila.nombre || '').trim(),
-    apellidos: String(fila.apellidos || '').trim(),
-    es_pasaporte: esVerdadero(fila.es_pasaporte),
-    dni_nie: String(fila.dni_nie || '').trim(),
-    sexo: ['Masculino', 'Femenino', 'Otro'].includes(String(fila.sexo || '').trim())
-      ? String(fila.sexo).trim() : null,
-    email: String(fila.email || '').trim().toLowerCase(),
-    direccion: String(fila.direccion || '').trim(),
-    ciudad: String(fila.ciudad || '').trim(),
-    provincia: String(fila.provincia || '').trim(),
-    codigo_postal: String(fila.codigo_postal || '').trim(),
-    telefono_fijo: String(fila.telefono_fijo || '').trim() || null,
-    movil: String(fila.movil || '').trim() || null
+    nombre,
+    apellidos: String(g('apellidos') || '').trim(),
+    fecha_nacimiento: String(g('fecha_nacimiento') || '').trim() || null,
+    sexo: ['Masculino', 'Femenino', 'Otro'].includes(String(g('sexo') || '').trim()) ? String(g('sexo')).trim() : null,
+    etapa: ETAPAS_VALIDAS.includes(String(g('etapa') || '').trim()) ? String(g('etapa')).trim() : null,
+    curso: String(g('curso') || '').trim() || null,
+    aula: AULAS_VALIDAS.includes(String(g('aula') || '').trim().toUpperCase()) ? String(g('aula')).trim().toUpperCase() : null
   };
-}
-
-function validarFila(cuenta, progenitor) {
-  if (!cuenta.anio_ultima_cuota) return 'anio_ultima_cuota no es válido';
-  if (!/^[0-9]{4}$/.test(cuenta.numero_secuencial)) return 'numero_secuencial debe tener 4 cifras';
-  for (const campo of CAMPOS_PROGENITOR_OBLIGATORIOS) {
-    if (!progenitor[campo]) return `Falta el campo obligatorio: ${campo}`;
-  }
-  return null;
 }
 
 exports.handler = async (event) => {
-  if (event.httpMethod !== 'POST') {
-    return { statusCode: 405, body: 'Método no permitido' };
-  }
+  if (event.httpMethod !== 'POST') return { statusCode: 405, body: 'Método no permitido' };
 
   const authHeader = event.headers.authorization || event.headers.Authorization;
-  if (!authHeader) {
-    return { statusCode: 401, body: JSON.stringify({ error: 'Falta token de sesión' }) };
-  }
+  if (!authHeader) return { statusCode: 401, body: JSON.stringify({ error: 'Falta token de sesión' }) };
   const accessToken = authHeader.replace('Bearer ', '');
-
   const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
   const { data: userData, error: userError } = await supabaseAdmin.auth.getUser(accessToken);
-  if (userError || !userData?.user) {
-    return { statusCode: 401, body: JSON.stringify({ error: 'Sesión no válida' }) };
-  }
+  if (userError || !userData?.user) return { statusCode: 401, body: JSON.stringify({ error: 'Sesión no válida' }) };
 
-  const { data: adminProfile, error: profileError } = await supabaseAdmin
-    .from('profiles')
-    .select('role')
-    .eq('id', userData.user.id)
-    .single();
-
-  if (profileError || adminProfile?.role !== 'admin') {
-    return { statusCode: 403, body: JSON.stringify({ error: 'Solo un administrador puede dar de alta socios' }) };
-  }
+  const { data: adminAdulto } = await supabaseAdmin.from('adultos').select('role').eq('id', userData.user.id).single();
+  if (adminAdulto?.role !== 'admin') return { statusCode: 403, body: JSON.stringify({ error: 'Solo un administrador puede dar de alta socios' }) };
 
   let payload;
-  try {
-    payload = JSON.parse(event.body);
-  } catch {
-    return { statusCode: 400, body: JSON.stringify({ error: 'JSON de entrada no válido' }) };
-  }
-
-  const socios = Array.isArray(payload.socios) ? payload.socios : [];
-  if (socios.length === 0) {
-    return { statusCode: 400, body: JSON.stringify({ error: 'No se han recibido filas de socios' }) };
-  }
+  try { payload = JSON.parse(event.body); } catch { return { statusCode: 400, body: JSON.stringify({ error: 'JSON no válido' }) }; }
+  const filas = Array.isArray(payload.socios) ? payload.socios : [];
+  if (filas.length === 0) return { statusCode: 400, body: JSON.stringify({ error: 'No se han recibido filas' }) };
 
   const resultados = [];
 
-  for (const filaOriginal of socios) {
-    const cuenta = normalizarFilaCuenta(filaOriginal);
-    const progenitor = normalizarProgenitor(filaOriginal);
+  for (const fila of filas) {
+    const anio_ultima_cuota = parseInt(String(fila.anio_ultima_cuota || '').trim(), 10);
+    const numeroDado = String(fila.numero_secuencial || '').trim();
+    const forma_pago = FORMAS_PAGO_VALIDAS.includes(String(fila.forma_pago || '').trim()) ? String(fila.forma_pago).trim() : null;
+    const iban = String(fila.iban || '').trim() || null;
 
-    const errorValidacion = validarFila(cuenta, progenitor);
-    if (errorValidacion) {
-      resultados.push({
-        numero_secuencial: cuenta.numero_secuencial,
-        nombre_titular: `${progenitor.nombre} ${progenitor.apellidos}`.trim(),
-        email: progenitor.email,
-        ok: false,
-        error: errorValidacion
-      });
+    const adulto1 = normalizarAdulto(fila, 'adulto1');
+    const adulto2 = normalizarAdulto(fila, 'adulto2');
+    const alumnosFila = [];
+    for (let i = 1; i <= 6; i++) {
+      const al = normalizarAlumno(fila, `alumno${i}`);
+      if (al) alumnosFila.push(al);
+    }
+
+    if (!Number.isFinite(anio_ultima_cuota) || !adulto1 || !adulto1.email || !adulto1.dni_nie) {
+      resultados.push({ ok: false, error: 'Faltan anio_ultima_cuota o los datos obligatorios del adulto 1', nombre_titular: adulto1?.nombre || '' });
+      continue;
+    }
+    if (adulto2 && adulto2.email && adulto2.email === adulto1.email) {
+      resultados.push({ ok: false, error: 'El adulto 2 no puede tener el mismo email que el adulto 1', nombre_titular: adulto1.nombre });
       continue;
     }
 
-    const password = generarPassword();
-
     try {
-      const { data: created, error: createError } = await supabaseAdmin.auth.admin.createUser({
-        email: progenitor.email,
-        password,
-        email_confirm: true
-      });
-      if (createError) throw createError;
+      const numero_secuencial = numeroDado || (await supabaseAdmin.rpc('siguiente_numero_secuencial')).data;
 
-      const { error: insertProfileError } = await supabaseAdmin.from('profiles').insert({
-        id: created.user.id,
-        ...cuenta,
-        email: progenitor.email,
-        role: 'socio',
-        force_password_change: true
-      });
-      if (insertProfileError) throw insertProfileError;
+      const { data: socio, error: socioError } = await supabaseAdmin.from('socios').insert({
+        anio_ultima_cuota, numero_secuencial, forma_pago, iban, estado: 'activa'
+      }).select('id').single();
+      if (socioError) throw socioError;
 
-      const { error: insertProgenitorError } = await supabaseAdmin.from('progenitores').insert({
-        profile_id: created.user.id,
-        ...progenitor
-      });
-      if (insertProgenitorError) throw insertProgenitorError;
+      const credencialesEnviadas = [];
+      for (const adulto of [adulto1, adulto2].filter(Boolean)) {
+        const password = generarPassword();
+        const { data: created, error: createError } = await supabaseAdmin.auth.admin.createUser({
+          email: adulto.email, password, email_confirm: true
+        });
+        if (createError) throw createError;
+
+        const { error: insAdultoError } = await supabaseAdmin.from('adultos').insert({
+          id: created.user.id, socio_id: socio.id, role: 'socio', force_password_change: true, ...adulto
+        });
+        if (insAdultoError) throw insAdultoError;
+
+        const { subject, text } = plantillaCredenciales({ nombre: adulto.nombre, email: adulto.email, password });
+        try { await enviarEmail({ to: adulto.email, subject, text }); } catch (e) { /* seguimos aunque falle el envío */ }
+        credencialesEnviadas.push(adulto.email);
+      }
+
+      for (const alumno of alumnosFila) {
+        if (!alumno.etapa || !alumno.curso) continue;
+        await supabaseAdmin.from('alumnos').insert({ socio_id: socio.id, ...alumno });
+      }
 
       resultados.push({
-        numero_secuencial: cuenta.numero_secuencial,
-        nombre_titular: `${progenitor.nombre} ${progenitor.apellidos}`,
-        email: progenitor.email,
-        password,
-        ok: true
+        ok: true,
+        nombre_titular: adulto1.nombre + ' ' + adulto1.apellidos,
+        numero_secuencial,
+        emails: credencialesEnviadas.join(', '),
+        alumnos_creados: alumnosFila.filter(a => a.etapa && a.curso).length
       });
     } catch (err) {
-      resultados.push({
-        numero_secuencial: cuenta.numero_secuencial,
-        nombre_titular: `${progenitor.nombre} ${progenitor.apellidos}`.trim(),
-        email: progenitor.email,
-        ok: false,
-        error: err.message || 'Error desconocido'
-      });
+      resultados.push({ ok: false, error: err.message || 'Error desconocido', nombre_titular: adulto1.nombre + ' ' + adulto1.apellidos });
     }
   }
 
-  return {
-    statusCode: 200,
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ resultados })
-  };
+  return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ resultados }) };
 };

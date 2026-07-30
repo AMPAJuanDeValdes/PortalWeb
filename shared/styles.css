@@ -27,45 +27,68 @@ body{
 }
 .wrap{ max-width:760px; margin:0 auto; padding:0 20px 96px; }
 
-/* -------- Navegación -------- */
-.topnav{
-  background:#FFFFFF;
-  border-bottom:1px solid var(--line);
-  margin-bottom:32px;
-}
-.topnav-inner{
-  max-width:760px;
-  margin:0 auto;
-  padding:14px 20px;
-}
-.topnav-brand{
-  display:flex; align-items:center; justify-content:space-between;
-  flex-wrap:wrap; gap:12px; margin-bottom:12px;
-}
-.topnav-brand img{ display:block; }
-.logo-ampa{ height:38px; width:auto; }
-.logo-colegio{ height:28px; width:auto; }
 .rainbow-rule{
-  height:4px; border-radius:4px; margin-bottom:12px;
+  height:4px; border-radius:4px;
   background:linear-gradient(90deg,var(--rainbow-3),var(--rainbow-2),var(--rainbow-1),var(--rainbow-4));
 }
-.topnav-links{
-  display:flex; flex-wrap:wrap; gap:6px 4px; align-items:center;
+
+/* -------- Layout con menú lateral vertical -------- */
+.app-shell{ display:flex; min-height:100vh; align-items:stretch; }
+.sidenav{
+  width:230px; flex-shrink:0; background:#FFFFFF;
+  border-right:1px solid var(--line); padding:20px 16px;
+  display:flex; flex-direction:column; gap:18px;
+}
+.sidenav-brand{ display:flex; flex-direction:column; gap:10px; align-items:flex-start; }
+.sidenav-brand img{ display:block; }
+.sidenav .logo-ampa{ height:36px; width:auto; }
+.sidenav .logo-colegio{ height:26px; width:auto; }
+.sidenav .rainbow-rule{
+  height:4px; width:100%; border-radius:4px;
+  background:linear-gradient(90deg,var(--rainbow-3),var(--rainbow-2),var(--rainbow-1),var(--rainbow-4));
+}
+.sidenav-links{
+  display:flex; flex-direction:column; gap:2px;
   font-family:'IBM Plex Mono', monospace; font-size:12.5px;
 }
-.topnav-links a{
-  color:var(--ink-soft); text-decoration:none; padding:6px 10px;
-  border-radius:var(--radius);
+.sidenav-links .group-label{
+  font-size:10.5px; letter-spacing:.08em; text-transform:uppercase;
+  color:var(--ink-soft); margin:14px 0 4px; padding:0 10px;
 }
-.topnav-links a.active{ color:var(--navy); background:#EEF4FB; font-weight:600; }
-.topnav-links a:hover{ background:#F3F7FB; }
-.topnav-links .spacer{ flex:1; }
-.topnav-links .user-tag{ color:var(--ink-soft); }
-.topnav-links button.linklike{
-  background:none; border:none; cursor:pointer;
+.sidenav-links a{
+  color:var(--ink-soft); text-decoration:none; padding:8px 10px;
+  border-radius:var(--radius); display:block;
+}
+.sidenav-links a.active{ color:var(--navy); background:#EEF4FB; font-weight:600; }
+.sidenav-links a:hover{ background:#F3F7FB; }
+.sidenav-footer{ margin-top:auto; display:flex; flex-direction:column; gap:8px; }
+.sidenav-footer .user-tag{
+  color:var(--ink-soft); font-family:'IBM Plex Mono', monospace; font-size:11.5px;
+  padding:0 10px; word-break:break-word;
+}
+.sidenav-footer button.linklike{
+  background:none; border:none; cursor:pointer; text-align:left;
   color:var(--red); font-family:'IBM Plex Mono', monospace; font-size:12.5px;
-  padding:6px 10px; text-decoration:underline;
+  padding:8px 10px; text-decoration:underline;
 }
+.app-content{ flex:1; min-width:0; padding:32px 28px 60px; }
+.app-content .wrap{ max-width:720px; margin:0; padding:0; }
+
+.sidenav-toggle{
+  display:none; position:fixed; top:14px; left:14px; z-index:50;
+  background:var(--navy); color:#fff; border:none; border-radius:var(--radius);
+  padding:8px 12px; font-family:'IBM Plex Mono', monospace; font-size:12px; cursor:pointer;
+}
+@media (max-width:820px){
+  .sidenav-toggle{ display:block; }
+  .sidenav{
+    position:fixed; inset:0 auto 0 0; z-index:40; transform:translateX(-100%);
+    transition:transform .2s ease; box-shadow:2px 0 12px rgba(0,0,0,.08);
+  }
+  .sidenav.open{ transform:translateX(0); }
+  .app-content{ padding:70px 18px 60px; }
+}
+
 
 /* -------- Tipografía -------- */
 h1{

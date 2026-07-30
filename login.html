@@ -10,26 +10,26 @@
 <style>
   .login-wrap{ max-width:420px; margin:0 auto; padding:60px 20px; }
   .login-logos{ display:flex; align-items:center; justify-content:center; gap:18px; margin-bottom:18px; flex-wrap:wrap; }
-  .login-logos img{ display:block; }
   .login-logos .logo-ampa{ height:52px; }
   .login-logos .logo-colegio{ height:38px; }
-  .rainbow-rule{ height:4px; border-radius:4px; margin-bottom:26px;
-    background:linear-gradient(90deg,var(--rainbow-3),var(--rainbow-2),var(--rainbow-1),var(--rainbow-4)); }
+  .login-wrap .rainbow-rule{ max-width:200px; margin:0 auto 26px; }
   h1{ text-align:center; }
   .lede{ text-align:center; margin:0 auto 26px; }
   .reset-link{ text-align:center; margin-top:14px; }
   .reset-link a{ color:var(--navy); font-size:13px; }
+  .back-link{ display:block; text-align:center; margin-bottom:18px; font-family:'IBM Plex Mono',monospace; font-size:12.5px; color:var(--ink-soft); text-decoration:none; }
 </style>
 </head>
 <body>
 <div class="login-wrap">
+  <a class="back-link" href="index.html">‹ Volver a la web del AMPA</a>
   <div class="login-logos">
     <img class="logo-ampa" src="assets/logo-ampa.png" alt="AMPA">
     <img class="logo-colegio" src="assets/logo-colegio.png" alt="Colegio Juan de Valdés">
   </div>
   <div class="rainbow-rule"></div>
   <h1>Portal del AMPA</h1>
-  <p class="lede">Accede con el email y la contraseña que te ha facilitado el AMPA.</p>
+  <p class="lede">Accede con tu email y contraseña personal.</p>
 
   <div class="card">
     <form id="loginForm">
@@ -51,14 +51,11 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="shared/supabaseClient.js"></script>
 <script>
-  (async () => {
-    const session = await getSession();
-    if (session) window.location.href = 'dashboard.html';
-  })();
-
   const form = document.getElementById('loginForm');
   const errorMsg = document.getElementById('errorMsg');
   const submitBtn = document.getElementById('submitBtn');
+
+  const MENSAJE_CREDENCIALES_INVALIDAS = 'Email o contraseña incorrectos.';
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -69,15 +66,51 @@
     const email = document.getElementById('email').value.trim();
     const password = document.getElementById('password').value;
 
-    const { error } = await sb.auth.signInWithPassword({ email, password });
+    const { data: signInData, error } = await sb.auth.signInWithPassword({ email, password });
 
     if (error) {
-      errorMsg.textContent = 'Email o contraseña incorrectos.';
+      errorMsg.textContent = MENSAJE_CREDENCIALES_INVALIDAS;
       errorMsg.hidden = false;
       submitBtn.disabled = false;
       submitBtn.textContent = 'Iniciar sesión';
       return;
     }
+
+    const adulto = await getAdulto();
+    if (!adulto) {
+      await sb.auth.signOut();
+      errorMsg.textContent = MENSAJE_CREDENCIALES_INVALIDAS;
+      errorMsg.hidden = false;
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Iniciar sesión';
+      return;
+    }
+
+    const socio = await getSocio(adulto.socio_id);
+
+    if (socio && socio.estado === 'baja') {
+      await sb.auth.signOut();
+      errorMsg.textContent = MENSAJE_CREDENCIALES_INVALIDAS;
+      errorMsg.hidden = false;
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Iniciar sesión';
+      return;
+    }
+
+    if (adulto.force_password_change) {
+      window.location.href = 'cambiar-clave.html';
+      return;
+    }
+
+    if (socio && socio.estado === 'recien_creada') {
+      window.location.href = 'estado-recien-creada.html';
+      return;
+    }
+    if (socio && socio.estado === 'falta_pago') {
+      window.location.href = 'estado-falta-pago.html';
+      return;
+    }
+
     window.location.href = 'dashboard.html';
   });
 

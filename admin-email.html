@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Enviar email · Admin AMPA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared/styles.css">
+<style>
+  .two-col{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:560px){ .two-col{ grid-template-columns:1fr; } }
+  textarea#cuerpo{ min-height:180px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">AMPA · Administración</div>
+  <h1>Enviar email</h1>
+  <p class="lede">Se envía por email vía el buzón del AMPA (SMTP), en BCC por tandas. Es un email de texto plano, sin plantillas de diseño.</p>
+
+  <div class="card">
+    <p class="section-label">Destinatarios</p>
+    <select id="tipoDestinatario">
+      <option value="todos">Todos los socios activos</option>
+      <option value="curso">Alumnos de un curso concreto</option>
+      <option value="evento">Inscritos a un evento</option>
+    </select>
+
+    <div id="cursoWrap" class="two-col" style="display:none; margin-top:14px;">
+      <div class="field">
+        <label>Etapa</label>
+        <select id="fEtapa">
+          <option value="Infantil">Infantil</option><option value="Primaria">Primaria</option>
+          <option value="ESO">ESO</option><option value="Bachillerato">Bachillerato</option>
+        </select>
+      </div>
+      <div class="field"><label>Curso</label><select id="fCurso"></select></div>
+    </div>
+
+    <div id="eventoWrap" style="display:none; margin-top:14px;">
+      <div class="field"><label>Evento</label><select id="fEvento"></select></div>
+    </div>
+
+    <button type="button" class="btn btn-outline" id="calcularBtn" style="margin-top:16px;">Calcular destinatarios</button>
+    <p id="totalMsg" style="margin-top:10px; font-size:13.5px; color:var(--ink-soft);"></p>
+  </div>
+
+  <div class="card">
+    <p class="section-label">Mensaje</p>
+    <div class="field"><label>Asunto</label><input type="text" id="asunto"></div>
+    <div class="field" style="margin-top:14px;"><label>Cuerpo</label><textarea id="cuerpo"></textarea></div>
+    <button type="button" class="btn btn-primary" id="enviarBtn" style="margin-top:16px;" disabled>Enviar</button>
+    <p id="msg" style="display:none; margin-top:14px;"></p>
+  </div>
+
+  <footer class="note"><b>AMPA Colegio Juan de Valdés</b> — panel de administración</footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="shared/supabaseClient.js"></script>
+<script src="shared/nav.js"></script>
+<script src="shared/catalogo.js"></script>
+<script>
+function actualizarCursos() {
+  document.getElementById('fCurso').innerHTML = CURSOS_POR_ETAPA[document.getElementById('fEtapa').value].map(c => '<option>' + c + '</option>').join('');
+}
+document.getElementById('fEtapa').addEventListener('change', actualizarCursos);
+actualizarCursos();
+
+document.getElementById('tipoDestinatario').addEventListener('change', (e) => {
+  document.getElementById('cursoWrap').style.display = e.target.value === 'curso' ? 'grid' : 'none';
+  document.getElementById('eventoWrap').style.display = e.target.value === 'evento' ? 'block' : 'none';
+  document.getElementById('enviarBtn').disabled = true;
+  document.getElementById('totalMsg').textContent = '';
+});
+
+async function cargarEventosSelect() {
+  const { data } = await sb.from('eventos').select('id, titulo').order('fecha', { ascending: false });
+  document.getElementById('fEvento').innerHTML = (data || []).map(e => '<option value="' + e.id + '">' + e.titulo + '</option>').join('');
+}
+
+let destinatariosCalculados = [];
+
+document.getElementById('calcularBtn').addEventListener('click', async () => {
+  const tipo = document.getElementById('tipoDestinatario').value;
+  let emails = [];
+
+  if (tipo === 'todos') {
+    const { data: socios } = await sb.from('socios').select('id').eq('estado', 'activa');
+    const ids = (socios || []).map(s => s.id);
+    if (ids.length) {
+      const { data: adultos } = await sb.from('adultos').select('email').in('socio_id', ids);
+      emails = (adultos || []).map(a => a.email);
+    }
+  } else if (tipo === 'curso') {
+    const etapa = document.getElementById('fEtapa').value;
+    const curso = document.getElementById('fCurso').value;
+    const { data: alumnos } = await sb.from('alumnos').select('socio_id').eq('etapa', etapa).eq('curso', curso);
+    const socioIds = [...new Set((alumnos || []).map(a => a.socio_id))];
+    if (socioIds.length) {
+      const { data: adultos } = await sb.from('adultos').select('email').in('socio_id', socioIds);
+      emails = (adultos || []).map(a => a.email);
+    }
+  } else if (tipo === 'evento') {
+    const eventoId = document.getElementById('fEvento').value;
+    const { data: inscripciones } = await sb.from('evento_inscripciones').select('socio_id').eq('evento_id', eventoId).not('socio_id', 'is', null);
+    const socioIds = [...new Set((inscripciones || []).map(i => i.socio_id))];
+    if (socioIds.length) {
+      const { data: adultos } = await sb.from('adultos').select('email').in('socio_id', socioIds);
+      emails = (adultos || []).map(a => a.email);
+    }
+  }
+
+  destinatariosCalculados = [...new Set(emails)];
+  document.getElementById('totalMsg').textContent = destinatariosCalculados.length + ' destinatarios encontrados.';
+  document.getElementById('enviarBtn').disabled = destinatariosCalculados.length === 0;
+});
+
+document.getElementById('enviarBtn').addEventListener('click', async () => {
+  const asunto = document.getElementById('asunto').value.trim();
+  const cuerpo = document.getElementById('cuerpo').value.trim();
+  const msg = document.getElementById('msg');
+  const btn = document.getElementById('enviarBtn');
+
+  if (!asunto || !cuerpo) {
+    msg.style.display = 'block'; msg.className = 'msg-error'; msg.textContent = 'Completa asunto y cuerpo.';
+    return;
+  }
+  if (!confirm('¿Enviar este email a ' + destinatariosCalculados.length + ' destinatarios?')) return;
+
+  btn.disabled = true; btn.textContent = 'Enviando...';
+  const session = await getSession();
+  try {
+    const resp = await fetch('/.netlify/functions/enviar-email-masivo', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
+      body: JSON.stringify({ destinatarios: destinatariosCalculados, asunto, cuerpo })
+    });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.error || 'Error al enviar');
+    msg.style.display = 'block'; msg.className = 'msg-ok';
+    msg.textContent = 'Enviado a ' + data.enviados + ' destinatarios ✓';
+  } catch (err) {
+    msg.style.display = 'block'; msg.className = 'msg-error';
+    msg.textContent = err.message;
+  }
+  btn.disabled = false; btn.textContent = 'Enviar';
+});
+
+(async () => {
+  const ctx = await requireAdmin();
+  if (!ctx) return;
+  renderNav('admin-email', ctx);
+  await cargarEventosSelect();
+})();
+</script>
+</body>
+</html>

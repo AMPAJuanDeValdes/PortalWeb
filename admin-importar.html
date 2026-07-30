@@ -9,9 +9,8 @@
 <link rel="stylesheet" href="shared/styles.css">
 <style>
   .two-col{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
-  .three-col{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; }
-  @media (max-width:560px){ .two-col, .three-col{ grid-template-columns:1fr; } }
-  code{ background:#F0F6FC; padding:1px 6px; border-radius:3px; font-size:12.5px; }
+  @media (max-width:560px){ .two-col{ grid-template-columns:1fr; } }
+  code{ background:#F0F6FC; padding:1px 6px; border-radius:3px; font-size:12px; }
   .cols-hint{ font-size:12.5px; color:var(--ink-soft); line-height:1.7; }
 </style>
 </head>
@@ -19,110 +18,56 @@
 <div class="wrap">
   <div class="eyebrow">AMPA · Administración</div>
   <h1>Alta de socios</h1>
-  <p class="lede">
-    Puedes dar de alta a los socios en bloque desde un CSV, o de uno en uno más abajo.
-    En ambos casos se crea la cuenta de socio y el progenitor principal, con una contraseña
-    provisional que el socio deberá cambiar en su primer acceso. El segundo progenitor y los
-    hijos/as los añade la propia familia desde "Mis datos" y "Préstamo de libros".
-  </p>
+  <p class="lede">Crea la cuenta directamente como <b>Activa</b> (a diferencia del alta autoservicio, que queda "Recién Creada" hasta que se apruebe). Cada adulto recibe su contraseña provisional por email automáticamente.</p>
 
   <div class="card">
     <p class="section-label">1. Importar por CSV</p>
     <p class="cols-hint">
-      Columnas obligatorias en la cabecera:<br>
-      <code>anio_ultima_cuota, numero_secuencial, nombre, apellidos, dni_nie, email, direccion, ciudad, provincia, codigo_postal</code><br>
-      Columnas opcionales: <code>forma_pago</code> (Metálico / Transferencia / Domiciliación Bancaria),
-      <code>iban</code>, <code>es_pasaporte</code> (sí/no), <code>sexo</code> (Masculino/Femenino/Otro),
-      <code>telefono_fijo</code>, <code>movil</code>.
+      Obligatorias: <code>anio_ultima_cuota, adulto1_nombre, adulto1_apellidos, adulto1_dni_nie, adulto1_email, adulto1_direccion, adulto1_ciudad, adulto1_provincia, adulto1_codigo_postal</code><br>
+      Opcionales de cuenta: <code>numero_secuencial</code> (si se deja vacío, se autogenera), <code>forma_pago, iban</code><br>
+      Segundo adulto (opcional): mismas columnas con prefijo <code>adulto2_</code><br>
+      Alumnos (opcional, hasta 6): <code>alumno1_nombre, alumno1_apellidos, alumno1_etapa, alumno1_curso, alumno1_aula, alumno1_fecha_nacimiento, alumno1_sexo</code>, luego <code>alumno2_...</code>, etc.
     </p>
     <input type="file" id="csvFile" accept=".csv" style="margin-top:14px;">
-    <div style="margin-top:16px;">
-      <button type="button" class="btn btn-primary" id="importBtn" disabled>Importar socios</button>
-    </div>
+    <div style="margin-top:16px;"><button type="button" class="btn btn-primary" id="importBtn" disabled>Importar socios</button></div>
     <p id="statusMsg" class="msg-ok" style="display:none; margin-top:14px;"></p>
     <p id="errorMsg" class="msg-error" style="display:none; margin-top:14px;"></p>
   </div>
 
   <div class="card" id="resultsCard" style="display:none;">
-    <p class="section-label">Resultado de la importación</p>
+    <p class="section-label">Resultado</p>
     <div id="resultsTable"></div>
-    <button type="button" class="btn btn-outline" id="downloadBtn" style="margin-top:14px;">
-      Descargar credenciales (CSV)
-    </button>
   </div>
 
   <div class="card">
-    <p class="section-label">2. Dar de alta un socio manualmente</p>
-
-    <p class="section-label" style="margin-top:6px;">Cuenta de socio</p>
+    <p class="section-label">2. Alta manual (un socio)</p>
     <div class="two-col">
       <div class="field"><label>Año de última cuota *</label><input type="number" id="mAnio"></div>
-      <div class="field"><label>Número secuencial (4 cifras) *</label><input type="text" id="mSecuencial" maxlength="4" placeholder="0001"></div>
+      <div class="field"><label>Número secuencial (vacío = automático)</label><input type="text" id="mSecuencial" maxlength="4"></div>
     </div>
     <div class="two-col" style="margin-top:14px;">
       <div class="field">
         <label>Forma de pago</label>
-        <select id="mFormaPago">
-          <option value="">Sin especificar</option>
-          <option value="Metálico">Metálico</option>
-          <option value="Transferencia">Transferencia</option>
-          <option value="Domiciliación Bancaria">Domiciliación Bancaria</option>
-        </select>
+        <select id="mFormaPago"><option value="">Sin especificar</option><option>Metálico</option><option>Transferencia</option><option>Domiciliación Bancaria</option></select>
       </div>
       <div class="field"><label>IBAN</label><input type="text" id="mIban"></div>
     </div>
 
-    <p class="section-label" style="margin-top:22px;">Progenitor principal</p>
-    <div class="two-col">
-      <div class="field"><label>Nombre *</label><input type="text" id="mNombre"></div>
-      <div class="field"><label>Apellidos *</label><input type="text" id="mApellidos"></div>
-    </div>
-    <div class="two-col" style="margin-top:14px;">
-      <div class="field"><label>DNI / NIE / Pasaporte *</label><input type="text" id="mDni"></div>
-      <div class="field">
-        <label>&nbsp;</label>
-        <label style="display:flex; align-items:center; gap:8px; font-weight:400;">
-          <input type="checkbox" id="mEsPasaporte" style="width:auto;"> Es número de pasaporte
-        </label>
-      </div>
-    </div>
-    <div class="two-col" style="margin-top:14px;">
-      <div class="field">
-        <label>Sexo</label>
-        <select id="mSexo">
-          <option value="">Sin especificar</option>
-          <option value="Masculino">Masculino</option>
-          <option value="Femenino">Femenino</option>
-          <option value="Otro">Otro</option>
-        </select>
-      </div>
-      <div class="field"><label>Correo electrónico *</label><input type="email" id="mEmail"></div>
-    </div>
-    <div class="field" style="margin-top:14px;"><label>Dirección *</label><input type="text" id="mDireccion"></div>
-    <div class="three-col" style="margin-top:14px;">
-      <div class="field"><label>Ciudad *</label><input type="text" id="mCiudad"></div>
-      <div class="field"><label>Provincia *</label><input type="text" id="mProvincia"></div>
-      <div class="field"><label>Código postal *</label><input type="text" id="mCp"></div>
-    </div>
-    <div class="two-col" style="margin-top:14px;">
-      <div class="field"><label>Teléfono fijo</label><input type="text" id="mTelefonoFijo"></div>
-      <div class="field"><label>Móvil</label><input type="text" id="mMovil"></div>
-    </div>
+    <p class="section-label" style="margin-top:22px;">Adulto 1</p>
+    <div id="adulto1Wrap"></div>
+
+    <p class="section-label" style="margin-top:22px;">Adulto 2 (opcional)</p>
+    <label style="display:flex; align-items:center; gap:8px; font-weight:400; margin-bottom:10px;">
+      <input type="checkbox" id="tieneAdulto2" style="width:auto;"> Añadir un segundo adulto
+    </label>
+    <div id="adulto2Wrap" style="display:none;"></div>
+
+    <p class="section-label" style="margin-top:22px;">Alumnos</p>
+    <div id="alumnosWrap"></div>
+    <button type="button" class="btn btn-outline" id="addAlumnoBtn" style="margin-bottom:10px;">+ Añadir alumno</button>
 
     <button type="button" class="btn btn-primary" id="manualBtn" style="margin-top:18px;">Dar de alta</button>
-    <p id="manualStatusMsg" class="msg-ok" style="display:none; margin-top:14px;"></p>
-    <p id="manualErrorMsg" class="msg-error" style="display:none; margin-top:14px;"></p>
-    <div id="manualResultCard" style="display:none; margin-top:14px;">
-      <table>
-        <thead><tr><th>Email</th><th>Contraseña provisional</th></tr></thead>
-        <tbody id="manualResultBody"></tbody>
-      </table>
-    </div>
-  </div>
-
-  <div class="card">
-    <p class="section-label">Socios existentes</p>
-    <div id="socioListWrap"><p class="loading">Cargando...</p></div>
+    <p id="manualMsg" style="display:none; margin-top:14px;"></p>
   </div>
 
   <footer class="note"><b>AMPA Colegio Juan de Valdés</b> — panel de administración</footer>
@@ -131,11 +76,101 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="shared/supabaseClient.js"></script>
 <script src="shared/nav.js"></script>
+<script src="shared/catalogo.js"></script>
 <script src="shared/csv.js"></script>
-<script src="shared/helpers.js"></script>
 <script>
-let filas = [];
-let ultimosResultados = [];
+function campoTexto(id, label, tipo) {
+  tipo = tipo || 'text';
+  return '<div class="field"><label>' + label + '</label><input type="' + tipo + '" id="' + id + '"></div>';
+}
+
+function renderAdultoForm(prefijo) {
+  return (
+    '<div class="two-col">' + campoTexto(prefijo + 'Nombre', 'Nombre *') + campoTexto(prefijo + 'Apellidos', 'Apellidos *') + '</div>' +
+    '<div class="two-col" style="margin-top:14px;">' + campoTexto(prefijo + 'Email', 'Email *', 'email') + campoTexto(prefijo + 'Dni', 'DNI/NIE *') + '</div>' +
+    '<div class="two-col" style="margin-top:14px;">' + campoTexto(prefijo + 'Direccion', 'Dirección *') + campoTexto(prefijo + 'Ciudad', 'Ciudad *') + '</div>' +
+    '<div class="two-col" style="margin-top:14px;">' + campoTexto(prefijo + 'Provincia', 'Provincia *') + campoTexto(prefijo + 'Cp', 'Código postal *') + '</div>' +
+    '<div class="two-col" style="margin-top:14px;">' + campoTexto(prefijo + 'Movil', 'Móvil') + campoTexto(prefijo + 'Relacion', 'Relación con alumnos') + '</div>'
+  );
+}
+document.getElementById('adulto1Wrap').innerHTML = renderAdultoForm('a1');
+document.getElementById('adulto2Wrap').innerHTML = renderAdultoForm('a2');
+
+document.getElementById('tieneAdulto2').addEventListener('change', (e) => {
+  document.getElementById('adulto2Wrap').style.display = e.target.checked ? 'block' : 'none';
+});
+
+let alumnosManual = [];
+let alumnoCounter = 0;
+function renderAlumnos() {
+  const wrap = document.getElementById('alumnosWrap');
+  wrap.innerHTML = '';
+  alumnosManual.forEach(al => {
+    const div = document.createElement('div');
+    div.className = 'hijo-card';
+    div.innerHTML = '<div class="hijo-head"><span class="hijo-tag">Alumno/a</span>' +
+      '<button class="btn-danger-link" data-id="' + al.id + '">Quitar</button></div>';
+    const body = document.createElement('div'); body.className = 'hijo-body';
+    body.innerHTML =
+      '<div class="two-col">' + campoTexto('al_nombre_' + al.id, 'Nombre') + campoTexto('al_apellidos_' + al.id, 'Apellidos') + '</div>' +
+      '<div class="two-col" style="margin-top:14px;">' +
+      '<div class="field"><label>Etapa</label><select id="al_etapa_' + al.id + '"><option value="">Selecciona...</option>' +
+      Object.keys(CURSOS_POR_ETAPA).map(e => '<option>' + e + '</option>').join('') + '</select></div>' +
+      '<div class="field"><label>Curso</label><select id="al_curso_' + al.id + '"><option value="">Elige etapa antes</option></select></div>' +
+      '</div>';
+    div.appendChild(body);
+    wrap.appendChild(div);
+    div.querySelector('.btn-danger-link').addEventListener('click', () => {
+      alumnosManual = alumnosManual.filter(x => x.id !== al.id); renderAlumnos();
+    });
+    document.getElementById('al_etapa_' + al.id).addEventListener('change', (e) => {
+      const cursoSelect = document.getElementById('al_curso_' + al.id);
+      const opciones = CURSOS_POR_ETAPA[e.target.value] || [];
+      cursoSelect.innerHTML = opciones.map(c => '<option>' + c + '</option>').join('');
+    });
+  });
+}
+document.getElementById('addAlumnoBtn').addEventListener('click', () => {
+  alumnosManual.push({ id: 'al' + (alumnoCounter++) });
+  renderAlumnos();
+});
+
+function leerAdultoDelForm(prefijo) {
+  const v = (id) => (document.getElementById(prefijo + id) ? document.getElementById(prefijo + id).value.trim() : '');
+  const nombre = v('Nombre');
+  if (!nombre) return null;
+  return {
+    nombre: nombre, apellidos: v('Apellidos'), email: v('Email'), dni_nie: v('Dni'),
+    direccion: v('Direccion'), ciudad: v('Ciudad'), provincia: v('Provincia'),
+    codigo_postal: v('Cp'), movil: v('Movil'), relacion_alumnos: v('Relacion')
+  };
+}
+
+async function llamarFuncionAlta(sociosArray) {
+  const session = await getSession();
+  const resp = await fetch('/.netlify/functions/admin-import-socios', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
+    body: JSON.stringify({ socios: sociosArray })
+  });
+  const data = await resp.json();
+  if (!resp.ok) throw new Error(data.error || 'Error en el alta');
+  return data.resultados;
+}
+
+function mostrarResultados(resultados) {
+  const wrap = document.getElementById('resultsTable');
+  document.getElementById('resultsCard').style.display = 'block';
+  wrap.innerHTML = '<table><thead><tr><th>Titular</th><th>Nº socio</th><th>Estado</th></tr></thead><tbody>' +
+    resultados.map(r => '<tr>' +
+      '<td>' + r.nombre_titular + '</td>' +
+      '<td>' + (r.numero_secuencial || '') + '</td>' +
+      '<td>' + (r.ok
+        ? '<span class="badge badge-socio">Creado</span> (' + r.alumnos_creados + ' alumno/s, email a ' + r.emails + ')'
+        : '<span class="msg-error" style="margin:0;">' + r.error + '</span>') + '</td>' +
+    '</tr>').join('') +
+  '</tbody></table>';
+}
 
 document.getElementById('csvFile').addEventListener('change', (e) => {
   const file = e.target.files[0];
@@ -145,202 +180,84 @@ document.getElementById('csvFile').addEventListener('change', (e) => {
   const reader = new FileReader();
   reader.onload = () => {
     const parsed = parsearCSV(reader.result);
-    if (parsed.length < 2) {
-      errorMsg.textContent = 'El archivo no parece tener filas de datos.';
-      errorMsg.style.display = 'block';
-      return;
-    }
-    filas = csvAObjetos(parsed);
-    const obligatorios = ['anio_ultima_cuota', 'numero_secuencial', 'nombre', 'apellidos', 'dni_nie', 'email', 'direccion', 'ciudad', 'provincia', 'codigo_postal'];
-    const faltan = filas.some(f => obligatorios.some(c => !f[c]));
-    if (faltan) {
-      errorMsg.textContent = 'Revisa que todas las filas tengan los campos obligatorios: ' + obligatorios.join(', ');
-      errorMsg.style.display = 'block';
-      document.getElementById('importBtn').disabled = true;
-      return;
-    }
+    if (parsed.length < 2) { errorMsg.textContent = 'El archivo no tiene filas.'; errorMsg.style.display = 'block'; return; }
+    window._filasCsv = csvAObjetos(parsed);
     document.getElementById('importBtn').disabled = false;
   };
   reader.readAsText(file, 'UTF-8');
 });
 
-async function llamarFuncionAlta(sociosArray) {
-  const session = await getSession();
-  const resp = await fetch('/.netlify/functions/admin-import-socios', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': 'Bearer ' + session.access_token
-    },
-    body: JSON.stringify({ socios: sociosArray })
-  });
-  const data = await resp.json();
-  if (!resp.ok) throw new Error(data.error || 'Error en el alta');
-  return data.resultados;
-}
-
 document.getElementById('importBtn').addEventListener('click', async () => {
   const btn = document.getElementById('importBtn');
-  const statusMsg = document.getElementById('statusMsg');
-  const errorMsg = document.getElementById('errorMsg');
-  btn.disabled = true;
-  btn.textContent = 'Importando...';
-  errorMsg.style.display = 'none';
-
+  btn.disabled = true; btn.textContent = 'Importando...';
   try {
-    ultimosResultados = await llamarFuncionAlta(filas);
-    mostrarResultados(ultimosResultados);
-    statusMsg.textContent = 'Importación completada.';
-    statusMsg.style.display = 'block';
-    cargarSocios();
+    const resultados = await llamarFuncionAlta(window._filasCsv);
+    mostrarResultados(resultados);
+    document.getElementById('statusMsg').style.display = 'block';
+    document.getElementById('statusMsg').textContent = 'Importación completada.';
   } catch (err) {
-    errorMsg.textContent = err.message;
-    errorMsg.style.display = 'block';
+    document.getElementById('errorMsg').style.display = 'block';
+    document.getElementById('errorMsg').textContent = err.message;
   }
-  btn.textContent = 'Importar socios';
-  btn.disabled = false;
-});
-
-function mostrarResultados(resultados) {
-  const wrap = document.getElementById('resultsTable');
-  const card = document.getElementById('resultsCard');
-  card.style.display = 'block';
-  const ok = resultados.filter(r => r.ok).length;
-  const fail = resultados.length - ok;
-  wrap.innerHTML = `
-    <p style="font-size:13.5px; margin-bottom:10px;">✓ ${ok} creados correctamente ${fail ? ' · ✗ ' + fail + ' con error' : ''}</p>
-    <table>
-      <thead><tr><th>Titular</th><th>Email</th><th>Estado</th></tr></thead>
-      <tbody>
-        ${resultados.map(r => `
-          <tr>
-            <td>${r.nombre_titular}</td>
-            <td>${r.email}</td>
-            <td>${r.ok ? '<span class="badge badge-socio">Creado</span>' : '<span class="msg-error" style="margin:0;">' + (r.error || 'Error') + '</span>'}</td>
-          </tr>
-        `).join('')}
-      </tbody>
-    </table>
-  `;
-}
-
-document.getElementById('downloadBtn').addEventListener('click', () => {
-  const filasCsv = ultimosResultados.filter(r => r.ok).map(r => ({
-    nombre_titular: r.nombre_titular,
-    email: r.email,
-    contraseña_inicial: r.password
-  }));
-  descargarCSV(filasCsv, 'credenciales-ampa.csv');
+  btn.disabled = false; btn.textContent = 'Importar socios';
 });
 
 document.getElementById('manualBtn').addEventListener('click', async () => {
   const btn = document.getElementById('manualBtn');
-  const statusMsg = document.getElementById('manualStatusMsg');
-  const errorMsg = document.getElementById('manualErrorMsg');
-  const resultCard = document.getElementById('manualResultCard');
-  const resultBody = document.getElementById('manualResultBody');
-
-  statusMsg.style.display = 'none';
-  errorMsg.style.display = 'none';
-
+  const msg = document.getElementById('manualMsg');
+  const adulto1 = leerAdultoDelForm('a1');
+  if (!adulto1 || !adulto1.email || !adulto1.dni_nie) {
+    msg.style.display = 'block'; msg.className = 'msg-error';
+    msg.textContent = 'Completa los datos obligatorios del adulto 1.';
+    return;
+  }
   const fila = {
     anio_ultima_cuota: document.getElementById('mAnio').value.trim(),
     numero_secuencial: document.getElementById('mSecuencial').value.trim(),
     forma_pago: document.getElementById('mFormaPago').value,
     iban: document.getElementById('mIban').value.trim(),
-    nombre: document.getElementById('mNombre').value.trim(),
-    apellidos: document.getElementById('mApellidos').value.trim(),
-    dni_nie: document.getElementById('mDni').value.trim(),
-    es_pasaporte: document.getElementById('mEsPasaporte').checked ? 'si' : 'no',
-    sexo: document.getElementById('mSexo').value,
-    email: document.getElementById('mEmail').value.trim(),
-    direccion: document.getElementById('mDireccion').value.trim(),
-    ciudad: document.getElementById('mCiudad').value.trim(),
-    provincia: document.getElementById('mProvincia').value.trim(),
-    codigo_postal: document.getElementById('mCp').value.trim(),
-    telefono_fijo: document.getElementById('mTelefonoFijo').value.trim(),
-    movil: document.getElementById('mMovil').value.trim()
+    adulto1_nombre: adulto1.nombre, adulto1_apellidos: adulto1.apellidos, adulto1_email: adulto1.email,
+    adulto1_dni_nie: adulto1.dni_nie, adulto1_direccion: adulto1.direccion, adulto1_ciudad: adulto1.ciudad,
+    adulto1_provincia: adulto1.provincia, adulto1_codigo_postal: adulto1.codigo_postal,
+    adulto1_movil: adulto1.movil, adulto1_relacion_alumnos: adulto1.relacion_alumnos
   };
-
-  const obligatorios = ['anio_ultima_cuota', 'numero_secuencial', 'nombre', 'apellidos', 'dni_nie', 'email', 'direccion', 'ciudad', 'provincia', 'codigo_postal'];
-  const faltan = obligatorios.filter(c => !fila[c]);
-  if (faltan.length) {
-    errorMsg.textContent = 'Completa los campos obligatorios: ' + faltan.join(', ');
-    errorMsg.style.display = 'block';
-    return;
+  if (document.getElementById('tieneAdulto2').checked) {
+    const adulto2 = leerAdultoDelForm('a2');
+    if (adulto2) {
+      Object.assign(fila, {
+        adulto2_nombre: adulto2.nombre, adulto2_apellidos: adulto2.apellidos, adulto2_email: adulto2.email,
+        adulto2_dni_nie: adulto2.dni_nie, adulto2_direccion: adulto2.direccion, adulto2_ciudad: adulto2.ciudad,
+        adulto2_provincia: adulto2.provincia, adulto2_codigo_postal: adulto2.codigo_postal,
+        adulto2_movil: adulto2.movil, adulto2_relacion_alumnos: adulto2.relacion_alumnos
+      });
+    }
   }
+  alumnosManual.forEach((al, idx) => {
+    const n = idx + 1;
+    fila['alumno' + n + '_nombre'] = document.getElementById('al_nombre_' + al.id) ? document.getElementById('al_nombre_' + al.id).value.trim() : '';
+    fila['alumno' + n + '_apellidos'] = document.getElementById('al_apellidos_' + al.id) ? document.getElementById('al_apellidos_' + al.id).value.trim() : '';
+    fila['alumno' + n + '_etapa'] = document.getElementById('al_etapa_' + al.id) ? document.getElementById('al_etapa_' + al.id).value : '';
+    fila['alumno' + n + '_curso'] = document.getElementById('al_curso_' + al.id) ? document.getElementById('al_curso_' + al.id).value : '';
+  });
 
-  btn.disabled = true;
-  btn.textContent = 'Dando de alta...';
-
+  btn.disabled = true; btn.textContent = 'Dando de alta...';
   try {
     const resultados = await llamarFuncionAlta([fila]);
     const r = resultados[0];
-    if (!r.ok) throw new Error(r.error || 'Error al dar de alta');
-
-    resultBody.innerHTML = `<tr><td>${r.email}</td><td><b>${r.password}</b></td></tr>`;
-    resultCard.style.display = 'block';
-    statusMsg.textContent = 'Socio dado de alta ✓. Copia la contraseña y pásasela por un canal seguro (no queda guardada en ningún sitio).';
-    statusMsg.style.display = 'block';
-
-    ['mAnio','mSecuencial','mIban','mNombre','mApellidos','mDni','mEmail','mDireccion','mCiudad','mProvincia','mCp','mTelefonoFijo','mMovil']
-      .forEach(id => document.getElementById(id).value = '');
-    document.getElementById('mEsPasaporte').checked = false;
-    document.getElementById('mFormaPago').value = '';
-    document.getElementById('mSexo').value = '';
-
-    cargarSocios();
+    if (!r.ok) throw new Error(r.error);
+    msg.style.display = 'block'; msg.className = 'msg-ok';
+    msg.textContent = 'Alta completada ✓ (Nº socio ' + r.numero_secuencial + '). Emails enviados a: ' + r.emails;
   } catch (err) {
-    errorMsg.textContent = err.message;
-    errorMsg.style.display = 'block';
+    msg.style.display = 'block'; msg.className = 'msg-error';
+    msg.textContent = err.message;
   }
-  btn.disabled = false;
-  btn.textContent = 'Dar de alta';
+  btn.disabled = false; btn.textContent = 'Dar de alta';
 });
-
-async function cargarSocios() {
-  const wrap = document.getElementById('socioListWrap');
-  const { data, error } = await sb
-    .from('profiles')
-    .select('id, numero_socio_completo, email, role, anio_ultima_cuota')
-    .order('created_at', { ascending: false });
-  if (error) { wrap.innerHTML = '<p class="msg-error">No se pudo cargar la lista.</p>'; return; }
-
-  const resumen = await getResumenSocios(data.map(p => p.id));
-
-  wrap.innerHTML = `
-    <table>
-      <thead><tr><th>Nº socio</th><th>Titular</th><th>Email</th><th>Rol</th><th></th></tr></thead>
-      <tbody>
-        ${data.map(p => `
-          <tr>
-            <td>${p.numero_socio_completo}</td>
-            <td>${resumen[p.id]?.nombre || ''}</td>
-            <td>${p.email}</td>
-            <td><span class="badge ${p.role === 'admin' ? 'badge-admin' : 'badge-socio'}">${p.role}</span></td>
-            <td><button class="btn-danger-link toggle-role" data-id="${p.id}" data-role="${p.role}">
-              ${p.role === 'admin' ? 'Quitar admin' : 'Hacer admin'}
-            </button></td>
-          </tr>
-        `).join('')}
-      </tbody>
-    </table>
-  `;
-
-  wrap.querySelectorAll('.toggle-role').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const nuevoRol = btn.dataset.role === 'admin' ? 'socio' : 'admin';
-      await sb.from('profiles').update({ role: nuevoRol }).eq('id', btn.dataset.id);
-      cargarSocios();
-    });
-  });
-}
 
 (async () => {
   const ctx = await requireAdmin();
   if (!ctx) return;
-  renderNav('admin-importar', ctx.profile);
-  await cargarSocios();
+  renderNav('admin-importar', ctx);
 })();
 </script>
 </body>

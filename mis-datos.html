@@ -9,293 +9,261 @@
 <link rel="stylesheet" href="shared/styles.css">
 <style>
   .two-col{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
-  .three-col{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; }
-  @media (max-width:560px){ .two-col, .three-col{ grid-template-columns:1fr; } }
-  .readonly-value{
-    background:#F0F6FC; border:1px solid var(--line); border-radius:var(--radius);
-    padding:10px 12px; font-family:'IBM Plex Mono', monospace; font-size:14px; color:var(--ink-soft);
-  }
+  @media (max-width:560px){ .two-col{ grid-template-columns:1fr; } }
+  .readonly-value{ background:#F0F6FC; border:1px solid var(--line); border-radius:var(--radius); padding:10px 12px; font-family:'IBM Plex Mono',monospace; font-size:14px; color:var(--ink-soft); }
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="eyebrow">AMPA · Mi cuenta</div>
   <h1>Mis datos</h1>
-  <p class="lede">Datos de la cuenta de socio y de los progenitores de la familia.</p>
 
   <div class="card">
     <p class="section-label">Datos de la cuenta</p>
     <div class="two-col">
-      <div class="field">
-        <label>Número de socio</label>
-        <div class="readonly-value" id="numeroSocioValue">—</div>
-      </div>
-      <div class="field">
-        <label>Año de última cuota</label>
-        <div class="readonly-value" id="anioValue">—</div>
-      </div>
+      <div class="field"><label>Número de socio</label><div class="readonly-value" id="numeroSocioValue">—</div></div>
+      <div class="field"><label>Año de última cuota</label><div class="readonly-value" id="anioValue">—</div></div>
     </div>
-    <p style="font-size:12.5px; color:var(--ink-soft); margin:10px 0 18px;">
-      Estos datos los gestiona el AMPA. Si hay algún error, contacta con la Junta.
+    <div class="two-col" style="margin-top:14px;">
+      <div class="field"><label>Forma de pago</label><div class="readonly-value" id="formaPagoValue">—</div></div>
+      <div class="field" id="ibanField" style="display:none;"><label>IBAN domiciliado</label><div class="readonly-value" id="ibanValue">—</div></div>
+    </div>
+    <div style="margin-top:16px; display:flex; gap:10px; flex-wrap:wrap;">
+      <button type="button" class="btn btn-outline" id="cambiarBancoBtn">Domiciliar / cambiar cuenta bancaria</button>
+      <button type="button" class="btn-danger-link" id="bajaBtn">Dar de baja mi cuenta</button>
+    </div>
+    <p style="font-size:12px; color:var(--ink-soft); margin-top:10px;">
+      La domiciliación requiere firmar un mandato SEPA — esta parte del
+      sistema está pendiente de que el AMPA suba la plantilla oficial.
     </p>
-    <div class="two-col">
-      <div class="field">
-        <label>Forma de pago</label>
-        <select id="formaPago">
-          <option value="">Sin especificar</option>
-          <option value="Metálico">Metálico</option>
-          <option value="Transferencia">Transferencia</option>
-          <option value="Domiciliación Bancaria">Domiciliación Bancaria</option>
-        </select>
-      </div>
-      <div class="field">
-        <label>IBAN</label>
-        <input type="text" id="iban" placeholder="ES00 0000 0000 0000 0000 0000">
-      </div>
-    </div>
-    <button type="button" class="btn btn-primary" id="guardarCuentaBtn" style="margin-top:16px;">Guardar cuenta</button>
-    <p id="cuentaMsg" class="msg-ok" style="display:none;"></p>
   </div>
 
-  <div id="progenitoresContainer"></div>
-  <button type="button" class="btn btn-outline btn-block" id="addSecundarioBtn" style="display:none;">
-    + Añadir segundo progenitor
-  </button>
+  <div class="card">
+    <p class="section-label">Adultos de la familia</p>
+    <div id="adultosWrap"><p class="loading">Cargando...</p></div>
+    <button type="button" class="btn btn-outline" id="addAdultoBtn" style="margin-top:14px; display:none;">+ Añadir segundo adulto</button>
+  </div>
+
+  <div class="card">
+    <p class="section-label">Alumnos</p>
+    <p style="font-size:13px; color:var(--ink-soft); margin-top:-8px;">
+      Para añadir o editar alumnos, ve a "Préstamo de libros" desde el menú.
+    </p>
+    <div id="alumnosResumenWrap"></div>
+  </div>
 
   <footer class="note"><b>AMPA Colegio Juan de Valdés</b></footer>
+</div>
+
+<!-- Pop-up de confirmación de baja -->
+<div id="bajaModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.4); align-items:center; justify-content:center; z-index:100;">
+  <div class="card" style="max-width:420px; margin:20px;">
+    <p class="section-label">Confirmar baja</p>
+    <p style="font-size:14.5px;">
+      Al dar de baja tu cuenta perderéis en el momento todos los beneficios
+      de ser socios (préstamo de libros, eventos de socios, etc.). Podréis
+      solicitar volver a ser socios más adelante. ¿Seguro que quieres
+      continuar?
+    </p>
+    <div style="display:flex; gap:10px; margin-top:16px;">
+      <button type="button" class="btn btn-outline" id="cancelarBajaBtn">Cancelar</button>
+      <button type="button" class="btn btn-primary" id="confirmarBajaBtn" style="background:var(--red);">Sí, dar de baja</button>
+    </div>
+  </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="shared/supabaseClient.js"></script>
 <script src="shared/nav.js"></script>
 <script>
-let profile = null;
-let progenitores = { principal: null, secundario: null };
-
-const PROVINCIAS = [
-  'A Coruña','Álava','Albacete','Alicante','Almería','Asturias','Ávila','Badajoz','Barcelona',
-  'Burgos','Cáceres','Cádiz','Cantabria','Castellón','Ciudad Real','Córdoba','Cuenca','Girona',
-  'Granada','Guadalajara','Guipúzcoa','Huelva','Huesca','Islas Baleares','Jaén','La Rioja',
-  'Las Palmas','León','Lleida','Lugo','Madrid','Málaga','Murcia','Navarra','Ourense','Palencia',
-  'Pontevedra','Salamanca','Santa Cruz de Tenerife','Segovia','Sevilla','Soria','Tarragona',
-  'Teruel','Toledo','Valencia','Valladolid','Vizcaya','Zamora','Zaragoza','Ceuta','Melilla'
-];
+let ctxGlobal = null;
 
 function campoTexto(label, valor, onInput, required = false, tipo = 'text') {
   const wrap = document.createElement('div');
   wrap.className = 'field';
   wrap.innerHTML = `<label>${label}${required ? ' *' : ''}</label>`;
   const input = document.createElement('input');
-  input.type = tipo;
-  input.value = valor || '';
+  input.type = tipo; input.value = valor || '';
   input.addEventListener('input', e => onInput(e.target.value));
   wrap.appendChild(input);
   return wrap;
 }
 
-function campoSelect(label, opciones, valor, onChange, required = false) {
-  const wrap = document.createElement('div');
-  wrap.className = 'field';
-  wrap.innerHTML = `<label>${label}${required ? ' *' : ''}</label>`;
-  const select = document.createElement('select');
-  const optDefault = document.createElement('option');
-  optDefault.value = ''; optDefault.textContent = 'Selecciona...';
-  select.appendChild(optDefault);
-  opciones.forEach(op => {
-    const opt = document.createElement('option');
-    opt.value = op; opt.textContent = op;
-    if (op === valor) opt.selected = true;
-    select.appendChild(opt);
-  });
-  select.addEventListener('change', e => onChange(e.target.value));
-  wrap.appendChild(select);
-  return wrap;
-}
-
-function renderProgenitorCard(tipo) {
-  const p = progenitores[tipo] || {
-    tipo, nombre: '', apellidos: '', es_pasaporte: false, dni_nie: '', sexo: '',
-    email: '', direccion: '', ciudad: '', provincia: '', codigo_postal: '',
-    telefono_fijo: '', movil: ''
-  };
-
+function renderAdultoCard(adulto, esUnoMismo) {
   const card = document.createElement('div');
-  card.className = 'card';
+  card.className = 'hijo-card';
+  card.innerHTML = `<div class="hijo-head"><span class="hijo-tag">${adulto.nombre} ${adulto.apellidos} ${esUnoMismo ? '(tú)' : ''}</span></div>`;
+  const body = document.createElement('div');
+  body.className = 'hijo-body';
 
-  const titleRow = document.createElement('div');
-  titleRow.style.display = 'flex';
-  titleRow.style.justifyContent = 'space-between';
-  titleRow.style.alignItems = 'center';
-  titleRow.innerHTML = `<p class="section-label" style="margin:0;">Progenitor ${tipo === 'principal' ? 'principal' : 'secundario'}</p>`;
+  const row1 = document.createElement('div');
+  row1.className = 'two-col';
+  row1.appendChild(campoTexto('Nombre', adulto.nombre, v => adulto.nombre = v, true));
+  row1.appendChild(campoTexto('Apellidos', adulto.apellidos, v => adulto.apellidos = v, true));
+  body.appendChild(row1);
 
-  if (tipo === 'secundario') {
-    const delBtn = document.createElement('button');
-    delBtn.className = 'btn-danger-link';
-    delBtn.textContent = 'Quitar';
-    delBtn.addEventListener('click', async () => {
-      if (!confirm('¿Quitar al segundo progenitor?')) return;
-      if (progenitores.secundario?.id) {
-        await sb.from('progenitores').delete().eq('id', progenitores.secundario.id);
-      }
-      progenitores.secundario = null;
-      renderTodo();
-    });
-    titleRow.appendChild(delBtn);
-  }
-  card.appendChild(titleRow);
-  card.style.marginTop = '20px';
+  const row2 = document.createElement('div');
+  row2.className = 'two-col';
+  row2.style.marginTop = '14px';
+  row2.appendChild(campoTexto('Email', adulto.email, v => adulto.email = v, true, 'email'));
+  row2.appendChild(campoTexto('Móvil', adulto.movil, v => adulto.movil = v));
+  body.appendChild(row2);
 
-  const rowNombre = document.createElement('div');
-  rowNombre.className = 'two-col';
-  rowNombre.style.marginTop = '14px';
-  rowNombre.appendChild(campoTexto('Nombre', p.nombre, v => p.nombre = v, true));
-  rowNombre.appendChild(campoTexto('Apellidos', p.apellidos, v => p.apellidos = v, true));
-  card.appendChild(rowNombre);
+  const row2b = document.createElement('div');
+  row2b.className = 'two-col';
+  row2b.style.marginTop = '14px';
+  row2b.appendChild(campoTexto('DNI / NIE / Pasaporte', adulto.dni_nie === 'PENDIENTE' ? '' : adulto.dni_nie, v => adulto.dni_nie = v, true));
+  row2b.appendChild(campoTexto('Teléfono fijo', adulto.telefono_fijo, v => adulto.telefono_fijo = v));
+  body.appendChild(row2b);
 
-  const rowDoc = document.createElement('div');
-  rowDoc.className = 'two-col';
-  rowDoc.style.marginTop = '14px';
-  rowDoc.appendChild(campoTexto('DNI / NIE / Pasaporte', p.dni_nie, v => p.dni_nie = v, true));
-  const pasaporteWrap = document.createElement('div');
-  pasaporteWrap.className = 'field';
-  pasaporteWrap.innerHTML = `<label>&nbsp;</label>`;
-  const pasaporteLabel = document.createElement('label');
-  pasaporteLabel.style.display = 'flex';
-  pasaporteLabel.style.alignItems = 'center';
-  pasaporteLabel.style.gap = '8px';
-  pasaporteLabel.style.fontWeight = '400';
-  const pasaporteCb = document.createElement('input');
-  pasaporteCb.type = 'checkbox';
-  pasaporteCb.style.width = 'auto';
-  pasaporteCb.checked = !!p.es_pasaporte;
-  pasaporteCb.addEventListener('change', e => p.es_pasaporte = e.target.checked);
-  pasaporteLabel.appendChild(pasaporteCb);
-  pasaporteLabel.appendChild(document.createTextNode('Es número de pasaporte'));
-  pasaporteWrap.appendChild(pasaporteLabel);
-  rowDoc.appendChild(pasaporteWrap);
-  card.appendChild(rowDoc);
+  const row2c = document.createElement('div');
+  row2c.className = 'field';
+  row2c.style.marginTop = '14px';
+  row2c.innerHTML = '<label>Dirección</label>';
+  const inputDir = document.createElement('input');
+  inputDir.type = 'text';
+  inputDir.value = adulto.direccion === 'PENDIENTE' ? '' : (adulto.direccion || '');
+  inputDir.addEventListener('input', e => adulto.direccion = e.target.value);
+  row2c.appendChild(inputDir);
+  body.appendChild(row2c);
 
-  const rowSexoEmail = document.createElement('div');
-  rowSexoEmail.className = 'two-col';
-  rowSexoEmail.style.marginTop = '14px';
-  rowSexoEmail.appendChild(campoSelect('Sexo', ['Masculino', 'Femenino', 'Otro'], p.sexo, v => p.sexo = v));
-  rowSexoEmail.appendChild(campoTexto('Correo electrónico', p.email, v => p.email = v, true, 'email'));
-  card.appendChild(rowSexoEmail);
+  const row2d = document.createElement('div');
+  row2d.className = 'two-col';
+  row2d.style.marginTop = '14px';
+  row2d.appendChild(campoTexto('Ciudad', adulto.ciudad === 'PENDIENTE' ? '' : adulto.ciudad, v => adulto.ciudad = v, true));
+  row2d.appendChild(campoTexto('Provincia', adulto.provincia === 'PENDIENTE' ? '' : adulto.provincia, v => adulto.provincia = v, true));
+  body.appendChild(row2d);
 
-  card.appendChild(campoTexto('Dirección', p.direccion, v => p.direccion = v, true));
+  const row2e = document.createElement('div');
+  row2e.className = 'field';
+  row2e.style.marginTop = '14px';
+  row2e.style.maxWidth = '160px';
+  row2e.innerHTML = '<label>Código postal</label>';
+  const inputCp = document.createElement('input');
+  inputCp.type = 'text';
+  inputCp.value = adulto.codigo_postal === '00000' ? '' : (adulto.codigo_postal || '');
+  inputCp.addEventListener('input', e => adulto.codigo_postal = e.target.value);
+  row2e.appendChild(inputCp);
+  body.appendChild(row2e);
 
-  const rowCiudad = document.createElement('div');
-  rowCiudad.className = 'three-col';
-  rowCiudad.style.marginTop = '14px';
-  rowCiudad.appendChild(campoTexto('Ciudad', p.ciudad, v => p.ciudad = v, true));
-  rowCiudad.appendChild(campoSelect('Provincia', PROVINCIAS, p.provincia, v => p.provincia = v, true));
-  rowCiudad.appendChild(campoTexto('Código postal', p.codigo_postal, v => p.codigo_postal = v, true));
-  card.appendChild(rowCiudad);
-
-  const rowTelefonos = document.createElement('div');
-  rowTelefonos.className = 'two-col';
-  rowTelefonos.style.marginTop = '14px';
-  rowTelefonos.appendChild(campoTexto('Teléfono fijo', p.telefono_fijo, v => p.telefono_fijo = v));
-  rowTelefonos.appendChild(campoTexto('Móvil', p.movil, v => p.movil = v));
-  card.appendChild(rowTelefonos);
+  const row3 = document.createElement('div');
+  row3.className = 'field';
+  row3.style.marginTop = '14px';
+  row3.innerHTML = '<label>Relación con los alumnos (opcional)</label>';
+  const input3 = document.createElement('input');
+  input3.type = 'text';
+  input3.value = adulto.relacion_alumnos || '';
+  input3.placeholder = 'padre / madre / abuela / tutor legal...';
+  input3.addEventListener('input', e => adulto.relacion_alumnos = e.target.value);
+  row3.appendChild(input3);
+  body.appendChild(row3);
 
   const msg = document.createElement('p');
-  msg.style.display = 'none';
-  msg.style.marginTop = '12px';
+  msg.style.display = 'none'; msg.style.marginTop = '10px';
 
   const saveBtn = document.createElement('button');
-  saveBtn.type = 'button';
   saveBtn.className = 'btn btn-primary';
-  saveBtn.style.marginTop = '16px';
+  saveBtn.style.marginTop = '14px';
   saveBtn.textContent = 'Guardar';
   saveBtn.addEventListener('click', async () => {
-    if (!p.nombre.trim() || !p.apellidos.trim() || !p.dni_nie.trim() || !p.email.trim() ||
-        !p.direccion.trim() || !p.ciudad.trim() || !p.provincia || !p.codigo_postal.trim()) {
-      msg.className = 'msg-error';
-      msg.textContent = 'Completa los campos obligatorios (*).';
-      msg.style.display = 'block';
-      return;
-    }
-    saveBtn.disabled = true;
-    saveBtn.textContent = 'Guardando...';
-
-    const payload = {
-      profile_id: profile.id, tipo,
-      nombre: p.nombre.trim(), apellidos: p.apellidos.trim(),
-      es_pasaporte: p.es_pasaporte, dni_nie: p.dni_nie.trim(),
-      sexo: p.sexo || null, email: p.email.trim(),
-      direccion: p.direccion.trim(), ciudad: p.ciudad.trim(),
-      provincia: p.provincia, codigo_postal: p.codigo_postal.trim(),
-      telefono_fijo: p.telefono_fijo || null, movil: p.movil || null
-    };
-
-    const { data, error } = await sb
-      .from('progenitores')
-      .upsert(payload, { onConflict: 'profile_id,tipo' })
-      .select('*')
-      .single();
-
-    saveBtn.disabled = false;
-    saveBtn.textContent = 'Guardar';
+    const { error } = await sb.from('adultos').update({
+      nombre: adulto.nombre, apellidos: adulto.apellidos, email: adulto.email,
+      movil: adulto.movil, relacion_alumnos: adulto.relacion_alumnos || null,
+      dni_nie: adulto.dni_nie, telefono_fijo: adulto.telefono_fijo || null,
+      direccion: adulto.direccion, ciudad: adulto.ciudad,
+      provincia: adulto.provincia, codigo_postal: adulto.codigo_postal
+    }).eq('id', adulto.id);
     msg.style.display = 'block';
     msg.className = error ? 'msg-error' : 'msg-ok';
     msg.textContent = error ? 'Error: ' + error.message : 'Guardado ✓';
-    if (!error) progenitores[tipo] = data;
   });
 
-  card.appendChild(saveBtn);
-  card.appendChild(msg);
+  body.appendChild(saveBtn);
+  body.appendChild(msg);
+  card.appendChild(body);
   return card;
 }
 
-function renderTodo() {
-  const cont = document.getElementById('progenitoresContainer');
-  cont.innerHTML = '';
-  cont.appendChild(renderProgenitorCard('principal'));
-  if (progenitores.secundario) cont.appendChild(renderProgenitorCard('secundario'));
-
-  document.getElementById('addSecundarioBtn').style.display = progenitores.secundario ? 'none' : 'block';
+async function cargarAdultos() {
+  const wrap = document.getElementById('adultosWrap');
+  const { data, error } = await sb.from('adultos').select('*').eq('socio_id', ctxGlobal.socio.id);
+  if (error) { wrap.innerHTML = '<p class="msg-error">No se pudo cargar.</p>'; return; }
+  wrap.innerHTML = '';
+  data.forEach(a => wrap.appendChild(renderAdultoCard(a, a.id === ctxGlobal.adulto.id)));
+  document.getElementById('addAdultoBtn').style.display = data.length < 2 ? 'block' : 'none';
 }
 
-document.getElementById('addSecundarioBtn').addEventListener('click', () => {
-  progenitores.secundario = {
-    tipo: 'secundario', nombre: '', apellidos: '', es_pasaporte: false, dni_nie: '', sexo: '',
-    email: '', direccion: '', ciudad: '', provincia: '', codigo_postal: '', telefono_fijo: '', movil: ''
-  };
-  renderTodo();
+document.getElementById('addAdultoBtn').addEventListener('click', () => {
+  const email = prompt('Email del segundo adulto (recibirá un correo con una contraseña provisional):');
+  if (!email) return;
+  const emailNormalizado = email.trim().toLowerCase();
+  if (emailNormalizado === (ctxGlobal.adulto.email || '').trim().toLowerCase()) {
+    alert('El segundo adulto debe tener un email distinto al tuyo.');
+    return;
+  }
+  const nombre = prompt('Nombre:') || '';
+  const apellidos = prompt('Apellidos:') || '';
+  invitarSegundoAdulto(emailNormalizado, nombre.trim(), apellidos.trim());
 });
 
-document.getElementById('guardarCuentaBtn').addEventListener('click', async () => {
-  const formaPago = document.getElementById('formaPago').value;
-  const iban = document.getElementById('iban').value.trim();
-  const { error } = await sb
-    .from('profiles')
-    .update({ forma_pago: formaPago || null, iban: iban || null })
-    .eq('id', profile.id);
-
-  const msg = document.getElementById('cuentaMsg');
-  msg.style.display = 'block';
-  msg.className = error ? 'msg-error' : 'msg-ok';
-  msg.textContent = error ? 'Error: ' + error.message : 'Datos de cuenta guardados ✓';
-});
-
-async function cargarDatos() {
-  document.getElementById('numeroSocioValue').textContent = profile.numero_socio_completo;
-  document.getElementById('anioValue').textContent = profile.anio_ultima_cuota;
-  document.getElementById('formaPago').value = profile.forma_pago || '';
-  document.getElementById('iban').value = profile.iban || '';
-
-  const { data } = await sb.from('progenitores').select('*').eq('profile_id', profile.id);
-  (data || []).forEach(p => { progenitores[p.tipo] = p; });
-  renderTodo();
+async function invitarSegundoAdulto(email, nombre, apellidos) {
+  const session = await getSession();
+  try {
+    const resp = await fetch('/.netlify/functions/invitar-adulto', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
+      body: JSON.stringify({ email, nombre, apellidos })
+    });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.error || 'Error al invitar');
+    alert('Se ha enviado un email a ' + email + ' con su contraseña provisional.');
+    cargarAdultos();
+  } catch (err) {
+    alert('No se pudo invitar: ' + err.message);
+  }
 }
+
+async function cargarAlumnosResumen() {
+  const wrap = document.getElementById('alumnosResumenWrap');
+  const { data } = await sb.from('alumnos').select('nombre, apellidos, etapa, curso').eq('socio_id', ctxGlobal.socio.id);
+  if (!data || data.length === 0) { wrap.innerHTML = '<p class="empty-hint">Todavía no has añadido ningún alumno.</p>'; return; }
+  wrap.innerHTML = data.map(a => `<div class="evento-mini">${a.nombre} ${a.apellidos} — ${a.curso} ${a.etapa}</div>`).join('');
+}
+
+function cargarCuenta() {
+  const socio = ctxGlobal.socio;
+  document.getElementById('numeroSocioValue').textContent = socio.numero_socio_completo || '(pendiente de activación)';
+  document.getElementById('anioValue').textContent = socio.anio_ultima_cuota;
+  document.getElementById('formaPagoValue').textContent = socio.forma_pago || 'Sin especificar';
+  if (socio.forma_pago === 'Domiciliación Bancaria' && socio.iban) {
+    document.getElementById('ibanField').style.display = 'block';
+    document.getElementById('ibanValue').textContent = socio.iban;
+  }
+}
+
+document.getElementById('cambiarBancoBtn').addEventListener('click', () => {
+  alert('La domiciliación bancaria (mandato SEPA digital) está pendiente de implementar: falta que el AMPA suba la plantilla PDF oficial del adeudo. Mientras tanto, contacta con la Junta para domiciliar tu cuota.');
+});
+
+document.getElementById('bajaBtn').addEventListener('click', () => {
+  document.getElementById('bajaModal').style.display = 'flex';
+});
+document.getElementById('cancelarBajaBtn').addEventListener('click', () => {
+  document.getElementById('bajaModal').style.display = 'none';
+});
+document.getElementById('confirmarBajaBtn').addEventListener('click', async () => {
+  await sb.from('socios').update({ estado: 'baja' }).eq('id', ctxGlobal.socio.id);
+  await signOut();
+});
 
 (async () => {
   const ctx = await requireAuth();
   if (!ctx) return;
-  profile = ctx.profile;
-  renderNav('mis-datos', profile);
-  await cargarDatos();
+  ctxGlobal = ctx;
+  renderNav('mis-datos', ctx);
+  cargarCuenta();
+  await cargarAdultos();
+  await cargarAlumnosResumen();
 })();
 </script>
 </body>

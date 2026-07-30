@@ -2,16 +2,156 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>AMPA Juan de Valdés</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="shared/supabaseClient.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AMPA Colegio Juan de Valdés</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared/styles.css">
+<style>
+  .hero{ text-align:center; padding:56px 20px 40px; max-width:760px; margin:0 auto; }
+  .hero .brand-row{ display:flex; align-items:center; justify-content:center; gap:20px; flex-wrap:wrap; margin-bottom:18px; }
+  .hero .logo-ampa{ height:64px; } .hero .logo-colegio{ height:44px; }
+  .hero h1{ font-size:clamp(28px,5vw,40px); margin:10px 0; }
+  .hero p{ color:var(--ink-soft); font-size:16px; max-width:56ch; margin:0 auto 28px; }
+  .cta-row{ display:flex; gap:14px; justify-content:center; flex-wrap:wrap; }
+  .cta-row a{ min-width:200px; }
+  .social-row{ display:flex; gap:12px; justify-content:center; flex-wrap:wrap; margin-top:18px; }
+  section.info{ max-width:760px; margin:0 auto; padding:0 20px 8px; }
+  .pilares{ display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-top:18px; }
+  @media (max-width:640px){ .pilares{ grid-template-columns:1fr; } }
+  .pilar{ background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:18px; }
+  .pilar h3{ font-family:'Lora',serif; font-size:16px; color:var(--navy-deep); margin:0 0 6px; }
+  .pilar p{ font-size:13.5px; color:var(--ink-soft); margin:0; }
+  .junta-list{ list-style:none; padding:0; margin:16px 0 0; display:grid; grid-template-columns:1fr 1fr; gap:10px 20px; }
+  @media (max-width:560px){ .junta-list{ grid-template-columns:1fr; } }
+  .junta-list li{ font-size:14px; border-bottom:1px solid var(--line); padding-bottom:8px; }
+  .junta-list b{ color:var(--navy-deep); display:block; font-size:12.5px; font-family:'IBM Plex Mono',monospace; text-transform:uppercase; letter-spacing:.04em; }
+  .doc-item{ display:flex; justify-content:space-between; align-items:center; gap:12px; padding:12px 0; border-bottom:1px solid var(--line); }
+  .doc-item:last-child{ border-bottom:none; }
+  .doc-item .doc-fecha{ font-size:12px; color:var(--ink-soft); font-family:'IBM Plex Mono',monospace; }
+  .videos-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:14px; margin-top:14px; }
+  .video-item iframe{ width:100%; aspect-ratio:16/9; border:none; border-radius:var(--radius); }
+  .video-item p{ font-size:12.5px; color:var(--ink-soft); margin:6px 0 0; }
+</style>
 </head>
 <body>
+
+<div class="hero">
+  <div class="brand-row">
+    <img class="logo-ampa" src="assets/logo-ampa.png" alt="AMPA">
+    <img class="logo-colegio" src="assets/logo-colegio.png" alt="Colegio Juan de Valdés">
+  </div>
+  <div class="rainbow-rule" style="max-width:200px; margin:0 auto 20px;"></div>
+  <h1>Asociación de Madres y Padres del Colegio Juan de Valdés</h1>
+  <p>Trabajamos para que la vida escolar de nuestros hijos e hijas sea más rica: préstamo de libros, actividades, eventos y apoyo a las familias del colegio.</p>
+  <div class="cta-row">
+    <a href="login.html" class="btn btn-primary">Ingreso socios</a>
+    <a href="publico.html" class="btn btn-outline">No soy socio / Ver eventos</a>
+  </div>
+  <div class="social-row">
+    <a class="btn btn-outline" href="https://www.instagram.com/TU-CUENTA" target="_blank" rel="noopener">📷 Instagram</a>
+    <a class="btn btn-outline" href="https://whatsapp.com/channel/TU-CANAL" target="_blank" rel="noopener">💬 Canal de WhatsApp</a>
+  </div>
+</div>
+
+<section class="info">
+  <div class="card">
+    <p class="section-label">Qué es el AMPA</p>
+    <p style="font-size:14.5px; color:var(--ink-soft);">
+      El AMPA (Asociación de Madres y Padres de Alumnos) del Colegio Juan de Valdés es una
+      entidad sin ánimo de lucro formada por familias del centro. Nuestro objetivo es
+      complementar la labor educativa del colegio, representar los intereses de las familias
+      y organizar actividades y servicios que enriquezcan la vida escolar de nuestros hijos e hijas.
+    </p>
+    <div class="pilares">
+      <div class="pilar"><h3>📚 Préstamo de libros</h3><p>Libros de lectura obligatoria para las familias socias.</p></div>
+      <div class="pilar"><h3>🎉 Eventos y actividades</h3><p>Actividades a lo largo del curso, muchas abiertas a toda la comunidad.</p></div>
+      <div class="pilar"><h3>🤝 Representación</h3><p>Trasladamos las inquietudes de las familias al colegio.</p></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <p class="section-label">Quiénes formamos la Junta Directiva</p>
+    <ul class="junta-list">
+      <li><b>Presidencia</b>Nombre y apellidos</li>
+      <li><b>Vicepresidencia</b>Nombre y apellidos</li>
+      <li><b>Secretaría</b>Nombre y apellidos</li>
+      <li><b>Tesorería</b>Nombre y apellidos</li>
+      <li><b>Vocalía de actividades</b>Nombre y apellidos</li>
+      <li><b>Vocalía de comunicación</b>Nombre y apellidos</li>
+    </ul>
+    <p style="font-size:12.5px; color:var(--ink-soft); margin-top:14px;">(Edita esta lista en <code>index.html</code> con los nombres reales.)</p>
+  </div>
+
+  <div class="card">
+    <p class="section-label">Últimos vídeos</p>
+    <div id="videosWrap"><p class="empty-hint">Configura tu clave de YouTube en el script de esta página para activar esta sección.</p></div>
+  </div>
+
+  <div class="card">
+    <p class="section-label">Newsletters y documentos</p>
+    <div id="newslettersWrap"><p class="loading">Cargando...</p></div>
+    <div id="documentosWrap" style="margin-top:20px;"></div>
+  </div>
+</section>
+
+<footer class="note" style="margin:32px 0 40px;"><b>AMPA Colegio Juan de Valdés</b></footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="shared/supabaseClient.js"></script>
 <script>
-  (async () => {
-    const session = await getSession();
-    window.location.href = session ? 'dashboard.html' : 'login.html';
-  })();
+// ---- YouTube (opcional): pon tu clave y el ID del canal para activarlo ----
+const YOUTUBE_API_KEY = ''; // https://console.cloud.google.com/apis/credentials
+const YOUTUBE_CHANNEL_ID = '';
+
+async function cargarVideos() {
+  const wrap = document.getElementById('videosWrap');
+  if (!YOUTUBE_API_KEY || !YOUTUBE_CHANNEL_ID) return;
+  try {
+    const url = `https://www.googleapis.com/youtube/v3/search?key=${YOUTUBE_API_KEY}&channelId=${YOUTUBE_CHANNEL_ID}&part=snippet&order=date&maxResults=3&type=video`;
+    const resp = await fetch(url);
+    const data = await resp.json();
+    if (!data.items || data.items.length === 0) { wrap.innerHTML = '<p class="empty-hint">Sin vídeos por ahora.</p>'; return; }
+    wrap.innerHTML = '<div class="videos-grid">' + data.items.map(v => `
+      <div class="video-item">
+        <iframe src="https://www.youtube.com/embed/${v.id.videoId}" allowfullscreen loading="lazy"></iframe>
+        <p>${v.snippet.title}</p>
+      </div>
+    `).join('') + '</div>';
+  } catch (e) {
+    wrap.innerHTML = '<p class="empty-hint">No se pudieron cargar los vídeos.</p>';
+  }
+}
+
+function renderLista(contenedorId, tituloVacio, items) {
+  const wrap = document.getElementById(contenedorId);
+  if (!items || items.length === 0) { wrap.innerHTML = `<p class="empty-hint">${tituloVacio}</p>`; return; }
+  wrap.innerHTML = items.map(d => `
+    <div class="doc-item">
+      <div>
+        <div>${d.titulo}</div>
+        ${d.fecha ? `<div class="doc-fecha">${new Date(d.fecha).toLocaleDateString('es-ES', { year: 'numeric', month: 'long' })}</div>` : ''}
+      </div>
+      <a class="btn btn-outline" href="${d.url}" target="_blank" rel="noopener">Descargar</a>
+    </div>
+  `).join('');
+}
+
+(async () => {
+  await cargarVideos();
+
+  const { data, error } = await sb.from('documentos').select('*').eq('activo', true).order('fecha', { ascending: false });
+  if (error) { document.getElementById('newslettersWrap').innerHTML = '<p class="msg-error">No se pudieron cargar.</p>'; return; }
+
+  const newsletters = (data || []).filter(d => d.categoria === 'newsletter');
+  const documentos = (data || []).filter(d => d.categoria === 'documento');
+
+  document.getElementById('newslettersWrap').outerHTML = '<p class="section-label" style="margin-top:0;">Newsletters</p><div id="newslettersWrap"></div>';
+  renderLista('newslettersWrap', 'Todavía no hay newsletters publicadas.', newsletters);
+
+  document.getElementById('documentosWrap').innerHTML = '<p class="section-label">Otros documentos</p><div id="documentosListWrap"></div>';
+  renderLista('documentosListWrap', 'No hay documentos disponibles por ahora.', documentos);
+})();
 </script>
 </body>
 </html>

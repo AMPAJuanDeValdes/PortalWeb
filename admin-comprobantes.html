@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Comprobantes de pago · Admin AMPA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared/styles.css">
+<style>
+  .tabs{ display:flex; gap:6px; margin-bottom:20px; flex-wrap:wrap; }
+  .tabs button{ font-family:'IBM Plex Mono',monospace; font-size:12.5px; text-transform:uppercase; padding:9px 14px; border-radius:var(--radius); border:1px solid var(--line); background:#fff; color:var(--ink-soft); cursor:pointer; }
+  .tabs button.active{ background:var(--navy); color:#fff; border-color:var(--navy); }
+  .panel{ display:none; } .panel.active{ display:block; }
+  .fila-socio{ padding:14px 0; border-bottom:1px solid var(--line); }
+  .fila-socio:last-child{ border-bottom:none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">AMPA · Administración</div>
+  <h1>Comprobantes de pago</h1>
+  <p class="lede">Activa las cuentas recién creadas y verifica los comprobantes de pago de cuota e invitados.</p>
+
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="recien">Recién creadas</button>
+    <button class="tab-btn" data-tab="falta">Falta de pago</button>
+    <button class="tab-btn" data-tab="invitados">Invitados a eventos</button>
+  </div>
+
+  <div class="panel active" id="panel-recien"><div class="card" id="wrapRecien"><p class="loading">Cargando...</p></div></div>
+  <div class="panel" id="panel-falta"><div class="card" id="wrapFalta"><p class="loading">Cargando...</p></div></div>
+  <div class="panel" id="panel-invitados"><div class="card" id="wrapInvitados"><p class="loading">Cargando...</p></div></div>
+
+  <footer class="note"><b>AMPA Colegio Juan de Valdés</b> — panel de administración</footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="shared/supabaseClient.js"></script>
+<script src="shared/nav.js"></script>
+<script>
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
+  });
+});
+
+async function urlComprobante(path) {
+  const { data } = await sb.storage.from('comprobantes').createSignedUrl(path, 300);
+  return data ? data.signedUrl : '#';
+}
+
+async function cargarRecienCreadas() {
+  const wrap = document.getElementById('wrapRecien');
+  const { data: socios } = await sb.from('socios').select('*').eq('estado', 'recien_creada').order('created_at');
+  if (!socios || socios.length === 0) { wrap.innerHTML = '<p class="empty-hint">No hay altas pendientes.</p>'; return; }
+
+  wrap.innerHTML = '';
+  for (const socio of socios) {
+    const { data: adultos } = await sb.from('adultos').select('*').eq('socio_id', socio.id);
+    const { data: comprobantes } = await sb.from('comprobantes_pago').select('*').eq('socio_id', socio.id).eq('tipo', 'cuota_socio');
+
+    const div = document.createElement('div');
+    div.className = 'fila-socio';
+    const nombres = (adultos || []).map(a => a.nombre + ' ' + a.apellidos).join(' / ');
+    let comprobantesHtml = '<p class="empty-hint" style="font-size:13px;">Sin comprobante subido todavía.</p>';
+    if (comprobantes && comprobantes.length) {
+      comprobantesHtml = await Promise.all(comprobantes.map(async c =>
+        `<a href="${await urlComprobante(c.archivo_url)}" target="_blank">Ver comprobante (${new Date(c.created_at).toLocaleDateString('es-ES')})</a>`
+      )).then(arr => arr.join('<br>'));
+    }
+    div.innerHTML = `
+      <b>${nombres}</b> — solicitado el ${new Date(socio.created_at).toLocaleDateString('es-ES')}<br>
+      ${comprobantesHtml}
+      <div style="margin-top:8px; display:flex; gap:10px;">
+        <button class="btn btn-primary activarBtn">Activar cuenta</button>
+        <button class="btn-danger-link rechazarBtn">Rechazar (dar de baja)</button>
+      </div>
+    `;
+    div.querySelector('.activarBtn').addEventListener('click', async () => {
+      const { data: numero } = await sb.rpc('siguiente_numero_secuencial');
+      await sb.from('socios').update({ estado: 'activa', numero_secuencial: numero }).eq('id', socio.id);
+      if (comprobantes && comprobantes.length) {
+        await sb.from('comprobantes_pago').update({ verificado: true }).eq('socio_id', socio.id).eq('tipo', 'cuota_socio');
+      }
+      cargarRecienCreadas();
+    });
+    div.querySelector('.rechazarBtn').addEventListener('click', async () => {
+      if (!confirm('¿Rechazar esta alta? La cuenta quedará en estado Baja.')) return;
+      await sb.from('socios').update({ estado: 'baja' }).eq('id', socio.id);
+      cargarRecienCreadas();
+    });
+    wrap.appendChild(div);
+  }
+}
+
+async function cargarFaltaPago() {
+  const wrap = document.getElementById('wrapFalta');
+  const { data: socios } = await sb.from('socios').select('*').eq('estado', 'falta_pago').order('anio_ultima_cuota');
+  if (!socios || socios.length === 0) { wrap.innerHTML = '<p class="empty-hint">No hay cuentas en falta de pago.</p>'; return; }
+
+  wrap.innerHTML = '';
+  for (const socio of socios) {
+    const { data: adultos } = await sb.from('adultos').select('*').eq('socio_id', socio.id);
+    const { data: comprobantes } = await sb.from('comprobantes_pago')
+      .select('*').eq('socio_id', socio.id).eq('tipo', 'cuota_socio').eq('verificado', false)
+      .order('created_at', { ascending: false });
+
+    const div = document.createElement('div');
+    div.className = 'fila-socio';
+    const nombres = (adultos || []).map(a => a.nombre + ' ' + a.apellidos).join(' / ');
+    let comprobantesHtml = '<p class="empty-hint" style="font-size:13px;">Sin comprobante nuevo subido.</p>';
+    if (comprobantes && comprobantes.length) {
+      comprobantesHtml = await Promise.all(comprobantes.map(async c =>
+        `<a href="${await urlComprobante(c.archivo_url)}" target="_blank">Ver comprobante (${new Date(c.created_at).toLocaleDateString('es-ES')})</a>`
+      )).then(arr => arr.join('<br>'));
+    }
+    div.innerHTML = `
+      <b>Nº ${socio.numero_socio_completo}</b> — ${nombres}<br>
+      ${comprobantesHtml}
+      <div style="margin-top:8px;"><button class="btn btn-primary reactivarBtn">Reactivar cuenta</button></div>
+    `;
+    div.querySelector('.reactivarBtn').addEventListener('click', async () => {
+      await sb.from('socios').update({ estado: 'activa', anio_ultima_cuota: new Date().getFullYear() }).eq('id', socio.id);
+      if (comprobantes && comprobantes.length) {
+        await sb.from('comprobantes_pago').update({ verificado: true }).eq('socio_id', socio.id).eq('tipo', 'cuota_socio');
+      }
+      cargarFaltaPago();
+    });
+    wrap.appendChild(div);
+  }
+}
+
+async function cargarInvitados() {
+  const wrap = document.getElementById('wrapInvitados');
+  const { data: comprobantes } = await sb.from('comprobantes_pago')
+    .select('*, evento_inscripciones(nombre_invitado, evento_id, eventos(titulo))')
+    .eq('tipo', 'invitado_evento').eq('verificado', false).order('created_at');
+
+  if (!comprobantes || comprobantes.length === 0) { wrap.innerHTML = '<p class="empty-hint">No hay comprobantes de invitados pendientes.</p>'; return; }
+
+  wrap.innerHTML = '';
+  for (const c of comprobantes) {
+    const div = document.createElement('div');
+    div.className = 'fila-socio';
+    div.innerHTML = `
+      <b>${c.evento_inscripciones?.nombre_invitado || 'Invitado'}</b> — ${c.evento_inscripciones?.eventos?.titulo || ''}<br>
+      <a href="${await urlComprobante(c.archivo_url)}" target="_blank">Ver comprobante</a>
+      <div style="margin-top:8px;"><button class="btn btn-primary verificarBtn">Marcar como verificado</button></div>
+    `;
+    div.querySelector('.verificarBtn').addEventListener('click', async () => {
+      await sb.from('comprobantes_pago').update({ verificado: true }).eq('id', c.id);
+      cargarInvitados();
+    });
+    wrap.appendChild(div);
+  }
+}
+
+(async () => {
+  const ctx = await requireAdmin();
+  if (!ctx) return;
+  renderNav('admin-comprobantes', ctx);
+  await cargarRecienCreadas();
+  await cargarFaltaPago();
+  await cargarInvitados();
+})();
+</script>
+</body>
+</html>

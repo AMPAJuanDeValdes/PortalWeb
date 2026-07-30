@@ -1,43 +1,63 @@
-// Inserta la barra de navegación al principio de <body>.
-// activePage: string que identifica el enlace activo (ver data-page en cada <a>).
-function renderNav(activePage, profile) {
-  const isAdmin = profile && profile.role === 'admin';
+// Envuelve el contenido de <body> en un layout de menú lateral vertical.
+// activePage: identifica el enlace activo (data-page en cada <a>).
+// ctx: { adulto, socio } devuelto por requireAuth()/requireAdmin().
+function renderNav(activePage, ctx) {
+  const adulto = ctx?.adulto || ctx; // admite pasar solo el adulto por compatibilidad
+  const isAdmin = adulto && adulto.role === 'admin';
 
   const links = [
+    { page: 'publico', href: 'index.html', label: 'Web pública' },
     { page: 'dashboard', href: 'dashboard.html', label: 'Inicio' },
     { page: 'mis-datos', href: 'mis-datos.html', label: 'Mis datos' },
     { page: 'prestamo', href: 'prestamo.html', label: 'Préstamo de libros' },
-    { page: 'eventos', href: 'eventos.html', label: 'Eventos' },
-    { page: 'formularios', href: 'formularios.html', label: 'Formularios' }
+    { page: 'eventos', href: 'eventos.html', label: 'Eventos' }
   ];
   const adminLinks = [
     { page: 'admin-importar', href: 'admin-importar.html', label: 'Alta de socios' },
+    { page: 'admin-comprobantes', href: 'admin-comprobantes.html', label: 'Comprobantes de pago' },
     { page: 'admin-eventos', href: 'admin-eventos.html', label: 'Eventos (admin)' },
-    { page: 'admin-formularios', href: 'admin-formularios.html', label: 'Formularios (admin)' },
+    { page: 'admin-libros', href: 'admin-libros.html', label: 'Catálogo de libros' },
+    { page: 'admin-documentos', href: 'admin-documentos.html', label: 'Documentos (admin)' },
+    { page: 'admin-email', href: 'admin-email.html', label: 'Enviar email' },
     { page: 'admin-respuestas', href: 'admin-respuestas.html', label: 'Respuestas' }
   ];
 
   const linkHtml = (l) =>
     `<a href="${l.href}" class="${activePage === l.page ? 'active' : ''}">${l.label}</a>`;
 
-  const nav = document.createElement('div');
-  nav.className = 'topnav';
-  nav.innerHTML = `
-    <div class="topnav-inner">
-      <div class="topnav-brand">
-        <img class="logo-ampa" src="assets/logo-ampa.png" alt="AMPA Colegio Juan de Valdés">
+  // Mover todo el contenido actual de <body> dentro de .app-content
+  const existingChildren = Array.from(document.body.childNodes);
+  const appContent = document.createElement('div');
+  appContent.className = 'app-content';
+  existingChildren.forEach(node => appContent.appendChild(node));
+
+  const shell = document.createElement('div');
+  shell.className = 'app-shell';
+  shell.innerHTML = `
+    <button class="sidenav-toggle" id="sidenavToggle">☰ Menú</button>
+    <nav class="sidenav" id="sidenav">
+      <div class="sidenav-brand">
+        <img class="logo-ampa" src="assets/logo-ampa.png" alt="AMPA">
         <img class="logo-colegio" src="assets/logo-colegio.png" alt="Colegio Juan de Valdés">
+        <div class="rainbow-rule"></div>
       </div>
-      <div class="rainbow-rule"></div>
-      <div class="topnav-links">
+      <div class="sidenav-links">
         ${links.map(linkHtml).join('')}
-        ${isAdmin ? adminLinks.map(linkHtml).join('') : ''}
-        <span class="spacer"></span>
-        <span class="user-tag">${profile ? profile.nombre_mostrar : ''}</span>
+        ${isAdmin ? '<div class="group-label">Administración</div>' + adminLinks.map(linkHtml).join('') : ''}
+      </div>
+      <div class="sidenav-footer">
+        <div class="user-tag">${adulto ? adulto.nombre + ' ' + adulto.apellidos : ''}</div>
         <button class="linklike" id="navSignOut">Cerrar sesión</button>
       </div>
-    </div>
+    </nav>
   `;
-  document.body.insertBefore(nav, document.body.firstChild);
+  shell.appendChild(appContent);
+
+  document.body.innerHTML = '';
+  document.body.appendChild(shell);
+
   document.getElementById('navSignOut').addEventListener('click', signOut);
+  document.getElementById('sidenavToggle').addEventListener('click', () => {
+    document.getElementById('sidenav').classList.toggle('open');
+  });
 }

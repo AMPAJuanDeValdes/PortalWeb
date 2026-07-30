@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Renovar cuota · AMPA Juan de Valdés</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared/styles.css">
+<style>.center-wrap{ max-width:480px; margin:0 auto; padding:60px 20px; }</style>
+</head>
+<body>
+<div class="center-wrap">
+  <div class="eyebrow">AMPA · Renovación de cuota</div>
+  <h1>Hay que renovar la cuota</h1>
+
+  <div id="domiciliadaMsg" class="card" style="display:none;">
+    <p style="color:var(--ink-soft); font-size:14.5px;">
+      Tu cuenta tiene la cuota domiciliada. En breve se pasará el cargo a tu
+      cuenta bancaria y tu acceso se reactivará automáticamente en cuanto lo
+      confirmemos. No hace falta que hagas nada más.
+    </p>
+  </div>
+
+  <div id="pagoManualCard" class="card" style="display:none;">
+    <p class="section-label">Datos para el pago</p>
+    <p style="color:var(--ink-soft); font-size:14.5px;">
+      Realiza el pago de la cuota anual por transferencia a:<br>
+      <b>IBAN:</b> ES00 0000 0000 0000 0000 0000<br>
+      <b>Concepto:</b> tu número de socio
+    </p>
+    <p class="section-label" style="margin-top:18px;">Sube el comprobante</p>
+    <input type="file" id="comprobanteFile" accept="image/*,.pdf">
+    <button type="button" class="btn btn-primary" id="subirBtn" style="margin-top:14px;">Subir comprobante</button>
+    <p id="msg" style="display:none; margin-top:14px;"></p>
+  </div>
+
+  <button class="btn btn-outline" id="signOutBtn" style="margin-top:20px;">Cerrar sesión</button>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="shared/supabaseClient.js"></script>
+<script>
+  let socioActual = null;
+
+  (async () => {
+    const ctx = await requireAuth();
+    if (!ctx) return;
+    if (ctx.socio && ctx.socio.estado !== 'falta_pago') {
+      window.location.href = ctx.socio.estado === 'recien_creada' ? 'estado-recien-creada.html' : 'dashboard.html';
+      return;
+    }
+    socioActual = ctx.socio;
+    if (socioActual.forma_pago === 'Domiciliación Bancaria') {
+      document.getElementById('domiciliadaMsg').style.display = 'block';
+    } else {
+      document.getElementById('pagoManualCard').style.display = 'block';
+    }
+  })();
+
+  document.getElementById('subirBtn').addEventListener('click', async () => {
+    const file = document.getElementById('comprobanteFile').files[0];
+    const msg = document.getElementById('msg');
+    const btn = document.getElementById('subirBtn');
+    if (!file) {
+      msg.style.display = 'block'; msg.className = 'msg-error';
+      msg.textContent = 'Selecciona primero un archivo.';
+      return;
+    }
+    btn.disabled = true; btn.textContent = 'Subiendo...';
+
+    const path = `${socioActual.id}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_')}`;
+    const { error: upErr } = await sb.storage.from('comprobantes').upload(path, file);
+    if (upErr) {
+      msg.style.display = 'block'; msg.className = 'msg-error';
+      msg.textContent = 'Error al subir: ' + upErr.message;
+      btn.disabled = false; btn.textContent = 'Subir comprobante';
+      return;
+    }
+
+    const { error: insErr } = await sb.from('comprobantes_pago').insert({
+      tipo: 'cuota_socio', socio_id: socioActual.id, archivo_url: path
+    });
+
+    msg.style.display = 'block';
+    msg.className = insErr ? 'msg-error' : 'msg-ok';
+    msg.textContent = insErr
+      ? 'Error al registrar: ' + insErr.message
+      : 'Comprobante recibido ✓. En cuanto lo verifiquemos, tu cuenta volverá a activarse.';
+    btn.disabled = false; btn.textContent = 'Subir comprobante';
+  });
+
+  document.getElementById('signOutBtn').addEventListener('click', signOut);
+</script>
+</body>
+</html>

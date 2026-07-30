@@ -9,51 +9,32 @@
 <link rel="stylesheet" href="shared/styles.css">
 <style>
   .tabs{ display:flex; gap:6px; margin-bottom:20px; flex-wrap:wrap; }
-  .tabs button{
-    font-family:'IBM Plex Mono', monospace; font-size:12.5px; letter-spacing:.04em; text-transform:uppercase;
-    padding:9px 14px; border-radius:var(--radius); border:1px solid var(--line); background:#fff;
-    color:var(--ink-soft); cursor:pointer;
-  }
+  .tabs button{ font-family:'IBM Plex Mono',monospace; font-size:12.5px; text-transform:uppercase; padding:9px 14px; border-radius:var(--radius); border:1px solid var(--line); background:#fff; color:var(--ink-soft); cursor:pointer; }
   .tabs button.active{ background:var(--navy); color:#fff; border-color:var(--navy); }
-  .panel{ display:none; }
-  .panel.active{ display:block; }
-  select#formularioSelect{ max-width:360px; margin-bottom:16px; }
+  .panel{ display:none; } .panel.active{ display:block; }
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="eyebrow">AMPA · Administración</div>
-  <h1>Respuestas y solicitudes</h1>
-  <p class="lede">Consulta y exporta en CSV el préstamo de libros, las inscripciones a eventos y las respuestas a formularios.</p>
+  <h1>Respuestas y listados</h1>
 
   <div class="tabs">
     <button class="tab-btn active" data-tab="prestamo">Préstamo de libros</button>
     <button class="tab-btn" data-tab="eventos">Eventos</button>
-    <button class="tab-btn" data-tab="formularios">Formularios</button>
+    <button class="tab-btn" data-tab="alumnos">Alumnos (matrícula)</button>
   </div>
 
-  <div class="panel active" id="panel-prestamo">
-    <div class="card">
-      <p class="section-label">Solicitudes de préstamo por hijo/a</p>
-      <div id="prestamoWrap"><p class="loading">Cargando...</p></div>
-    </div>
-  </div>
+  <div class="panel active" id="panel-prestamo"><div class="card" id="wrapPrestamo"><p class="loading">Cargando...</p></div></div>
 
   <div class="panel" id="panel-eventos">
     <div class="card">
-      <p class="section-label">Inscripciones por evento</p>
       <select id="eventoSelect"></select>
       <div id="eventoInscritosWrap"></div>
     </div>
   </div>
 
-  <div class="panel" id="panel-formularios">
-    <div class="card">
-      <p class="section-label">Respuestas por formulario</p>
-      <select id="formularioSelect"></select>
-      <div id="formularioRespuestasWrap"></div>
-    </div>
-  </div>
+  <div class="panel" id="panel-alumnos"><div class="card" id="wrapAlumnos"><p class="loading">Cargando...</p></div></div>
 
   <footer class="note"><b>AMPA Colegio Juan de Valdés</b> — panel de administración</footer>
 </div>
@@ -73,59 +54,45 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
   });
 });
 
-// ---------- PRÉSTAMO DE LIBROS ----------
-async function cargarPrestamos() {
-  const wrap = document.getElementById('prestamoWrap');
+async function cargarPrestamo() {
+  const wrap = document.getElementById('wrapPrestamo');
   const { data, error } = await sb
     .from('prestamo_items')
-    .select('curso, libro, created_at, profile_id, hijos(nombre, apellidos)')
-    .order('curso', { ascending: true });
+    .select('tipo, socio_id, created_at, libros_catalogo(titulo, curso, etapa), alumnos(nombre, apellidos)')
+    .order('created_at', { ascending: false });
 
-  if (error) { wrap.innerHTML = '<p class="msg-error">No se pudieron cargar las solicitudes.</p>'; return; }
-  if (!data || data.length === 0) { wrap.innerHTML = '<p class="empty-hint">Todavía no hay ninguna solicitud.</p>'; return; }
+  if (error) { wrap.innerHTML = '<p class="msg-error">No se pudo cargar.</p>'; return; }
+  if (!data || data.length === 0) { wrap.innerHTML = '<p class="empty-hint">Sin solicitudes todavía.</p>'; return; }
 
-  const resumen = await getResumenSocios(data.map(d => d.profile_id));
+  const resumen = await getResumenSocios(data.map(d => d.socio_id));
 
-  wrap.innerHTML = `
-    <p style="font-size:13.5px; margin-bottom:10px;">${data.length} libros solicitados en total</p>
-    <table>
-      <thead><tr><th>Curso</th><th>Libro</th><th>Niño/a</th><th>Titular</th><th>Nº socio</th></tr></thead>
-      <tbody>
-        ${data.map(d => `
-          <tr>
-            <td>${d.curso}</td>
-            <td>${d.libro}</td>
-            <td>${d.hijos?.nombre || ''} ${d.hijos?.apellidos || ''}</td>
-            <td>${resumen[d.profile_id]?.nombre || ''}</td>
-            <td>${resumen[d.profile_id]?.numero_socio || ''}</td>
-          </tr>
-        `).join('')}
-      </tbody>
-    </table>
-    <button class="btn btn-outline" id="descargarPrestamosBtn" style="margin-top:14px;">Descargar CSV</button>
-  `;
+  wrap.innerHTML = '<table><thead><tr><th>Tipo</th><th>Libro</th><th>Curso</th><th>Alumno/a</th><th>Familia</th></tr></thead><tbody>' +
+    data.map(d => '<tr>' +
+      '<td>' + (d.tipo === 'donacion' ? 'Donación' : 'Solicitud') + '</td>' +
+      '<td>' + (d.libros_catalogo ? d.libros_catalogo.titulo : '') + '</td>' +
+      '<td>' + (d.libros_catalogo ? d.libros_catalogo.curso + ' ' + d.libros_catalogo.etapa : '') + '</td>' +
+      '<td>' + (d.alumnos ? d.alumnos.nombre + ' ' + d.alumnos.apellidos : '') + '</td>' +
+      '<td>' + (resumen[d.socio_id] ? resumen[d.socio_id].nombre : '') + ' (' + (resumen[d.socio_id] ? resumen[d.socio_id].numero_socio : '') + ')</td>' +
+    '</tr>').join('') + '</tbody></table>' +
+    '<button class="btn btn-outline" id="descargarPrestamoBtn" style="margin-top:14px;">Descargar CSV</button>';
 
-  document.getElementById('descargarPrestamosBtn').addEventListener('click', () => {
+  document.getElementById('descargarPrestamoBtn').addEventListener('click', () => {
     descargarCSV(data.map(d => ({
-      curso: d.curso,
-      libro: d.libro,
-      niño: `${d.hijos?.nombre || ''} ${d.hijos?.apellidos || ''}`.trim(),
-      titular: resumen[d.profile_id]?.nombre || '',
-      numero_socio: resumen[d.profile_id]?.numero_socio || ''
+      tipo: d.tipo, libro: d.libros_catalogo ? d.libros_catalogo.titulo : '',
+      curso: d.libros_catalogo ? d.libros_catalogo.curso + ' ' + d.libros_catalogo.etapa : '',
+      alumno: d.alumnos ? d.alumnos.nombre + ' ' + d.alumnos.apellidos : '',
+      familia: resumen[d.socio_id] ? resumen[d.socio_id].nombre : '',
+      numero_socio: resumen[d.socio_id] ? resumen[d.socio_id].numero_socio : ''
     })), 'prestamo-libros.csv');
   });
 }
 
-// ---------- EVENTOS ----------
 async function cargarEventosSelect() {
   const select = document.getElementById('eventoSelect');
-  const { data, error } = await sb.from('eventos').select('id, titulo').order('fecha', { ascending: true });
-  if (error || !data || data.length === 0) {
-    select.innerHTML = '<option value="">No hay eventos</option>';
-    return;
-  }
-  select.innerHTML = data.map(e => `<option value="${e.id}">${e.titulo}</option>`).join('');
-  select.addEventListener('change', () => cargarInscritosDe(select.value, data.find(e => e.id === select.value)?.titulo));
+  const { data } = await sb.from('eventos').select('id, titulo').order('fecha', { ascending: false });
+  if (!data || data.length === 0) { select.innerHTML = '<option value="">No hay eventos</option>'; return; }
+  select.innerHTML = data.map(e => '<option value="' + e.id + '">' + e.titulo + '</option>').join('');
+  select.addEventListener('change', () => cargarInscritosDe(select.value, (data.find(e => e.id === select.value) || {}).titulo));
   cargarInscritosDe(select.value, data[0].titulo);
 }
 
@@ -136,130 +103,75 @@ async function cargarInscritosDe(eventoId, titulo) {
 
   const { data, error } = await sb
     .from('evento_inscripciones')
-    .select('profile_id, num_asistentes, notas')
+    .select('tipo_miembro, socio_id, nombre_invitado, nombre_contacto, email_contacto, es_voluntario, adultos(nombre, apellidos), alumnos(nombre, apellidos, curso, etapa)')
     .eq('evento_id', eventoId);
 
   if (error) { wrap.innerHTML = '<p class="msg-error">No se pudo cargar.</p>'; return; }
-  if (!data || data.length === 0) { wrap.innerHTML = '<p class="empty-hint">Nadie se ha apuntado todavía.</p>'; return; }
+  if (!data || data.length === 0) { wrap.innerHTML = '<p class="empty-hint">Nadie inscrito todavía.</p>'; return; }
 
-  const resumen = await getResumenSocios(data.map(i => i.profile_id));
-  const total = data.reduce((s, i) => s + i.num_asistentes, 0);
+  const resumen = await getResumenSocios(data.filter(d => d.socio_id).map(d => d.socio_id));
 
-  wrap.innerHTML = `
-    <p style="font-size:13.5px; margin:14px 0 10px;">${data.length} familias · ${total} asistentes</p>
-    <table>
-      <thead><tr><th>Titular</th><th>Nº socio</th><th>Asistentes</th><th>Notas</th></tr></thead>
-      <tbody>
-        ${data.map(i => `
-          <tr>
-            <td>${resumen[i.profile_id]?.nombre || ''}</td>
-            <td>${resumen[i.profile_id]?.numero_socio || ''}</td>
-            <td>${i.num_asistentes}</td>
-            <td>${i.notas || ''}</td>
-          </tr>
-        `).join('')}
-      </tbody>
-    </table>
-    <button class="btn btn-outline" id="descargarInscritosBtn" style="margin-top:14px;">Descargar CSV</button>
-  `;
+  const filaDatos = (i) => {
+    if (i.tipo_miembro === 'adulto') return { nombre: i.adultos ? i.adultos.nombre + ' ' + i.adultos.apellidos : '', tipo: 'Adulto' + (i.es_voluntario ? ' (voluntario)' : ''), familia: resumen[i.socio_id] ? resumen[i.socio_id].nombre : '' };
+    if (i.tipo_miembro === 'alumno') return { nombre: i.alumnos ? i.alumnos.nombre + ' ' + i.alumnos.apellidos + ' (' + i.alumnos.curso + ' ' + i.alumnos.etapa + ')' : '', tipo: 'Alumno/a', familia: resumen[i.socio_id] ? resumen[i.socio_id].nombre : '' };
+    if (i.tipo_miembro === 'invitado') return { nombre: i.nombre_invitado || '', tipo: 'Invitado', familia: resumen[i.socio_id] ? resumen[i.socio_id].nombre : '' };
+    return { nombre: i.nombre_contacto || '', tipo: 'Público (' + (i.email_contacto || '') + ')', familia: '' };
+  };
 
-  document.getElementById('descargarInscritosBtn').addEventListener('click', () => {
-    descargarCSV(data.map(i => ({
-      titular: resumen[i.profile_id]?.nombre || '',
-      numero_socio: resumen[i.profile_id]?.numero_socio || '',
-      asistentes: i.num_asistentes,
-      notas: i.notas || ''
-    })), 'inscritos-' + (titulo || 'evento').replace(/\s+/g, '-') + '.csv');
+  wrap.innerHTML = '<p style="font-size:13.5px; margin:14px 0 10px;">' + data.length + ' inscripciones</p>' +
+    '<table><thead><tr><th>Nombre</th><th>Tipo</th><th>Familia</th></tr></thead><tbody>' +
+    data.map(i => { const f = filaDatos(i); return '<tr><td>' + f.nombre + '</td><td>' + f.tipo + '</td><td>' + f.familia + '</td></tr>'; }).join('') +
+    '</tbody></table><button class="btn btn-outline" id="descargarEvBtn" style="margin-top:14px;">Descargar CSV</button>';
+
+  document.getElementById('descargarEvBtn').addEventListener('click', () => {
+    descargarCSV(data.map(i => { const f = filaDatos(i); return { nombre: f.nombre, tipo: f.tipo, familia: f.familia }; }),
+      'inscritos-' + (titulo || 'evento').replace(/\s+/g, '-') + '.csv');
   });
 }
 
-// ---------- FORMULARIOS GENÉRICOS ----------
-let formulariosCache = [];
-
-async function cargarFormulariosSelect() {
-  const select = document.getElementById('formularioSelect');
-  const { data, error } = await sb.from('formularios').select('*').order('created_at', { ascending: false });
-  if (error || !data || data.length === 0) {
-    select.innerHTML = '<option value="">No hay formularios</option>';
-    return;
-  }
-  formulariosCache = data;
-  select.innerHTML = data.map(f => `<option value="${f.id}">${f.titulo}</option>`).join('');
-  select.addEventListener('change', () => cargarRespuestasDe(select.value));
-
-  const params = new URLSearchParams(window.location.search);
-  const preseleccion = params.get('formulario_id');
-  if (preseleccion && data.some(f => f.id === preseleccion)) {
-    select.value = preseleccion;
-  }
-  cargarRespuestasDe(select.value);
-}
-
-async function cargarRespuestasDe(formularioId) {
-  const wrap = document.getElementById('formularioRespuestasWrap');
-  if (!formularioId) { wrap.innerHTML = ''; return; }
-  wrap.innerHTML = '<p class="loading">Cargando...</p>';
-
-  const formulario = formulariosCache.find(f => f.id === formularioId);
-  const campos = formulario?.campos || [];
-
-  const { data, error } = await sb
-    .from('formulario_respuestas')
-    .select('respuestas, created_at, profile_id')
-    .eq('formulario_id', formularioId);
-
+async function cargarAlumnos() {
+  const wrap = document.getElementById('wrapAlumnos');
+  const { data, error } = await sb.from('alumnos').select('id, nombre, apellidos, fecha_nacimiento, etapa, curso, aula, verificado, socio_id').order('etapa').order('curso');
   if (error) { wrap.innerHTML = '<p class="msg-error">No se pudo cargar.</p>'; return; }
-  if (!data || data.length === 0) { wrap.innerHTML = '<p class="empty-hint">Nadie ha respondido todavía.</p>'; return; }
+  if (!data || data.length === 0) { wrap.innerHTML = '<p class="empty-hint">Sin alumnos todavía.</p>'; return; }
 
-  const resumen = await getResumenSocios(data.map(r => r.profile_id));
+  const resumen = await getResumenSocios(data.map(a => a.socio_id));
 
-  wrap.innerHTML = `
-    <p style="font-size:13.5px; margin:14px 0 10px;">${data.length} respuestas</p>
-    <table>
-      <thead>
-        <tr>
-          <th>Titular</th><th>Nº socio</th>
-          ${campos.map(c => `<th>${c.label}</th>`).join('')}
-        </tr>
-      </thead>
-      <tbody>
-        ${data.map(r => `
-          <tr>
-            <td>${resumen[r.profile_id]?.nombre || ''}</td>
-            <td>${resumen[r.profile_id]?.numero_socio || ''}</td>
-            ${campos.map(c => {
-              const v = r.respuestas[c.id];
-              return `<td>${Array.isArray(v) ? v.join(', ') : (v || '')}</td>`;
-            }).join('')}
-          </tr>
-        `).join('')}
-      </tbody>
-    </table>
-    <button class="btn btn-outline" id="descargarRespuestasBtn" style="margin-top:14px;">Descargar CSV</button>
-  `;
+  wrap.innerHTML = '<table><thead><tr><th>Nombre</th><th>Curso</th><th>Aula</th><th>Familia</th><th>Verificado</th><th></th></tr></thead><tbody>' +
+    data.map((a, idx) => '<tr>' +
+      '<td>' + a.nombre + ' ' + a.apellidos + '</td>' +
+      '<td>' + a.curso + ' ' + a.etapa + '</td>' +
+      '<td>' + (a.aula || '') + '</td>' +
+      '<td>' + (resumen[a.socio_id] ? resumen[a.socio_id].nombre : '') + '</td>' +
+      '<td>' + (a.verificado ? '<span class="badge badge-socio">✓ Verificado</span>' : '<span class="badge badge-admin">Falta verificar</span>') + '</td>' +
+      '<td><button class="btn-danger-link toggleVerificadoBtn" data-idx="' + idx + '">' + (a.verificado ? 'Desmarcar' : 'Marcar verificado') + '</button></td>' +
+    '</tr>').join('') + '</tbody></table>' +
+    '<button class="btn btn-outline" id="descargarAlumnosBtn" style="margin-top:14px;">Descargar CSV (para cotejar matrícula)</button>';
 
-  document.getElementById('descargarRespuestasBtn').addEventListener('click', () => {
-    descargarCSV(data.map(r => {
-      const fila = {
-        titular: resumen[r.profile_id]?.nombre || '',
-        numero_socio: resumen[r.profile_id]?.numero_socio || ''
-      };
-      campos.forEach(c => {
-        const v = r.respuestas[c.id];
-        fila[c.label] = Array.isArray(v) ? v.join('; ') : (v || '');
-      });
-      return fila;
-    }), 'respuestas-' + (formulario?.titulo || 'formulario').replace(/\s+/g, '-') + '.csv');
+  wrap.querySelectorAll('.toggleVerificadoBtn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const a = data[parseInt(btn.dataset.idx, 10)];
+      await sb.from('alumnos').update({ verificado: !a.verificado }).eq('id', a.id);
+      cargarAlumnos();
+    });
+  });
+
+  document.getElementById('descargarAlumnosBtn').addEventListener('click', () => {
+    descargarCSV(data.map(a => ({
+      nombre: a.nombre, apellidos: a.apellidos, fecha_nacimiento: a.fecha_nacimiento || '',
+      curso: a.curso, etapa: a.etapa, aula: a.aula || '',
+      familia: resumen[a.socio_id] ? resumen[a.socio_id].nombre : '', verificado: a.verificado ? 'si' : 'no'
+    })), 'alumnos-matricula.csv');
   });
 }
 
 (async () => {
   const ctx = await requireAdmin();
   if (!ctx) return;
-  renderNav('admin-respuestas', ctx.profile);
-  await cargarPrestamos();
+  renderNav('admin-respuestas', ctx);
+  await cargarPrestamo();
   await cargarEventosSelect();
-  await cargarFormulariosSelect();
+  await cargarAlumnos();
 })();
 </script>
 </body>

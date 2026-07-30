@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Eventos abiertos · AMPA Juan de Valdés</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared/styles.css">
+<style>
+  .top-simple{ max-width:760px; margin:0 auto; padding:32px 20px 0; }
+  .brand-row{ display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:14px; margin-bottom:16px; }
+  .logo-ampa{ height:44px; } .logo-colegio{ height:32px; }
+  .back-link{ font-family:'IBM Plex Mono',monospace; font-size:12.5px; color:var(--navy); text-decoration:none; }
+  .evento-card{ margin-bottom:18px; }
+  .evento-fecha{ font-family:'IBM Plex Mono',monospace; font-size:12.5px; color:var(--ink-soft); margin-bottom:4px; }
+  .cta-socio{ text-align:center; padding:32px 20px; }
+  .cta-socio .card{ display:inline-block; text-align:left; max-width:480px; }
+</style>
+</head>
+<body>
+<div class="top-simple">
+  <div class="brand-row">
+    <img class="logo-ampa" src="assets/logo-ampa.png" alt="AMPA">
+    <img class="logo-colegio" src="assets/logo-colegio.png" alt="Colegio Juan de Valdés">
+  </div>
+  <a class="back-link" href="index.html">‹ Volver a la web del AMPA</a>
+</div>
+
+<div class="wrap">
+  <div class="eyebrow" style="margin-top:24px;">AMPA · Comunidad educativa</div>
+  <h1>Eventos abiertos</h1>
+  <p class="lede">Eventos del AMPA abiertos a toda la comunidad, seas socio o no. Si el evento tiene coste, sube el comprobante de pago al apuntarte.</p>
+
+  <p id="loadingMsg" class="loading">Cargando eventos...</p>
+  <div id="eventosContainer"></div>
+
+  <div class="cta-socio">
+    <div class="card">
+      <p class="section-label">¿No eres socio todavía?</p>
+      <p style="font-size:14px; color:var(--ink-soft); margin-bottom:16px;">
+        Hacerte socio del AMPA te da acceso al préstamo de libros de lectura,
+        precios especiales en actividades y voz en las decisiones de la asociación.
+      </p>
+      <a href="hazte-socio.html" class="btn btn-primary">Quiero hacerme socio</a>
+    </div>
+  </div>
+
+  <footer class="note"><b>AMPA Colegio Juan de Valdés</b></footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="shared/supabaseClient.js"></script>
+<script>
+function formatFecha(f) { return f ? new Date(f).toLocaleString('es-ES', { dateStyle: 'full', timeStyle: 'short' }) : 'Fecha por confirmar'; }
+
+async function cargarEventos() {
+  const cont = document.getElementById('eventosContainer');
+  // Solo eventos "toda_familia" o que admitan invitados tienen sentido para
+  // un visitante sin cuenta; el resto están pensados solo para socios.
+  const { data: eventos, error } = await sb
+    .from('eventos').select('*').eq('activo', true)
+    .or('tipo_elegibilidad.eq.toda_familia,permite_invitados.eq.true')
+    .order('fecha', { ascending: true });
+
+  document.getElementById('loadingMsg').style.display = 'none';
+  if (error) { cont.innerHTML = '<p class="msg-error">No se pudieron cargar los eventos.</p>'; return; }
+  if (!eventos || eventos.length === 0) { cont.innerHTML = '<p class="empty-hint">No hay eventos abiertos por ahora.</p>'; return; }
+
+  cont.innerHTML = '';
+  eventos.forEach(ev => {
+    const card = document.createElement('div');
+    card.className = 'card evento-card';
+    card.innerHTML = `
+      <p class="evento-fecha">${formatFecha(ev.fecha)}</p>
+      <h2>${ev.titulo}</h2>
+      <p style="color:var(--ink-soft); font-size:14px;">${ev.descripcion || ''}</p>
+      ${ev.precio_invitado ? `<p style="font-size:13px; color:var(--gold);">Entrada: ${Number(ev.precio_invitado).toFixed(2)} €</p>` : ''}
+      <details style="margin-top:14px;">
+        <summary style="cursor:pointer; font-family:'IBM Plex Mono',monospace; font-size:12.5px; color:var(--navy);">Apuntarme</summary>
+        <div style="margin-top:14px; display:grid; gap:12px; max-width:360px;">
+          <div class="field"><label>Nombre de la persona que asiste</label><input type="text" class="pubNombre"></div>
+          <div class="field"><label>Email de contacto</label><input type="email" class="pubEmail"></div>
+          <div class="field"><label>Teléfono</label><input type="text" class="pubTelefono"></div>
+          ${ev.precio_invitado ? '<div class="field"><label>Comprobante de pago</label><input type="file" class="pubComprobante" accept="image/*,.pdf"></div>' : ''}
+          <button type="button" class="btn btn-primary pubSubmitBtn">Confirmar inscripción</button>
+          <p class="pubMsg" style="display:none;"></p>
+        </div>
+      </details>
+    `;
+
+    const btn = card.querySelector('.pubSubmitBtn');
+    btn.addEventListener('click', async () => {
+      const nombre = card.querySelector('.pubNombre').value.trim();
+      const email = card.querySelector('.pubEmail').value.trim();
+      const telefono = card.querySelector('.pubTelefono').value.trim();
+      const msg = card.querySelector('.pubMsg');
+
+      if (!nombre || !email) { msg.style.display = 'block'; msg.className = 'pubMsg msg-error'; msg.textContent = 'Completa nombre y email.'; return; }
+
+      const { data: inscripcion, error: insError } = await sb.from('evento_inscripciones').insert({
+        evento_id: ev.id, tipo_miembro: 'publico',
+        nombre_contacto: nombre, email_contacto: email, telefono_contacto: telefono || null
+      }).select('id').single();
+
+      if (insError) { msg.style.display = 'block'; msg.className = 'pubMsg msg-error'; msg.textContent = insError.message; return; }
+
+      const fileInput = card.querySelector('.pubComprobante');
+      if (fileInput && fileInput.files[0]) {
+        const file = fileInput.files[0];
+        const path = `publico/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_')}`;
+        await sb.storage.from('comprobantes').upload(path, file);
+        await sb.from('comprobantes_pago').insert({ tipo: 'invitado_evento', evento_inscripcion_id: inscripcion.id, archivo_url: path });
+      }
+
+      msg.style.display = 'block'; msg.className = 'pubMsg msg-ok';
+      msg.textContent = 'Inscripción registrada ✓. ¡Nos vemos allí!';
+      btn.disabled = true;
+    });
+
+    cont.appendChild(card);
+  });
+}
+
+cargarEventos();
+</script>
+</body>
+</html>

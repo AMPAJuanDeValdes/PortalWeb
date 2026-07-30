@@ -1,8 +1,6 @@
 // ============================================================
 // CONFIGURA AQUÍ TUS CLAVES DE SUPABASE
-// (Supabase → Project Settings → API)
-// La "anon key" es pública por diseño: la seguridad real la dan
-// las políticas de RLS definidas en supabase/schema.sql.
+// (Supabase → Project Settings → API Keys / Data API)
 // ============================================================
 const SUPABASE_URL = 'https://wvqthtfxvcwsdbwbwadb.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_AGFoOoVCOHsH_n5RTWv24A_iTb5xCn2';
@@ -14,25 +12,43 @@ async function getSession() {
   return data.session || null;
 }
 
-async function getProfile() {
+// Fila del adulto autenticado (login individual)
+async function getAdulto() {
   const session = await getSession();
   if (!session) return null;
   const { data, error } = await sb
-    .from('profiles')
+    .from('adultos')
     .select('*')
     .eq('id', session.user.id)
     .single();
   if (error) return null;
-
-  const { data: principal } = await sb
-    .from('progenitores')
-    .select('nombre, apellidos')
-    .eq('profile_id', data.id)
-    .eq('tipo', 'principal')
-    .maybeSingle();
-
-  data.nombre_mostrar = principal ? `${principal.nombre} ${principal.apellidos}` : data.email;
   return data;
+}
+
+// Fila del socio (cuenta familiar) al que pertenece el adulto
+async function getSocio(socioId) {
+  const { data, error } = await sb
+    .from('socios')
+    .select('*')
+    .eq('id', socioId)
+    .single();
+  if (error) return null;
+  return data;
+}
+
+// Redirige según el estado de la cuenta. Devuelve true si el estado es
+// 'activa' (puede continuar), false si ya ha redirigido a otro sitio.
+function redirigirPorEstado(socio) {
+  if (!socio) return true;
+  const destinos = {
+    recien_creada: 'estado-recien-creada.html',
+    falta_pago: 'estado-falta-pago.html',
+    baja: null // se trata como login inválido, ver login.html
+  };
+  if (socio.estado === 'activa') return true;
+  const destino = destinos[socio.estado];
+  if (destino) window.location.href = destino;
+  return false;
 }
 
 // Llamar al principio de cada página que requiera sesión iniciada.
@@ -42,19 +58,28 @@ async function requireAuth() {
     window.location.href = 'login.html';
     return null;
   }
-  const profile = await getProfile();
-  if (profile && profile.force_password_change && !window.location.pathname.endsWith('cambiar-clave.html')) {
+  const adulto = await getAdulto();
+  if (!adulto) {
+    await sb.auth.signOut();
+    window.location.href = 'login.html';
+    return null;
+  }
+  if (adulto.force_password_change && !window.location.pathname.endsWith('cambiar-clave.html')) {
     window.location.href = 'cambiar-clave.html';
     return null;
   }
-  return { session, profile };
+  const socio = await getSocio(adulto.socio_id);
+  const estadoOk = window.location.pathname.match(/estado-.*\.html$/) || redirigirPorEstado(socio);
+  if (!estadoOk) return null;
+
+  return { session, adulto, socio };
 }
 
 // Llamar al principio de cada página exclusiva de administradores.
 async function requireAdmin() {
   const ctx = await requireAuth();
   if (!ctx) return null;
-  if (!ctx.profile || ctx.profile.role !== 'admin') {
+  if (!ctx.adulto || ctx.adulto.role !== 'admin') {
     window.location.href = 'dashboard.html';
     return null;
   }
@@ -64,4 +89,15 @@ async function requireAdmin() {
 async function signOut() {
   await sb.auth.signOut();
   window.location.href = 'login.html';
+}
+
+// Calcula la edad a partir de una fecha de nacimiento (para elegibilidad por edad)
+function calcularEdad(fechaNacimiento) {
+  if (!fechaNacimiento) return null;
+  const hoy = new Date();
+  const nac = new Date(fechaNacimiento);
+  let edad = hoy.getFullYear() - nac.getFullYear();
+  const m = hoy.getMonth() - nac.getMonth();
+  if (m < 0 || (m === 0 && hoy.getDate() < nac.getDate())) edad--;
+  return edad;
 }

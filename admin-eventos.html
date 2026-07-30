@@ -8,50 +8,69 @@
 <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="shared/styles.css">
 <style>
-  .evento-row{ display:flex; justify-content:space-between; align-items:flex-start; gap:12px; padding:14px 0; border-bottom:1px solid var(--line); }
+  .two-col{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:560px){ .two-col{ grid-template-columns:1fr; } }
+  .cursos-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(110px,1fr)); gap:6px; margin-top:8px; }
+  .cursos-grid label{ font-weight:400; font-size:12.5px; display:flex; align-items:center; gap:6px; }
+  .evento-row{ padding:14px 0; border-bottom:1px solid var(--line); }
   .evento-row:last-child{ border-bottom:none; }
-  .evento-row-actions{ display:flex; gap:8px; flex-wrap:wrap; }
-  .evento-row-actions button{ font-size:12px; }
+  .actividad-item{ border:1px solid var(--line); border-radius:var(--radius); padding:12px; margin-top:10px; }
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="eyebrow">AMPA · Administración</div>
   <h1>Eventos</h1>
-  <p class="lede">Crea eventos y consulta quién se ha apuntado.</p>
 
   <div class="card">
     <p class="section-label">Nuevo evento</p>
-    <form id="eventoForm">
+    <div class="field"><label>Título</label><input type="text" id="eTitulo"></div>
+    <div class="field" style="margin-top:14px;"><label>Descripción</label><textarea id="eDescripcion"></textarea></div>
+    <div class="two-col" style="margin-top:14px;">
+      <div class="field"><label>Fecha y hora</label><input type="datetime-local" id="eFecha"></div>
+      <div class="field"><label>Aforo total (opcional)</label><input type="number" id="eAforo" min="1"></div>
+    </div>
+
+    <div class="field" style="margin-top:14px;">
+      <label>¿Quién puede apuntarse?</label>
+      <select id="eTipoElegibilidad">
+        <option value="toda_familia">Toda la familia (adultos y alumnos)</option>
+        <option value="alumnos">Solo alumnos (por curso o edad)</option>
+        <option value="adultos">Solo adultos</option>
+      </select>
+    </div>
+
+    <div id="elegibilidadAlumnosWrap" style="display:none; margin-top:14px;">
       <div class="field">
-        <label>Título</label>
-        <input type="text" id="titulo" required>
+        <label>Modo de elegibilidad</label>
+        <select id="eModo"><option value="curso">Por curso/etapa</option><option value="edad">Por edad real</option></select>
       </div>
-      <div class="field">
-        <label>Descripción</label>
-        <textarea id="descripcion"></textarea>
+      <div id="eCursosWrap" class="field" style="margin-top:14px;">
+        <label>Cursos permitidos</label>
+        <div class="cursos-grid" id="eCursosGrid"></div>
       </div>
-      <div class="field">
-        <label>Fecha y hora</label>
-        <input type="datetime-local" id="fecha">
+      <div id="eEdadWrap" class="two-col" style="display:none; margin-top:14px;">
+        <div class="field"><label>Edad mínima</label><input type="number" id="eEdadMin"></div>
+        <div class="field"><label>Edad máxima</label><input type="number" id="eEdadMax"></div>
       </div>
-      <div class="field">
-        <label>Aforo máximo (opcional)</label>
-        <input type="number" id="aforo" min="1">
-      </div>
-      <button type="submit" class="btn btn-primary">Crear evento</button>
-      <p id="createMsg" class="msg-ok" style="display:none;"></p>
-    </form>
+    </div>
+
+    <div class="two-col" style="margin-top:14px;">
+      <div class="field"><label><input type="checkbox" id="eVoluntariado" style="width:auto;"> Permite voluntariado</label></div>
+      <div class="field"><label><input type="checkbox" id="eVoluntariadoExcluye" style="width:auto;"> El voluntariado excluye ser asistente</label></div>
+    </div>
+    <div class="two-col" style="margin-top:14px;">
+      <div class="field"><label><input type="checkbox" id="ePermiteInvitados" style="width:auto;"> Permite invitar no socios (de pago)</label></div>
+      <div class="field"><label>Precio por invitado (€)</label><input type="number" id="ePrecioInvitado" min="0" step="0.01"></div>
+    </div>
+
+    <button type="button" class="btn btn-primary" id="crearEventoBtn" style="margin-top:18px;">Crear evento</button>
+    <p id="crearMsg" style="display:none; margin-top:14px;"></p>
   </div>
 
   <div class="card">
     <p class="section-label">Eventos existentes</p>
-    <div id="eventosList"><p class="loading">Cargando...</p></div>
-  </div>
-
-  <div class="card" id="inscritosCard" style="display:none;">
-    <p class="section-label" id="inscritosTitulo">Inscritos</p>
-    <div id="inscritosList"></div>
+    <div id="eventosWrap"><p class="loading">Cargando...</p></div>
   </div>
 
   <footer class="note"><b>AMPA Colegio Juan de Valdés</b> — panel de administración</footer>
@@ -60,132 +79,180 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="shared/supabaseClient.js"></script>
 <script src="shared/nav.js"></script>
+<script src="shared/catalogo.js"></script>
 <script src="shared/csv.js"></script>
-<script src="shared/helpers.js"></script>
 <script>
-document.getElementById('eventoForm').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const titulo = document.getElementById('titulo').value.trim();
-  const descripcion = document.getElementById('descripcion').value.trim();
-  const fecha = document.getElementById('fecha').value;
-  const aforo = document.getElementById('aforo').value;
-
-  const { error } = await sb.from('eventos').insert({
-    titulo,
-    descripcion,
-    fecha: fecha ? new Date(fecha).toISOString() : null,
-    aforo: aforo ? parseInt(aforo, 10) : null
+function pintarCursosGrid(contenedorId, nombrePrefijo) {
+  const grid = document.getElementById(contenedorId);
+  grid.innerHTML = '';
+  Object.entries(CURSOS_POR_ETAPA).forEach(([etapa, cursos]) => {
+    cursos.forEach(curso => {
+      grid.innerHTML += '<label><input type="checkbox" class="' + nombrePrefijo + '-curso-cb" data-etapa="' + etapa + '" data-curso="' + curso + '"> ' + curso + ' ' + etapa + '</label>';
+    });
   });
+}
+pintarCursosGrid('eCursosGrid', 'evt');
 
-  const msg = document.getElementById('createMsg');
+document.getElementById('eTipoElegibilidad').addEventListener('change', (e) => {
+  document.getElementById('elegibilidadAlumnosWrap').style.display = e.target.value === 'alumnos' ? 'block' : 'none';
+});
+document.getElementById('eModo').addEventListener('change', (e) => {
+  document.getElementById('eCursosWrap').style.display = e.target.value === 'curso' ? 'block' : 'none';
+  document.getElementById('eEdadWrap').style.display = e.target.value === 'edad' ? 'grid' : 'none';
+});
+
+function leerCursosSeleccionados(claseCb) {
+  return Array.from(document.querySelectorAll('.' + claseCb + ':checked')).map(cb => ({ etapa: cb.dataset.etapa, curso: cb.dataset.curso }));
+}
+
+document.getElementById('crearEventoBtn').addEventListener('click', async () => {
+  const tipo = document.getElementById('eTipoElegibilidad').value;
+  const payload = {
+    titulo: document.getElementById('eTitulo').value.trim(),
+    descripcion: document.getElementById('eDescripcion').value.trim(),
+    fecha: document.getElementById('eFecha').value ? new Date(document.getElementById('eFecha').value).toISOString() : null,
+    aforo_total: document.getElementById('eAforo').value ? parseInt(document.getElementById('eAforo').value, 10) : null,
+    tipo_elegibilidad: tipo,
+    voluntariado_habilitado: document.getElementById('eVoluntariado').checked,
+    voluntariado_excluye_asistencia: document.getElementById('eVoluntariadoExcluye').checked,
+    permite_invitados: document.getElementById('ePermiteInvitados').checked,
+    precio_invitado: document.getElementById('ePrecioInvitado').value ? parseFloat(document.getElementById('ePrecioInvitado').value) : null
+  };
+  if (tipo === 'alumnos') {
+    const modo = document.getElementById('eModo').value;
+    payload.elegibilidad_modo = modo;
+    if (modo === 'curso') payload.cursos_permitidos = leerCursosSeleccionados('evt-curso-cb');
+    else {
+      payload.edad_min = document.getElementById('eEdadMin').value ? parseInt(document.getElementById('eEdadMin').value, 10) : null;
+      payload.edad_max = document.getElementById('eEdadMax').value ? parseInt(document.getElementById('eEdadMax').value, 10) : null;
+    }
+  }
+
+  const msg = document.getElementById('crearMsg');
+  if (!payload.titulo) { msg.style.display = 'block'; msg.className = 'msg-error'; msg.textContent = 'Pon un título.'; return; }
+
+  const { error } = await sb.from('eventos').insert(payload);
   msg.style.display = 'block';
   msg.className = error ? 'msg-error' : 'msg-ok';
   msg.textContent = error ? 'Error: ' + error.message : 'Evento creado ✓';
-  if (!error) { e.target.reset(); cargarEventos(); }
+  if (!error) cargarEventos();
 });
 
 async function cargarEventos() {
-  const wrap = document.getElementById('eventosList');
-  const { data, error } = await sb.from('eventos').select('*').order('fecha', { ascending: true });
-  if (error) { wrap.innerHTML = '<p class="msg-error">No se pudieron cargar los eventos.</p>'; return; }
-  if (!data || data.length === 0) { wrap.innerHTML = '<p class="empty-hint">Aún no hay eventos creados.</p>'; return; }
+  const wrap = document.getElementById('eventosWrap');
+  const { data: eventos, error } = await sb.from('eventos').select('*').order('fecha', { ascending: true });
+  if (error) { wrap.innerHTML = '<p class="msg-error">No se pudieron cargar.</p>'; return; }
+  if (!eventos || eventos.length === 0) { wrap.innerHTML = '<p class="empty-hint">Todavía no hay eventos.</p>'; return; }
 
   wrap.innerHTML = '';
-  data.forEach(ev => {
+  for (const ev of eventos) {
     const row = document.createElement('div');
     row.className = 'evento-row';
-    row.innerHTML = `
-      <div>
-        <div style="font-weight:600;">${ev.titulo} ${ev.activo ? '' : '<span class="badge badge-socio">Oculto</span>'}</div>
-        <div style="font-size:12.5px; color:var(--ink-soft);">
-          ${ev.fecha ? new Date(ev.fecha).toLocaleString('es-ES') : 'Sin fecha'} ${ev.aforo ? '· Aforo: ' + ev.aforo : ''}
-        </div>
-      </div>
-    `;
-    const actions = document.createElement('div');
-    actions.className = 'evento-row-actions';
+    row.innerHTML =
+      '<div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px;">' +
+        '<div><b>' + ev.titulo + '</b> ' + (ev.activo ? '' : '<span class="badge badge-socio">Oculto</span>') + '<br>' +
+          '<span style="font-size:12.5px; color:var(--ink-soft);">' +
+            (ev.fecha ? new Date(ev.fecha).toLocaleString('es-ES') : 'Sin fecha') + ' · ' + ev.tipo_elegibilidad +
+          '</span></div>' +
+        '<div style="display:flex; gap:8px; flex-wrap:wrap;">' +
+          '<button class="btn btn-outline toggleActividadesBtn">Actividades</button>' +
+          '<button class="btn-danger-link toggleActivoBtn">' + (ev.activo ? 'Ocultar' : 'Reactivar') + '</button>' +
+          '<button class="btn-danger-link borrarBtn">Borrar</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="actividadesPanel" style="display:none; margin-top:14px;"></div>';
 
-    const verBtn = document.createElement('button');
-    verBtn.className = 'btn btn-outline';
-    verBtn.textContent = 'Ver inscritos';
-    verBtn.addEventListener('click', () => mostrarInscritos(ev));
-    actions.appendChild(verBtn);
-
-    const toggleBtn = document.createElement('button');
-    toggleBtn.className = 'btn-danger-link';
-    toggleBtn.textContent = ev.activo ? 'Ocultar' : 'Reactivar';
-    toggleBtn.addEventListener('click', async () => {
+    row.querySelector('.toggleActivoBtn').addEventListener('click', async () => {
       await sb.from('eventos').update({ activo: !ev.activo }).eq('id', ev.id);
       cargarEventos();
     });
-    actions.appendChild(toggleBtn);
-
-    const delBtn = document.createElement('button');
-    delBtn.className = 'btn-danger-link';
-    delBtn.textContent = 'Borrar';
-    delBtn.addEventListener('click', async () => {
-      if (!confirm('¿Borrar este evento y todas sus inscripciones?')) return;
+    row.querySelector('.borrarBtn').addEventListener('click', async () => {
+      if (!confirm('¿Borrar este evento y todo lo asociado?')) return;
       await sb.from('eventos').delete().eq('id', ev.id);
       cargarEventos();
     });
-    actions.appendChild(delBtn);
+    const panel = row.querySelector('.actividadesPanel');
+    row.querySelector('.toggleActividadesBtn').addEventListener('click', async () => {
+      const visible = panel.style.display === 'block';
+      panel.style.display = visible ? 'none' : 'block';
+      if (!visible) await renderActividades(panel, ev);
+    });
 
-    row.appendChild(actions);
     wrap.appendChild(row);
-  });
+  }
 }
 
-async function mostrarInscritos(ev) {
-  const card = document.getElementById('inscritosCard');
-  const titulo = document.getElementById('inscritosTitulo');
-  const list = document.getElementById('inscritosList');
-  card.style.display = 'block';
-  titulo.textContent = 'Inscritos en: ' + ev.titulo;
-  list.innerHTML = '<p class="loading">Cargando...</p>';
+async function renderActividades(panel, evento) {
+  panel.innerHTML = '<p class="loading">Cargando...</p>';
+  const { data: actividades } = await sb.from('evento_actividades').select('*').eq('evento_id', evento.id).order('created_at');
 
-  const { data, error } = await sb
-    .from('evento_inscripciones')
-    .select('profile_id, num_asistentes, notas, created_at')
-    .eq('evento_id', ev.id);
+  panel.innerHTML =
+    '<p class="section-label">Añadir actividad</p>' +
+    '<div class="two-col">' +
+      '<div class="field"><label>Nombre</label><input type="text" class="nActNombre"></div>' +
+      '<div class="field"><label>Horario (texto libre)</label><input type="text" class="nActHorario" placeholder="10:00 - 11:30"></div>' +
+    '</div>' +
+    '<div class="field" style="margin-top:10px;"><label>Aforo de esta actividad</label><input type="number" class="nActAforo" min="1" style="max-width:160px;"></div>' +
+    '<button type="button" class="btn btn-outline nAddActBtn" style="margin-top:10px;">+ Añadir actividad</button>' +
+    '<div class="actividadesLista" style="margin-top:16px;"></div>';
 
-  if (error) { list.innerHTML = '<p class="msg-error">No se pudo cargar.</p>'; return; }
-  if (!data || data.length === 0) { list.innerHTML = '<p class="empty-hint">Nadie se ha apuntado todavía.</p>'; return; }
+  panel.querySelector('.nAddActBtn').addEventListener('click', async () => {
+    const nombre = panel.querySelector('.nActNombre').value.trim();
+    if (!nombre) return;
+    await sb.from('evento_actividades').insert({
+      evento_id: evento.id, nombre,
+      horario: panel.querySelector('.nActHorario').value.trim() || null,
+      aforo: panel.querySelector('.nActAforo').value ? parseInt(panel.querySelector('.nActAforo').value, 10) : null
+    });
+    renderActividades(panel, evento);
+  });
 
-  const resumen = await getResumenSocios(data.map(i => i.profile_id));
-  const total = data.reduce((sum, i) => sum + i.num_asistentes, 0);
+  const lista = panel.querySelector('.actividadesLista');
+  const { data: exclusiones } = await sb.from('actividad_exclusiones').select('*');
 
-  list.innerHTML = `
-    <p style="font-size:13.5px; margin-bottom:10px;">${data.length} familias · ${total} asistentes en total</p>
-    <table>
-      <thead><tr><th>Titular</th><th>Nº socio</th><th>Asistentes</th><th>Notas</th></tr></thead>
-      <tbody>
-        ${data.map(i => `
-          <tr>
-            <td>${resumen[i.profile_id]?.nombre || ''}</td>
-            <td>${resumen[i.profile_id]?.numero_socio || ''}</td>
-            <td>${i.num_asistentes}</td>
-            <td>${i.notas || ''}</td>
-          </tr>
-        `).join('')}
-      </tbody>
-    </table>
-    <button class="btn btn-outline" id="descargarInscritosBtn" style="margin-top:14px;">Descargar CSV</button>
-  `;
+  (actividades || []).forEach(act => {
+    const item = document.createElement('div');
+    item.className = 'actividad-item';
+    const otras = (actividades || []).filter(a => a.id !== act.id);
+    const excluidasActuales = (exclusiones || [])
+      .filter(x => x.actividad_id_1 === act.id || x.actividad_id_2 === act.id)
+      .map(x => x.actividad_id_1 === act.id ? x.actividad_id_2 : x.actividad_id_1);
 
-  document.getElementById('descargarInscritosBtn').addEventListener('click', () => {
-    descargarCSV(data.map(i => ({
-      titular: resumen[i.profile_id]?.nombre || '',
-      numero_socio: resumen[i.profile_id]?.numero_socio || '',
-      asistentes: i.num_asistentes,
-      notas: i.notas || ''
-    })), 'inscritos-' + ev.titulo.replace(/\s+/g, '-') + '.csv');
+    item.innerHTML =
+      '<div style="display:flex; justify-content:space-between;"><b>' + act.nombre + '</b>' +
+        '<button class="btn-danger-link borrarActBtn">Borrar</button></div>' +
+      '<p style="font-size:12.5px; color:var(--ink-soft); margin:4px 0;">' + (act.horario || '') + (act.aforo ? ' · Aforo: ' + act.aforo : '') + '</p>' +
+      (otras.length
+        ? '<label style="font-size:12.5px; color:var(--ink-soft);">Excluye a:</label><div class="cursos-grid">' +
+          otras.map(o => '<label><input type="checkbox" class="exclCb" data-otro="' + o.id + '" ' + (excluidasActuales.includes(o.id) ? 'checked' : '') + '> ' + o.nombre + '</label>').join('') +
+          '</div>'
+        : '');
+
+    item.querySelector('.borrarActBtn').addEventListener('click', async () => {
+      await sb.from('evento_actividades').delete().eq('id', act.id);
+      renderActividades(panel, evento);
+    });
+
+    item.querySelectorAll('.exclCb').forEach(cb => {
+      cb.addEventListener('change', async () => {
+        const otroId = cb.dataset.otro;
+        if (cb.checked) {
+          await sb.from('actividad_exclusiones').insert({ actividad_id_1: act.id, actividad_id_2: otroId });
+        } else {
+          await sb.from('actividad_exclusiones').delete()
+            .or('and(actividad_id_1.eq.' + act.id + ',actividad_id_2.eq.' + otroId + '),and(actividad_id_1.eq.' + otroId + ',actividad_id_2.eq.' + act.id + ')');
+        }
+      });
+    });
+
+    lista.appendChild(item);
   });
 }
 
 (async () => {
   const ctx = await requireAdmin();
   if (!ctx) return;
-  renderNav('admin-eventos', ctx.profile);
+  renderNav('admin-eventos', ctx);
   await cargarEventos();
 })();
 </script>

@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cuenta pendiente de verificación · AMPA Juan de Valdés</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared/styles.css">
+<style>.center-wrap{ max-width:480px; margin:0 auto; padding:60px 20px; text-align:center; }</style>
+</head>
+<body>
+<div class="center-wrap">
+  <div class="eyebrow" style="justify-content:center;">AMPA · Estado de la cuenta</div>
+  <h1>Tu solicitud está en revisión</h1>
+  <div class="card" style="text-align:left;">
+    <p style="color:var(--ink-soft); font-size:14.5px;">
+      Hemos recibido tu alta como socio/a, pero todavía tiene que revisarla
+      un administrador del AMPA (comprobar el comprobante de pago y activar
+      tu número de socio). En cuanto se verifique, recibirás acceso
+      completo al portal.
+    </p>
+    <p style="color:var(--ink-soft); font-size:14.5px;">
+      Si ha pasado más de una semana y sigues viendo este mensaje, escribe
+      a la Junta del AMPA.
+    </p>
+  </div>
+  <button class="btn btn-outline" id="signOutBtn" style="margin-top:20px;">Cerrar sesión</button>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="shared/supabaseClient.js"></script>
+<script>
+  (async () => {
+    const ctx = await requireAuth();
+    if (!ctx) return;
+    if (ctx.socio && ctx.socio.estado !== 'recien_creada') {
+      window.location.href = ctx.socio.estado === 'falta_pago' ? 'estado-falta-pago.html' : 'dashboard.html';
+    }
+  })();
+  document.getElementById('signOutBtn').addEventListener('click', signOut);
+</script>
+</body>
+</html>

@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hazte socio · AMPA Juan de Valdés</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared/styles.css">
+<style>
+  .top-simple{ max-width:760px; margin:0 auto; padding:32px 20px 0; }
+  .brand-row{ display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:14px; margin-bottom:16px; }
+  .logo-ampa{ height:44px; } .logo-colegio{ height:32px; }
+  .back-link{ font-family:'IBM Plex Mono',monospace; font-size:12.5px; color:var(--navy); text-decoration:none; }
+  .two-col{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:560px){ .two-col{ grid-template-columns:1fr; } }
+  .paso{ font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--gold); margin-bottom:6px; }
+</style>
+</head>
+<body>
+<div class="top-simple">
+  <div class="brand-row">
+    <img class="logo-ampa" src="assets/logo-ampa.png" alt="AMPA">
+    <img class="logo-colegio" src="assets/logo-colegio.png" alt="Colegio Juan de Valdés">
+  </div>
+  <a class="back-link" href="index.html">‹ Volver a la web del AMPA</a>
+</div>
+
+<div class="wrap">
+  <div class="eyebrow" style="margin-top:24px;">AMPA · Nuevas familias</div>
+  <h1>Hazte socio</h1>
+  <p class="lede">Rellena los datos de tu familia. Al terminar ya serás socio/a; solo falta que la Junta compruebe tu pago para activar del todo tu número de socio.</p>
+
+  <div class="card">
+    <p class="paso">Adulto principal (tú)</p>
+    <div class="two-col"><div class="field"><label>Nombre *</label><input type="text" id="a1Nombre"></div><div class="field"><label>Apellidos *</label><input type="text" id="a1Apellidos"></div></div>
+    <div class="two-col" style="margin-top:14px;"><div class="field"><label>Email *</label><input type="email" id="a1Email"></div><div class="field"><label>DNI/NIE *</label><input type="text" id="a1Dni"></div></div>
+    <div class="two-col" style="margin-top:14px;"><div class="field"><label>Contraseña *</label><input type="password" id="a1Password" minlength="6"></div><div class="field"><label>Repite la contraseña *</label><input type="password" id="a1Password2" minlength="6"></div></div>
+    <div class="field" style="margin-top:14px;"><label>Dirección *</label><input type="text" id="a1Direccion"></div>
+    <div class="two-col" style="margin-top:14px;"><div class="field"><label>Ciudad *</label><input type="text" id="a1Ciudad"></div><div class="field"><label>Provincia *</label><input type="text" id="a1Provincia"></div></div>
+    <div class="two-col" style="margin-top:14px;"><div class="field"><label>Código postal *</label><input type="text" id="a1Cp"></div><div class="field"><label>Móvil</label><input type="text" id="a1Movil"></div></div>
+    <div class="field" style="margin-top:14px;"><label>Relación con los alumnos</label><input type="text" id="a1Relacion" placeholder="padre / madre / tutor legal..."></div>
+  </div>
+
+  <div class="card">
+    <p class="paso">Segundo adulto (opcional)</p>
+    <label style="display:flex; align-items:center; gap:8px; font-weight:400; margin-bottom:12px;">
+      <input type="checkbox" id="tieneAdulto2" style="width:auto;"> Añadir un segundo adulto (recibirá su contraseña por email)
+    </label>
+    <div id="adulto2Wrap" style="display:none;">
+      <div class="two-col"><div class="field"><label>Nombre</label><input type="text" id="a2Nombre"></div><div class="field"><label>Apellidos</label><input type="text" id="a2Apellidos"></div></div>
+      <div class="field" style="margin-top:14px;"><label>Email (distinto al principal)</label><input type="email" id="a2Email"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <p class="paso">Alumnos</p>
+    <div id="alumnosWrap"></div>
+    <button type="button" class="btn btn-outline" id="addAlumnoBtn">+ Añadir alumno/a</button>
+  </div>
+
+  <div class="card">
+    <p class="paso">Forma de pago de la cuota</p>
+    <select id="formaPago">
+      <option value="">Sin especificar (lo aclaramos luego)</option>
+      <option value="Metálico">Metálico</option>
+      <option value="Transferencia">Transferencia</option>
+      <option value="Domiciliación Bancaria">Domiciliación Bancaria (se gestiona después, dentro del portal)</option>
+    </select>
+    <p style="font-size:13.5px; color:var(--ink-soft); margin-top:14px;">
+      Si pagas por transferencia o en metálico: <b>IBAN AMPA:</b> ES00 0000 0000 0000 0000 0000.
+      Sube aquí el comprobante (puedes hacerlo también más tarde, desde tu cuenta).
+    </p>
+    <div class="field" style="margin-top:10px;"><label>Comprobante de pago (opcional ahora)</label><input type="file" id="comprobanteFile" accept="image/*,.pdf"></div>
+  </div>
+
+  <button type="button" class="btn btn-primary btn-block" id="enviarBtn" style="margin:20px 0;">Terminar y crear mi cuenta</button>
+  <p id="msg" style="display:none; margin-bottom:20px;"></p>
+
+  <footer class="note"><b>AMPA Colegio Juan de Valdés</b></footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="shared/supabaseClient.js"></script>
+<script src="shared/catalogo.js"></script>
+<script>
+document.getElementById('tieneAdulto2').addEventListener('change', (e) => {
+  document.getElementById('adulto2Wrap').style.display = e.target.checked ? 'block' : 'none';
+});
+
+let alumnos = [];
+let alumnoCounter = 0;
+function renderAlumnos() {
+  const wrap = document.getElementById('alumnosWrap');
+  wrap.innerHTML = '';
+  alumnos.forEach(al => {
+    const div = document.createElement('div');
+    div.className = 'hijo-card';
+    div.innerHTML = '<div class="hijo-head"><span class="hijo-tag">Alumno/a</span>' +
+      '<button class="btn-danger-link" data-id="' + al.id + '">Quitar</button></div>';
+    const body = document.createElement('div'); body.className = 'hijo-body';
+    body.innerHTML =
+      '<div class="two-col"><div class="field"><label>Nombre</label><input type="text" id="alN_' + al.id + '"></div>' +
+      '<div class="field"><label>Apellidos</label><input type="text" id="alA_' + al.id + '"></div></div>' +
+      '<div class="two-col" style="margin-top:14px;">' +
+      '<div class="field"><label>Etapa</label><select id="alE_' + al.id + '"><option value="">Selecciona...</option>' +
+      Object.keys(CURSOS_POR_ETAPA).map(e => '<option>' + e + '</option>').join('') + '</select></div>' +
+      '<div class="field"><label>Curso</label><select id="alC_' + al.id + '"><option value="">Elige etapa antes</option></select></div>' +
+      '</div>';
+    div.appendChild(body);
+    wrap.appendChild(div);
+    div.querySelector('.btn-danger-link').addEventListener('click', () => { alumnos = alumnos.filter(x => x.id !== al.id); renderAlumnos(); });
+    document.getElementById('alE_' + al.id).addEventListener('change', (e) => {
+      document.getElementById('alC_' + al.id).innerHTML = (CURSOS_POR_ETAPA[e.target.value] || []).map(c => '<option>' + c + '</option>').join('');
+    });
+  });
+}
+document.getElementById('addAlumnoBtn').addEventListener('click', () => { alumnos.push({ id: 'al' + (alumnoCounter++) }); renderAlumnos(); });
+renderAlumnos();
+
+document.getElementById('enviarBtn').addEventListener('click', async () => {
+  const msg = document.getElementById('msg');
+  const btn = document.getElementById('enviarBtn');
+
+  const adulto1 = {
+    nombre: document.getElementById('a1Nombre').value.trim(),
+    apellidos: document.getElementById('a1Apellidos').value.trim(),
+    email: document.getElementById('a1Email').value.trim().toLowerCase(),
+    dni_nie: document.getElementById('a1Dni').value.trim(),
+    password: document.getElementById('a1Password').value,
+    direccion: document.getElementById('a1Direccion').value.trim(),
+    ciudad: document.getElementById('a1Ciudad').value.trim(),
+    provincia: document.getElementById('a1Provincia').value.trim(),
+    codigo_postal: document.getElementById('a1Cp').value.trim(),
+    movil: document.getElementById('a1Movil').value.trim(),
+    relacion_alumnos: document.getElementById('a1Relacion').value.trim()
+  };
+  const password2 = document.getElementById('a1Password2').value;
+
+  if (!adulto1.nombre || !adulto1.apellidos || !adulto1.email || !adulto1.dni_nie || !adulto1.password ||
+      !adulto1.direccion || !adulto1.ciudad || !adulto1.provincia || !adulto1.codigo_postal) {
+    msg.style.display = 'block'; msg.className = 'msg-error';
+    msg.textContent = 'Completa todos los campos obligatorios (*) del adulto principal.';
+    return;
+  }
+  if (adulto1.password.length < 6) {
+    msg.style.display = 'block'; msg.className = 'msg-error'; msg.textContent = 'La contraseña debe tener al menos 6 caracteres.'; return;
+  }
+  if (adulto1.password !== password2) {
+    msg.style.display = 'block'; msg.className = 'msg-error'; msg.textContent = 'Las dos contraseñas no coinciden.'; return;
+  }
+
+  let adulto2 = null;
+  if (document.getElementById('tieneAdulto2').checked) {
+    const email2 = document.getElementById('a2Email').value.trim().toLowerCase();
+    if (email2 && email2 === adulto1.email) {
+      msg.style.display = 'block'; msg.className = 'msg-error'; msg.textContent = 'El segundo adulto debe tener un email distinto al principal.'; return;
+    }
+    adulto2 = { nombre: document.getElementById('a2Nombre').value.trim(), apellidos: document.getElementById('a2Apellidos').value.trim(), email: email2 };
+  }
+
+  const alumnosPayload = alumnos.map(al => ({
+    nombre: document.getElementById('alN_' + al.id).value.trim(),
+    apellidos: document.getElementById('alA_' + al.id).value.trim(),
+    etapa: document.getElementById('alE_' + al.id).value,
+    curso: document.getElementById('alC_' + al.id).value
+  })).filter(a => a.nombre);
+
+  for (const a of alumnosPayload) {
+    if (!a.etapa || !a.curso) {
+      msg.style.display = 'block'; msg.className = 'msg-error';
+      msg.textContent = 'Completa la etapa y el curso de todos los alumnos añadidos.';
+      return;
+    }
+  }
+
+  btn.disabled = true; btn.textContent = 'Creando tu cuenta...';
+
+  try {
+    const resp = await fetch('/.netlify/functions/autoservicio-alta', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        adulto1, adulto2, alumnos: alumnosPayload,
+        forma_pago: document.getElementById('formaPago').value || null
+      })
+    });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.error || 'No se pudo completar el alta');
+
+    // Iniciar sesión con las credenciales que el propio usuario acaba de elegir
+    const { error: loginError } = await sb.auth.signInWithPassword({ email: adulto1.email, password: adulto1.password });
+    if (loginError) throw loginError;
+
+    const comprobante = document.getElementById('comprobanteFile').files[0];
+    if (comprobante) {
+      const path = `${data.socio_id}/${Date.now()}-${comprobante.name.replace(/[^a-zA-Z0-9.\-_]/g, '_')}`;
+      await sb.storage.from('comprobantes').upload(path, comprobante);
+      await sb.from('comprobantes_pago').insert({ tipo: 'cuota_socio', socio_id: data.socio_id, archivo_url: path });
+    }
+
+    window.location.href = 'estado-recien-creada.html';
+  } catch (err) {
+    msg.style.display = 'block'; msg.className = 'msg-error';
+    msg.textContent = 'Error: ' + err.message;
+    btn.disabled = false; btn.textContent = 'Terminar y crear mi cuenta';
+  }
+});
+</script>
+</body>
+</html>

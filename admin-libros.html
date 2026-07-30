@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Catálogo de libros · Admin AMPA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared/styles.css">
+<style>
+  .two-col{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:560px){ .two-col{ grid-template-columns:1fr; } }
+  input.stockInput{ width:80px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">AMPA · Administración</div>
+  <h1>Catálogo de libros</h1>
+  <p class="lede">Añade los libros de préstamo por curso y gestiona el stock disponible.</p>
+
+  <div class="card">
+    <p class="section-label">Añadir libro</p>
+    <div class="two-col">
+      <div class="field">
+        <label>Etapa</label>
+        <select id="nEtapa">
+          <option value="Infantil">Infantil</option><option value="Primaria">Primaria</option>
+          <option value="ESO">ESO</option><option value="Bachillerato">Bachillerato</option>
+        </select>
+      </div>
+      <div class="field"><label>Curso</label><select id="nCurso"></select></div>
+    </div>
+    <div class="field" style="margin-top:14px;"><label>Título</label><input type="text" id="nTitulo"></div>
+    <div class="field" style="margin-top:14px; max-width:160px;"><label>Stock inicial</label><input type="number" id="nStock" min="0" value="0"></div>
+    <button type="button" class="btn btn-primary" id="addBtn" style="margin-top:16px;">Añadir al catálogo</button>
+    <p id="msg" style="display:none; margin-top:14px;"></p>
+  </div>
+
+  <div class="card">
+    <p class="section-label">Catálogo actual</p>
+    <div id="listaWrap"><p class="loading">Cargando...</p></div>
+  </div>
+
+  <footer class="note"><b>AMPA Colegio Juan de Valdés</b> — panel de administración</footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="shared/supabaseClient.js"></script>
+<script src="shared/nav.js"></script>
+<script src="shared/catalogo.js"></script>
+<script>
+function actualizarCursos() {
+  const etapa = document.getElementById('nEtapa').value;
+  document.getElementById('nCurso').innerHTML = CURSOS_POR_ETAPA[etapa].map(c => '<option>' + c + '</option>').join('');
+}
+document.getElementById('nEtapa').addEventListener('change', actualizarCursos);
+actualizarCursos();
+
+document.getElementById('addBtn').addEventListener('click', async () => {
+  const titulo = document.getElementById('nTitulo').value.trim();
+  const msg = document.getElementById('msg');
+  if (!titulo) { msg.style.display = 'block'; msg.className = 'msg-error'; msg.textContent = 'Pon un título.'; return; }
+
+  const { error } = await sb.from('libros_catalogo').insert({
+    etapa: document.getElementById('nEtapa').value,
+    curso: document.getElementById('nCurso').value,
+    titulo,
+    stock: parseInt(document.getElementById('nStock').value, 10) || 0
+  });
+  msg.style.display = 'block';
+  msg.className = error ? 'msg-error' : 'msg-ok';
+  msg.textContent = error ? 'Error: ' + error.message : 'Añadido ✓';
+  if (!error) { document.getElementById('nTitulo').value = ''; document.getElementById('nStock').value = '0'; cargarLista(); }
+});
+
+async function cargarLista() {
+  const wrap = document.getElementById('listaWrap');
+  const { data, error } = await sb.from('libros_catalogo').select('*').order('etapa').order('curso').order('titulo');
+  if (error) { wrap.innerHTML = '<p class="msg-error">No se pudo cargar.</p>'; return; }
+  if (!data || data.length === 0) { wrap.innerHTML = '<p class="empty-hint">Todavía no hay libros en el catálogo.</p>'; return; }
+
+  wrap.innerHTML = '<table><thead><tr><th>Curso</th><th>Título</th><th>Stock</th><th></th></tr></thead><tbody>' +
+    data.map(l =>
+      '<tr>' +
+        '<td>' + l.curso + ' ' + l.etapa + '</td>' +
+        '<td>' + l.titulo + '</td>' +
+        '<td><input type="number" class="stockInput" data-id="' + l.id + '" value="' + l.stock + '" min="0"></td>' +
+        '<td><button class="btn-danger-link" data-del="' + l.id + '">Borrar</button></td>' +
+      '</tr>'
+    ).join('') +
+  '</tbody></table>';
+
+  wrap.querySelectorAll('.stockInput').forEach(input => {
+    input.addEventListener('change', async () => {
+      await sb.from('libros_catalogo').update({ stock: parseInt(input.value, 10) || 0 }).eq('id', input.dataset.id);
+    });
+  });
+  wrap.querySelectorAll('[data-del]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('¿Borrar este libro del catálogo?')) return;
+      await sb.from('libros_catalogo').delete().eq('id', btn.dataset.del);
+      cargarLista();
+    });
+  });
+}
+
+(async () => {
+  const ctx = await requireAdmin();
+  if (!ctx) return;
+  renderNav('admin-libros', ctx);
+  await cargarLista();
+})();
+</script>
+</body>
+</html>
