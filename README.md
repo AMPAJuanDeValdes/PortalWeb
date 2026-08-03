@@ -17,7 +17,7 @@ ampa-portal-v2/
 │   ├── autoservicio-alta.js       <- alta completa self-service ("Hazte socio")
 │   └── enviar-email-masivo.js     <- envío de email a una lista de destinatarios
 ├── supabase/schema.sql            <- esquema completo (pégalo en Supabase)
-├── shared/ (config.js, supabaseClient.js, nav.js, styles.css, csv.js, helpers.js, catalogo.js, carrusel.js)
+├── shared/ (supabaseClient.js, nav.js, styles.css, csv.js, helpers.js)
 ├── assets/ (logos)
 ├── index.html, publico.html, hazte-socio.html      <- web pública
 ├── login.html, cambiar-clave.html,
@@ -33,11 +33,8 @@ ampa-portal-v2/
 1. Crea un proyecto nuevo en https://supabase.com/dashboard (o usa uno vacío).
 2. **SQL Editor** → pega todo `supabase/schema.sql` → **Run**.
 3. **Project Settings → API Keys**: copia el **Project URL** y la
-   **Publishable key**. Ponlas en `shared/config.js`
-   (`SUPABASE_URL`, `SUPABASE_ANON_KEY`). **Este archivo es el único que
-   nunca te reenvío al actualizar el proyecto** — así tu configuración
-   real nunca se pisa por accidente. No hace falta tocar ninguna página:
-   `shared/supabaseClient.js` lo carga por su cuenta.
+   **Publishable key**. Ponlas en `shared/supabaseClient.js`
+   (`SUPABASE_URL`, `SUPABASE_ANON_KEY`).
 4. **¡Importante!** Ve a **Authentication → Providers → Email** y
    **desactiva "Confirm email"**. El alta autoservicio ("Hazte socio")
    necesita que el usuario quede con sesión activa nada más registrarse;
