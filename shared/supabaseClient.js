@@ -1,9 +1,15 @@
-// ============================================================
-// CONFIGURA AQUÍ TUS CLAVES DE SUPABASE
-// (Supabase → Project Settings → API Keys / Data API)
-// ============================================================
-const SUPABASE_URL = 'https://TU-PROYECTO.supabase.co';
-const SUPABASE_ANON_KEY = 'TU-PUBLISHABLE-KEY';
+// Carga shared/config.js por su cuenta (síncrono), así ninguna página
+// necesita incluir esa etiqueta por separado — solo esta.
+(function cargarConfig() {
+  const xhr = new XMLHttpRequest();
+  xhr.open('GET', 'shared/config.js', false); // false = síncrono
+  xhr.send(null);
+  if (xhr.status === 200) {
+    (0, eval)(xhr.responseText); // ejecuta en el ámbito global
+  } else {
+    console.error('No se pudo cargar shared/config.js (¿existe el archivo?)');
+  }
+})();
 
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
