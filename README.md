@@ -24,8 +24,8 @@ ampa-portal-v2/
 │   estado-recien-creada.html, estado-falta-pago.html
 ├── dashboard.html, mis-datos.html, prestamo.html, eventos.html
 └── admin-importar.html, admin-comprobantes.html, admin-eventos.html,
-    admin-libros.html, admin-documentos.html, admin-email.html,
-    admin-respuestas.html
+    admin-libros.html, admin-documentos.html, admin-carrusel.html,
+    admin-email.html, admin-respuestas.html
 ```
 
 ## Paso 1 — Supabase
@@ -77,6 +77,11 @@ Igual que antes: conecta el repo de GitHub a Netlify (no vale drag-and-drop,
 hay funciones de servidor), añade estas variables en
 **Site configuration → Environment variables**, y haz **Trigger deploy**
 después de añadirlas.
+
+## Si ya tenías el proyecto v2 desplegado (carrusel de fotos)
+
+Ejecuta `supabase/migracion-carrusel.sql` en el SQL Editor — añade la tabla
+`fotos_carrusel` y el bucket `carrusel` sin tocar nada más.
 
 ## Pendiente de construir (no está en este ZIP)
 

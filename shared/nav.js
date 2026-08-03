@@ -17,6 +17,7 @@ function renderNav(activePage, ctx) {
     { page: 'admin-comprobantes', href: 'admin-comprobantes.html', label: 'Comprobantes de pago' },
     { page: 'admin-eventos', href: 'admin-eventos.html', label: 'Eventos (admin)' },
     { page: 'admin-libros', href: 'admin-libros.html', label: 'Catálogo de libros' },
+    { page: 'admin-carrusel', href: 'admin-carrusel.html', label: 'Carrusel de portada' },
     { page: 'admin-documentos', href: 'admin-documentos.html', label: 'Documentos (admin)' },
     { page: 'admin-email', href: 'admin-email.html', label: 'Enviar email' },
     { page: 'admin-respuestas', href: 'admin-respuestas.html', label: 'Respuestas' }

@@ -207,3 +207,40 @@ th{ font-family:'IBM Plex Mono', monospace; font-size:11px; letter-spacing:.06em
 
 footer.note{ margin-top:28px; font-size:12.5px; color:var(--ink-soft); text-align:center; }
 footer.note b{ color:var(--navy); }
+
+/* -------- Carrusel de fotos -------- */
+.carrusel-viewport{
+  position:relative; width:100%; aspect-ratio:4/3; overflow:hidden;
+  border-radius:var(--radius); background:#EEF2F6;
+}
+.carrusel-img{ width:100%; height:100%; object-fit:cover; display:block; }
+.carrusel-btn{
+  position:absolute; top:50%; transform:translateY(-50%);
+  width:36px; height:36px; border-radius:50%; border:none;
+  background:rgba(255,255,255,.9); color:var(--navy); font-size:20px;
+  cursor:pointer; box-shadow:0 1px 4px rgba(0,0,0,.15);
+}
+.carrusel-prev{ left:10px; } .carrusel-next{ right:10px; }
+.carrusel-dots{ display:flex; justify-content:center; gap:6px; margin-top:10px; }
+.carrusel-dot{ width:7px; height:7px; border-radius:50%; background:var(--line); cursor:pointer; }
+.carrusel-dot.active{ background:var(--navy); }
+
+/* -------- Iconos sociales circulares con tooltip -------- */
+.social-icons{ display:flex; gap:14px; justify-content:center; }
+.social-icon{
+  position:relative; width:44px; height:44px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center; color:#fff;
+  text-decoration:none;
+}
+.social-icon svg{ width:20px; height:20px; }
+.social-icon.instagram{ background:linear-gradient(45deg,#F58529,#DD2A7B,#8134AF,#515BD4); }
+.social-icon.email{ background:#4E7AC7; }
+.social-icon.whatsapp{ background:#25D366; }
+.social-icon::after{
+  content:attr(data-tooltip);
+  position:absolute; bottom:calc(100% + 8px); left:50%; transform:translateX(-50%);
+  background:var(--ink); color:#fff; font-size:11px; font-family:'IBM Plex Mono',monospace;
+  padding:4px 8px; border-radius:4px; white-space:nowrap;
+  opacity:0; pointer-events:none; transition:opacity .15s;
+}
+.social-icon:hover::after{ opacity:1; }

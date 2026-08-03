@@ -156,11 +156,13 @@ async function cargarEventos() {
           '</span></div>' +
         '<div style="display:flex; gap:8px; flex-wrap:wrap;">' +
           '<button class="btn btn-outline toggleActividadesBtn">Actividades</button>' +
+          '<button class="btn btn-outline toggleFotosBtn">Fotos</button>' +
           '<button class="btn-danger-link toggleActivoBtn">' + (ev.activo ? 'Ocultar' : 'Reactivar') + '</button>' +
           '<button class="btn-danger-link borrarBtn">Borrar</button>' +
         '</div>' +
       '</div>' +
-      '<div class="actividadesPanel" style="display:none; margin-top:14px;"></div>';
+      '<div class="actividadesPanel" style="display:none; margin-top:14px;"></div>' +
+      '<div class="fotosPanel" style="display:none; margin-top:14px;"></div>';
 
     row.querySelector('.toggleActivoBtn').addEventListener('click', async () => {
       await sb.from('eventos').update({ activo: !ev.activo }).eq('id', ev.id);
@@ -178,8 +180,50 @@ async function cargarEventos() {
       if (!visible) await renderActividades(panel, ev);
     });
 
+    const fotosPanel = row.querySelector('.fotosPanel');
+    row.querySelector('.toggleFotosBtn').addEventListener('click', async () => {
+      const visible = fotosPanel.style.display === 'block';
+      fotosPanel.style.display = visible ? 'none' : 'block';
+      if (!visible) await renderFotosEvento(fotosPanel, ev);
+    });
+
     wrap.appendChild(row);
   }
+}
+
+async function renderFotosEvento(panel, evento) {
+  panel.innerHTML = '<p class="loading">Cargando...</p>';
+  const { data: fotos } = await sb.from('fotos_carrusel').select('*').eq('evento_id', evento.id).order('orden');
+
+  panel.innerHTML =
+    '<p class="section-label">Fotos de este evento</p>' +
+    '<input type="file" class="nFotoFile" accept="image/*">' +
+    '<button type="button" class="btn btn-outline nAddFotoBtn" style="margin-top:10px;">+ Añadir foto</button>' +
+    '<div class="fotosLista" style="margin-top:14px; display:flex; flex-wrap:wrap; gap:10px;"></div>';
+
+  panel.querySelector('.nAddFotoBtn').addEventListener('click', async () => {
+    const file = panel.querySelector('.nFotoFile').files[0];
+    if (!file) return;
+    const path = `eventos/${evento.id}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_')}`;
+    await sb.storage.from('carrusel').upload(path, file);
+    const { data: urlData } = sb.storage.from('carrusel').getPublicUrl(path);
+    const { count } = await sb.from('fotos_carrusel').select('id', { count: 'exact', head: true }).eq('evento_id', evento.id);
+    await sb.from('fotos_carrusel').insert({ evento_id: evento.id, url: urlData.publicUrl, orden: count || 0 });
+    renderFotosEvento(panel, evento);
+  });
+
+  const lista = panel.querySelector('.fotosLista');
+  (fotos || []).forEach(f => {
+    const item = document.createElement('div');
+    item.style.textAlign = 'center';
+    item.innerHTML = `<img src="${f.url}" style="width:100px; height:72px; object-fit:cover; border-radius:4px; border:1px solid var(--line); display:block;">
+      <button class="btn-danger-link" style="margin-top:4px;">Quitar</button>`;
+    item.querySelector('button').addEventListener('click', async () => {
+      await sb.from('fotos_carrusel').delete().eq('id', f.id);
+      renderFotosEvento(panel, evento);
+    });
+    lista.appendChild(item);
+  });
 }
 
 async function renderActividades(panel, evento) {

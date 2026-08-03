@@ -48,7 +48,7 @@
     <div class="two-col" style="margin-top:14px;">
       <div class="field">
         <label>Forma de pago</label>
-        <select id="mFormaPago"><option value="">Sin especificar</option><option>Metálico</option><option>Transferencia</option><option>Domiciliación Bancaria</option></select>
+        <select id="mFormaPago"><option value="">Sin especificar</option><option>Transferencia</option><option>Domiciliación Bancaria</option></select>
       </div>
       <div class="field"><label>IBAN</label><input type="text" id="mIban"></div>
     </div>
@@ -88,8 +88,12 @@ function renderAdultoForm(prefijo) {
   return (
     '<div class="two-col">' + campoTexto(prefijo + 'Nombre', 'Nombre *') + campoTexto(prefijo + 'Apellidos', 'Apellidos *') + '</div>' +
     '<div class="two-col" style="margin-top:14px;">' + campoTexto(prefijo + 'Email', 'Email *', 'email') + campoTexto(prefijo + 'Dni', 'DNI/NIE *') + '</div>' +
+    '<div class="field" style="margin-top:10px;"><label style="display:flex; align-items:center; gap:8px; font-weight:400;">' +
+      '<input type="checkbox" id="' + prefijo + 'EsPasaporte" style="width:auto;"> Es número de pasaporte</label></div>' +
     '<div class="two-col" style="margin-top:14px;">' + campoTexto(prefijo + 'Direccion', 'Dirección *') + campoTexto(prefijo + 'Ciudad', 'Ciudad *') + '</div>' +
     '<div class="two-col" style="margin-top:14px;">' + campoTexto(prefijo + 'Provincia', 'Provincia *') + campoTexto(prefijo + 'Cp', 'Código postal *') + '</div>' +
+    '<div class="two-col" style="margin-top:14px;"><div class="field"><label>Sexo</label><select id="' + prefijo + 'Sexo"><option value="">Sin especificar</option><option>Masculino</option><option>Femenino</option><option>Otro</option></select></div>' +
+      campoTexto(prefijo + 'TelefonoFijo', 'Teléfono fijo') + '</div>' +
     '<div class="two-col" style="margin-top:14px;">' + campoTexto(prefijo + 'Movil', 'Móvil') + campoTexto(prefijo + 'Relacion', 'Relación con alumnos') + '</div>'
   );
 }
@@ -139,8 +143,11 @@ function leerAdultoDelForm(prefijo) {
   const v = (id) => (document.getElementById(prefijo + id) ? document.getElementById(prefijo + id).value.trim() : '');
   const nombre = v('Nombre');
   if (!nombre) return null;
+  const esPasaporteEl = document.getElementById(prefijo + 'EsPasaporte');
   return {
     nombre: nombre, apellidos: v('Apellidos'), email: v('Email'), dni_nie: v('Dni'),
+    es_pasaporte: esPasaporteEl ? esPasaporteEl.checked : false,
+    sexo: v('Sexo'), telefono_fijo: v('TelefonoFijo'),
     direccion: v('Direccion'), ciudad: v('Ciudad'), provincia: v('Provincia'),
     codigo_postal: v('Cp'), movil: v('Movil'), relacion_alumnos: v('Relacion')
   };
@@ -217,7 +224,9 @@ document.getElementById('manualBtn').addEventListener('click', async () => {
     forma_pago: document.getElementById('mFormaPago').value,
     iban: document.getElementById('mIban').value.trim(),
     adulto1_nombre: adulto1.nombre, adulto1_apellidos: adulto1.apellidos, adulto1_email: adulto1.email,
-    adulto1_dni_nie: adulto1.dni_nie, adulto1_direccion: adulto1.direccion, adulto1_ciudad: adulto1.ciudad,
+    adulto1_dni_nie: adulto1.dni_nie, adulto1_es_pasaporte: adulto1.es_pasaporte ? 'si' : 'no',
+    adulto1_sexo: adulto1.sexo, adulto1_telefono_fijo: adulto1.telefono_fijo,
+    adulto1_direccion: adulto1.direccion, adulto1_ciudad: adulto1.ciudad,
     adulto1_provincia: adulto1.provincia, adulto1_codigo_postal: adulto1.codigo_postal,
     adulto1_movil: adulto1.movil, adulto1_relacion_alumnos: adulto1.relacion_alumnos
   };
@@ -226,7 +235,9 @@ document.getElementById('manualBtn').addEventListener('click', async () => {
     if (adulto2) {
       Object.assign(fila, {
         adulto2_nombre: adulto2.nombre, adulto2_apellidos: adulto2.apellidos, adulto2_email: adulto2.email,
-        adulto2_dni_nie: adulto2.dni_nie, adulto2_direccion: adulto2.direccion, adulto2_ciudad: adulto2.ciudad,
+        adulto2_dni_nie: adulto2.dni_nie, adulto2_es_pasaporte: adulto2.es_pasaporte ? 'si' : 'no',
+        adulto2_sexo: adulto2.sexo, adulto2_telefono_fijo: adulto2.telefono_fijo,
+        adulto2_direccion: adulto2.direccion, adulto2_ciudad: adulto2.ciudad,
         adulto2_provincia: adulto2.provincia, adulto2_codigo_postal: adulto2.codigo_postal,
         adulto2_movil: adulto2.movil, adulto2_relacion_alumnos: adulto2.relacion_alumnos
       });

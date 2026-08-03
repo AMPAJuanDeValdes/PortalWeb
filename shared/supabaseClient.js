@@ -2,8 +2,8 @@
 // CONFIGURA AQUÍ TUS CLAVES DE SUPABASE
 // (Supabase → Project Settings → API Keys / Data API)
 // ============================================================
-const SUPABASE_URL = 'https://wvqthtfxvcwsdbwbwadb.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_AGFoOoVCOHsH_n5RTWv24A_iTb5xCn2';
+const SUPABASE_URL = 'https://TU-PROYECTO.supabase.co';
+const SUPABASE_ANON_KEY = 'TU-PUBLISHABLE-KEY';
 
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 

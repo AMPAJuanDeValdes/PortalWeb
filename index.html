@@ -32,6 +32,8 @@
   .videos-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:14px; margin-top:14px; }
   .video-item iframe{ width:100%; aspect-ratio:16/9; border:none; border-radius:var(--radius); }
   .video-item p{ font-size:12.5px; color:var(--ink-soft); margin:6px 0 0; }
+  .qhacemos-grid{ display:grid; grid-template-columns:1fr 1.3fr; gap:24px; align-items:start; }
+  @media (max-width:640px){ .qhacemos-grid{ grid-template-columns:1fr; } }
 </style>
 </head>
 <body>
@@ -42,15 +44,22 @@
     <img class="logo-colegio" src="assets/logo-colegio.png" alt="Colegio Juan de Valdés">
   </div>
   <div class="rainbow-rule" style="max-width:200px; margin:0 auto 20px;"></div>
-  <h1>Asociación de Madres y Padres del Colegio Juan de Valdés</h1>
+  <h1>Asociación de Familias del Colegio Juan de Valdés</h1>
   <p>Trabajamos para que la vida escolar de nuestros hijos e hijas sea más rica: préstamo de libros, actividades, eventos y apoyo a las familias del colegio.</p>
   <div class="cta-row">
     <a href="login.html" class="btn btn-primary">Ingreso socios</a>
     <a href="publico.html" class="btn btn-outline">No soy socio / Ver eventos</a>
   </div>
-  <div class="social-row">
-    <a class="btn btn-outline" href="https://www.instagram.com/TU-CUENTA" target="_blank" rel="noopener">📷 Instagram</a>
-    <a class="btn btn-outline" href="https://whatsapp.com/channel/TU-CANAL" target="_blank" rel="noopener">💬 Canal de WhatsApp</a>
+  <div class="social-icons">
+    <a class="social-icon instagram" href="https://www.instagram.com/ampacolegiojuandevaldes/" target="_blank" rel="noopener" data-tooltip="@ampacolegiojuandevaldes">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg>
+    </a>
+    <a class="social-icon email" href="mailto:ampa_j_valdes@fapaginerdelosrios.org" data-tooltip="ampa_j_valdes@fapaginerdelosrios.org">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 6l10 7 10-7"/></svg>
+    </a>
+    <a class="social-icon whatsapp" href="https://whatsapp.com/channel/0029Vb5wJn6G8l57tBQ4Oe3K" target="_blank" rel="noopener" data-tooltip="Canal de WhatsApp">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-8.5 15.2L2 22l4.9-1.5A10 10 0 1 0 12 2zm0 18a8 8 0 0 1-4.1-1.1l-.3-.2-3 .9.9-2.9-.2-.3A8 8 0 1 1 12 20zm4.4-6c-.2-.1-1.4-.7-1.6-.8-.2-.1-.4-.1-.5.1-.2.2-.6.8-.8 1-.1.2-.3.2-.5.1-1.4-.7-2.3-1.3-3.2-2.9-.2-.4.2-.4.6-1.2.1-.1 0-.3 0-.4-.1-.1-.5-1.2-.7-1.7-.2-.4-.4-.4-.5-.4h-.5c-.2 0-.4.1-.6.3-.7.7-1 1.5-.9 2.4.2 1.6 1.4 3.1 1.6 3.3.2.2 2.7 4.1 6.5 5.5 3.2 1.2 3.2.8 3.8.7.6-.1 1.8-.7 2-1.4.2-.7.2-1.3.2-1.4-.1-.1-.3-.2-.5-.3z"/></svg>
+    </a>
   </div>
 </div>
 
@@ -58,34 +67,77 @@
   <div class="card">
     <p class="section-label">Qué es el AMPA</p>
     <p style="font-size:14.5px; color:var(--ink-soft);">
-      El AMPA (Asociación de Madres y Padres de Alumnos) del Colegio Juan de Valdés es una
+      El AMPA (Asociación de Familias de Alumnos) del Colegio Juan de Valdés es una
       entidad sin ánimo de lucro formada por familias del centro. Nuestro objetivo es
       complementar la labor educativa del colegio, representar los intereses de las familias
       y organizar actividades y servicios que enriquezcan la vida escolar de nuestros hijos e hijas.
     </p>
-    <div class="pilares">
-      <div class="pilar"><h3>📚 Préstamo de libros</h3><p>Libros de lectura obligatoria para las familias socias.</p></div>
-      <div class="pilar"><h3>🎉 Eventos y actividades</h3><p>Actividades a lo largo del curso, muchas abiertas a toda la comunidad.</p></div>
-      <div class="pilar"><h3>🤝 Representación</h3><p>Trasladamos las inquietudes de las familias al colegio.</p></div>
-    </div>
   </div>
 
   <div class="card">
-    <p class="section-label">Quiénes formamos la Junta Directiva</p>
-    <ul class="junta-list">
-      <li><b>Presidencia</b>Nombre y apellidos</li>
-      <li><b>Vicepresidencia</b>Nombre y apellidos</li>
-      <li><b>Secretaría</b>Nombre y apellidos</li>
-      <li><b>Tesorería</b>Nombre y apellidos</li>
-      <li><b>Vocalía de actividades</b>Nombre y apellidos</li>
-      <li><b>Vocalía de comunicación</b>Nombre y apellidos</li>
+    <p class="section-label">👩‍👩‍👧‍👦 ¿Quién forma la Junta?</p>
+    <p style="font-size:14.5px; color:var(--ink-soft);">
+      La Junta del AMPA está compuesta por madres y padres del colegio que colaboran de forma
+      voluntaria. Son quienes coordinan las actividades, gestionan la comunicación con las
+      familias y administran los recursos económicos de la asociación.
+    </p>
+    <p class="section-label" style="margin-top:20px;">Junta actual</p>
+    <ul class="junta-list" style="grid-template-columns:1fr;">
+      <li>
+        <b>👨‍👧 Presidente – Federico Prado Enrico</b>
+        Familia monoparental con una niña en la ESO.<br>
+        <em>"Mi objetivo es contribuir al desarrollo educativo de los niños y niñas a través de
+        actividades complementarias, fomentando una comunidad que refuerce la relación entre
+        las familias y el Colegio."</em>
+      </li>
+      <li>
+        <b>👩‍👧 Vicepresidenta – Paula Albo Pariente</b>
+        Madre de un hijo en Primaria y otro en Educación Infantil.<br>
+        <em>"Quiero contribuir a mejorar la comunicación entre la escuela y las familias."</em>
+      </li>
+      <li>
+        <b>👩‍👧 Secretaria – Isabel Gaona Herranz</b>
+        Madre de una niña en Primaria.<br>
+        <em>"Quiero ayudar a seguir mejorando entre todos la comunidad escolar."</em>
+      </li>
+      <li>
+        <b>👩‍👦‍👦 Tesorera – Beatriz Gómez Macho</b>
+        Madre de dos hijos.<br>
+        <em>"Me gustaría contribuir a una mayor colaboración entre el colegio y las familias."</em>
+      </li>
     </ul>
-    <p style="font-size:12.5px; color:var(--ink-soft); margin-top:14px;">(Edita esta lista en <code>index.html</code> con los nombres reales.)</p>
   </div>
 
   <div class="card">
     <p class="section-label">Últimos vídeos</p>
-    <div id="videosWrap"><p class="empty-hint">Configura tu clave de YouTube en el script de esta página para activar esta sección.</p></div>
+    <div id="videosWrap">
+      <div class="videos-grid">
+        <div class="video-item">
+          <iframe src="https://www.youtube.com/embed/jDduF42Cnm0" allowfullscreen loading="lazy"></iframe>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="qhacemos-grid">
+      <div id="carruselPortada"><p class="loading">Cargando fotos...</p></div>
+      <div>
+        <p class="section-label" style="margin-top:0;">🎯 ¿Qué hacemos desde el AMPA?</p>
+        <p style="font-size:14.5px; color:var(--ink-soft);">
+          Durante el curso organizamos y apoyamos numerosas actividades que enriquecen la vida
+          del colegio. Algunas de las más habituales son:
+        </p>
+        <ul style="font-size:14px; color:var(--ink-soft); padding-left:18px; margin:10px 0 0;">
+          <li style="margin-bottom:8px;">🎭 <b>Actividades y eventos escolares:</b> teatros o cuentacuentos, la chocolatada de Navidad y la barbacoa de fin de curso junto con el colegio.</li>
+          <li style="margin-bottom:8px;">🎲 <b>Talleres y actividades extraescolares:</b> juegos de mesa, rol y talleres de ciencias.</li>
+          <li style="margin-bottom:8px;">👕 <b>Donación e intercambio de uniformes:</b> recogida y reparto para darles una segunda vida.</li>
+          <li style="margin-bottom:8px;">🎟️ <b>Lotería de Navidad:</b> participaciones solidarias para financiar actividades del curso.</li>
+          <li style="margin-bottom:8px;">👪 <b>Charlas y talleres para familias:</b> en colaboración con la FAPA y otros organismos.</li>
+          <li style="margin-bottom:8px;">💬 <b>Comunicación y comunidad:</b> difusión de información útil a través de WhatsApp, correo electrónico e Instagram.</li>
+        </ul>
+      </div>
+    </div>
   </div>
 
   <div class="card">
@@ -99,6 +151,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="shared/supabaseClient.js"></script>
+<script src="shared/carrusel.js"></script>
 <script>
 // ---- YouTube (opcional): pon tu clave y el ID del canal para activarlo ----
 const YOUTUBE_API_KEY = ''; // https://console.cloud.google.com/apis/credentials
@@ -139,6 +192,9 @@ function renderLista(contenedorId, tituloVacio, items) {
 
 (async () => {
   await cargarVideos();
+
+  const { data: fotos } = await sb.from('fotos_carrusel').select('url').is('evento_id', null).order('orden');
+  renderCarrusel(document.getElementById('carruselPortada'), (fotos || []).map(f => f.url));
 
   const { data, error } = await sb.from('documentos').select('*').eq('activo', true).order('fecha', { ascending: false });
   if (error) { document.getElementById('newslettersWrap').innerHTML = '<p class="msg-error">No se pudieron cargar.</p>'; return; }

@@ -10,7 +10,7 @@ const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 const ETAPAS_VALIDAS = ['Infantil', 'Primaria', 'ESO', 'Bachillerato'];
 const AULAS_VALIDAS = ['A', 'B', 'C', 'D'];
-const FORMAS_PAGO_VALIDAS = ['Metálico', 'Transferencia', 'Domiciliación Bancaria'];
+const FORMAS_PAGO_VALIDAS = ['Transferencia', 'Domiciliación Bancaria'];
 
 function generarPassword() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';

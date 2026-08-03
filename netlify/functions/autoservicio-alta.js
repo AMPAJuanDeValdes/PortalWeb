@@ -10,7 +10,7 @@ const { enviarEmail, plantillaCredenciales } = require('./_lib/email');
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const ETAPAS_VALIDAS = ['Infantil', 'Primaria', 'ESO', 'Bachillerato'];
-const FORMAS_PAGO_VALIDAS = ['Metálico', 'Transferencia', 'Domiciliación Bancaria'];
+const FORMAS_PAGO_VALIDAS = ['Transferencia', 'Domiciliación Bancaria'];
 
 function generarPassword() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
@@ -30,11 +30,18 @@ exports.handler = async (event) => {
   const alumnos = Array.isArray(payload.alumnos) ? payload.alumnos : [];
   const forma_pago = FORMAS_PAGO_VALIDAS.includes(payload.forma_pago) ? payload.forma_pago : null;
 
-  if (!adulto1 || !adulto1.email || !adulto1.password || !adulto1.nombre || !adulto1.apellidos || !adulto1.dni_nie) {
+  if (!adulto1 || !adulto1.email || !adulto1.password || !adulto1.nombre || !adulto1.apellidos || !adulto1.dni_nie ||
+      !adulto1.direccion || !adulto1.ciudad || !adulto1.provincia || !adulto1.codigo_postal) {
     return { statusCode: 400, body: JSON.stringify({ error: 'Faltan datos obligatorios del adulto principal' }) };
   }
-  if (adulto2 && adulto2.email && adulto2.email.toLowerCase() === adulto1.email.toLowerCase()) {
-    return { statusCode: 400, body: JSON.stringify({ error: 'El segundo adulto debe tener un email distinto al principal' }) };
+  if (adulto2) {
+    if (!adulto2.nombre || !adulto2.apellidos || !adulto2.email || !adulto2.dni_nie ||
+        !adulto2.direccion || !adulto2.ciudad || !adulto2.provincia || !adulto2.codigo_postal) {
+      return { statusCode: 400, body: JSON.stringify({ error: 'Faltan datos obligatorios del segundo adulto' }) };
+    }
+    if (adulto2.email.toLowerCase() === adulto1.email.toLowerCase()) {
+      return { statusCode: 400, body: JSON.stringify({ error: 'El segundo adulto debe tener un email distinto al principal' }) };
+    }
   }
   for (const al of alumnos) {
     if (!al.nombre || !ETAPAS_VALIDAS.includes(al.etapa) || !al.curso) {

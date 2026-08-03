@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Carrusel de portada · Admin AMPA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared/styles.css">
+<style>
+  .foto-row{ display:flex; align-items:center; gap:14px; padding:10px 0; border-bottom:1px solid var(--line); }
+  .foto-row:last-child{ border-bottom:none; }
+  .foto-row img{ width:90px; height:64px; object-fit:cover; border-radius:var(--radius); border:1px solid var(--line); }
+  .foto-row input[type=number]{ width:70px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">AMPA · Administración</div>
+  <h1>Carrusel de portada</h1>
+  <p class="lede">Fotos que aparecen en el carrusel de la página principal.</p>
+
+  <div class="card">
+    <p class="section-label">Subir foto</p>
+    <input type="file" id="fotoFile" accept="image/*">
+    <button type="button" class="btn btn-primary" id="subirBtn" style="margin-top:14px;">Subir al carrusel</button>
+    <p id="msg" style="display:none; margin-top:14px;"></p>
+  </div>
+
+  <div class="card">
+    <p class="section-label">Fotos actuales (el número de orden decide en qué posición aparecen)</p>
+    <div id="listaWrap"><p class="loading">Cargando...</p></div>
+  </div>
+
+  <footer class="note"><b>AMPA Colegio Juan de Valdés</b> — panel de administración</footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="shared/supabaseClient.js"></script>
+<script src="shared/nav.js"></script>
+<script>
+document.getElementById('subirBtn').addEventListener('click', async () => {
+  const file = document.getElementById('fotoFile').files[0];
+  const msg = document.getElementById('msg');
+  const btn = document.getElementById('subirBtn');
+  if (!file) { msg.style.display = 'block'; msg.className = 'msg-error'; msg.textContent = 'Selecciona una foto.'; return; }
+
+  btn.disabled = true; btn.textContent = 'Subiendo...';
+  const path = `portada/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_')}`;
+  const { error: upErr } = await sb.storage.from('carrusel').upload(path, file);
+  if (upErr) {
+    msg.style.display = 'block'; msg.className = 'msg-error'; msg.textContent = 'Error al subir: ' + upErr.message;
+    btn.disabled = false; btn.textContent = 'Subir al carrusel';
+    return;
+  }
+  const { data: urlData } = sb.storage.from('carrusel').getPublicUrl(path);
+  const { count } = await sb.from('fotos_carrusel').select('id', { count: 'exact', head: true }).is('evento_id', null);
+  const { error: insErr } = await sb.from('fotos_carrusel').insert({ url: urlData.publicUrl, orden: count || 0 });
+
+  msg.style.display = 'block';
+  msg.className = insErr ? 'msg-error' : 'msg-ok';
+  msg.textContent = insErr ? 'Error: ' + insErr.message : 'Foto añadida ✓';
+  btn.disabled = false; btn.textContent = 'Subir al carrusel';
+  if (!insErr) { document.getElementById('fotoFile').value = ''; cargarLista(); }
+});
+
+async function cargarLista() {
+  const wrap = document.getElementById('listaWrap');
+  const { data, error } = await sb.from('fotos_carrusel').select('*').is('evento_id', null).order('orden');
+  if (error) { wrap.innerHTML = '<p class="msg-error">No se pudo cargar.</p>'; return; }
+  if (!data || data.length === 0) { wrap.innerHTML = '<p class="empty-hint">Todavía no hay fotos.</p>'; return; }
+
+  wrap.innerHTML = '';
+  data.forEach(f => {
+    const row = document.createElement('div');
+    row.className = 'foto-row';
+    row.innerHTML = `
+      <img src="${f.url}" alt="">
+      <input type="number" value="${f.orden}" class="ordenInput">
+      <button class="btn-danger-link">Borrar</button>
+    `;
+    row.querySelector('.ordenInput').addEventListener('change', async (e) => {
+      await sb.from('fotos_carrusel').update({ orden: parseInt(e.target.value, 10) || 0 }).eq('id', f.id);
+    });
+    row.querySelector('.btn-danger-link').addEventListener('click', async () => {
+      if (!confirm('¿Quitar esta foto del carrusel?')) return;
+      await sb.from('fotos_carrusel').delete().eq('id', f.id);
+      cargarLista();
+    });
+    wrap.appendChild(row);
+  });
+}
+
+(async () => {
+  const ctx = await requireAdmin();
+  if (!ctx) return;
+  renderNav('admin-carrusel', ctx);
+  await cargarLista();
+})();
+</script>
+</body>
+</html>

@@ -51,6 +51,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="shared/supabaseClient.js"></script>
+<script src="shared/carrusel.js"></script>
 <script>
 function formatFecha(f) { return f ? new Date(f).toLocaleString('es-ES', { dateStyle: 'full', timeStyle: 'short' }) : 'Fecha por confirmar'; }
 
@@ -74,6 +75,7 @@ async function cargarEventos() {
     card.innerHTML = `
       <p class="evento-fecha">${formatFecha(ev.fecha)}</p>
       <h2>${ev.titulo}</h2>
+      <div class="eventoCarrusel" style="max-width:340px; margin-bottom:12px;"></div>
       <p style="color:var(--ink-soft); font-size:14px;">${ev.descripcion || ''}</p>
       ${ev.precio_invitado ? `<p style="font-size:13px; color:var(--gold);">Entrada: ${Number(ev.precio_invitado).toFixed(2)} €</p>` : ''}
       <details style="margin-top:14px;">
@@ -88,6 +90,10 @@ async function cargarEventos() {
         </div>
       </details>
     `;
+
+    sb.from('fotos_carrusel').select('url').eq('evento_id', ev.id).order('orden').then(({ data: fotos }) => {
+      renderCarrusel(card.querySelector('.eventoCarrusel'), (fotos || []).map(f => f.url));
+    });
 
     const btn = card.querySelector('.pubSubmitBtn');
     btn.addEventListener('click', async () => {

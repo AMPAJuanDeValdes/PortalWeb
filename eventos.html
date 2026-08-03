@@ -34,6 +34,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="shared/supabaseClient.js"></script>
+<script src="shared/carrusel.js"></script>
 <script src="shared/nav.js"></script>
 <script>
 let ctxGlobal = null;
@@ -110,9 +111,14 @@ async function renderEvento(evento) {
   card.innerHTML = `
     <p class="evento-fecha">${evento.fecha ? new Date(evento.fecha).toLocaleString('es-ES', { dateStyle: 'full', timeStyle: 'short' }) : 'Fecha por confirmar'}</p>
     <h2>${evento.titulo}</h2>
+    <div class="eventoCarrusel" style="max-width:340px; margin-bottom:12px;"></div>
     <p style="color:var(--ink-soft); font-size:14px;">${evento.descripcion || ''}</p>
     ${plazasEvento && plazasEvento.data != null ? `<span class="aforo-tag">${plazasEvento.data > 0 ? plazasEvento.data + ' plazas libres en total' : 'Aforo del evento completo'}</span>` : ''}
   `;
+
+  sb.from('fotos_carrusel').select('url').eq('evento_id', evento.id).order('orden').then(({ data: fotos }) => {
+    renderCarrusel(card.querySelector('.eventoCarrusel'), (fotos || []).map(f => f.url));
+  });
 
   const inscritosPorClave = {};
   (misInscripciones || []).forEach(i => {

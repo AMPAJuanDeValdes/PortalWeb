@@ -35,10 +35,16 @@
     <p class="paso">Adulto principal (tú)</p>
     <div class="two-col"><div class="field"><label>Nombre *</label><input type="text" id="a1Nombre"></div><div class="field"><label>Apellidos *</label><input type="text" id="a1Apellidos"></div></div>
     <div class="two-col" style="margin-top:14px;"><div class="field"><label>Email *</label><input type="email" id="a1Email"></div><div class="field"><label>DNI/NIE *</label><input type="text" id="a1Dni"></div></div>
+    <div class="field" style="margin-top:10px;">
+      <label style="display:flex; align-items:center; gap:8px; font-weight:400;"><input type="checkbox" id="a1EsPasaporte" style="width:auto;"> Es número de pasaporte</label>
+    </div>
     <div class="two-col" style="margin-top:14px;"><div class="field"><label>Contraseña *</label><input type="password" id="a1Password" minlength="6"></div><div class="field"><label>Repite la contraseña *</label><input type="password" id="a1Password2" minlength="6"></div></div>
     <div class="field" style="margin-top:14px;"><label>Dirección *</label><input type="text" id="a1Direccion"></div>
     <div class="two-col" style="margin-top:14px;"><div class="field"><label>Ciudad *</label><input type="text" id="a1Ciudad"></div><div class="field"><label>Provincia *</label><input type="text" id="a1Provincia"></div></div>
-    <div class="two-col" style="margin-top:14px;"><div class="field"><label>Código postal *</label><input type="text" id="a1Cp"></div><div class="field"><label>Móvil</label><input type="text" id="a1Movil"></div></div>
+    <div class="two-col" style="margin-top:14px;"><div class="field"><label>Código postal *</label><input type="text" id="a1Cp"></div>
+      <div class="field"><label>Sexo</label><select id="a1Sexo"><option value="">Sin especificar</option><option>Masculino</option><option>Femenino</option><option>Otro</option></select></div>
+    </div>
+    <div class="two-col" style="margin-top:14px;"><div class="field"><label>Teléfono fijo</label><input type="text" id="a1TelefonoFijo"></div><div class="field"><label>Móvil</label><input type="text" id="a1Movil"></div></div>
     <div class="field" style="margin-top:14px;"><label>Relación con los alumnos</label><input type="text" id="a1Relacion" placeholder="padre / madre / tutor legal..."></div>
   </div>
 
@@ -48,8 +54,18 @@
       <input type="checkbox" id="tieneAdulto2" style="width:auto;"> Añadir un segundo adulto (recibirá su contraseña por email)
     </label>
     <div id="adulto2Wrap" style="display:none;">
-      <div class="two-col"><div class="field"><label>Nombre</label><input type="text" id="a2Nombre"></div><div class="field"><label>Apellidos</label><input type="text" id="a2Apellidos"></div></div>
-      <div class="field" style="margin-top:14px;"><label>Email (distinto al principal)</label><input type="email" id="a2Email"></div>
+      <div class="two-col"><div class="field"><label>Nombre *</label><input type="text" id="a2Nombre"></div><div class="field"><label>Apellidos *</label><input type="text" id="a2Apellidos"></div></div>
+      <div class="two-col" style="margin-top:14px;"><div class="field"><label>Email * (distinto al principal)</label><input type="email" id="a2Email"></div><div class="field"><label>DNI/NIE *</label><input type="text" id="a2Dni"></div></div>
+      <div class="field" style="margin-top:10px;">
+        <label style="display:flex; align-items:center; gap:8px; font-weight:400;"><input type="checkbox" id="a2EsPasaporte" style="width:auto;"> Es número de pasaporte</label>
+      </div>
+      <div class="field" style="margin-top:14px;"><label>Dirección *</label><input type="text" id="a2Direccion"></div>
+      <div class="two-col" style="margin-top:14px;"><div class="field"><label>Ciudad *</label><input type="text" id="a2Ciudad"></div><div class="field"><label>Provincia *</label><input type="text" id="a2Provincia"></div></div>
+      <div class="two-col" style="margin-top:14px;"><div class="field"><label>Código postal *</label><input type="text" id="a2Cp"></div>
+        <div class="field"><label>Sexo</label><select id="a2Sexo"><option value="">Sin especificar</option><option>Masculino</option><option>Femenino</option><option>Otro</option></select></div>
+      </div>
+      <div class="two-col" style="margin-top:14px;"><div class="field"><label>Teléfono fijo</label><input type="text" id="a2TelefonoFijo"></div><div class="field"><label>Móvil</label><input type="text" id="a2Movil"></div></div>
+      <div class="field" style="margin-top:14px;"><label>Relación con los alumnos</label><input type="text" id="a2Relacion" placeholder="padre / madre / tutor legal..."></div>
     </div>
   </div>
 
@@ -63,15 +79,14 @@
     <p class="paso">Forma de pago de la cuota</p>
     <select id="formaPago">
       <option value="">Sin especificar (lo aclaramos luego)</option>
-      <option value="Metálico">Metálico</option>
+      
       <option value="Transferencia">Transferencia</option>
       <option value="Domiciliación Bancaria">Domiciliación Bancaria (se gestiona después, dentro del portal)</option>
     </select>
     <p style="font-size:13.5px; color:var(--ink-soft); margin-top:14px;">
-      Si pagas por transferencia o en metálico: <b>IBAN AMPA:</b> ES00 0000 0000 0000 0000 0000.
-      Sube aquí el comprobante (puedes hacerlo también más tarde, desde tu cuenta).
+      Si pagas por transferencia: <b>IBAN AMPA:</b> ES00 0000 0000 0000 0000 0000.
     </p>
-    <div class="field" style="margin-top:10px;"><label>Comprobante de pago (opcional ahora)</label><input type="file" id="comprobanteFile" accept="image/*,.pdf"></div>
+    <div class="field" style="margin-top:10px;"><label>Comprobante de pago *</label><input type="file" id="comprobanteFile" accept="image/*,.pdf"></div>
   </div>
 
   <button type="button" class="btn btn-primary btn-block" id="enviarBtn" style="margin:20px 0;">Terminar y crear mi cuenta</button>
@@ -100,13 +115,18 @@ function renderAlumnos() {
       '<button class="btn-danger-link" data-id="' + al.id + '">Quitar</button></div>';
     const body = document.createElement('div'); body.className = 'hijo-body';
     body.innerHTML =
-      '<div class="two-col"><div class="field"><label>Nombre</label><input type="text" id="alN_' + al.id + '"></div>' +
-      '<div class="field"><label>Apellidos</label><input type="text" id="alA_' + al.id + '"></div></div>' +
+      '<div class="two-col"><div class="field"><label>Nombre *</label><input type="text" id="alN_' + al.id + '"></div>' +
+      '<div class="field"><label>Apellidos *</label><input type="text" id="alA_' + al.id + '"></div></div>' +
       '<div class="two-col" style="margin-top:14px;">' +
-      '<div class="field"><label>Etapa</label><select id="alE_' + al.id + '"><option value="">Selecciona...</option>' +
+      '<div class="field"><label>Fecha de nacimiento</label><input type="date" id="alF_' + al.id + '"></div>' +
+      '<div class="field"><label>Sexo</label><select id="alS_' + al.id + '"><option value="">Sin especificar</option><option>Masculino</option><option>Femenino</option><option>Otro</option></select></div>' +
+      '</div>' +
+      '<div class="two-col" style="margin-top:14px;">' +
+      '<div class="field"><label>Etapa *</label><select id="alE_' + al.id + '"><option value="">Selecciona...</option>' +
       Object.keys(CURSOS_POR_ETAPA).map(e => '<option>' + e + '</option>').join('') + '</select></div>' +
-      '<div class="field"><label>Curso</label><select id="alC_' + al.id + '"><option value="">Elige etapa antes</option></select></div>' +
-      '</div>';
+      '<div class="field"><label>Curso *</label><select id="alC_' + al.id + '"><option value="">Elige etapa antes</option></select></div>' +
+      '</div>' +
+      '<div class="field" style="margin-top:14px; max-width:160px;"><label>Aula</label><select id="alU_' + al.id + '"><option value="">Sin especificar</option><option>A</option><option>B</option><option>C</option><option>D</option></select></div>';
     div.appendChild(body);
     wrap.appendChild(div);
     div.querySelector('.btn-danger-link').addEventListener('click', () => { alumnos = alumnos.filter(x => x.id !== al.id); renderAlumnos(); });
@@ -127,11 +147,14 @@ document.getElementById('enviarBtn').addEventListener('click', async () => {
     apellidos: document.getElementById('a1Apellidos').value.trim(),
     email: document.getElementById('a1Email').value.trim().toLowerCase(),
     dni_nie: document.getElementById('a1Dni').value.trim(),
+    es_pasaporte: document.getElementById('a1EsPasaporte').checked,
     password: document.getElementById('a1Password').value,
     direccion: document.getElementById('a1Direccion').value.trim(),
     ciudad: document.getElementById('a1Ciudad').value.trim(),
     provincia: document.getElementById('a1Provincia').value.trim(),
     codigo_postal: document.getElementById('a1Cp').value.trim(),
+    sexo: document.getElementById('a1Sexo').value || null,
+    telefono_fijo: document.getElementById('a1TelefonoFijo').value.trim(),
     movil: document.getElementById('a1Movil').value.trim(),
     relacion_alumnos: document.getElementById('a1Relacion').value.trim()
   };
@@ -152,18 +175,40 @@ document.getElementById('enviarBtn').addEventListener('click', async () => {
 
   let adulto2 = null;
   if (document.getElementById('tieneAdulto2').checked) {
-    const email2 = document.getElementById('a2Email').value.trim().toLowerCase();
-    if (email2 && email2 === adulto1.email) {
+    adulto2 = {
+      nombre: document.getElementById('a2Nombre').value.trim(),
+      apellidos: document.getElementById('a2Apellidos').value.trim(),
+      email: document.getElementById('a2Email').value.trim().toLowerCase(),
+      dni_nie: document.getElementById('a2Dni').value.trim(),
+      es_pasaporte: document.getElementById('a2EsPasaporte').checked,
+      direccion: document.getElementById('a2Direccion').value.trim(),
+      ciudad: document.getElementById('a2Ciudad').value.trim(),
+      provincia: document.getElementById('a2Provincia').value.trim(),
+      codigo_postal: document.getElementById('a2Cp').value.trim(),
+      sexo: document.getElementById('a2Sexo').value || null,
+      telefono_fijo: document.getElementById('a2TelefonoFijo').value.trim(),
+      movil: document.getElementById('a2Movil').value.trim(),
+      relacion_alumnos: document.getElementById('a2Relacion').value.trim()
+    };
+    if (!adulto2.nombre || !adulto2.apellidos || !adulto2.email || !adulto2.dni_nie ||
+        !adulto2.direccion || !adulto2.ciudad || !adulto2.provincia || !adulto2.codigo_postal) {
+      msg.style.display = 'block'; msg.className = 'msg-error';
+      msg.textContent = 'Completa todos los campos obligatorios (*) del segundo adulto.';
+      return;
+    }
+    if (adulto2.email === adulto1.email) {
       msg.style.display = 'block'; msg.className = 'msg-error'; msg.textContent = 'El segundo adulto debe tener un email distinto al principal.'; return;
     }
-    adulto2 = { nombre: document.getElementById('a2Nombre').value.trim(), apellidos: document.getElementById('a2Apellidos').value.trim(), email: email2 };
   }
 
   const alumnosPayload = alumnos.map(al => ({
     nombre: document.getElementById('alN_' + al.id).value.trim(),
     apellidos: document.getElementById('alA_' + al.id).value.trim(),
+    fecha_nacimiento: document.getElementById('alF_' + al.id).value || null,
+    sexo: document.getElementById('alS_' + al.id).value || null,
     etapa: document.getElementById('alE_' + al.id).value,
-    curso: document.getElementById('alC_' + al.id).value
+    curso: document.getElementById('alC_' + al.id).value,
+    aula: document.getElementById('alU_' + al.id).value || null
   })).filter(a => a.nombre);
 
   for (const a of alumnosPayload) {
@@ -172,6 +217,13 @@ document.getElementById('enviarBtn').addEventListener('click', async () => {
       msg.textContent = 'Completa la etapa y el curso de todos los alumnos añadidos.';
       return;
     }
+  }
+
+  const comprobante = document.getElementById('comprobanteFile').files[0];
+  if (!comprobante) {
+    msg.style.display = 'block'; msg.className = 'msg-error';
+    msg.textContent = 'El comprobante de pago es obligatorio para completar el alta.';
+    return;
   }
 
   btn.disabled = true; btn.textContent = 'Creando tu cuenta...';
@@ -192,7 +244,6 @@ document.getElementById('enviarBtn').addEventListener('click', async () => {
     const { error: loginError } = await sb.auth.signInWithPassword({ email: adulto1.email, password: adulto1.password });
     if (loginError) throw loginError;
 
-    const comprobante = document.getElementById('comprobanteFile').files[0];
     if (comprobante) {
       const path = `${data.socio_id}/${Date.now()}-${comprobante.name.replace(/[^a-zA-Z0-9.\-_]/g, '_')}`;
       await sb.storage.from('comprobantes').upload(path, comprobante);
