@@ -5,12 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Mis datos · AMPA Juan de Valdés</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="shared/styles.css">
 <style>
   .two-col{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
   @media (max-width:560px){ .two-col{ grid-template-columns:1fr; } }
-  .readonly-value{ background:#F0F6FC; border:1px solid var(--line); border-radius:var(--radius); padding:10px 12px; font-family:'IBM Plex Mono',monospace; font-size:14px; color:var(--ink-soft); }
+  .readonly-value{ background:#F5F3EC; border:1px solid var(--line); border-radius:var(--radius); padding:10px 12px; font-family:'Inter', sans-serif; font-size:14px; color:var(--ink-soft); }
 </style>
 </head>
 <body>
@@ -106,7 +106,7 @@ function renderAdultoCard(adulto, esUnoMismo) {
   row2.className = 'two-col';
   row2.style.marginTop = '14px';
   row2.appendChild(campoTexto('Email', adulto.email, v => adulto.email = v, true, 'email'));
-  row2.appendChild(campoTexto('Móvil', adulto.movil, v => adulto.movil = v));
+  row2.appendChild(campoTexto('Móvil', adulto.movil === 'PENDIENTE' ? '' : adulto.movil, v => adulto.movil = v, true));
   body.appendChild(row2);
 
   const row2b = document.createElement('div');
@@ -166,6 +166,13 @@ function renderAdultoCard(adulto, esUnoMismo) {
   saveBtn.style.marginTop = '14px';
   saveBtn.textContent = 'Guardar';
   saveBtn.addEventListener('click', async () => {
+    if (!adulto.nombre.trim() || !adulto.apellidos.trim() || !adulto.dni_nie.trim() || !adulto.email.trim() ||
+        !adulto.direccion.trim() || !adulto.ciudad.trim() || !adulto.provincia.trim() ||
+        !adulto.codigo_postal.trim() || !adulto.movil.trim()) {
+      msg.style.display = 'block'; msg.className = 'msg-error';
+      msg.textContent = 'Completa los campos obligatorios (*), incluido el móvil.';
+      return;
+    }
     const { error } = await sb.from('adultos').update({
       nombre: adulto.nombre, apellidos: adulto.apellidos, email: adulto.email,
       movil: adulto.movil, relacion_alumnos: adulto.relacion_alumnos || null,
@@ -203,16 +210,18 @@ document.getElementById('addAdultoBtn').addEventListener('click', () => {
   }
   const nombre = prompt('Nombre:') || '';
   const apellidos = prompt('Apellidos:') || '';
-  invitarSegundoAdulto(emailNormalizado, nombre.trim(), apellidos.trim());
+  const movil = prompt('Móvil (obligatorio):') || '';
+  if (!movil.trim()) { alert('El móvil es obligatorio.'); return; }
+  invitarSegundoAdulto(emailNormalizado, nombre.trim(), apellidos.trim(), movil.trim());
 });
 
-async function invitarSegundoAdulto(email, nombre, apellidos) {
+async function invitarSegundoAdulto(email, nombre, apellidos, movil) {
   const session = await getSession();
   try {
     const resp = await fetch('/.netlify/functions/invitar-adulto', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
-      body: JSON.stringify({ email, nombre, apellidos })
+      body: JSON.stringify({ email, nombre, apellidos, movil })
     });
     const data = await resp.json();
     if (!resp.ok) throw new Error(data.error || 'Error al invitar');

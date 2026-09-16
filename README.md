@@ -3,7 +3,7 @@
 Reconstrucción completa según el "Modelo de datos consolidado": socios,
 adultos (login individual), alumnos, eventos con actividades/exclusiones/
 voluntariado/invitados, préstamo de libros con stock, comprobantes de pago,
-web pública con alta autoservicio, y envío de email masivo.
+web pública con alta autoservicio, y envío de email masivo. v2
 
 ## Estructura
 

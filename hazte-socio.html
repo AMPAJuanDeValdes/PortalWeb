@@ -5,16 +5,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Hazte socio · AMPA Juan de Valdés</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="shared/styles.css">
 <style>
   .top-simple{ max-width:760px; margin:0 auto; padding:32px 20px 0; }
   .brand-row{ display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:14px; margin-bottom:16px; }
   .logo-ampa{ height:44px; } .logo-colegio{ height:32px; }
-  .back-link{ font-family:'IBM Plex Mono',monospace; font-size:12.5px; color:var(--navy); text-decoration:none; }
+  .back-link{ font-family:'Inter', sans-serif; font-size:12.5px; color:var(--navy); text-decoration:none; }
   .two-col{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
   @media (max-width:560px){ .two-col{ grid-template-columns:1fr; } }
-  .paso{ font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--gold); margin-bottom:6px; }
+  .paso{ font-family:'Inter', sans-serif; font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--gold); margin-bottom:6px; }
 </style>
 </head>
 <body>
@@ -44,7 +44,7 @@
     <div class="two-col" style="margin-top:14px;"><div class="field"><label>Código postal *</label><input type="text" id="a1Cp"></div>
       <div class="field"><label>Sexo</label><select id="a1Sexo"><option value="">Sin especificar</option><option>Masculino</option><option>Femenino</option><option>Otro</option></select></div>
     </div>
-    <div class="two-col" style="margin-top:14px;"><div class="field"><label>Teléfono fijo</label><input type="text" id="a1TelefonoFijo"></div><div class="field"><label>Móvil</label><input type="text" id="a1Movil"></div></div>
+    <div class="two-col" style="margin-top:14px;"><div class="field"><label>Teléfono fijo</label><input type="text" id="a1TelefonoFijo"></div><div class="field"><label>Móvil *</label><input type="text" id="a1Movil"></div></div>
     <div class="field" style="margin-top:14px;"><label>Relación con los alumnos</label><input type="text" id="a1Relacion" placeholder="padre / madre / tutor legal..."></div>
   </div>
 
@@ -64,7 +64,7 @@
       <div class="two-col" style="margin-top:14px;"><div class="field"><label>Código postal *</label><input type="text" id="a2Cp"></div>
         <div class="field"><label>Sexo</label><select id="a2Sexo"><option value="">Sin especificar</option><option>Masculino</option><option>Femenino</option><option>Otro</option></select></div>
       </div>
-      <div class="two-col" style="margin-top:14px;"><div class="field"><label>Teléfono fijo</label><input type="text" id="a2TelefonoFijo"></div><div class="field"><label>Móvil</label><input type="text" id="a2Movil"></div></div>
+      <div class="two-col" style="margin-top:14px;"><div class="field"><label>Teléfono fijo</label><input type="text" id="a2TelefonoFijo"></div><div class="field"><label>Móvil *</label><input type="text" id="a2Movil"></div></div>
       <div class="field" style="margin-top:14px;"><label>Relación con los alumnos</label><input type="text" id="a2Relacion" placeholder="padre / madre / tutor legal..."></div>
     </div>
   </div>
@@ -84,7 +84,8 @@
       <option value="Domiciliación Bancaria">Domiciliación Bancaria (se gestiona después, dentro del portal)</option>
     </select>
     <p style="font-size:13.5px; color:var(--ink-soft); margin-top:14px;">
-      Si pagas por transferencia: <b>IBAN AMPA:</b> ES00 0000 0000 0000 0000 0000.
+      La cuota anual es de <b>25 € por familia</b> (independiente del número
+      de hijos o etapa escolar). Si pagas por transferencia: <b>IBAN AMPA:</b> ES00 0000 0000 0000 0000 0000.
     </p>
     <div class="field" style="margin-top:10px;"><label>Comprobante de pago *</label><input type="file" id="comprobanteFile" accept="image/*,.pdf"></div>
   </div>
@@ -161,7 +162,7 @@ document.getElementById('enviarBtn').addEventListener('click', async () => {
   const password2 = document.getElementById('a1Password2').value;
 
   if (!adulto1.nombre || !adulto1.apellidos || !adulto1.email || !adulto1.dni_nie || !adulto1.password ||
-      !adulto1.direccion || !adulto1.ciudad || !adulto1.provincia || !adulto1.codigo_postal) {
+      !adulto1.direccion || !adulto1.ciudad || !adulto1.provincia || !adulto1.codigo_postal || !adulto1.movil) {
     msg.style.display = 'block'; msg.className = 'msg-error';
     msg.textContent = 'Completa todos los campos obligatorios (*) del adulto principal.';
     return;
@@ -191,7 +192,7 @@ document.getElementById('enviarBtn').addEventListener('click', async () => {
       relacion_alumnos: document.getElementById('a2Relacion').value.trim()
     };
     if (!adulto2.nombre || !adulto2.apellidos || !adulto2.email || !adulto2.dni_nie ||
-        !adulto2.direccion || !adulto2.ciudad || !adulto2.provincia || !adulto2.codigo_postal) {
+        !adulto2.direccion || !adulto2.ciudad || !adulto2.provincia || !adulto2.codigo_postal || !adulto2.movil) {
       msg.style.display = 'block'; msg.className = 'msg-error';
       msg.textContent = 'Completa todos los campos obligatorios (*) del segundo adulto.';
       return;

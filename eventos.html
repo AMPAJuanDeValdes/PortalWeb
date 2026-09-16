@@ -5,19 +5,19 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Eventos · AMPA Juan de Valdés</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="shared/styles.css">
 <style>
   .evento-card{ margin-bottom:20px; }
-  .evento-fecha{ font-family:'IBM Plex Mono',monospace; font-size:12.5px; color:var(--ink-soft); margin-bottom:4px; }
-  .aforo-tag{ font-family:'IBM Plex Mono',monospace; font-size:11.5px; color:var(--gold); margin-top:6px; display:inline-block; }
-  .miembro-row{ display:flex; justify-content:space-between; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid #EDF3F9; }
+  .evento-fecha{ font-family:'Inter', sans-serif; font-size:12.5px; color:var(--ink-soft); margin-bottom:4px; }
+  .aforo-tag{ font-family:'Inter', sans-serif; font-size:11.5px; color:var(--gold); margin-top:6px; display:inline-block; }
+  .miembro-row{ display:flex; justify-content:space-between; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid #F1EFE8; }
   .miembro-row:last-child{ border-bottom:none; }
   .actividad-block{ border:1px solid var(--line); border-radius:var(--radius); padding:14px; margin-top:14px; }
-  .actividad-block h3{ font-family:'Lora',serif; font-size:15px; margin:0 0 4px; color:var(--navy-deep); }
-  .voluntariado-block{ margin-top:16px; padding-top:14px; border-top:1px dashed var(--line); }
-  .invitados-block{ margin-top:16px; padding-top:14px; border-top:1px dashed var(--line); }
-  .completo-tag{ font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--red); }
+  .actividad-block h3{ font-family:'Space Grotesk', sans-serif; font-size:15px; margin:0 0 4px; color:var(--navy-deep); }
+  .voluntariado-block{ margin-top:16px; padding-top:14px; border-top:1px solid var(--line); }
+  .invitados-block{ margin-top:16px; padding-top:14px; border-top:1px solid var(--line); }
+  .completo-tag{ font-family:'Inter', sans-serif; font-size:11px; color:var(--red); }
 </style>
 </head>
 <body>
@@ -35,6 +35,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="shared/supabaseClient.js"></script>
 <script src="shared/carrusel.js"></script>
+<script src="shared/documentoRellenable.js"></script>
 <script src="shared/nav.js"></script>
 <script>
 let ctxGlobal = null;
@@ -309,7 +310,87 @@ async function renderEvento(evento) {
     card.appendChild(iBlock);
   }
 
+  // Documentos a rellenar y firmar (autorizaciones, etc.)
+  const { data: documentos } = await sb.from('documentos_evento').select('*').eq('evento_id', evento.id);
+  if (documentos && documentos.length > 0) {
+    const { data: misRespuestas } = await sb.from('documentos_evento_respuestas').select('*').eq('socio_id', ctxGlobal.socio.id);
+
+    for (const doc of documentos) {
+      const elegiblesDoc = doc.aplica_a === 'adulto'
+        ? misAdultos
+        : misAlumnos.filter(a => cumpleElegibilidad(a, doc.elegibilidad_modo, doc.cursos_permitidos, doc.edad_min, doc.edad_max));
+      if (elegiblesDoc.length === 0) continue;
+
+      const docBlock = document.createElement('div');
+      docBlock.className = 'voluntariado-block';
+      docBlock.innerHTML = `<p class="section-label" style="margin:0 0 8px;">${doc.titulo}</p>`;
+
+      elegiblesDoc.forEach(persona => {
+        const yaRespondido = (misRespuestas || []).find(r =>
+          r.documento_evento_id === doc.id &&
+          (doc.aplica_a === 'adulto' ? r.adulto_id === persona.id : r.alumno_id === persona.id)
+        );
+
+        const fila = document.createElement('div');
+        fila.className = 'miembro-row';
+        const nombre = document.createElement('span');
+        nombre.textContent = persona.nombre + ' ' + persona.apellidos;
+        fila.appendChild(nombre);
+
+        if (yaRespondido) {
+          const tag = document.createElement('span');
+          tag.className = 'msg-ok';
+          tag.style.margin = '0';
+          tag.textContent = 'Completado ✓' + (yaRespondido.aviso_diferencias ? ' (con datos editados)' : '');
+          fila.appendChild(tag);
+        } else {
+          const btn = document.createElement('button');
+          btn.className = 'btn btn-outline';
+          btn.textContent = 'Rellenar y firmar';
+          btn.addEventListener('click', () => abrirRellenoDocumento(doc, persona, docBlock));
+          fila.appendChild(btn);
+        }
+        docBlock.appendChild(fila);
+      });
+
+      const zonaRelleno = document.createElement('div');
+      zonaRelleno.className = 'docRellenoZona';
+      zonaRelleno.style.marginTop = '12px';
+      docBlock.appendChild(zonaRelleno);
+
+      card.appendChild(docBlock);
+    }
+  }
+
   return card;
+}
+
+async function abrirRellenoDocumento(doc, persona, docBlock) {
+  const zona = docBlock.querySelector('.docRellenoZona');
+  zona.innerHTML = '<p class="loading">Cargando documento...</p>';
+  try {
+    const { dataUrl } = await renderizarPaginaPDF(doc.archivo_base_url, doc.pagina_rellenable);
+    abrirFormularioRelleno(zona, dataUrl, doc.campos || [], persona, async (blob, datosFinales, avisoDiferencias) => {
+      const path = `${ctxGlobal.socio.id}/${doc.id}/${Date.now()}.png`;
+      const { error: upErr } = await sb.storage.from('documentos-evento').upload(path, blob);
+      if (upErr) { alert('Error al subir el documento: ' + upErr.message); return; }
+      const { data: urlData } = sb.storage.from('documentos-evento').getPublicUrl(path);
+
+      const payload = {
+        documento_evento_id: doc.id, socio_id: ctxGlobal.socio.id,
+        archivo_final_url: urlData.publicUrl, datos_finales: datosFinales, aviso_diferencias: avisoDiferencias
+      };
+      if (doc.aplica_a === 'adulto') payload.adulto_id = persona.id; else payload.alumno_id = persona.id;
+
+      const { error: insErr } = await sb.from('documentos_evento_respuestas').insert(payload);
+      if (insErr) { alert('Error al guardar: ' + insErr.message); return; }
+
+      zona.innerHTML = '<p class="msg-ok">Documento guardado y firmado ✓</p>';
+      setTimeout(() => cargarEventos(), 800);
+    });
+  } catch (err) {
+    zona.innerHTML = '<p class="msg-error">No se pudo cargar el documento: ' + err.message + '</p>';
+  }
 }
 
 (async () => {

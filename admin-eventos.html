@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Eventos (admin) · AMPA Juan de Valdés</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="shared/styles.css">
 <style>
   .two-col{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
@@ -81,6 +81,7 @@
 <script src="shared/nav.js"></script>
 <script src="shared/catalogo.js"></script>
 <script src="shared/csv.js"></script>
+<script src="shared/documentoRellenable.js"></script>
 <script>
 function pintarCursosGrid(contenedorId, nombrePrefijo) {
   const grid = document.getElementById(contenedorId);
@@ -157,12 +158,14 @@ async function cargarEventos() {
         '<div style="display:flex; gap:8px; flex-wrap:wrap;">' +
           '<button class="btn btn-outline toggleActividadesBtn">Actividades</button>' +
           '<button class="btn btn-outline toggleFotosBtn">Fotos</button>' +
+          '<button class="btn btn-outline toggleDocsBtn">Documentos</button>' +
           '<button class="btn-danger-link toggleActivoBtn">' + (ev.activo ? 'Ocultar' : 'Reactivar') + '</button>' +
           '<button class="btn-danger-link borrarBtn">Borrar</button>' +
         '</div>' +
       '</div>' +
       '<div class="actividadesPanel" style="display:none; margin-top:14px;"></div>' +
-      '<div class="fotosPanel" style="display:none; margin-top:14px;"></div>';
+      '<div class="fotosPanel" style="display:none; margin-top:14px;"></div>' +
+      '<div class="docsPanel" style="display:none; margin-top:14px;"></div>';
 
     row.querySelector('.toggleActivoBtn').addEventListener('click', async () => {
       await sb.from('eventos').update({ activo: !ev.activo }).eq('id', ev.id);
@@ -185,6 +188,13 @@ async function cargarEventos() {
       const visible = fotosPanel.style.display === 'block';
       fotosPanel.style.display = visible ? 'none' : 'block';
       if (!visible) await renderFotosEvento(fotosPanel, ev);
+    });
+
+    const docsPanel = row.querySelector('.docsPanel');
+    row.querySelector('.toggleDocsBtn').addEventListener('click', async () => {
+      const visible = docsPanel.style.display === 'block';
+      docsPanel.style.display = visible ? 'none' : 'block';
+      if (!visible) await renderDocsEvento(docsPanel, ev);
     });
 
     wrap.appendChild(row);
@@ -289,6 +299,132 @@ async function renderActividades(panel, evento) {
       });
     });
 
+    lista.appendChild(item);
+  });
+}
+
+async function renderDocsEvento(panel, evento) {
+  panel.innerHTML = '<p class="loading">Cargando...</p>';
+  const { data: docs } = await sb.from('documentos_evento').select('*').eq('evento_id', evento.id).order('created_at');
+
+  panel.innerHTML = `
+    <p class="section-label">Añadir documento a rellenar y firmar</p>
+    <div class="field"><label>Título (ej. "Autorización de menores")</label><input type="text" class="nDocTitulo"></div>
+    <div class="two-col" style="margin-top:10px;">
+      <div class="field"><label>Se rellena por</label><select class="nDocAplicaA"><option value="adulto">Un adulto</option><option value="alumno">Un alumno</option></select></div>
+      <div class="field"><label>Página del PDF que hay que rellenar</label><input type="number" class="nDocPagina" value="1" min="1" style="max-width:100px;"></div>
+    </div>
+    <div class="field" style="margin-top:10px;">
+      <label>¿Quién puede rellenarlo?</label>
+      <select class="nDocModo"><option value="curso">Por curso/etapa</option><option value="edad">Por edad real</option></select>
+    </div>
+    <div class="nDocCursosWrap field" style="margin-top:10px;">
+      <label>Cursos permitidos (si aplica)</label>
+      <div class="cursos-grid nDocCursosGrid"></div>
+    </div>
+    <div class="nDocEdadWrap two-col" style="display:none; margin-top:10px;">
+      <div class="field"><label>Edad mínima</label><input type="number" class="nDocEdadMin"></div>
+      <div class="field"><label>Edad máxima</label><input type="number" class="nDocEdadMax"></div>
+    </div>
+    <div class="field" style="margin-top:10px;"><label>Archivo PDF</label><input type="file" class="nDocArchivo" accept="application/pdf"></div>
+    <button type="button" class="btn btn-outline nDocSubirBtn" style="margin-top:10px;">Subir y marcar campos</button>
+    <p class="nDocMsg" style="display:none; margin-top:10px;"></p>
+    <div class="nDocEditorWrap" style="margin-top:14px;"></div>
+
+    <div class="docsLista" style="margin-top:20px;"></div>
+  `;
+
+  const cursosGrid = panel.querySelector('.nDocCursosGrid');
+  Object.entries(CURSOS_POR_ETAPA).forEach(([etapa, cursos]) => {
+    cursos.forEach(curso => {
+      cursosGrid.innerHTML += '<label><input type="checkbox" class="nDocCursoCb" data-etapa="' + etapa + '" data-curso="' + curso + '"> ' + curso + ' ' + etapa + '</label>';
+    });
+  });
+  panel.querySelector('.nDocModo').addEventListener('change', (e) => {
+    panel.querySelector('.nDocCursosWrap').style.display = e.target.value === 'curso' ? 'block' : 'none';
+    panel.querySelector('.nDocEdadWrap').style.display = e.target.value === 'edad' ? 'grid' : 'none';
+  });
+
+  panel.querySelector('.nDocSubirBtn').addEventListener('click', async () => {
+    const titulo = panel.querySelector('.nDocTitulo').value.trim() || 'Documento';
+    const aplica_a = panel.querySelector('.nDocAplicaA').value;
+    const pagina = parseInt(panel.querySelector('.nDocPagina').value, 10) || 1;
+    const modo = panel.querySelector('.nDocModo').value;
+    const archivo = panel.querySelector('.nDocArchivo').files[0];
+    const msg = panel.querySelector('.nDocMsg');
+
+    if (!archivo) { msg.style.display = 'block'; msg.className = 'msg-error'; msg.textContent = 'Selecciona un PDF.'; return; }
+
+    const path = `${evento.id}/${Date.now()}-${archivo.name.replace(/[^a-zA-Z0-9.\-_]/g, '_')}`;
+    const { error: upErr } = await sb.storage.from('documentos-evento').upload(path, archivo);
+    if (upErr) { msg.style.display = 'block'; msg.className = 'msg-error'; msg.textContent = 'Error al subir: ' + upErr.message; return; }
+    const { data: urlData } = sb.storage.from('documentos-evento').getPublicUrl(path);
+
+    const nuevoDoc = {
+      evento_id: evento.id, titulo, aplica_a, tipo_documento: 'plantilla_firma',
+      pagina_rellenable: pagina, archivo_base_url: urlData.publicUrl, campos: []
+    };
+    if (aplica_a === 'alumno') {
+      nuevoDoc.elegibilidad_modo = modo;
+      if (modo === 'curso') {
+        nuevoDoc.cursos_permitidos = Array.from(panel.querySelectorAll('.nDocCursoCb:checked')).map(cb => ({ etapa: cb.dataset.etapa, curso: cb.dataset.curso }));
+      } else {
+        nuevoDoc.edad_min = panel.querySelector('.nDocEdadMin').value ? parseInt(panel.querySelector('.nDocEdadMin').value, 10) : null;
+        nuevoDoc.edad_max = panel.querySelector('.nDocEdadMax').value ? parseInt(panel.querySelector('.nDocEdadMax').value, 10) : null;
+      }
+    }
+
+    msg.style.display = 'block'; msg.className = 'msg-ok'; msg.textContent = 'Renderizando la página ' + pagina + '...';
+    try {
+      const { dataUrl } = await renderizarPaginaPDF(urlData.publicUrl, pagina);
+      const editorWrap = panel.querySelector('.nDocEditorWrap');
+      abrirEditorPlantilla(editorWrap, dataUrl, [], async (campos) => {
+        nuevoDoc.campos = campos;
+        const { error: insErr } = await sb.from('documentos_evento').insert(nuevoDoc);
+        if (insErr) { msg.className = 'msg-error'; msg.textContent = 'Error al guardar: ' + insErr.message; return; }
+        msg.className = 'msg-ok'; msg.textContent = 'Documento guardado ✓';
+        editorWrap.innerHTML = '';
+        renderDocsEvento(panel, evento);
+      });
+      msg.style.display = 'none';
+    } catch (err) {
+      msg.className = 'msg-error'; msg.textContent = 'No se pudo renderizar el PDF: ' + err.message;
+    }
+  });
+
+  const lista = panel.querySelector('.docsLista');
+  (docs || []).forEach(doc => {
+    const item = document.createElement('div');
+    item.className = 'actividad-item';
+    item.innerHTML = `
+      <div style="display:flex; justify-content:space-between;">
+        <b>${doc.titulo}</b>
+        <button class="btn-danger-link docBorrarBtn">Borrar</button>
+      </div>
+      <p style="font-size:12.5px; color:var(--ink-soft); margin:4px 0;">
+        Rellena: ${doc.aplica_a === 'adulto' ? 'un adulto' : 'un alumno'} · página ${doc.pagina_rellenable} · ${(doc.campos || []).length} campos
+      </p>
+      <button class="btn btn-outline docEditarBtn">Editar plantilla</button>
+      <div class="docEditorEdicion" style="margin-top:10px;"></div>
+    `;
+    item.querySelector('.docBorrarBtn').addEventListener('click', async () => {
+      if (!confirm('¿Borrar este documento y su plantilla?')) return;
+      await sb.from('documentos_evento').delete().eq('id', doc.id);
+      renderDocsEvento(panel, evento);
+    });
+    item.querySelector('.docEditarBtn').addEventListener('click', async () => {
+      const wrap = item.querySelector('.docEditorEdicion');
+      wrap.innerHTML = '<p class="loading">Cargando...</p>';
+      try {
+        const { dataUrl } = await renderizarPaginaPDF(doc.archivo_base_url, doc.pagina_rellenable);
+        abrirEditorPlantilla(wrap, dataUrl, doc.campos || [], async (campos) => {
+          await sb.from('documentos_evento').update({ campos }).eq('id', doc.id);
+          alert('Plantilla actualizada ✓');
+        });
+      } catch (err) {
+        wrap.innerHTML = '<p class="msg-error">No se pudo cargar: ' + err.message + '</p>';
+      }
+    });
     lista.appendChild(item);
   });
 }
