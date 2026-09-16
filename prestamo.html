@@ -23,6 +23,10 @@
   <div class="card">
     <p class="section-label">Alumno/a</p>
     <select id="alumnoSelect"></select>
+    <p id="sinAlumnosMsg" style="display:none; font-size:13px; color:var(--ink-soft); margin-top:10px;">
+      Todavía no tienes alumnos añadidos. Ve a
+      <a href="mis-datos.html">Mis datos</a> para darlos de alta.
+    </p>
   </div>
 
   <div id="librosCard" class="card" style="display:none;">
@@ -58,10 +62,14 @@ async function cargarAlumnos() {
   const { data } = await sb.from('alumnos').select('*').eq('socio_id', ctxGlobal.socio.id).order('created_at');
   alumnos = data || [];
   const select = document.getElementById('alumnoSelect');
+  const sinAlumnosMsg = document.getElementById('sinAlumnosMsg');
   if (alumnos.length === 0) {
-    select.innerHTML = '<option value="">No tienes alumnos añadidos todavía</option>';
+    select.style.display = 'none';
+    sinAlumnosMsg.style.display = 'block';
     return;
   }
+  select.style.display = 'block';
+  sinAlumnosMsg.style.display = 'none';
   select.innerHTML = '<option value="">Selecciona un alumno/a...</option>' +
     alumnos.map(a => `<option value="${a.id}">${a.nombre} ${a.apellidos} — ${a.curso} ${a.etapa}</option>`).join('');
   select.addEventListener('change', () => mostrarLibrosDe(select.value));

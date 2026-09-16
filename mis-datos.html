@@ -46,10 +46,8 @@
 
   <div class="card">
     <p class="section-label">Alumnos</p>
-    <p style="font-size:13px; color:var(--ink-soft); margin-top:-8px;">
-      Para añadir o editar alumnos, ve a "Préstamo de libros" desde el menú.
-    </p>
-    <div id="alumnosResumenWrap"></div>
+    <div id="alumnosWrap"><p class="loading">Cargando...</p></div>
+    <button type="button" class="btn btn-outline" id="addAlumnoBtn" style="margin-top:14px;">+ Añadir alumno/a</button>
   </div>
 
   <footer class="note"><b>AMPA Colegio Juan de Valdés</b></footer>
@@ -75,6 +73,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="shared/supabaseClient.js"></script>
 <script src="shared/nav.js"></script>
+<script src="shared/catalogo.js"></script>
 <script>
 let ctxGlobal = null;
 
@@ -232,12 +231,146 @@ async function invitarSegundoAdulto(email, nombre, apellidos, movil) {
   }
 }
 
-async function cargarAlumnosResumen() {
-  const wrap = document.getElementById('alumnosResumenWrap');
-  const { data } = await sb.from('alumnos').select('nombre, apellidos, etapa, curso').eq('socio_id', ctxGlobal.socio.id);
-  if (!data || data.length === 0) { wrap.innerHTML = '<p class="empty-hint">Todavía no has añadido ningún alumno.</p>'; return; }
-  wrap.innerHTML = data.map(a => `<div class="evento-mini">${a.nombre} ${a.apellidos} — ${a.curso} ${a.etapa}</div>`).join('');
+/* ---------------- Alumnos: alta y edición ---------------- */
+
+function selectEtapaCurso(alumno, onChangeEtapa, onChangeCurso) {
+  const wrap = document.createElement('div');
+  wrap.className = 'two-col';
+
+  const etapaField = document.createElement('div');
+  etapaField.className = 'field';
+  etapaField.innerHTML = '<label>Etapa *</label>';
+  const etapaSelect = document.createElement('select');
+  etapaSelect.innerHTML = '<option value="">Selecciona...</option>' +
+    Object.keys(CURSOS_POR_ETAPA).map(e =>
+      `<option value="${e}" ${alumno.etapa === e ? 'selected' : ''}>${e}</option>`
+    ).join('');
+  etapaField.appendChild(etapaSelect);
+  wrap.appendChild(etapaField);
+
+  const cursoField = document.createElement('div');
+  cursoField.className = 'field';
+  cursoField.innerHTML = '<label>Curso *</label>';
+  const cursoSelect = document.createElement('select');
+  const cursosDisponibles = CURSOS_POR_ETAPA[alumno.etapa] || [];
+  cursoSelect.innerHTML = '<option value="">Selecciona...</option>' +
+    cursosDisponibles.map(c =>
+      `<option value="${c}" ${alumno.curso === c ? 'selected' : ''}>${c}</option>`
+    ).join('');
+  cursoField.appendChild(cursoSelect);
+  wrap.appendChild(cursoField);
+
+  etapaSelect.addEventListener('change', () => {
+    onChangeEtapa(etapaSelect.value);
+    alumno.curso = '';
+    cursoSelect.innerHTML = '<option value="">Selecciona...</option>' +
+      (CURSOS_POR_ETAPA[etapaSelect.value] || []).map(c => `<option value="${c}">${c}</option>`).join('');
+  });
+  cursoSelect.addEventListener('change', () => onChangeCurso(cursoSelect.value));
+
+  return wrap;
 }
+
+function renderAlumnoCard(alumno, esNuevo = false) {
+  const card = document.createElement('div');
+  card.className = 'hijo-card';
+  card.innerHTML = `<div class="hijo-head"><span class="hijo-tag">${esNuevo ? 'Nuevo alumno/a' : alumno.nombre + ' ' + alumno.apellidos}</span></div>`;
+  const body = document.createElement('div');
+  body.className = 'hijo-body';
+
+  const row1 = document.createElement('div');
+  row1.className = 'two-col';
+  row1.appendChild(campoTexto('Nombre', alumno.nombre, v => alumno.nombre = v, true));
+  row1.appendChild(campoTexto('Apellidos', alumno.apellidos, v => alumno.apellidos = v, true));
+  body.appendChild(row1);
+
+  body.appendChild(selectEtapaCurso(alumno, v => alumno.etapa = v, v => alumno.curso = v));
+
+  const row3 = document.createElement('div');
+  row3.className = 'two-col';
+  row3.style.marginTop = '14px';
+
+  const aulaField = document.createElement('div');
+  aulaField.className = 'field';
+  aulaField.innerHTML = '<label>Aula (opcional)</label>';
+  const aulaSelect = document.createElement('select');
+  aulaSelect.innerHTML = '<option value="">Sin especificar</option>' +
+    ['A', 'B', 'C', 'D'].map(v => `<option value="${v}" ${alumno.aula === v ? 'selected' : ''}>${v}</option>`).join('');
+  aulaSelect.addEventListener('change', () => alumno.aula = aulaSelect.value);
+  aulaField.appendChild(aulaSelect);
+  row3.appendChild(aulaField);
+
+  row3.appendChild(campoTexto('Fecha de nacimiento', alumno.fecha_nacimiento, v => alumno.fecha_nacimiento = v, true, 'date'));
+  body.appendChild(row3);
+
+  const row4 = document.createElement('div');
+  row4.className = 'field';
+  row4.style.marginTop = '14px';
+  row4.innerHTML = '<label>Sexo (opcional)</label>';
+  const sexoSelect = document.createElement('select');
+  sexoSelect.innerHTML = ['', 'Masculino', 'Femenino', 'Otro'].map(v =>
+    `<option value="${v}" ${alumno.sexo === v ? 'selected' : ''}>${v === '' ? 'Sin especificar' : v}</option>`
+  ).join('');
+  sexoSelect.addEventListener('change', () => alumno.sexo = sexoSelect.value);
+  row4.appendChild(sexoSelect);
+  body.appendChild(row4);
+
+  const msg = document.createElement('p');
+  msg.style.display = 'none'; msg.style.marginTop = '10px';
+
+  const saveBtn = document.createElement('button');
+  saveBtn.className = 'btn btn-primary';
+  saveBtn.style.marginTop = '14px';
+  saveBtn.textContent = esNuevo ? 'Añadir alumno/a' : 'Guardar';
+  saveBtn.addEventListener('click', async () => {
+    if (!alumno.nombre.trim() || !alumno.apellidos.trim() || !alumno.etapa || !alumno.curso || !alumno.fecha_nacimiento) {
+      msg.style.display = 'block'; msg.className = 'msg-error';
+      msg.textContent = 'Completa los campos obligatorios (*).';
+      return;
+    }
+    const datos = {
+      nombre: alumno.nombre, apellidos: alumno.apellidos, etapa: alumno.etapa,
+      curso: alumno.curso, aula: alumno.aula || null,
+      fecha_nacimiento: alumno.fecha_nacimiento,
+      sexo: alumno.sexo || null
+    };
+    let error;
+    if (esNuevo) {
+      ({ error } = await sb.from('alumnos').insert({ ...datos, socio_id: ctxGlobal.socio.id }));
+    } else {
+      ({ error } = await sb.from('alumnos').update(datos).eq('id', alumno.id));
+    }
+    msg.style.display = 'block';
+    msg.className = error ? 'msg-error' : 'msg-ok';
+    msg.textContent = error ? 'Error: ' + error.message : 'Guardado ✓';
+    if (!error) await cargarAlumnos();
+  });
+
+  body.appendChild(saveBtn);
+  body.appendChild(msg);
+  card.appendChild(body);
+  return card;
+}
+
+async function cargarAlumnos() {
+  const wrap = document.getElementById('alumnosWrap');
+  const { data, error } = await sb.from('alumnos').select('*').eq('socio_id', ctxGlobal.socio.id).order('created_at');
+  if (error) { wrap.innerHTML = '<p class="msg-error">No se pudo cargar.</p>'; return; }
+  wrap.innerHTML = '';
+  if (data.length === 0) {
+    wrap.innerHTML = '<p class="empty-hint">Todavía no has añadido ningún alumno.</p>';
+  } else {
+    data.forEach(a => wrap.appendChild(renderAlumnoCard(a, false)));
+  }
+}
+
+document.getElementById('addAlumnoBtn').addEventListener('click', () => {
+  const wrap = document.getElementById('alumnosWrap');
+  if (wrap.querySelector('.empty-hint')) wrap.innerHTML = '';
+  wrap.appendChild(renderAlumnoCard({ nombre: '', apellidos: '', etapa: '', curso: '', aula: '', fecha_nacimiento: '', sexo: '' }, true));
+});
+
+/* ---------------- Cuenta / baja ---------------- */
 
 function cargarCuenta() {
   const socio = ctxGlobal.socio;
@@ -272,7 +405,7 @@ document.getElementById('confirmarBajaBtn').addEventListener('click', async () =
   renderNav('mis-datos', ctx);
   cargarCuenta();
   await cargarAdultos();
-  await cargarAlumnosResumen();
+  await cargarAlumnos();
 })();
 </script>
 </body>
