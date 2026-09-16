@@ -7,5 +7,5 @@
 // sobrescribe — solo lo tocas tú, o yo si me pides explícitamente
 // cambiar de proyecto de Supabase. ---
 // ============================================================
-const SUPABASE_URL = 'https://wvqthtfxvcwsdbwbwadb.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_AGFoOoVCOHsH_n5RTWv24A_iTb5xCn2';
+var SUPABASE_URL = 'https://wvqthtfxvcwsdbwbwadb.supabase.co';
+var SUPABASE_ANON_KEY = 'sb_publishable_AGFoOoVCOHsH_n5RTWv24A_iTb5xCn2';
