@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Uniformes · Admin AMPA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared/styles.css">
+<style>
+  .two-col{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:560px){ .two-col{ grid-template-columns:1fr; } }
+  .tabs{ display:flex; gap:6px; margin-bottom:20px; flex-wrap:wrap; }
+  .tabs button{ font-family:'Inter', sans-serif; font-size:12.5px; text-transform:uppercase; padding:9px 14px; border-radius:var(--radius); border:1px solid var(--line); background:#fff; color:var(--ink-soft); cursor:pointer; }
+  .tabs button.active{ background:var(--navy); color:#fff; border-color:var(--navy); }
+  .panel{ display:none; } .panel.active{ display:block; }
+  .fila-alumno{ padding:14px 0; border-bottom:1px solid var(--line); font-size:13.5px; }
+  .fila-alumno:last-child{ border-bottom:none; }
+  input.stockInput{ width:80px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">AMPA · Administración</div>
+  <h1>Uniformes</h1>
+  <p class="lede">Gestiona el catálogo de prendas y el reparto de cada convocatoria.</p>
+
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="catalogo">Catálogo</button>
+    <button class="tab-btn" data-tab="convocatoria">Convocatoria y reparto</button>
+  </div>
+
+  <!-- ============ CATÁLOGO ============ -->
+  <div class="panel active" id="panel-catalogo">
+    <div class="card">
+      <p class="section-label">Añadir prenda</p>
+      <div class="two-col">
+        <div class="field">
+          <label>Tipo</label>
+          <select id="nTipo">
+            <option>Sudadera</option><option>Pantalón Largo</option><option>Pantalón Corto</option>
+            <option>Camiseta</option><option>Baby</option>
+          </select>
+        </div>
+        <div class="field"><label>Talla</label><select id="nTalla"></select></div>
+      </div>
+      <div class="field" style="margin-top:14px; max-width:160px;"><label>Stock</label><input type="number" id="nStock" min="0" value="0"></div>
+      <button type="button" class="btn btn-primary" id="addBtn" style="margin-top:16px;">Añadir al catálogo</button>
+      <p id="msg" style="display:none; margin-top:14px;"></p>
+    </div>
+
+    <div class="card">
+      <p class="section-label">Catálogo actual</p>
+      <div id="listaWrap"><p class="loading">Cargando...</p></div>
+    </div>
+  </div>
+
+  <!-- ============ CONVOCATORIA Y REPARTO ============ -->
+  <div class="panel" id="panel-convocatoria">
+    <div class="card" id="convocatoriaCard"><p class="loading">Cargando...</p></div>
+  </div>
+
+  <footer class="note"><b>AMPA Colegio Juan de Valdés</b> — panel de administración</footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="shared/supabaseClient.js"></script>
+<script src="shared/nav.js"></script>
+<script>
+const TALLAS_NORMALES = ['1','2','3','4','6','8','10','12','14','16','18','20'];
+const TALLAS_BABY = ['1','2','3','4','6'];
+
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
+  });
+});
+
+/* ================= CATÁLOGO ================= */
+
+function actualizarTallas() {
+  const tallas = document.getElementById('nTipo').value === 'Baby' ? TALLAS_BABY : TALLAS_NORMALES;
+  document.getElementById('nTalla').innerHTML = tallas.map(t => `<option value="${t}">${t}</option>`).join('');
+}
+document.getElementById('nTipo').addEventListener('change', actualizarTallas);
+actualizarTallas();
+
+document.getElementById('addBtn').addEventListener('click', async () => {
+  const tipo = document.getElementById('nTipo').value;
+  const talla = document.getElementById('nTalla').value;
+  const stock = parseInt(document.getElementById('nStock').value, 10) || 0;
+  const msg = document.getElementById('msg');
+
+  const { error } = await sb.from('prendas_catalogo').insert({ tipo, talla, stock });
+  msg.style.display = 'block';
+  msg.className = error ? 'msg-error' : 'msg-ok';
+  msg.textContent = error ? (error.code === '23505' ? 'Esa combinación de tipo y talla ya existe.' : 'Error: ' + error.message) : 'Añadido ✓';
+  if (!error) { document.getElementById('nStock').value = '0'; cargarLista(); }
+});
+
+async function cargarLista() {
+  const wrap = document.getElementById('listaWrap');
+  const { data, error } = await sb.from('prendas_catalogo').select('*').order('tipo').order('talla');
+  if (error) { wrap.innerHTML = '<p class="msg-error">No se pudo cargar.</p>'; return; }
+  if (!data || data.length === 0) { wrap.innerHTML = '<p class="empty-hint">Todavía no hay prendas en el catálogo.</p>'; return; }
+
+  wrap.innerHTML = '<table><thead><tr><th>Tipo</th><th>Talla</th><th>Stock</th><th></th></tr></thead><tbody>' +
+    data.map(p =>
+      '<tr>' +
+        '<td>' + p.tipo + '</td>' +
+        '<td>' + p.talla + '</td>' +
+        '<td><input type="number" class="stockInput" data-id="' + p.id + '" value="' + p.stock + '" min="0"></td>' +
+        '<td><button class="btn-danger-link" data-del="' + p.id + '">Borrar</button></td>' +
+      '</tr>'
+    ).join('') +
+  '</tbody></table>';
+
+  wrap.querySelectorAll('.stockInput').forEach(input => {
+    input.addEventListener('change', async () => {
+      await sb.from('prendas_catalogo').update({ stock: parseInt(input.value, 10) || 0 }).eq('id', input.dataset.id);
+    });
+  });
+  wrap.querySelectorAll('[data-del]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('¿Borrar esta prenda del catálogo?')) return;
+      await sb.from('prendas_catalogo').delete().eq('id', btn.dataset.del);
+      cargarLista();
+    });
+  });
+}
+
+/* ================= CONVOCATORIA Y REPARTO ================= */
+
+async function cargarConvocatoria() {
+  const card = document.getElementById('convocatoriaCard');
+  const { data: convocatoria, error } = await sb
+    .from('uniformes_convocatorias')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) { card.innerHTML = '<p class="msg-error">No se pudo cargar.</p>'; return; }
+
+  if (!convocatoria) {
+    card.innerHTML = renderFormularioNuevaConvocatoria();
+    activarFormularioNuevaConvocatoria();
+    return;
+  }
+
+  const cerrada = new Date(convocatoria.fecha_cierre) <= new Date();
+  const fechaFmt = new Date(convocatoria.fecha_cierre).toLocaleString('es-ES', { dateStyle: 'long', timeStyle: 'short' });
+
+  let cabecera = '';
+  if (convocatoria.estado === 'abierta' && !cerrada) {
+    cabecera = `<p class="section-label">Convocatoria abierta</p><p style="font-size:14.5px;">Se cierra el <b>${fechaFmt}</b>. Todavía no se puede repartir.</p>`;
+  } else if (convocatoria.estado === 'abierta' && cerrada) {
+    cabecera = `
+      <p class="section-label">Convocatoria cerrada, pendiente de repartir</p>
+      <p style="font-size:14.5px;">Se cerró el ${fechaFmt}.</p>
+      <button type="button" class="btn btn-primary" id="repartirBtn" style="margin-top:10px;">Repartir</button>
+      <p id="repartirMsg" style="display:none; margin-top:10px;"></p>
+    `;
+  } else {
+    cabecera = `
+      <p class="section-label">Convocatoria repartida</p>
+      <p style="font-size:14.5px;">Se cerró el ${fechaFmt}.</p>
+      <button type="button" class="btn-danger-link" id="resetearBtn" style="margin-top:6px;">Anular todo el reparto y volver a empezar</button>
+      <p id="resetearMsg" style="display:none; margin-top:10px;"></p>
+    `;
+  }
+
+  card.innerHTML = cabecera + '<div id="itemsWrap" style="margin-top:20px;"><p class="loading">Cargando pedidos...</p></div>';
+
+  if (document.getElementById('repartirBtn')) {
+    document.getElementById('repartirBtn').addEventListener('click', () => repartirConvocatoria(convocatoria.id));
+  }
+  if (document.getElementById('resetearBtn')) {
+    document.getElementById('resetearBtn').addEventListener('click', () => resetearReparto(convocatoria.id));
+  }
+
+  await cargarPedidos(convocatoria.id);
+}
+
+function renderFormularioNuevaConvocatoria() {
+  return `
+    <p class="section-label">No hay ninguna convocatoria en marcha</p>
+    <div class="field" style="max-width:320px;">
+      <label>Fecha y hora de cierre</label>
+      <input type="datetime-local" id="nuevaFechaCierre">
+    </div>
+    <button type="button" class="btn btn-primary" id="crearConvocatoriaBtn" style="margin-top:14px;">Abrir convocatoria</button>
+    <p id="crearMsg" style="display:none; margin-top:10px;"></p>
+  `;
+}
+
+function activarFormularioNuevaConvocatoria() {
+  document.getElementById('crearConvocatoriaBtn').addEventListener('click', async () => {
+    const valor = document.getElementById('nuevaFechaCierre').value;
+    const msg = document.getElementById('crearMsg');
+    if (!valor) {
+      msg.style.display = 'block'; msg.className = 'msg-error'; msg.textContent = 'Elige una fecha de cierre.';
+      return;
+    }
+    const { error } = await sb.from('uniformes_convocatorias').insert({ fecha_cierre: new Date(valor).toISOString() });
+    msg.style.display = 'block';
+    msg.className = error ? 'msg-error' : 'msg-ok';
+    msg.textContent = error ? 'Error: ' + error.message : 'Convocatoria abierta ✓';
+    if (!error) cargarConvocatoria();
+  });
+}
+
+async function repartirConvocatoria(convocatoriaId) {
+  const msg = document.getElementById('repartirMsg');
+  const session = await getSession();
+  try {
+    const resp = await fetch('/.netlify/functions/uniformes-repartir', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
+      body: JSON.stringify({ convocatoriaId })
+    });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.error || 'Error al repartir');
+    msg.style.display = 'block'; msg.className = 'msg-ok';
+    msg.textContent = `Repartido ✓ — ${data.asignados} asignados, ${data.noAsignados} sin poder asignar.`;
+    cargarConvocatoria();
+  } catch (err) {
+    msg.style.display = 'block'; msg.className = 'msg-error'; msg.textContent = err.message;
+  }
+}
+
+async function resetearReparto(convocatoriaId) {
+  if (!confirm('Esto anula TODAS las asignaciones de esta convocatoria y las devuelve a pendiente. ¿Seguro?')) return;
+  const msg = document.getElementById('resetearMsg');
+  const { error } = await sb.rpc('uniformes_admin_resetear_reparto', { p_convocatoria_id: convocatoriaId });
+  msg.style.display = 'block';
+  msg.className = error ? 'msg-error' : 'msg-ok';
+  msg.textContent = error ? 'Error: ' + error.message : 'Reparto anulado ✓';
+  if (!error) cargarConvocatoria();
+}
+
+async function cargarPedidos(convocatoriaId) {
+  const wrap = document.getElementById('itemsWrap');
+  const { data: pedidos, error } = await sb
+    .from('uniformes_pedidos')
+    .select('id, prioridad, estado, alumno_id, socios(numero_socio_completo), alumnos(nombre, apellidos), prendas_catalogo(id, tipo, talla)')
+    .eq('convocatoria_id', convocatoriaId)
+    .order('prioridad');
+
+  if (error) { wrap.innerHTML = '<p class="msg-error">No se pudo cargar.</p>'; return; }
+  if (!pedidos || pedidos.length === 0) { wrap.innerHTML = '<p class="empty-hint">Nadie ha pedido uniformes en esta convocatoria.</p>'; return; }
+
+  const { data: prendasDisponibles } = await sb.from('prendas_catalogo').select('id, tipo, talla, stock').gt('stock', 0);
+
+  const porAlumno = {};
+  pedidos.forEach(p => (porAlumno[p.alumno_id] = porAlumno[p.alumno_id] || []).push(p));
+
+  wrap.innerHTML = '';
+  Object.values(porAlumno).forEach(lista => {
+    const primero = lista[0];
+    const asignado = lista.find(p => p.estado === 'asignado');
+    const div = document.createElement('div');
+    div.className = 'fila-alumno';
+    const familia = `Nº ${primero.socios?.numero_socio_completo || '?'} — ${primero.alumnos?.nombre || ''} ${primero.alumnos?.apellidos || ''}`;
+    const opciones = lista.filter(p => p.prioridad > 0)
+      .map(p => `${p.prioridad}ª: ${p.prendas_catalogo?.tipo} T${p.prendas_catalogo?.talla}${p.estado === 'asignado' ? ' ✓' : ''}`)
+      .join(' · ');
+
+    let accion;
+    if (asignado) {
+      accion = `<b>Asignado: ${asignado.prendas_catalogo?.tipo} T${asignado.prendas_catalogo?.talla}</b>
+        <button class="btn-danger-link quitarBtn" style="margin-left:10px;">Quitar</button>`;
+    } else {
+      accion = `<span style="color:var(--ink-soft);">Sin asignar</span>
+        <div style="margin-top:6px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+          <select class="asignarSelect">
+            ${(prendasDisponibles || []).map(p => `<option value="${p.id}">${p.tipo} T${p.talla} (stock ${p.stock})</option>`).join('')}
+          </select>
+          <button class="btn btn-outline asignarBtn">Asignar</button>
+        </div>`;
+    }
+
+    div.innerHTML = `${familia}<br><small style="color:var(--ink-soft);">${opciones}</small><div style="margin-top:6px;">${accion}</div>`;
+
+    const quitarBtn = div.querySelector('.quitarBtn');
+    if (quitarBtn) {
+      quitarBtn.addEventListener('click', async () => {
+        const { error: quitarError } = await sb.rpc('uniformes_admin_quitar', { p_alumno_id: primero.alumno_id, p_convocatoria_id: convocatoriaId });
+        if (quitarError) { alert('Error: ' + quitarError.message); return; }
+        cargarPedidos(convocatoriaId);
+      });
+    }
+    const asignarBtn = div.querySelector('.asignarBtn');
+    if (asignarBtn) {
+      asignarBtn.addEventListener('click', async () => {
+        const prendaId = div.querySelector('.asignarSelect').value;
+        const { error: asignarError } = await sb.rpc('uniformes_admin_asignar', {
+          p_alumno_id: primero.alumno_id, p_convocatoria_id: convocatoriaId, p_prenda_id: prendaId
+        });
+        if (asignarError) { alert('Error: ' + asignarError.message); return; }
+        cargarPedidos(convocatoriaId);
+      });
+    }
+    wrap.appendChild(div);
+  });
+}
+
+(async () => {
+  const ctx = await requireAdmin();
+  if (!ctx) return;
+  renderNav('admin-uniformes', ctx);
+  await cargarLista();
+  await cargarConvocatoria();
+})();
+</script>
+</body>
+</html>

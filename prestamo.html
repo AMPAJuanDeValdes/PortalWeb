@@ -8,9 +8,6 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="shared/styles.css">
 <style>
-  .stock-tag{ font-family:'Inter', sans-serif; font-size:11px; padding:2px 8px; border-radius:10px; margin-left:8px; }
-  .stock-ok{ background:#EAF6ED; color:#1E7A46; }
-  .stock-no{ background:#FBEAEA; color:var(--red); }
   .donar-row{ margin-top:24px; padding-top:16px; border-top:1px solid var(--line); }
 </style>
 </head>
@@ -20,21 +17,30 @@
   <h1>Préstamo de libros de lectura</h1>
   <p class="lede">Elige un alumno/a y marca los libros que necesitáis para su curso. Repite para cada alumno de la familia.</p>
 
-  <div class="card">
+  <div class="card" id="miMochilaCard" style="display:none;">
+    <p class="section-label">Libros que tenéis prestados ahora mismo</p>
+    <div id="prestadosWrap"></div>
+  </div>
+
+  <div class="card" id="estadoConvocatoriaCard"><p class="loading">Cargando...</p></div>
+
+  <div class="card" id="peticionCard" style="display:none;">
     <p class="section-label">Alumno/a</p>
     <select id="alumnoSelect"></select>
     <p id="sinAlumnosMsg" style="display:none; font-size:13px; color:var(--ink-soft); margin-top:10px;">
       Todavía no tienes alumnos añadidos. Ve a
       <a href="mis-datos.html">Mis datos</a> para darlos de alta.
     </p>
+
+    <div id="librosCard" style="display:none; margin-top:20px;">
+      <p class="section-label" id="librosTitulo">Libros</p>
+      <div id="librosWrap"></div>
+      <p id="msg" style="display:none; margin-top:14px;"></p>
+    </div>
   </div>
 
-  <div id="librosCard" class="card" style="display:none;">
-    <p class="section-label" id="librosTitulo">Libros</p>
-    <div id="librosWrap"></div>
-    <p id="msg" style="display:none; margin-top:14px;"></p>
-
-    <div class="donar-row">
+  <div class="card">
+    <div class="donar-row" style="margin-top:0; padding-top:0; border-top:none;">
       <p class="section-label">¿Quieres donar un libro?</p>
       <p style="font-size:13px; color:var(--ink-soft); margin-top:-6px;">
         No suma al stock hasta que el AMPA reciba el libro en mano.
@@ -57,6 +63,58 @@
 let ctxGlobal = null;
 let alumnos = [];
 let todosLosLibros = [];
+let convocatoriaActual = null;
+
+async function cargarPrestados() {
+  const card = document.getElementById('miMochilaCard');
+  const wrap = document.getElementById('prestadosWrap');
+  const { data } = await sb
+    .from('prestamo_items')
+    .select('alumnos(nombre, apellidos), libros_catalogo(titulo), libros_ejemplares(codigo)')
+    .eq('socio_id', ctxGlobal.socio.id)
+    .eq('estado', 'asignado');
+
+  if (!data || data.length === 0) { card.style.display = 'none'; return; }
+  card.style.display = 'block';
+  wrap.innerHTML = data.map(it => `
+    <div class="evento-mini">
+      ${it.alumnos?.nombre || ''} ${it.alumnos?.apellidos || ''} — <b>${it.libros_catalogo?.titulo}</b> (ejemplar ${it.libros_ejemplares?.codigo})
+    </div>
+  `).join('');
+}
+
+async function cargarConvocatoria() {
+  const estadoCard = document.getElementById('estadoConvocatoriaCard');
+  const peticionCard = document.getElementById('peticionCard');
+
+  const { data: convocatoria } = await sb
+    .from('prestamo_convocatorias')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const abiertaYVigente = convocatoria && convocatoria.estado === 'abierta' && new Date(convocatoria.fecha_cierre) > new Date();
+
+  if (!convocatoria) {
+    estadoCard.innerHTML = '<p class="empty-hint">No hay ninguna convocatoria de préstamo en marcha ahora mismo.</p>';
+    peticionCard.style.display = 'none';
+    return;
+  }
+
+  if (abiertaYVigente) {
+    convocatoriaActual = convocatoria;
+    const fechaFmt = new Date(convocatoria.fecha_cierre).toLocaleString('es-ES', { dateStyle: 'long', timeStyle: 'short' });
+    estadoCard.innerHTML = `<p style="font-size:14.5px;">El plazo para pedir libros está abierto hasta el <b>${fechaFmt}</b>.</p>`;
+    peticionCard.style.display = 'block';
+    await cargarCatalogoCompleto();
+    await cargarAlumnos();
+  } else {
+    convocatoriaActual = null;
+    estadoCard.innerHTML = '<p class="empty-hint">El plazo para pedir libros está cerrado. Los libros pedidos se están repartiendo o ya se han repartido.</p>';
+    peticionCard.style.display = 'none';
+  }
+}
 
 async function cargarAlumnos() {
   const { data } = await sb.from('alumnos').select('*').eq('socio_id', ctxGlobal.socio.id).order('created_at');
@@ -72,7 +130,7 @@ async function cargarAlumnos() {
   sinAlumnosMsg.style.display = 'none';
   select.innerHTML = '<option value="">Selecciona un alumno/a...</option>' +
     alumnos.map(a => `<option value="${a.id}">${a.nombre} ${a.apellidos} — ${a.curso} ${a.etapa}</option>`).join('');
-  select.addEventListener('change', () => mostrarLibrosDe(select.value));
+  select.onchange = () => mostrarLibrosDe(select.value);
 }
 
 async function cargarCatalogoCompleto() {
@@ -98,6 +156,7 @@ async function mostrarLibrosDe(alumnoId) {
     .from('prestamo_items')
     .select('libro_id')
     .eq('alumno_id', alumnoId)
+    .eq('convocatoria_id', convocatoriaActual.id)
     .eq('tipo', 'solicitud');
   const idsYaPedidos = new Set((yaPedidos || []).map(p => p.libro_id));
 
@@ -110,10 +169,8 @@ async function mostrarLibrosDe(alumnoId) {
     <label class="book-item">
       <input type="checkbox" data-libro-id="${l.id}" ${idsYaPedidos.has(l.id) ? 'checked disabled' : ''}>
       <span>${l.titulo}
-        <span class="stock-tag ${l.stock > 0 ? 'stock-ok' : 'stock-no'}">
-          ${l.stock > 0 ? l.stock + ' en stock' : 'sin stock (se pide igualmente)'}
-        </span>
-        ${idsYaPedidos.has(l.id) ? '<span class="stock-tag stock-ok">ya solicitado</span>' : ''}
+        ${idsYaPedidos.has(l.id) ? '<span class="stock-tag" style="background:#EAF6ED;color:#1E7A46;">ya pedido</span>' : ''}
+        <br><small style="color:var(--ink-soft);">${l.asignatura} · ${l.editorial} · ISBN ${l.isbn}</small>
       </span>
     </label>
   `).join('');
@@ -131,7 +188,7 @@ async function guardarSeleccion(alumnoId) {
   const checks = document.querySelectorAll('#librosWrap input[type=checkbox]:not(:disabled):checked');
   if (checks.length === 0) {
     msg.style.display = 'block'; msg.className = 'msg-error';
-    msg.textContent = 'Marca al menos un libro nuevo para guardar.';
+    msg.textContent = 'Marca al menos un libro nuevo para pedir.';
     return;
   }
 
@@ -139,16 +196,16 @@ async function guardarSeleccion(alumnoId) {
   for (const cb of checks) {
     const libroId = cb.dataset.libroId;
     const { error } = await sb.from('prestamo_items').insert({
-      alumno_id: alumnoId, socio_id: ctxGlobal.socio.id, libro_id: libroId, tipo: 'solicitud'
+      alumno_id: alumnoId, socio_id: ctxGlobal.socio.id, libro_id: libroId,
+      tipo: 'solicitud', convocatoria_id: convocatoriaActual.id
     });
     if (error) errores++;
   }
 
   msg.style.display = 'block';
   msg.className = errores ? 'msg-error' : 'msg-ok';
-  msg.textContent = errores ? 'Alguna solicitud no se pudo guardar.' : 'Guardado ✓';
+  msg.textContent = errores ? 'Alguna petición no se pudo guardar.' : 'Guardado ✓ — se asignarán al cerrarse el plazo.';
 
-  await cargarCatalogoCompleto();
   await mostrarLibrosDe(alumnoId);
 }
 
@@ -171,8 +228,9 @@ document.getElementById('donarBtn').addEventListener('click', async () => {
   if (!ctx) return;
   ctxGlobal = ctx;
   renderNav('prestamo', ctx);
+  await cargarPrestados();
+  await cargarConvocatoria();
   await cargarCatalogoCompleto();
-  await cargarAlumnos();
 })();
 </script>
 </body>

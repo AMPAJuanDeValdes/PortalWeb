@@ -9,7 +9,6 @@ function renderNav(activePage, ctx) {
     { page: 'publico', href: 'index.html', label: 'Web pública' },
     { page: 'dashboard', href: 'dashboard.html', label: 'Inicio' },
     { page: 'mis-datos', href: 'mis-datos.html', label: 'Mis datos' },
-    { page: 'prestamo', href: 'prestamo.html', label: 'Préstamo de libros' },
     { page: 'eventos', href: 'eventos.html', label: 'Eventos' }
   ];
   const adminLinks = [
@@ -17,6 +16,7 @@ function renderNav(activePage, ctx) {
     { page: 'admin-comprobantes', href: 'admin-comprobantes.html', label: 'Comprobantes de pago' },
     { page: 'admin-eventos', href: 'admin-eventos.html', label: 'Eventos (admin)' },
     { page: 'admin-libros', href: 'admin-libros.html', label: 'Catálogo de libros' },
+    { page: 'admin-uniformes', href: 'admin-uniformes.html', label: 'Uniformes (admin)' },
     { page: 'admin-carrusel', href: 'admin-carrusel.html', label: 'Carrusel de portada' },
     { page: 'admin-documentos', href: 'admin-documentos.html', label: 'Documentos (admin)' },
     { page: 'admin-email', href: 'admin-email.html', label: 'Enviar email' },

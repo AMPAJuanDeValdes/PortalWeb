@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Uniformes · AMPA Juan de Valdés</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared/styles.css">
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">AMPA · Uniformes</div>
+  <h1>Entrega de uniformes</h1>
+  <p class="lede">Elige, para cada hijo/a, 3 prendas ordenadas por prioridad. 🔴 queda poco stock, 🟡 stock medio, 🟢 stock amplio.</p>
+
+  <div class="card" id="conseguidosCard" style="display:none;">
+    <p class="section-label">Uniformes conseguidos</p>
+    <div id="conseguidosWrap"></div>
+  </div>
+
+  <div class="card" id="estadoConvocatoriaCard"><p class="loading">Cargando...</p></div>
+
+  <div id="alumnosWrap"></div>
+
+  <footer class="note"><b>AMPA Colegio Juan de Valdés</b> — entrega de uniformes</footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="shared/supabaseClient.js"></script>
+<script src="shared/nav.js"></script>
+<script>
+let ctxGlobal = null;
+let convocatoriaActual = null;
+let prendas = [];
+
+function colorDe(stock) {
+  if (stock <= 2) return 'rojo';
+  if (stock <= 5) return 'amarillo';
+  return 'verde';
+}
+function emojiDe(color) { return { rojo: '🔴', amarillo: '🟡', verde: '🟢' }[color]; }
+
+async function cargarConseguidos() {
+  const card = document.getElementById('conseguidosCard');
+  const wrap = document.getElementById('conseguidosWrap');
+  const { data } = await sb
+    .from('uniformes_pedidos')
+    .select('alumnos(nombre, apellidos), prendas_catalogo(tipo, talla)')
+    .eq('socio_id', ctxGlobal.socio.id)
+    .eq('estado', 'asignado');
+
+  if (!data || data.length === 0) { card.style.display = 'none'; return; }
+  card.style.display = 'block';
+  wrap.innerHTML = data.map(p => `
+    <div class="evento-mini">
+      ${p.alumnos?.nombre || ''} ${p.alumnos?.apellidos || ''} — <b>${p.prendas_catalogo?.tipo} talla ${p.prendas_catalogo?.talla}</b>
+    </div>
+  `).join('');
+}
+
+async function cargarConvocatoria() {
+  const estadoCard = document.getElementById('estadoConvocatoriaCard');
+  const alumnosWrap = document.getElementById('alumnosWrap');
+
+  const { data: convocatoria } = await sb
+    .from('uniformes_convocatorias')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const abiertaYVigente = convocatoria && convocatoria.estado === 'abierta' && new Date(convocatoria.fecha_cierre) > new Date();
+
+  if (!convocatoria) {
+    estadoCard.innerHTML = '<p class="empty-hint">No hay ninguna convocatoria de uniformes en marcha ahora mismo.</p>';
+    alumnosWrap.innerHTML = '';
+    return;
+  }
+
+  if (abiertaYVigente) {
+    convocatoriaActual = convocatoria;
+    const fechaFmt = new Date(convocatoria.fecha_cierre).toLocaleString('es-ES', { dateStyle: 'long', timeStyle: 'short' });
+    estadoCard.innerHTML = `<p style="font-size:14.5px;">El plazo para pedir uniformes está abierto hasta el <b>${fechaFmt}</b>.</p>`;
+    await cargarCatalogo();
+    await cargarAlumnos();
+  } else {
+    convocatoriaActual = null;
+    estadoCard.innerHTML = '<p class="empty-hint">El plazo para pedir uniformes está cerrado. Las prendas se están repartiendo o ya se han repartido.</p>';
+    alumnosWrap.innerHTML = '';
+  }
+}
+
+async function cargarCatalogo() {
+  const { data } = await sb.from('prendas_catalogo').select('*').gt('stock', 0).order('tipo').order('talla');
+  prendas = data || [];
+}
+
+async function cargarAlumnos() {
+  const wrap = document.getElementById('alumnosWrap');
+  const { data: alumnos } = await sb.from('alumnos').select('*').eq('socio_id', ctxGlobal.socio.id).order('created_at');
+
+  if (!alumnos || alumnos.length === 0) {
+    wrap.innerHTML = '<div class="card"><p class="empty-hint">Todavía no has añadido ningún alumno. Ve a <a href="mis-datos.html">Mis datos</a>.</p></div>';
+    return;
+  }
+
+  wrap.innerHTML = '';
+  for (const alumno of alumnos) {
+    const { data: existentes } = await sb
+      .from('uniformes_pedidos')
+      .select('prioridad, prenda_id')
+      .eq('alumno_id', alumno.id)
+      .eq('convocatoria_id', convocatoriaActual.id)
+      .in('prioridad', [1, 2, 3]);
+
+    const seleccion = { 1: null, 2: null, 3: null };
+    (existentes || []).forEach(e => { seleccion[e.prioridad] = e.prenda_id; });
+
+    wrap.appendChild(renderAlumnoCard(alumno, seleccion));
+  }
+}
+
+function opcionesPara(prioridad, excluidos) {
+  return prendas.filter(p => {
+    if (excluidos.has(p.id)) return false;
+    const color = colorDe(p.stock);
+    if (prioridad === 2 && color === 'rojo') return false;
+    if (prioridad === 3 && color !== 'verde') return false;
+    return true;
+  });
+}
+
+function renderAlumnoCard(alumno, seleccionInicial) {
+  const card = document.createElement('div');
+  card.className = 'hijo-card';
+  card.innerHTML = `<div class="hijo-head"><span class="hijo-tag">${alumno.nombre} ${alumno.apellidos} — ${alumno.curso} ${alumno.etapa}</span></div>`;
+  const body = document.createElement('div');
+  body.className = 'hijo-body';
+
+  const seleccion = { ...seleccionInicial };
+  const selects = {};
+
+  [1, 2, 3].forEach(prioridad => {
+    const field = document.createElement('div');
+    field.className = 'field';
+    field.style.marginTop = prioridad > 1 ? '14px' : '0';
+    field.innerHTML = `<label>${prioridad}ª prioridad</label>`;
+    const select = document.createElement('select');
+    select.dataset.prioridad = prioridad;
+    field.appendChild(select);
+    body.appendChild(field);
+    selects[prioridad] = select;
+  });
+
+  function renderOpciones() {
+    [1, 2, 3].forEach(prioridad => {
+      const excluidos = new Set([1, 2, 3].filter(p => p !== prioridad).map(p => seleccion[p]).filter(Boolean));
+      const opciones = opcionesPara(prioridad, excluidos);
+      const select = selects[prioridad];
+      const valorActual = seleccion[prioridad];
+      select.innerHTML = '<option value="">Selecciona...</option>' +
+        opciones.map(p => `<option value="${p.id}" ${p.id === valorActual ? 'selected' : ''}>${emojiDe(colorDe(p.stock))} ${p.tipo} talla ${p.talla}</option>`).join('');
+      if (!opciones.some(p => p.id === valorActual)) { seleccion[prioridad] = null; select.value = ''; }
+    });
+  }
+
+  [1, 2, 3].forEach(prioridad => {
+    selects[prioridad].addEventListener('change', () => {
+      seleccion[prioridad] = selects[prioridad].value || null;
+      renderOpciones();
+    });
+  });
+
+  renderOpciones();
+
+  const msg = document.createElement('p');
+  msg.style.display = 'none'; msg.style.marginTop = '10px';
+
+  const guardarBtn = document.createElement('button');
+  guardarBtn.className = 'btn btn-primary';
+  guardarBtn.style.marginTop = '16px';
+  guardarBtn.textContent = 'Guardar selección';
+  guardarBtn.addEventListener('click', async () => {
+    if (!seleccion[1] || !seleccion[2] || !seleccion[3]) {
+      msg.style.display = 'block'; msg.className = 'msg-error';
+      msg.textContent = 'Elige una prenda para las 3 prioridades.';
+      return;
+    }
+    await sb.from('uniformes_pedidos')
+      .delete()
+      .eq('alumno_id', alumno.id)
+      .eq('convocatoria_id', convocatoriaActual.id)
+      .in('prioridad', [1, 2, 3]);
+
+    const filas = [1, 2, 3].map(prioridad => ({
+      convocatoria_id: convocatoriaActual.id,
+      socio_id: ctxGlobal.socio.id,
+      alumno_id: alumno.id,
+      prioridad,
+      prenda_id: seleccion[prioridad]
+    }));
+    const { error } = await sb.from('uniformes_pedidos').insert(filas);
+
+    msg.style.display = 'block';
+    msg.className = error ? 'msg-error' : 'msg-ok';
+    msg.textContent = error ? 'Error: ' + error.message : 'Guardado ✓';
+  });
+
+  body.appendChild(guardarBtn);
+  body.appendChild(msg);
+  card.appendChild(body);
+  return card;
+}
+
+(async () => {
+  const ctx = await requireAuth();
+  if (!ctx) return;
+  ctxGlobal = ctx;
+  renderNav('uniformes', ctx);
+  await cargarConseguidos();
+  await cargarConvocatoria();
+})();
+</script>
+</body>
+</html>

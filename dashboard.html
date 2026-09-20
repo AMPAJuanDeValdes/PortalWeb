@@ -24,6 +24,11 @@
   <h1 id="saludo">Hola</h1>
   <p class="lede">Desde aquí puedes gestionar los datos de tu familia, el préstamo de libros y apuntarte a los eventos del AMPA.</p>
 
+  <div class="card">
+    <p class="section-label">Mochila Jugona Exploradora</p>
+    <div id="mochilaWrap"><p class="loading">Cargando...</p></div>
+  </div>
+
   <div class="grid">
     <a class="tile" href="mis-datos.html">
       <h2>Mis datos</h2>
@@ -32,6 +37,14 @@
     <a class="tile" href="eventos.html">
       <h2>Eventos</h2>
       <p>Consulta y apúntate a los próximos eventos del AMPA.</p>
+    </a>
+    <a class="tile" href="prestamo.html">
+      <h2>Préstamo de libros</h2>
+      <p>Pide libros de lectura y consulta los que tenéis prestados.</p>
+    </a>
+    <a class="tile" href="uniformes.html">
+      <h2>Uniformes</h2>
+      <p>Reclama prendas de uniforme para tus hijos/as.</p>
     </a>
   </div>
 
@@ -47,31 +60,113 @@
 <script src="shared/supabaseClient.js"></script>
 <script src="shared/nav.js"></script>
 <script>
-  (async () => {
-    const ctx = await requireAuth();
-    if (!ctx) return;
-    renderNav('dashboard', ctx);
-    document.getElementById('saludo').textContent = 'Hola, ' + ctx.adulto.nombre;
+let ctxGlobal = null;
 
-    const { data: eventos } = await sb
-      .from('eventos')
-      .select('*')
-      .eq('activo', true)
-      .order('fecha', { ascending: true })
-      .limit(5);
+/* ---------------- Mochila Jugona Exploradora ---------------- */
 
-    const wrap = document.getElementById('proximosWrap');
-    if (!eventos || eventos.length === 0) {
-      wrap.innerHTML = '<p class="empty-hint">No hay eventos próximos.</p>';
-      return;
-    }
-    wrap.innerHTML = eventos.map(ev => `
-      <div class="evento-mini">
-        <div class="f">${ev.fecha ? new Date(ev.fecha).toLocaleDateString('es-ES', { dateStyle: 'long' }) : 'Fecha por confirmar'}</div>
-        <div>${ev.titulo}</div>
-      </div>
-    `).join('');
-  })();
+async function cargarMochila() {
+  const wrap = document.getElementById('mochilaWrap');
+  const { data: propia, error } = await sb
+    .from('mochila_cola')
+    .select('posicion, fecha_devolucion_prevista, notificado_en')
+    .eq('socio_id', ctxGlobal.socio.id)
+    .maybeSingle();
+
+  if (error) { wrap.innerHTML = '<p class="msg-error">No se pudo cargar.</p>'; return; }
+
+  if (!propia) {
+    const { data: total } = await sb.rpc('mochila_cola_length');
+    wrap.innerHTML = `
+      <p style="font-size:14.5px;">Hay <b>${total ?? 0}</b> familia(s) apuntadas en la lista.</p>
+      <button type="button" class="btn btn-primary" id="mochilaApuntarseBtn" style="margin-top:8px;">Apuntarme a la Mochila</button>
+      <p id="mochilaMsg" style="display:none; margin-top:10px;"></p>
+    `;
+    document.getElementById('mochilaApuntarseBtn').addEventListener('click', mochilaApuntarse);
+    return;
+  }
+
+  if (propia.posicion === 0) {
+    const fecha = propia.fecha_devolucion_prevista
+      ? new Date(propia.fecha_devolucion_prevista).toLocaleDateString('es-ES', { dateStyle: 'long' })
+      : 'próximamente';
+    wrap.innerHTML = `<p style="font-size:14.5px;">🎒 Tienes la Mochila Jugona Exploradora. Debes devolverla el <b>${fecha}</b>.</p>`;
+    return;
+  }
+
+  let avisoHtml = '';
+  if (propia.posicion === 1 && propia.notificado_en) {
+    const horas = Math.max(0, Math.floor((Date.now() - new Date(propia.notificado_en).getTime()) / 3600000));
+    avisoHtml = `<p style="font-size:13px; color:var(--ink-soft); margin-top:6px;">Te avisamos hace ${horas} h. Tienes 24 h para confirmarnos si la quieres esta semana.</p>`;
+  }
+
+  wrap.innerHTML = `
+    <p style="font-size:14.5px;">Estás en la posición <b>${propia.posicion}</b> de la lista.</p>
+    ${avisoHtml}
+    <div style="display:flex; gap:14px; flex-wrap:wrap; align-items:center; margin-top:12px;">
+      <button type="button" class="btn btn-outline" id="mochilaPosponerBtn">Prefiero esperar una semana más</button>
+      <button type="button" class="btn-danger-link" id="mochilaDesapuntarseBtn">Desapuntarme de la Mochila</button>
+    </div>
+    <p id="mochilaMsg" style="display:none; margin-top:10px;"></p>
+  `;
+  document.getElementById('mochilaPosponerBtn').addEventListener('click', () => mochilaAccion('mochila-posponer'));
+  document.getElementById('mochilaDesapuntarseBtn').addEventListener('click', () => mochilaAccion('mochila-desapuntarse'));
+}
+
+async function mochilaApuntarse() {
+  await mochilaLlamar('mochila-apuntarse');
+}
+
+async function mochilaAccion(endpoint) {
+  await mochilaLlamar(endpoint);
+}
+
+async function mochilaLlamar(endpoint) {
+  const msg = document.getElementById('mochilaMsg');
+  const session = await getSession();
+  try {
+    const resp = await fetch('/.netlify/functions/' + endpoint, {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + session.access_token }
+    });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.error || 'No se pudo completar la acción');
+    await cargarMochila();
+  } catch (err) {
+    if (msg) { msg.style.display = 'block'; msg.className = 'msg-error'; msg.textContent = err.message; }
+    else alert(err.message);
+  }
+}
+
+/* ---------------- Resto del inicio ---------------- */
+
+(async () => {
+  const ctx = await requireAuth();
+  if (!ctx) return;
+  ctxGlobal = ctx;
+  renderNav('dashboard', ctx);
+  document.getElementById('saludo').textContent = 'Hola, ' + ctx.adulto.nombre;
+
+  await cargarMochila();
+
+  const { data: eventos } = await sb
+    .from('eventos')
+    .select('*')
+    .eq('activo', true)
+    .order('fecha', { ascending: true })
+    .limit(5);
+
+  const wrap = document.getElementById('proximosWrap');
+  if (!eventos || eventos.length === 0) {
+    wrap.innerHTML = '<p class="empty-hint">No hay eventos próximos.</p>';
+    return;
+  }
+  wrap.innerHTML = eventos.map(ev => `
+    <div class="evento-mini">
+      <div class="f">${ev.fecha ? new Date(ev.fecha).toLocaleDateString('es-ES', { dateStyle: 'long' }) : 'Fecha por confirmar'}</div>
+      <div>${ev.titulo}</div>
+    </div>
+  `).join('');
+})();
 </script>
 </body>
 </html>
