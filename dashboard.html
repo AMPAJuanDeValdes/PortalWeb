@@ -46,11 +46,40 @@
       <h2>Uniformes</h2>
       <p>Reclama prendas de uniforme para tus hijos/as.</p>
     </a>
+    <a class="tile" href="encuestas.html">
+      <h2>Encuestas</h2>
+      <p>Consulta y responde a las encuestas abiertas del AMPA.</p>
+    </a>
   </div>
 
   <div class="card" style="margin-top:20px;">
     <p class="section-label">Próximos eventos</p>
     <div id="proximosWrap"><p class="loading">Cargando...</p></div>
+  </div>
+
+  <div id="adminSection" style="display:none;">
+    <p class="section-label" style="margin-top:28px;">Administración</p>
+    <div class="grid">
+      <a class="tile" href="admin-importar.html"><h2>Alta de socios</h2><p>CSV o manual.</p></a>
+      <a class="tile" href="admin-comprobantes.html"><h2>Comprobantes de pago</h2><p>Altas y cuotas pendientes.</p></a>
+      <a class="tile" href="admin-eventos.html"><h2>Eventos</h2><p>Crear, sortear y gestionar eventos.</p></a>
+      <a class="tile" href="admin-libros.html"><h2>Préstamo de libros</h2><p>Catálogo, ejemplares y reparto.</p></a>
+      <a class="tile" href="admin-uniformes.html"><h2>Uniformes</h2><p>Catálogo y reparto.</p></a>
+      <a class="tile" href="admin-encuestas.html"><h2>Encuestas</h2><p>Crear y ver resultados.</p></a>
+      <a class="tile" href="admin-carrusel.html"><h2>Carrusel de portada</h2><p>Fotos de la web pública.</p></a>
+      <a class="tile" href="admin-documentos.html"><h2>Documentos</h2><p>Newsletters y archivos.</p></a>
+      <a class="tile" href="admin-email.html"><h2>Enviar email</h2><p>Comunicaciones masivas.</p></a>
+      <a class="tile" href="admin-respuestas.html"><h2>Respuestas</h2><p>Listados exportables.</p></a>
+      <a class="tile" href="admin-sepa.html"><h2>Domiciliación SEPA</h2><p>Plantilla del mandato y mandatos firmados.</p></a>
+    </div>
+  </div>
+
+  <div class="card">
+    <p class="section-label">¿Algo que decirle al AMPA?</p>
+    <p style="font-size:13px; color:var(--ink-soft); margin-top:-8px;">Te contestaremos por email.</p>
+    <textarea id="comentarioTexto" rows="3" placeholder="Escribe aquí tu comentario o duda..."></textarea>
+    <button type="button" class="btn btn-primary" id="comentarioBtn" style="margin-top:12px;">Enviar</button>
+    <p id="comentarioMsg" style="display:none; margin-top:10px;"></p>
   </div>
 
   <footer class="note"><b>AMPA Colegio Juan de Valdés</b></footer>
@@ -137,6 +166,30 @@ async function mochilaLlamar(endpoint) {
   }
 }
 
+document.getElementById('comentarioBtn').addEventListener('click', async () => {
+  const texto = document.getElementById('comentarioTexto');
+  const msg = document.getElementById('comentarioMsg');
+  const mensaje = texto.value.trim();
+  if (!mensaje) {
+    msg.style.display = 'block'; msg.className = 'msg-error'; msg.textContent = 'Escribe algo antes de enviar.';
+    return;
+  }
+  const session = await getSession();
+  try {
+    const resp = await fetch('/.netlify/functions/comentario-socio', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
+      body: JSON.stringify({ mensaje })
+    });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.error || 'No se pudo enviar');
+    msg.style.display = 'block'; msg.className = 'msg-ok'; msg.textContent = 'Enviado ✓';
+    texto.value = '';
+  } catch (err) {
+    msg.style.display = 'block'; msg.className = 'msg-error'; msg.textContent = err.message;
+  }
+});
+
 /* ---------------- Resto del inicio ---------------- */
 
 (async () => {
@@ -145,6 +198,9 @@ async function mochilaLlamar(endpoint) {
   ctxGlobal = ctx;
   renderNav('dashboard', ctx);
   document.getElementById('saludo').textContent = 'Hola, ' + ctx.adulto.nombre;
+  if (ctx.adulto.role === 'admin') {
+    document.getElementById('adminSection').style.display = 'block';
+  }
 
   await cargarMochila();
 

@@ -33,7 +33,23 @@ body{
   background:linear-gradient(90deg,var(--rainbow-3),var(--rainbow-2),var(--rainbow-1),var(--rainbow-4));
 }
 
-/* -------- Layout con menú lateral vertical -------- */
+/* -------- Barra superior simple (sustituye al menú lateral) -------- */
+.topbar-simple{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:14px 20px; border-bottom:1px solid var(--line); background:#fff;
+  font-family:'Inter', sans-serif; font-size:13px; margin-bottom:8px;
+}
+.topbar-inicio{ color:var(--navy); text-decoration:none; font-weight:600; }
+.topbar-right{ display:flex; align-items:center; gap:14px; }
+.topbar-user{ color:var(--ink-soft); font-size:12.5px; }
+.topbar-right button.linklike{
+  background:none; border:none; cursor:pointer; color:var(--red);
+  font-family:'Inter', sans-serif; font-size:12.5px; text-decoration:underline; padding:0;
+}
+
+/* -------- Layout con menú lateral vertical (EN DESUSO — nav.js ya no
+   genera .app-shell/.sidenav; estas reglas quedan sin efecto pero se
+   dejan por si algo las referenciase todavía) -------- */
 .app-shell{ display:flex; min-height:100vh; align-items:stretch; }
 .sidenav{
   width:236px; flex-shrink:0; background:#FFFFFF;

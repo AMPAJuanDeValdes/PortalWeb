@@ -30,12 +30,10 @@
     </div>
     <div style="margin-top:16px; display:flex; gap:10px; flex-wrap:wrap;">
       <button type="button" class="btn btn-outline" id="cambiarBancoBtn">Domiciliar / cambiar cuenta bancaria</button>
+      <a href="cambiar-clave.html" class="btn btn-outline">Cambiar mi contraseña</a>
       <button type="button" class="btn-danger-link" id="bajaBtn">Dar de baja mi cuenta</button>
     </div>
-    <p style="font-size:12px; color:var(--ink-soft); margin-top:10px;">
-      La domiciliación requiere firmar un mandato SEPA — esta parte del
-      sistema está pendiente de que el AMPA suba la plantilla oficial.
-    </p>
+    <div id="sepaZona" style="margin-top:16px; display:none;"></div>
   </div>
 
   <div class="card">
@@ -74,6 +72,7 @@
 <script src="shared/supabaseClient.js"></script>
 <script src="shared/nav.js"></script>
 <script src="shared/catalogo.js"></script>
+<script src="shared/documentoRellenable.js"></script>
 <script>
 let ctxGlobal = null;
 
@@ -383,9 +382,57 @@ function cargarCuenta() {
   }
 }
 
-document.getElementById('cambiarBancoBtn').addEventListener('click', () => {
-  alert('La domiciliación bancaria (mandato SEPA digital) está pendiente de implementar: falta que el AMPA suba la plantilla PDF oficial del adeudo. Mientras tanto, contacta con la Junta para domiciliar tu cuota.');
-});
+document.getElementById('cambiarBancoBtn').addEventListener('click', abrirFirmaSepa);
+
+async function abrirFirmaSepa() {
+  const zona = document.getElementById('sepaZona');
+  zona.style.display = 'block';
+  zona.innerHTML = '<p class="loading">Cargando plantilla...</p>';
+
+  const { data: config, error: confError } = await sb.from('mandato_sepa_config').select('*').eq('id', 1).single();
+  if (confError || !config || !config.archivo_base_url || !(config.campos || []).length) {
+    zona.innerHTML = '<p class="msg-error">La domiciliación todavía no está disponible: el AMPA no ha configurado la plantilla. Contacta con la Junta.</p>';
+    return;
+  }
+
+  const adulto = ctxGlobal.adulto;
+  const socio = ctxGlobal.socio;
+  const persona = {
+    nombre: adulto.nombre, apellidos: adulto.apellidos, dni_nie: adulto.dni_nie,
+    direccion: adulto.direccion,
+    cp_ciudad_provincia: [adulto.codigo_postal, adulto.ciudad, adulto.provincia].filter(Boolean).join(' - '),
+    pais_deudor: 'España',
+    iban: socio.iban || '',
+    swift_bic: '',
+    ref_mandato: socio.numero_socio_completo || '',
+    id_acreedor: config.identificador_acreedor || '',
+    nombre_acreedor: config.nombre_acreedor || '',
+    direccion_acreedor: config.direccion_acreedor || '',
+    cp_acreedor: config.cp_acreedor || '',
+    pais_acreedor: config.pais_acreedor || 'España',
+    tipo_pago_fijo: 'Recurrente'
+  };
+
+  try {
+    const { dataUrl } = await renderizarPaginaPDF(config.archivo_base_url, config.pagina_rellenable);
+    abrirFormularioRelleno(zona, dataUrl, config.campos, persona, async (blob, datosFinales, avisoDiferencias) => {
+      const path = `${socio.id}/${Date.now()}.png`;
+      const { error: upErr } = await sb.storage.from('mandatos-sepa').upload(path, blob);
+      if (upErr) { alert('Error al subir el documento: ' + upErr.message); return; }
+
+      const ibanFinal = datosFinales.iban || '';
+      const { error: firmarError } = await sb.rpc('mandato_sepa_firmar', {
+        p_iban: ibanFinal, p_archivo_url: path, p_datos_finales: datosFinales, p_aviso_diferencias: avisoDiferencias
+      });
+      if (firmarError) { alert('Error al registrar el mandato: ' + firmarError.message); return; }
+
+      zona.innerHTML = '<p class="msg-ok">Mandato firmado ✓. Tu cuenta ya está domiciliada.</p>';
+      setTimeout(() => location.reload(), 1200);
+    });
+  } catch (err) {
+    zona.innerHTML = '<p class="msg-error">No se pudo cargar la plantilla: ' + err.message + '</p>';
+  }
+}
 
 document.getElementById('bajaBtn').addEventListener('click', () => {
   document.getElementById('bajaModal').style.display = 'flex';

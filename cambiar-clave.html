@@ -12,10 +12,10 @@
 <body>
 <div class="center-wrap">
   <div class="eyebrow">AMPA · Seguridad</div>
-  <h1>Elige una nueva contraseña</h1>
-  <p class="lede">Por seguridad, la primera vez que entras (o tras recuperar el acceso) debes cambiar la contraseña.</p>
+  <h1 id="titulo">Elige una nueva contraseña</h1>
+  <p class="lede" id="lede">Por seguridad, la primera vez que entras (o tras recuperar el acceso) debes cambiar la contraseña.</p>
 
-  <div class="card">
+  <div class="card" id="formCard">
     <form id="pwdForm">
       <div class="field">
         <label for="password">Nueva contraseña (mínimo 6 caracteres)</label>
@@ -29,14 +29,41 @@
       <button type="submit" class="btn btn-primary btn-block" id="submitBtn">Guardar y continuar</button>
     </form>
   </div>
+
+  <div class="card" id="enlaceCaducadoCard" style="display:none;">
+    <p style="color:var(--ink-soft); font-size:14.5px;">
+      Este enlace para restablecer la contraseña ya no es válido (puede haber
+      caducado o haberse usado ya). Vuelve a la pantalla de acceso y pulsa de
+      nuevo "¿Has olvidado tu contraseña?" para recibir un enlace nuevo.
+    </p>
+    <a href="login.html" class="btn btn-outline btn-block" style="margin-top:10px;">Volver al acceso</a>
+  </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="shared/supabaseClient.js"></script>
 <script>
   (async () => {
+    // Si venimos de un enlace de "recuperar contraseña", Supabase añade
+    // #type=recovery a la URL (y ya establece la sesión automáticamente
+    // a partir de ese enlace, no hace falta nada más aquí).
+    const esRecuperacion = window.location.hash.includes('type=recovery');
+    if (esRecuperacion) {
+      document.getElementById('titulo').textContent = 'Restablece tu contraseña';
+      document.getElementById('lede').textContent = 'Escribe tu nueva contraseña para recuperar el acceso a tu cuenta.';
+    }
+
     const session = await getSession();
-    if (!session) window.location.href = 'login.html';
+    if (!session) {
+      document.getElementById('formCard').style.display = 'none';
+      document.getElementById('enlaceCaducadoCard').style.display = 'block';
+      if (esRecuperacion) {
+        document.getElementById('titulo').textContent = 'Enlace no válido o caducado';
+        document.getElementById('lede').textContent = '';
+      } else {
+        window.location.href = 'login.html';
+      }
+    }
   })();
 
   const form = document.getElementById('pwdForm');

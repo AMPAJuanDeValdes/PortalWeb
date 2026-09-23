@@ -145,6 +145,18 @@
     <div id="newslettersWrap"><p class="loading">Cargando...</p></div>
     <div id="documentosWrap" style="margin-top:20px;"></div>
   </div>
+
+  <div class="card">
+    <p class="section-label">Contacta con el AMPA</p>
+    <p style="font-size:14px; color:var(--ink-soft); margin-top:-8px;">
+      ¿Tienes alguna duda o comentario? Escríbenos y te contestaremos por email.
+    </p>
+    <div class="field"><label>Tu nombre (opcional)</label><input type="text" id="contactoNombre"></div>
+    <div class="field" style="margin-top:14px;"><label>Tu email</label><input type="email" id="contactoEmail"></div>
+    <div class="field" style="margin-top:14px;"><label>Mensaje</label><textarea id="contactoMensaje" rows="4"></textarea></div>
+    <button type="button" class="btn btn-primary" id="contactoBtn" style="margin-top:14px;">Enviar</button>
+    <p id="contactoMsg" style="display:none; margin-top:12px;"></p>
+  </div>
 </section>
 
 <footer class="note" style="margin:32px 0 40px;"><b>AMPA Colegio Juan de Valdés</b></footer>
@@ -208,6 +220,35 @@ function renderLista(contenedorId, tituloVacio, items) {
   document.getElementById('documentosWrap').innerHTML = '<p class="section-label">Otros documentos</p><div id="documentosListWrap"></div>';
   renderLista('documentosListWrap', 'No hay documentos disponibles por ahora.', documentos);
 })();
+
+document.getElementById('contactoBtn').addEventListener('click', async () => {
+  const nombre = document.getElementById('contactoNombre').value.trim();
+  const email = document.getElementById('contactoEmail').value.trim();
+  const mensaje = document.getElementById('contactoMensaje').value.trim();
+  const msg = document.getElementById('contactoMsg');
+
+  if (!email || !mensaje) {
+    msg.style.display = 'block'; msg.className = 'msg-error';
+    msg.textContent = 'Completa tu email y el mensaje.';
+    return;
+  }
+
+  try {
+    const resp = await fetch('/.netlify/functions/comentario-publico', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nombre, email, mensaje })
+    });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.error || 'No se pudo enviar');
+    msg.style.display = 'block'; msg.className = 'msg-ok';
+    msg.textContent = 'Enviado ✓. Te contestaremos por email.';
+    document.getElementById('contactoMensaje').value = '';
+  } catch (err) {
+    msg.style.display = 'block'; msg.className = 'msg-error';
+    msg.textContent = err.message;
+  }
+});
 </script>
 </body>
 </html>

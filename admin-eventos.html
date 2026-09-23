@@ -55,13 +55,53 @@
       </div>
     </div>
 
-    <div class="two-col" style="margin-top:14px;">
-      <div class="field"><label><input type="checkbox" id="eVoluntariado" style="width:auto;"> Permite voluntariado</label></div>
-      <div class="field"><label><input type="checkbox" id="eVoluntariadoExcluye" style="width:auto;"> El voluntariado excluye ser asistente</label></div>
+    <div class="field" style="margin-top:14px;">
+      <label style="display:flex; align-items:center; gap:8px;">
+        <input type="checkbox" id="eSinInscripcion" style="width:auto;"> Sin inscripción (solo informativo, ej. Concurso de Christmas)
+      </label>
     </div>
-    <div class="two-col" style="margin-top:14px;">
-      <div class="field"><label><input type="checkbox" id="ePermiteInvitados" style="width:auto;"> Permite invitar no socios (de pago)</label></div>
-      <div class="field"><label>Precio por invitado (€)</label><input type="number" id="ePrecioInvitado" min="0" step="0.01"></div>
+    <div class="field" style="margin-top:10px;">
+      <label style="display:flex; align-items:center; gap:8px;">
+        <input type="checkbox" id="eUsaConcurso" style="width:auto;"> Es un concurso con envío de texto anónimo (ej. Concurso literario)
+      </label>
+    </div>
+
+    <div id="inscripcionWrap">
+      <div class="two-col" style="margin-top:14px;">
+        <div class="field"><label><input type="checkbox" id="eVoluntariado" style="width:auto;"> Permite voluntariado</label></div>
+        <div class="field"><label><input type="checkbox" id="eVoluntariadoExcluye" style="width:auto;"> El voluntariado excluye ser asistente</label></div>
+      </div>
+
+      <p class="section-label" style="margin-top:20px;">Público y fechas</p>
+      <div class="field"><label><input type="checkbox" id="eAbiertoNoSocios" style="width:auto;"> Abierto también a no socios (aparece en la web pública)</label></div>
+      <div class="two-col" style="margin-top:10px;">
+        <div class="field"><label>Apertura para socios</label><input type="datetime-local" id="eFechaAperturaSocios"></div>
+        <div class="field" id="eFechaAperturaNoSociosWrap" style="display:none;"><label>Apertura para no socios</label><input type="datetime-local" id="eFechaAperturaNoSocios"></div>
+      </div>
+      <div class="field" style="margin-top:10px; max-width:260px;"><label>Cierre de inscripción (una sola fecha, para todos)</label><input type="datetime-local" id="eFechaCierreInscripcion"></div>
+
+      <p class="section-label" style="margin-top:20px;">Cómo se resuelve el exceso de demanda</p>
+      <div class="field">
+        <label>Método de asignación</label>
+        <select id="eMetodoAsignacion">
+          <option value="aforo">Aforo (por orden hasta llenar)</option>
+          <option value="sorteo">Sorteo</option>
+        </select>
+      </div>
+      <div id="eSorteoOpcionesWrap" style="display:none; margin-top:10px;">
+        <div class="field"><label><input type="checkbox" id="eRequierePareja" style="width:auto;"> Requiere pareja 1 adulto : 1 alumno (ej. Cabalgata) — si pierde uno, pierden los dos</label></div>
+        <div class="field" style="margin-top:8px;"><label><input type="checkbox" id="eUsaPrioridadHistorial" style="width:auto;"> Da prioridad a quien nunca ha participado antes (ej. Comedor)</label></div>
+      </div>
+
+      <p class="section-label" style="margin-top:20px;">Precio</p>
+      <div class="two-col">
+        <div class="field"><label>Precio adulto socio (€, vacío = gratis)</label><input type="number" id="ePrecioAdulto" min="0" step="0.01"></div>
+        <div class="field"><label>Precio alumno socio (€, vacío = gratis)</label><input type="number" id="ePrecioAlumno" min="0" step="0.01"></div>
+      </div>
+      <div class="two-col" style="margin-top:14px;">
+        <div class="field"><label><input type="checkbox" id="ePermiteInvitados" style="width:auto;"> Permite que un socio invite a terceros (de pago), desde su cuenta</label></div>
+        <div class="field"><label>Precio por invitado (€)</label><input type="number" id="ePrecioInvitado" min="0" step="0.01"></div>
+      </div>
     </div>
 
     <button type="button" class="btn btn-primary" id="crearEventoBtn" style="margin-top:18px;">Crear evento</button>
@@ -102,6 +142,21 @@ document.getElementById('eModo').addEventListener('change', (e) => {
   document.getElementById('eEdadWrap').style.display = e.target.value === 'edad' ? 'grid' : 'none';
 });
 
+function actualizarVisibilidadInscripcion() {
+  const sinInscripcion = document.getElementById('eSinInscripcion').checked;
+  const usaConcurso = document.getElementById('eUsaConcurso').checked;
+  document.getElementById('inscripcionWrap').style.display = (sinInscripcion || usaConcurso) ? 'none' : 'block';
+}
+document.getElementById('eSinInscripcion').addEventListener('change', actualizarVisibilidadInscripcion);
+document.getElementById('eUsaConcurso').addEventListener('change', actualizarVisibilidadInscripcion);
+
+document.getElementById('eAbiertoNoSocios').addEventListener('change', (e) => {
+  document.getElementById('eFechaAperturaNoSociosWrap').style.display = e.target.checked ? 'block' : 'none';
+});
+document.getElementById('eMetodoAsignacion').addEventListener('change', (e) => {
+  document.getElementById('eSorteoOpcionesWrap').style.display = e.target.value === 'sorteo' ? 'block' : 'none';
+});
+
 function leerCursosSeleccionados(claseCb) {
   return Array.from(document.querySelectorAll('.' + claseCb + ':checked')).map(cb => ({ etapa: cb.dataset.etapa, curso: cb.dataset.curso }));
 }
@@ -114,8 +169,19 @@ document.getElementById('crearEventoBtn').addEventListener('click', async () => 
     fecha: document.getElementById('eFecha').value ? new Date(document.getElementById('eFecha').value).toISOString() : null,
     aforo_total: document.getElementById('eAforo').value ? parseInt(document.getElementById('eAforo').value, 10) : null,
     tipo_elegibilidad: tipo,
+    sin_inscripcion: document.getElementById('eSinInscripcion').checked,
+    usa_concurso_texto: document.getElementById('eUsaConcurso').checked,
     voluntariado_habilitado: document.getElementById('eVoluntariado').checked,
     voluntariado_excluye_asistencia: document.getElementById('eVoluntariadoExcluye').checked,
+    abierto_no_socios: document.getElementById('eAbiertoNoSocios').checked,
+    fecha_apertura_socios: document.getElementById('eFechaAperturaSocios').value ? new Date(document.getElementById('eFechaAperturaSocios').value).toISOString() : null,
+    fecha_apertura_no_socios: document.getElementById('eFechaAperturaNoSocios').value ? new Date(document.getElementById('eFechaAperturaNoSocios').value).toISOString() : null,
+    fecha_cierre_inscripcion: document.getElementById('eFechaCierreInscripcion').value ? new Date(document.getElementById('eFechaCierreInscripcion').value).toISOString() : null,
+    metodo_asignacion: document.getElementById('eMetodoAsignacion').value,
+    requiere_pareja_adulto_alumno: document.getElementById('eRequierePareja').checked,
+    usa_prioridad_historial: document.getElementById('eUsaPrioridadHistorial').checked,
+    precio_adulto: document.getElementById('ePrecioAdulto').value ? parseFloat(document.getElementById('ePrecioAdulto').value) : null,
+    precio_alumno: document.getElementById('ePrecioAlumno').value ? parseFloat(document.getElementById('ePrecioAlumno').value) : null,
     permite_invitados: document.getElementById('ePermiteInvitados').checked,
     precio_invitado: document.getElementById('ePrecioInvitado').value ? parseFloat(document.getElementById('ePrecioInvitado').value) : null
   };
@@ -136,7 +202,29 @@ document.getElementById('crearEventoBtn').addEventListener('click', async () => 
   msg.style.display = 'block';
   msg.className = error ? 'msg-error' : 'msg-ok';
   msg.textContent = error ? 'Error: ' + error.message : 'Evento creado ✓';
-  if (!error) cargarEventos();
+  if (!error) {
+    document.getElementById('eTitulo').value = '';
+    document.getElementById('eDescripcion').value = '';
+    document.getElementById('eFecha').value = '';
+    document.getElementById('eAforo').value = '';
+    document.getElementById('eSinInscripcion').checked = false;
+    document.getElementById('eUsaConcurso').checked = false;
+    document.getElementById('eAbiertoNoSocios').checked = false;
+    document.getElementById('eFechaAperturaSocios').value = '';
+    document.getElementById('eFechaAperturaNoSocios').value = '';
+    document.getElementById('eFechaCierreInscripcion').value = '';
+    document.getElementById('eMetodoAsignacion').value = 'aforo';
+    document.getElementById('eRequierePareja').checked = false;
+    document.getElementById('eUsaPrioridadHistorial').checked = false;
+    document.getElementById('ePrecioAdulto').value = '';
+    document.getElementById('ePrecioAlumno').value = '';
+    document.getElementById('ePermiteInvitados').checked = false;
+    document.getElementById('ePrecioInvitado').value = '';
+    actualizarVisibilidadInscripcion();
+    document.getElementById('eFechaAperturaNoSociosWrap').style.display = 'none';
+    document.getElementById('eSorteoOpcionesWrap').style.display = 'none';
+    cargarEventos();
+  }
 });
 
 async function cargarEventos() {
@@ -156,16 +244,21 @@ async function cargarEventos() {
             (ev.fecha ? new Date(ev.fecha).toLocaleString('es-ES') : 'Sin fecha') + ' · ' + ev.tipo_elegibilidad +
           '</span></div>' +
         '<div style="display:flex; gap:8px; flex-wrap:wrap;">' +
-          '<button class="btn btn-outline toggleActividadesBtn">Actividades</button>' +
+          (ev.usa_concurso_texto ? '<button class="btn btn-outline toggleConcursoBtn">Concurso</button>' : '') +
+          (!ev.sin_inscripcion && !ev.usa_concurso_texto ? '<button class="btn btn-outline toggleActividadesBtn">Actividades</button>' : '') +
           '<button class="btn btn-outline toggleFotosBtn">Fotos</button>' +
-          '<button class="btn btn-outline toggleDocsBtn">Documentos</button>' +
+          (!ev.sin_inscripcion && !ev.usa_concurso_texto ? '<button class="btn btn-outline toggleDocsBtn">Documentos</button>' : '') +
+          (ev.metodo_asignacion === 'sorteo' && !ev.sorteo_realizado ? '<button class="btn btn-outline sortearBtn">Sortear</button>' : '') +
+          (ev.metodo_asignacion === 'sorteo' && ev.sorteo_realizado ? '<span class="badge badge-socio">Ya sorteado</span>' : '') +
           '<button class="btn-danger-link toggleActivoBtn">' + (ev.activo ? 'Ocultar' : 'Reactivar') + '</button>' +
           '<button class="btn-danger-link borrarBtn">Borrar</button>' +
         '</div>' +
       '</div>' +
       '<div class="actividadesPanel" style="display:none; margin-top:14px;"></div>' +
       '<div class="fotosPanel" style="display:none; margin-top:14px;"></div>' +
-      '<div class="docsPanel" style="display:none; margin-top:14px;"></div>';
+      '<div class="docsPanel" style="display:none; margin-top:14px;"></div>' +
+      '<div class="concursoPanel" style="display:none; margin-top:14px;"></div>' +
+      '<p class="sortearMsg" style="display:none; margin-top:10px;"></p>';
 
     row.querySelector('.toggleActivoBtn').addEventListener('click', async () => {
       await sb.from('eventos').update({ activo: !ev.activo }).eq('id', ev.id);
@@ -176,12 +269,16 @@ async function cargarEventos() {
       await sb.from('eventos').delete().eq('id', ev.id);
       cargarEventos();
     });
+
     const panel = row.querySelector('.actividadesPanel');
-    row.querySelector('.toggleActividadesBtn').addEventListener('click', async () => {
-      const visible = panel.style.display === 'block';
-      panel.style.display = visible ? 'none' : 'block';
-      if (!visible) await renderActividades(panel, ev);
-    });
+    const toggleActividadesBtn = row.querySelector('.toggleActividadesBtn');
+    if (toggleActividadesBtn) {
+      toggleActividadesBtn.addEventListener('click', async () => {
+        const visible = panel.style.display === 'block';
+        panel.style.display = visible ? 'none' : 'block';
+        if (!visible) await renderActividades(panel, ev);
+      });
+    }
 
     const fotosPanel = row.querySelector('.fotosPanel');
     row.querySelector('.toggleFotosBtn').addEventListener('click', async () => {
@@ -191,11 +288,49 @@ async function cargarEventos() {
     });
 
     const docsPanel = row.querySelector('.docsPanel');
-    row.querySelector('.toggleDocsBtn').addEventListener('click', async () => {
-      const visible = docsPanel.style.display === 'block';
-      docsPanel.style.display = visible ? 'none' : 'block';
-      if (!visible) await renderDocsEvento(docsPanel, ev);
-    });
+    const toggleDocsBtn = row.querySelector('.toggleDocsBtn');
+    if (toggleDocsBtn) {
+      toggleDocsBtn.addEventListener('click', async () => {
+        const visible = docsPanel.style.display === 'block';
+        docsPanel.style.display = visible ? 'none' : 'block';
+        if (!visible) await renderDocsEvento(docsPanel, ev);
+      });
+    }
+
+    const concursoPanel = row.querySelector('.concursoPanel');
+    const toggleConcursoBtn = row.querySelector('.toggleConcursoBtn');
+    if (toggleConcursoBtn) {
+      toggleConcursoBtn.addEventListener('click', async () => {
+        const visible = concursoPanel.style.display === 'block';
+        concursoPanel.style.display = visible ? 'none' : 'block';
+        if (!visible) await renderConcursoEvento(concursoPanel, ev);
+      });
+    }
+
+    const sortearBtn = row.querySelector('.sortearBtn');
+    if (sortearBtn) {
+      sortearBtn.addEventListener('click', async () => {
+        if (!confirm('Esto reparte el evento por sorteo, una sola vez. ¿Continuar?')) return;
+        const msg = row.querySelector('.sortearMsg');
+        sortearBtn.disabled = true;
+        const session = await getSession();
+        try {
+          const resp = await fetch('/.netlify/functions/evento-sortear', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
+            body: JSON.stringify({ eventoId: ev.id })
+          });
+          const data = await resp.json();
+          if (!resp.ok) throw new Error(data.error || 'Error al sortear');
+          msg.style.display = 'block'; msg.className = 'msg-ok';
+          msg.textContent = `Sorteado ✓ — ${data.ganadores} ganador(es), ${data.noGanadores} sin plaza.`;
+          cargarEventos();
+        } catch (err) {
+          msg.style.display = 'block'; msg.className = 'msg-error'; msg.textContent = err.message;
+          sortearBtn.disabled = false;
+        }
+      });
+    }
 
     wrap.appendChild(row);
   }
@@ -427,6 +562,53 @@ async function renderDocsEvento(panel, evento) {
     });
     lista.appendChild(item);
   });
+}
+
+async function renderConcursoEvento(panel, evento) {
+  panel.innerHTML = '<p class="loading">Cargando...</p>';
+  const { data: envios, error } = await sb
+    .from('concurso_envios')
+    .select('id, texto, es_ganador, created_at')
+    .eq('evento_id', evento.id)
+    .order('created_at');
+
+  if (error) { panel.innerHTML = '<p class="msg-error">No se pudo cargar.</p>'; return; }
+  if (!envios || envios.length === 0) { panel.innerHTML = '<p class="empty-hint">Todavía no hay ningún envío.</p>'; return; }
+
+  panel.innerHTML = '<p class="section-label">Envíos (anónimos hasta marcar ganador)</p><div class="enviosLista"></div>';
+  const lista = panel.querySelector('.enviosLista');
+
+  for (const envio of envios) {
+    const item = document.createElement('div');
+    item.className = 'actividad-item';
+
+    let identidadHtml = '';
+    if (envio.es_ganador) {
+      const { data: identidad } = await sb
+        .from('concurso_identidades')
+        .select('alumno_id, socios(numero_socio_completo), alumnos(nombre, apellidos)')
+        .eq('envio_id', envio.id)
+        .maybeSingle();
+      if (identidad) {
+        identidadHtml = `<p class="msg-ok" style="margin:6px 0 0;">
+          Ganador — ${identidad.alumnos ? identidad.alumnos.nombre + ' ' + identidad.alumnos.apellidos : 'Nº ' + (identidad.socios?.numero_socio_completo || '?')}
+        </p>`;
+      }
+    }
+
+    item.innerHTML = `
+      <p style="white-space:pre-wrap; font-size:13.5px;">${envio.texto}</p>
+      ${identidadHtml}
+      <button type="button" class="btn ${envio.es_ganador ? 'btn-danger-link' : 'btn-outline'} marcarBtn" style="margin-top:8px;">
+        ${envio.es_ganador ? 'Desmarcar ganador' : 'Marcar como ganador'}
+      </button>
+    `;
+    item.querySelector('.marcarBtn').addEventListener('click', async () => {
+      await sb.from('concurso_envios').update({ es_ganador: !envio.es_ganador }).eq('id', envio.id);
+      renderConcursoEvento(panel, evento);
+    });
+    lista.appendChild(item);
+  }
 }
 
 (async () => {

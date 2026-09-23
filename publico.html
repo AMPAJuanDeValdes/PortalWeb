@@ -57,11 +57,15 @@ function formatFecha(f) { return f ? new Date(f).toLocaleString('es-ES', { dateS
 
 async function cargarEventos() {
   const cont = document.getElementById('eventosContainer');
-  // Solo eventos "toda_familia" o que admitan invitados tienen sentido para
-  // un visitante sin cuenta; el resto están pensados solo para socios.
+  // Solo eventos marcados explícitamente como abiertos a no socios por
+  // el admin. abierto_no_socios es independiente de permite_invitados
+  // (ese es para que un SOCIO invite a alguien desde su propia cuenta,
+  // ej. la Chocolatada — nunca debe aparecer aquí).
   const { data: eventos, error } = await sb
     .from('eventos').select('*').eq('activo', true)
-    .or('tipo_elegibilidad.eq.toda_familia,permite_invitados.eq.true')
+    .eq('abierto_no_socios', true)
+    .eq('sin_inscripcion', false)
+    .eq('usa_concurso_texto', false)
     .order('fecha', { ascending: true });
 
   document.getElementById('loadingMsg').style.display = 'none';
@@ -70,6 +74,15 @@ async function cargarEventos() {
 
   cont.innerHTML = '';
   eventos.forEach(ev => {
+    const ahora = new Date();
+    let estadoPlazo = null;
+    if (ev.fecha_apertura_no_socios && ahora < new Date(ev.fecha_apertura_no_socios)) {
+      estadoPlazo = 'Las inscripciones para no socios se abren el ' +
+        new Date(ev.fecha_apertura_no_socios).toLocaleString('es-ES', { dateStyle: 'long', timeStyle: 'short' }) + '.';
+    } else if (ev.fecha_cierre_inscripcion && ahora >= new Date(ev.fecha_cierre_inscripcion)) {
+      estadoPlazo = 'El plazo de inscripción para este evento ya se ha cerrado.';
+    }
+
     const card = document.createElement('div');
     card.className = 'card evento-card';
     card.innerHTML = `
@@ -78,7 +91,9 @@ async function cargarEventos() {
       <div class="eventoCarrusel" style="max-width:340px; margin-bottom:12px;"></div>
       <p style="color:var(--ink-soft); font-size:14px;">${ev.descripcion || ''}</p>
       ${ev.precio_invitado ? `<p style="font-size:13px; color:var(--gold);">Entrada: ${Number(ev.precio_invitado).toFixed(2)} €</p>` : ''}
-      <details style="margin-top:14px;">
+      ${estadoPlazo
+        ? `<p class="empty-hint" style="margin-top:14px;">${estadoPlazo}</p>`
+        : `<details style="margin-top:14px;">
         <summary style="cursor:pointer; font-family:'Inter', sans-serif; font-size:12.5px; color:var(--navy);">Apuntarme</summary>
         <div style="margin-top:14px; display:grid; gap:12px; max-width:360px;">
           <div class="field"><label>Nombre de la persona que asiste</label><input type="text" class="pubNombre"></div>
@@ -88,12 +103,14 @@ async function cargarEventos() {
           <button type="button" class="btn btn-primary pubSubmitBtn">Confirmar inscripción</button>
           <p class="pubMsg" style="display:none;"></p>
         </div>
-      </details>
+      </details>`}
     `;
 
     sb.from('fotos_carrusel').select('url').eq('evento_id', ev.id).order('orden').then(({ data: fotos }) => {
       renderCarrusel(card.querySelector('.eventoCarrusel'), (fotos || []).map(f => f.url));
     });
+
+    if (estadoPlazo) { cont.appendChild(card); return; }
 
     const btn = card.querySelector('.pubSubmitBtn');
     btn.addEventListener('click', async () => {

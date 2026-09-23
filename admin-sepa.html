@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Domiciliación SEPA · Admin AMPA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared/styles.css">
+<style>
+  .two-col{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:560px){ .two-col{ grid-template-columns:1fr; } }
+  .tabs{ display:flex; gap:6px; margin-bottom:20px; flex-wrap:wrap; }
+  .tabs button{ font-family:'Inter', sans-serif; font-size:12.5px; text-transform:uppercase; padding:9px 14px; border-radius:var(--radius); border:1px solid var(--line); background:#fff; color:var(--ink-soft); cursor:pointer; }
+  .tabs button.active{ background:var(--navy); color:#fff; border-color:var(--navy); }
+  .panel{ display:none; } .panel.active{ display:block; }
+  .fila-mandato{ padding:12px 0; border-bottom:1px solid var(--line); font-size:13.5px; }
+  .fila-mandato:last-child{ border-bottom:none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">AMPA · Administración</div>
+  <h1>Domiciliación bancaria (SEPA)</h1>
+  <p class="lede">Configura la plantilla del mandato una sola vez; cada socio la rellena y firma desde "Mis datos".</p>
+
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="plantilla">Plantilla y acreedor</button>
+    <button class="tab-btn" data-tab="mandatos">Mandatos firmados</button>
+  </div>
+
+  <!-- ============ PLANTILLA Y ACREEDOR ============ -->
+  <div class="panel active" id="panel-plantilla">
+    <div class="card">
+      <p class="section-label">Datos del acreedor (el AMPA)</p>
+      <p style="font-size:12.5px; color:var(--ink-soft); margin-top:-8px;">Estos datos se rellenan solos en cada mandato que firme un socio.</p>
+      <div class="field"><label>Identificador del acreedor</label><input type="text" id="acIdentificador"></div>
+      <div class="field" style="margin-top:14px;"><label>Nombre del acreedor</label><input type="text" id="acNombre"></div>
+      <div class="field" style="margin-top:14px;"><label>Dirección</label><input type="text" id="acDireccion"></div>
+      <div class="two-col" style="margin-top:14px;">
+        <div class="field"><label>CP, población y provincia</label><input type="text" id="acCp"></div>
+        <div class="field"><label>País</label><input type="text" id="acPais" value="España"></div>
+      </div>
+      <button type="button" class="btn btn-primary" id="guardarAcreedorBtn" style="margin-top:16px;">Guardar datos del acreedor</button>
+      <p id="acreedorMsg" style="display:none; margin-top:14px;"></p>
+    </div>
+
+    <div class="card">
+      <p class="section-label">Plantilla del mandato (PDF)</p>
+      <div id="plantillaActualWrap" style="margin-bottom:14px;"></div>
+      <input type="file" id="plantillaFile" accept="application/pdf">
+      <div class="field" style="margin-top:14px; max-width:160px;"><label>Página rellenable</label><input type="number" id="plantillaPagina" min="1" value="1"></div>
+      <button type="button" class="btn btn-primary" id="subirPlantillaBtn" style="margin-top:14px;">Subir / reemplazar plantilla</button>
+      <p id="plantillaMsg" style="display:none; margin-top:14px;"></p>
+    </div>
+
+    <div class="card">
+      <p class="section-label">Colocar los campos en la plantilla</p>
+      <p style="font-size:12.5px; color:var(--ink-soft); margin-top:-8px;">
+        Guarda la plantilla primero. Los campos de acreedor y "tipo de pago (fijo)" se rellenan solos; el resto los completa el socio.
+      </p>
+      <div id="editorWrap"><p class="empty-hint">Sube primero un PDF de plantilla.</p></div>
+    </div>
+  </div>
+
+  <!-- ============ MANDATOS FIRMADOS ============ -->
+  <div class="panel" id="panel-mandatos">
+    <div class="card" id="mandatosWrap"><p class="loading">Cargando...</p></div>
+  </div>
+
+  <footer class="note"><b>AMPA Colegio Juan de Valdés</b> — panel de administración</footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="shared/supabaseClient.js"></script>
+<script src="shared/nav.js"></script>
+<script src="shared/documentoRellenable.js"></script>
+<script>
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
+    if (btn.dataset.tab === 'mandatos') cargarMandatos();
+  });
+});
+
+let configActual = null;
+
+async function cargarConfig() {
+  const { data } = await sb.from('mandato_sepa_config').select('*').eq('id', 1).single();
+  configActual = data;
+
+  document.getElementById('acIdentificador').value = data.identificador_acreedor || '';
+  document.getElementById('acNombre').value = data.nombre_acreedor || '';
+  document.getElementById('acDireccion').value = data.direccion_acreedor || '';
+  document.getElementById('acCp').value = data.cp_acreedor || '';
+  document.getElementById('acPais').value = data.pais_acreedor || 'España';
+  document.getElementById('plantillaPagina').value = data.pagina_rellenable || 1;
+
+  const wrap = document.getElementById('plantillaActualWrap');
+  if (data.archivo_base_url) {
+    wrap.innerHTML = `<p class="msg-ok" style="margin:0;">Ya hay una plantilla subida (página ${data.pagina_rellenable}).</p>`;
+    await cargarEditor();
+  } else {
+    wrap.innerHTML = '<p class="empty-hint">Todavía no se ha subido ninguna plantilla.</p>';
+  }
+}
+
+document.getElementById('guardarAcreedorBtn').addEventListener('click', async () => {
+  const msg = document.getElementById('acreedorMsg');
+  const { error } = await sb.from('mandato_sepa_config').update({
+    identificador_acreedor: document.getElementById('acIdentificador').value.trim(),
+    nombre_acreedor: document.getElementById('acNombre').value.trim(),
+    direccion_acreedor: document.getElementById('acDireccion').value.trim(),
+    cp_acreedor: document.getElementById('acCp').value.trim(),
+    pais_acreedor: document.getElementById('acPais').value.trim() || 'España',
+    updated_at: new Date().toISOString()
+  }).eq('id', 1);
+  msg.style.display = 'block';
+  msg.className = error ? 'msg-error' : 'msg-ok';
+  msg.textContent = error ? 'Error: ' + error.message : 'Guardado ✓';
+  if (!error) cargarConfig();
+});
+
+document.getElementById('subirPlantillaBtn').addEventListener('click', async () => {
+  const file = document.getElementById('plantillaFile').files[0];
+  const pagina = parseInt(document.getElementById('plantillaPagina').value, 10) || 1;
+  const msg = document.getElementById('plantillaMsg');
+  if (!file) { msg.style.display = 'block'; msg.className = 'msg-error'; msg.textContent = 'Selecciona un PDF.'; return; }
+
+  const path = `plantilla-${Date.now()}.pdf`;
+  const { error: upErr } = await sb.storage.from('mandato-sepa-plantilla').upload(path, file, { upsert: true });
+  if (upErr) { msg.style.display = 'block'; msg.className = 'msg-error'; msg.textContent = 'Error al subir: ' + upErr.message; return; }
+
+  const { data: urlData } = sb.storage.from('mandato-sepa-plantilla').getPublicUrl(path);
+  const { error } = await sb.from('mandato_sepa_config').update({
+    archivo_base_url: urlData.publicUrl, pagina_rellenable: pagina, campos: [], updated_at: new Date().toISOString()
+  }).eq('id', 1);
+
+  msg.style.display = 'block';
+  msg.className = error ? 'msg-error' : 'msg-ok';
+  msg.textContent = error ? 'Error: ' + error.message : 'Plantilla subida ✓ (los campos se han reiniciado, vuelve a colocarlos)';
+  if (!error) cargarConfig();
+});
+
+async function cargarEditor() {
+  const wrap = document.getElementById('editorWrap');
+  wrap.innerHTML = '<p class="loading">Cargando documento...</p>';
+  try {
+    const { dataUrl } = await renderizarPaginaPDF(configActual.archivo_base_url, configActual.pagina_rellenable);
+    abrirEditorPlantilla(wrap, dataUrl, configActual.campos || [], async (campos) => {
+      const { error } = await sb.from('mandato_sepa_config').update({ campos, updated_at: new Date().toISOString() }).eq('id', 1);
+      alert(error ? 'Error al guardar: ' + error.message : 'Plantilla guardada ✓');
+      if (!error) cargarConfig();
+    });
+  } catch (err) {
+    wrap.innerHTML = '<p class="msg-error">No se pudo cargar el PDF: ' + err.message + '</p>';
+  }
+}
+
+async function cargarMandatos() {
+  const wrap = document.getElementById('mandatosWrap');
+  const { data, error } = await sb
+    .from('mandatos_sepa')
+    .select('id, iban, vigente, aviso_diferencias, archivo_final_url, created_at, socios(numero_socio_completo), adultos(nombre, apellidos)')
+    .order('created_at', { ascending: false });
+
+  if (error) { wrap.innerHTML = '<p class="msg-error">No se pudo cargar.</p>'; return; }
+  if (!data || data.length === 0) { wrap.innerHTML = '<p class="empty-hint">Todavía no hay ningún mandato firmado.</p>'; return; }
+
+  wrap.innerHTML = '';
+  for (const m of data) {
+    const div = document.createElement('div');
+    div.className = 'fila-mandato';
+    const { data: signed } = await sb.storage.from('mandatos-sepa').createSignedUrl(m.archivo_final_url, 300);
+    div.innerHTML = `
+      Nº ${m.socios?.numero_socio_completo || '?'} — ${m.adultos?.nombre || ''} ${m.adultos?.apellidos || ''}<br>
+      IBAN ${m.iban} — ${new Date(m.created_at).toLocaleDateString('es-ES')}
+      ${m.vigente ? '<span class="badge badge-socio">Vigente</span>' : '<span class="badge badge-admin">Sustituido</span>'}
+      ${m.aviso_diferencias ? '<span class="badge badge-admin">Datos editados</span>' : ''}
+      <br><a href="${signed ? signed.signedUrl : '#'}" target="_blank" rel="noopener">Ver documento firmado</a>
+    `;
+    wrap.appendChild(div);
+  }
+}
+
+(async () => {
+  const ctx = await requireAdmin();
+  if (!ctx) return;
+  renderNav('admin-sepa', ctx);
+  await cargarConfig();
+})();
+</script>
+</body>
+</html>
