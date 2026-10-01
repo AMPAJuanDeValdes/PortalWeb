@@ -194,18 +194,50 @@ document.getElementById('csvFile').addEventListener('change', (e) => {
   reader.readAsText(file, 'UTF-8');
 });
 
+// Se manda en lotes pequeños (no las filas de golpe): cada fila puede
+// implicar hasta 2 altas de usuario + 2 emails por SMTP, y una función
+// de Netlify se corta sola a los ~10 segundos. Con lotes grandes, a
+// partir de la fila ~10 la función moría a mitad de proceso sin avisar
+// bien — los socios de esas primeras filas sí quedaban creados (no hay
+// nada que deshacer), pero el resto de filas nunca se procesaban.
+const TAMANO_LOTE_IMPORT = 2;
+
 document.getElementById('importBtn').addEventListener('click', async () => {
   const btn = document.getElementById('importBtn');
-  btn.disabled = true; btn.textContent = 'Importando...';
-  try {
-    const resultados = await llamarFuncionAlta(window._filasCsv);
-    mostrarResultados(resultados);
-    document.getElementById('statusMsg').style.display = 'block';
-    document.getElementById('statusMsg').textContent = 'Importación completada.';
-  } catch (err) {
-    document.getElementById('errorMsg').style.display = 'block';
-    document.getElementById('errorMsg').textContent = err.message;
+  const errorMsg = document.getElementById('errorMsg');
+  const statusMsg = document.getElementById('statusMsg');
+  errorMsg.style.display = 'none';
+  btn.disabled = true;
+
+  const filas = window._filasCsv || [];
+  const resultadosTotales = [];
+  mostrarResultados(resultadosTotales);
+
+  for (let i = 0; i < filas.length; i += TAMANO_LOTE_IMPORT) {
+    const lote = filas.slice(i, i + TAMANO_LOTE_IMPORT);
+    btn.textContent = `Importando... ${Math.min(i + TAMANO_LOTE_IMPORT, filas.length)}/${filas.length}`;
+    try {
+      const resultadosLote = await llamarFuncionAlta(lote);
+      resultadosTotales.push(...resultadosLote);
+    } catch (err) {
+      // Todo el lote falló (timeout, red...). Lo marcamos y seguimos
+      // con el siguiente lote en vez de abortar el resto de la importación.
+      lote.forEach(fila => resultadosTotales.push({
+        ok: false,
+        error: 'No se pudo completar este lote: ' + err.message,
+        nombre_titular: (fila.adulto1_nombre || '') + ' ' + (fila.adulto1_apellidos || '')
+      }));
+    }
+    mostrarResultados(resultadosTotales);
   }
+
+  const fallidos = resultadosTotales.filter(r => !r.ok).length;
+  statusMsg.style.display = 'block';
+  statusMsg.className = fallidos ? 'msg-error' : 'msg-ok';
+  statusMsg.textContent = fallidos
+    ? `Importación terminada con ${fallidos} fila(s) fallida(s) de ${resultadosTotales.length}. Revisa la tabla — si el motivo es "ya existe", esa fila ya se había creado en un intento anterior y no hace falta repetirla.`
+    : `Importación completada: ${resultadosTotales.length} fila(s) ✓.`;
+
   btn.disabled = false; btn.textContent = 'Importar socios';
 });
 
