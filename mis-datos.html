@@ -5,17 +5,17 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Mis datos · AMPA Juan de Valdés</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="shared/styles.css">
 <style>
   .two-col{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
   @media (max-width:560px){ .two-col{ grid-template-columns:1fr; } }
-  .readonly-value{ background:#F5F3EC; border:1px solid var(--line); border-radius:var(--radius); padding:10px 12px; font-family:'Inter', sans-serif; font-size:14px; color:var(--ink-soft); }
+  .readonly-value{ background:#F5F3EC; border:1px solid var(--line); border-radius:var(--radius); padding:10px 12px; font-family:var(--font-text); font-size:14px; color:var(--ink-soft); }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <div class="eyebrow">AMPA · Mi cuenta</div>
+  <div class="eyebrow">Mi cuenta</div>
   <h1>Mis datos</h1>
 
   <div class="card">
@@ -52,7 +52,7 @@
         <div class="two-col" style="margin-top:14px;"><div class="field"><label>Código postal *</label><input type="text" id="n2Cp"></div><div class="field"><label>Relación con los alumnos</label><input type="text" id="n2Relacion" placeholder="padre / madre / tutor legal..."></div></div>
         <div style="display:flex; gap:12px; align-items:center; margin-top:16px; flex-wrap:wrap;">
           <button type="button" class="btn btn-primary" id="n2Guardar">Añadir adulto</button>
-          <button type="button" class="linklike" id="n2Cancelar" style="font-size:13px;">Cancelar</button>
+          <button type="button" class="linklike" id="n2Cancelar" style="font-size:14px;">Cancelar</button>
         </div>
         <p id="n2Msg" style="display:none; margin-top:10px;"></p>
       </div>
@@ -125,7 +125,7 @@ function renderAdultoCard(adulto, esUnoMismo) {
   const emailInput = emailField.querySelector('input');
   emailInput.readOnly = true; emailInput.style.background = '#F5F3EC';
   emailInput.title = 'Para cambiar el email de acceso, pídeselo al AMPA';
-  emailField.insertAdjacentHTML('beforeend', '<small style="color:var(--ink-soft); font-size:11.5px;">Para cambiarlo, pídeselo al AMPA.</small>');
+  emailField.insertAdjacentHTML('beforeend', '<small style="color:var(--ink-soft); font-size:14px;">Para cambiarlo, pídeselo al AMPA.</small>');
   row2.appendChild(emailField);
   row2.appendChild(campoTexto('Móvil', adulto.movil === 'PENDIENTE' ? '' : adulto.movil, v => adulto.movil = v, true));
   body.appendChild(row2);

@@ -4,251 +4,418 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AMPA Colegio Juan de Valdés</title>
+<meta name="description" content="Asociación de familias del Colegio Juan de Valdés: préstamo de libros, uniformes, eventos y actividades. Hazte socio por 25 € al año.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="shared/styles.css">
 <style>
-  .hero{ text-align:center; padding:56px 20px 40px; max-width:760px; margin:0 auto; }
-  .hero .brand-row{ display:flex; align-items:center; justify-content:center; gap:20px; flex-wrap:wrap; margin-bottom:18px; }
-  .hero .logo-ampa{ height:64px; } .hero .logo-colegio{ height:44px; }
-  .hero h1{ font-size:clamp(28px,5vw,40px); margin:10px 0; }
-  .hero p{ color:var(--ink-soft); font-size:16px; max-width:56ch; margin:0 auto 28px; }
-  .cta-row{ display:flex; gap:14px; justify-content:center; flex-wrap:wrap; }
-  .cta-row a{ min-width:200px; }
-  .cta-row-sec{ margin-top:12px; }
-  .cta-row-sec a{ font-size:13px; }
-  .social-row{ display:flex; gap:12px; justify-content:center; flex-wrap:wrap; margin-top:18px; }
-  section.info{ max-width:760px; margin:0 auto; padding:0 20px 8px; }
-  .pilares{ display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-top:18px; }
-  @media (max-width:640px){ .pilares{ grid-template-columns:1fr; } }
-  .pilar{ background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:18px; }
-  .pilar h3{ font-family:'Space Grotesk', sans-serif; font-size:16px; color:var(--navy-deep); margin:0 0 6px; }
-  .pilar p{ font-size:13.5px; color:var(--ink-soft); margin:0; }
-  .junta-list{ list-style:none; padding:0; margin:16px 0 0; display:grid; grid-template-columns:1fr 1fr; gap:10px 20px; }
-  @media (max-width:560px){ .junta-list{ grid-template-columns:1fr; } }
-  .junta-list li{ font-size:14px; border-bottom:1px solid var(--line); padding-bottom:8px; }
-  .junta-list b{ color:var(--navy-deep); display:block; font-size:12.5px; font-family:'Inter', sans-serif; text-transform:uppercase; letter-spacing:.04em; }
+  body{ background:#FFFFFF; font-size:17px; }
+  .contenedor{ max-width:1180px; margin:0 auto; padding-left:24px; padding-right:24px; }
+  .portada-head{ display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:14px; padding-top:16px; padding-bottom:16px; }
+  .marca{ display:flex; align-items:center; gap:12px; text-decoration:none; color:var(--ink); }
+  .marca img{ height:44px; width:auto; }
+  .marca b{ font-family:var(--font-title); font-weight:800; font-size:18px; line-height:1.1; display:block; }
+  .marca small{ font-family:var(--font-title); font-weight:600; font-size:14px; color:var(--ink-soft); }
+  .menu{ display:flex; flex-wrap:wrap; align-items:center; gap:8px 22px; }
+  .menu a{ color:var(--ink); text-decoration:none; }
+  .menu a:hover{ color:var(--navy); text-decoration:underline; }
+  .menu a.entrar{ color:var(--navy); font-weight:700; border:2px solid var(--navy); border-radius:999px; padding:8px 20px; text-decoration:none; }
+  .menu a.entrar:hover{ background:#EEF4FB; }
+
+  .hero{ display:flex; flex-wrap:wrap; align-items:center; gap:40px; padding-top:36px; padding-bottom:64px; }
+  .hero-texto{ flex:1 1 480px; min-width:0; }
+  .hero h1{ font-size:clamp(40px,6vw,74px); line-height:.98; letter-spacing:-.02em; margin:0 0 22px; }
+  .hero p{ font-size:20px; color:#3B4A60; max-width:34ch; margin:0 0 30px; }
+  .hero-acciones{ display:flex; flex-wrap:wrap; align-items:center; gap:14px 22px; }
+  .hero-acciones a.secundario{ font-weight:700; }
+  .hero-logo{ flex:1 1 400px; min-width:0; display:flex; justify-content:center; }
+  .hero-logo img{ width:100%; max-width:540px; height:auto; }
+
+  .bloque{ padding-top:64px; padding-bottom:64px; }
+  .bloque h2{ font-family:var(--font-title); font-weight:800; font-size:clamp(30px,4vw,40px); line-height:1.1; margin:0 0 10px; }
+  .bloque .intro{ color:#3B4A60; max-width:60ch; margin:0 0 30px; }
+  .fondo-suave{ background:var(--paper); }
+  .fondo-azul{ background:var(--navy); color:#fff; }
+  .fondo-azul h2{ color:#fff; }
+  .cabecera-bloque{ display:flex; flex-wrap:wrap; align-items:flex-end; justify-content:space-between; gap:12px; margin-bottom:20px; }
+  .cabecera-bloque h2{ margin:0; }
+
+  /* Carrusel grande */
+  .car-botones{ display:flex; gap:10px; }
+  .car-botones button{ width:48px; height:48px; border-radius:50%; border:2px solid var(--ink); background:#fff; color:var(--ink); cursor:pointer; display:flex; align-items:center; justify-content:center; }
+  .car-botones button.sig{ background:var(--ink); color:#fff; }
+  .car-foto{ position:relative; border-radius:28px; overflow:hidden; aspect-ratio:16/8; background:#E9EEF4; }
+  .car-foto img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .car-pie{ position:absolute; left:0; right:0; bottom:0; padding:18px 24px; background:rgba(22,35,58,.78); color:#fff; display:flex; flex-wrap:wrap; justify-content:space-between; gap:6px 16px; align-items:baseline; }
+  .car-pie b{ font-family:var(--font-title); font-size:24px; }
+  .car-pie span{ color:#D9E2EC; font-size:15px; }
+  .car-miniaturas{ display:flex; gap:10px; margin-top:14px; overflow-x:auto; padding:3px 3px 6px; }
+  .car-miniaturas button{ flex:0 0 112px; height:72px; border-radius:12px; border:3px solid transparent; padding:0; overflow:hidden; cursor:pointer; background:#E9EEF4; }
+  .car-miniaturas button img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .car-miniaturas button[aria-current="true"]{ border-color:var(--ink); }
+  @media (max-width:640px){ .car-foto{ aspect-ratio:4/3; border-radius:20px; } .car-pie b{ font-size:19px; } }
+
+  /* Servicios */
+  .servicios{ display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:16px; }
+  .servicio{ border-radius:var(--radius-card); padding:24px; }
+  .servicio h3{ font-size:22px; margin:12px 0 6px; }
+  .servicio p{ margin:0; font-size:16px; }
+  .s-libros{ background:var(--libros-bg); } .s-libros svg{ stroke:var(--libros); }
+  .s-uniformes{ background:var(--uniformes-bg); } .s-uniformes svg{ stroke:var(--uniformes); }
+  .s-eventos{ background:var(--eventos-bg); } .s-eventos svg{ stroke:var(--eventos); }
+  .s-mochila{ background:var(--mochila-bg); } .s-mochila svg{ stroke:var(--mochila); }
+
+  /* Pasos */
+  .pasos{ list-style:none; padding:0; margin:0 0 36px; display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:28px; }
+  .pasos li{ display:flex; gap:16px; }
+  .pasos .num{ flex:0 0 48px; height:48px; border-radius:50%; font-family:var(--font-title); font-weight:800; font-size:22px; display:flex; align-items:center; justify-content:center; }
+  .pasos h3{ margin:0 0 4px; font-size:19px; font-family:var(--font-text); }
+  .pasos p{ margin:0; color:#3B4A60; font-size:16px; }
+
+  /* Eventos */
+  .eventos-lista{ display:flex; flex-direction:column; gap:12px; }
+  .evento{ display:flex; align-items:center; gap:20px; background:#fff; color:var(--ink); border-radius:16px; padding:16px 20px; text-decoration:none; }
+  .evento:hover{ color:var(--ink); box-shadow:0 0 0 3px #9CCBF0; }
+  .evento .dia{ flex:0 0 60px; text-align:center; line-height:1; }
+  .evento .dia b{ font-family:var(--font-title); font-size:30px; display:block; }
+  .evento .dia span{ font-size:14px; color:var(--ink-soft); }
+  .evento .txt b{ font-size:18px; }
+  .evento .txt span{ display:block; font-size:15px; color:var(--ink-soft); }
+
+  /* Vídeos */
+  .video-principal{ border-radius:20px; overflow:hidden; aspect-ratio:16/9; background:var(--ink); }
+  .video-principal iframe{ width:100%; height:100%; border:0; display:block; }
+  .video-titulo{ font-weight:700; margin:10px 0 0; }
+  .videos-otros{ display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:12px; margin-top:16px; }
+  .videos-otros button{ text-align:left; background:none; border:0; padding:0; cursor:pointer; font:inherit; color:var(--ink); }
+  .videos-otros img{ width:100%; aspect-ratio:16/9; object-fit:cover; border-radius:12px; display:block; margin-bottom:6px; border:3px solid transparent; }
+  .videos-otros button[aria-current="true"] img{ border-color:var(--ink); }
+  .videos-otros span{ font-size:15px; }
+
+  /* Junta y documentos */
+  .dos-columnas{ display:flex; flex-wrap:wrap; gap:48px; }
+  .dos-columnas > div{ flex:1 1 420px; min-width:0; }
+  .junta{ list-style:none; padding:0; margin:0; }
+  .junta li{ padding:14px 0; border-bottom:1px solid var(--line); font-size:16px; }
+  .junta b{ display:block; }
+  .junta em{ color:#3B4A60; }
   .doc-item{ display:flex; justify-content:space-between; align-items:center; gap:12px; padding:12px 0; border-bottom:1px solid var(--line); }
-  .doc-item:last-child{ border-bottom:none; }
-  .doc-item .doc-fecha{ font-size:12px; color:var(--ink-soft); font-family:'Inter', sans-serif; }
-  .videos-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:14px; margin-top:14px; }
-  .video-item iframe{ width:100%; aspect-ratio:16/9; border:none; border-radius:var(--radius); }
-  .video-item p{ font-size:12.5px; color:var(--ink-soft); margin:6px 0 0; }
-  .qhacemos-grid{ display:grid; grid-template-columns:1fr 1.3fr; gap:24px; align-items:start; }
-  @media (max-width:640px){ .qhacemos-grid{ grid-template-columns:1fr; } }
+  .doc-fecha{ font-size:14px; color:var(--ink-soft); }
+
+  .pie-web{ background:var(--ink); color:#C9D4E3; font-size:15px; }
+  .pie-web a{ color:#fff; text-decoration:none; }
+  .pie-cols{ display:flex; flex-wrap:wrap; gap:40px 56px; padding-top:56px; padding-bottom:40px; }
+  .pie-cols > div{ flex:1 1 220px; min-width:0; }
+  .pie-cols > .pie-marca{ flex:1.2 1 260px; }
+  .pie-cols > .pie-siguenos{ flex:1.6 1 340px; }
+  .pie-logo{ display:inline-flex; background:#FFFDFA; border-radius:16px; padding:8px 12px; margin-bottom:14px; }
+  .pie-logo img{ height:56px; width:auto; }
+  .pie-marca p{ margin:0; max-width:34ch; line-height:1.5; }
+  .pie-titulo{ font-family:var(--font-title); font-weight:700; font-size:18px; color:#fff; margin:0 0 14px; }
+  .pie-redes, .pie-enlaces{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:12px; }
+  .pie-redes a{ display:flex; align-items:center; gap:12px; border-radius:14px; padding:6px 8px 6px 6px; margin-left:-6px; }
+  .pie-redes a:hover{ background:#22324D; }
+  .pie-redes b{ display:block; font-weight:700; }
+  .pie-redes small{ display:block; color:#C9D4E3; font-size:14px; overflow-wrap:anywhere; }
+  .red{ flex:0 0 42px; height:42px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:#fff; }
+  .red svg{ width:20px; height:20px; }
+  .red-ig{ background:#C13584; } .red-wa{ background:#1F9E50; } .red-mail{ background:var(--navy); }
+  .pie-enlaces a{ display:inline-block; padding:2px 0; border-bottom:2px solid transparent; }
+  .pie-enlaces a:hover{ border-bottom-color:#F2B705; }
+  .pie-final{ display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:14px; padding-top:20px; padding-bottom:28px; border-top:1px solid #2C3F60; font-size:14px; }
+  .pie-colegio{ display:inline-flex; background:#fff; border-radius:12px; padding:6px 10px; }
+  .pie-colegio img{ height:34px; width:auto; }
 </style>
 </head>
 <body>
 
-<div class="hero">
-  <div class="brand-row">
-    <img class="logo-ampa" src="assets/logo-ampa.png" alt="AMPA">
-    <img class="logo-colegio" src="assets/logo-colegio.png" alt="Colegio Juan de Valdés">
-  </div>
-  <div class="rainbow-rule" style="max-width:200px; margin:0 auto 20px;"></div>
-  <h1>Asociación de Familias del Colegio Juan de Valdés</h1>
-  <p>Trabajamos para que la vida escolar de nuestros hijos e hijas sea más rica: préstamo de libros, actividades, eventos y apoyo a las familias del colegio.</p>
-  <div class="cta-row">
-    <a href="login.html" class="btn btn-primary">Ingreso socios</a>
-    <a href="publico.html" class="btn btn-outline">Eventos</a>
-  </div>
-  <div class="cta-row cta-row-sec">
-    <a href="hazte-socio.html" class="btn btn-outline">Hazte socio</a>
-    <a href="reactivar-cuenta.html" class="btn btn-outline">Reactivar mi cuenta</a>
-  </div>
-  <div class="social-icons">
-    <a class="social-icon instagram" href="https://www.instagram.com/ampacolegiojuandevaldes/" target="_blank" rel="noopener" data-tooltip="@ampacolegiojuandevaldes">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg>
-    </a>
-    <a class="social-icon email" href="mailto:ampa_j_valdes@fapaginerdelosrios.org" data-tooltip="ampa_j_valdes@fapaginerdelosrios.org">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 6l10 7 10-7"/></svg>
-    </a>
-    <a class="social-icon whatsapp" href="https://whatsapp.com/channel/0029Vb5wJn6G8l57tBQ4Oe3K" target="_blank" rel="noopener" data-tooltip="Canal de WhatsApp">
-      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-8.5 15.2L2 22l4.9-1.5A10 10 0 1 0 12 2zm0 18a8 8 0 0 1-4.1-1.1l-.3-.2-3 .9.9-2.9-.2-.3A8 8 0 1 1 12 20zm4.4-6c-.2-.1-1.4-.7-1.6-.8-.2-.1-.4-.1-.5.1-.2.2-.6.8-.8 1-.1.2-.3.2-.5.1-1.4-.7-2.3-1.3-3.2-2.9-.2-.4.2-.4.6-1.2.1-.1 0-.3 0-.4-.1-.1-.5-1.2-.7-1.7-.2-.4-.4-.4-.5-.4h-.5c-.2 0-.4.1-.6.3-.7.7-1 1.5-.9 2.4.2 1.6 1.4 3.1 1.6 3.3.2.2 2.7 4.1 6.5 5.5 3.2 1.2 3.2.8 3.8.7.6-.1 1.8-.7 2-1.4.2-.7.2-1.3.2-1.4-.1-.1-.3-.2-.5-.3z"/></svg>
-    </a>
-  </div>
-</div>
+<header class="contenedor portada-head">
+  <a href="index.html" class="marca">
+    <img src="assets/logo-ampa.png" alt="">
+    <span><b>AMPA</b><small>Colegio Juan de Valdés</small></span>
+  </a>
+  <nav class="menu" aria-label="Principal">
+    <a href="#que-hacemos">Qué hacemos</a>
+    <a href="publico.html">Eventos</a>
+    <a href="#junta">La Junta</a>
+    <a href="login.html" class="entrar">Entrar como socio</a>
+  </nav>
+</header>
 
-<section class="info">
-  <div class="card">
-    <p class="section-label">Qué es el AMPA</p>
-    <p style="font-size:14.5px; color:var(--ink-soft);">
-      El AMPA (Asociación de Familias de Alumnos) del Colegio Juan de Valdés es una
-      entidad sin ánimo de lucro formada por familias del centro. Nuestro objetivo es
-      complementar la labor educativa del colegio, representar los intereses de las familias
-      y organizar actividades y servicios que enriquezcan la vida escolar de nuestros hijos e hijas.
-    </p>
-  </div>
+<main>
+  <section class="contenedor hero">
+    <div class="hero-texto">
+      <h1>Las familias del Juan de Valdés, haciendo cole juntas.</h1>
+      <p>Préstamo de libros, uniformes de segunda mano, fiestas y actividades para nuestros hijos e hijas. Una cuota por familia y todo el curso dentro.</p>
+      <div class="hero-acciones">
+        <a href="hazte-socio.html" class="btn btn-cta btn-grande" id="ctaHero">Hazte socio por 25 € al año</a>
+        <a href="login.html" class="secundario">Ya soy socio, entrar</a>
+      </div>
+    </div>
+    <div class="hero-logo"><img src="assets/logo-ampa.png" alt="Logotipo del AMPA con un arco de polvo de colores"></div>
+  </section>
 
-  <div class="card">
-    <p class="section-label">¿Quién forma la Junta?</p>
-    <p style="font-size:14.5px; color:var(--ink-soft);">
-      La Junta del AMPA está compuesta por madres y padres del colegio que colaboran de forma
-      voluntaria. Son quienes coordinan las actividades, gestionan la comunicación con las
-      familias y administran los recursos económicos de la asociación.
-    </p>
-    <p class="section-label" style="margin-top:20px;">Junta actual</p>
-    <ul class="junta-list" style="grid-template-columns:1fr;">
-      <li>
-        <b>Presidente – Federico Prado Enrico</b>
-        Familia monoparental con una niña en la ESO.<br>
-        <em>"Mi objetivo es contribuir al desarrollo educativo de los niños y niñas a través de
-        actividades complementarias, fomentando una comunidad que refuerce la relación entre
-        las familias y el Colegio."</em>
-      </li>
-      <li>
-        <b>Vicepresidenta – Paula Albo Pariente</b>
-        Madre de un hijo en Primaria y otro en Educación Infantil.<br>
-        <em>"Quiero contribuir a mejorar la comunicación entre la escuela y las familias."</em>
-      </li>
-      <li>
-        <b>Secretaria – Isabel Gaona Herranz</b>
-        Madre de una niña en Primaria.<br>
-        <em>"Quiero ayudar a seguir mejorando entre todos la comunidad escolar."</em>
-      </li>
-      <li>
-        <b>Tesorera – Beatriz Gómez Macho</b>
-        Madre de dos hijos.<br>
-        <em>"Me gustaría contribuir a una mayor colaboración entre el colegio y las familias."</em>
-      </li>
-    </ul>
-  </div>
+  <!-- Solo aparece si hay fotos -->
+  <section class="contenedor" id="bloqueFotos" hidden style="padding-bottom:72px;">
+    <div class="cabecera-bloque">
+      <h2 style="font-family:var(--font-title); font-weight:800; font-size:clamp(30px,4vw,40px); line-height:1.1;">Así lo vivimos</h2>
+      <div class="car-botones" id="carBotones">
+        <button type="button" id="carAnt" aria-label="Foto anterior"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button>
+        <button type="button" id="carSig" class="sig" aria-label="Foto siguiente"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
+      </div>
+    </div>
+    <div class="car-foto" id="carFoto">
+      <img id="carImg" src="" alt="">
+      <div class="car-pie" id="carPie"><b id="carTitulo"></b><span id="carNum"></span></div>
+    </div>
+    <div class="car-miniaturas" id="carMinis"></div>
+  </section>
 
-  <div class="card">
-    <p class="section-label">Últimos vídeos</p>
-    <div id="videosWrap">
-      <div class="videos-grid">
-        <div class="video-item">
-          <iframe src="https://www.youtube.com/embed/jDduF42Cnm0" allowfullscreen loading="lazy"></iframe>
+  <section class="bloque fondo-suave" id="que-hacemos">
+    <div class="contenedor">
+      <h2>Qué tenéis al ser socios</h2>
+      <p class="intro">Todo se pide desde esta web, con la cuenta de la familia. Los dos adultos pueden entrar con su propio email.</p>
+      <div class="servicios">
+        <div class="servicio s-libros">
+          <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2V5z"/><path d="M4 19a2 2 0 0 1 2-2h13"/></svg>
+          <h3>Libros de lectura</h3>
+          <p>Préstamo de los libros de lectura del curso de cada hijo o hija.</p>
+        </div>
+        <div class="servicio s-uniformes">
+          <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3L3 6l2 4 3-1v12h8V9l3 1 2-4-5-3a4 4 0 0 1-8 0z"/></svg>
+          <h3>Uniformes</h3>
+          <p>Prendas donadas por otras familias, repartidas por tallas.</p>
+        </div>
+        <div class="servicio s-eventos">
+          <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+          <h3>Eventos y talleres</h3>
+          <p>Teatro, cuentacuentos, chocolatada de Navidad, barbacoa de fin de curso y talleres.</p>
+        </div>
+        <div class="servicio s-mochila">
+          <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9a6 6 0 0 1 12 0v11H6z"/><path d="M9 5V3h6v2M9 14h6"/></svg>
+          <h3>Mochila Jugona</h3>
+          <p>Una mochila llena de juegos que va pasando por las casas de las familias.</p>
         </div>
       </div>
+      <p style="margin:28px 0 0; color:#3B4A60; max-width:70ch;">Además organizamos la lotería de Navidad, charlas para familias con la FAPA y representamos a las familias ante el colegio.</p>
     </div>
-  </div>
+  </section>
 
-  <div class="card">
-    <div class="qhacemos-grid">
-      <div id="carruselPortada"><p class="loading">Cargando fotos...</p></div>
+  <section class="bloque contenedor" id="hazte-socio">
+    <h2 style="margin-bottom:32px;">Hacerse socio lleva cinco minutos</h2>
+    <ol class="pasos">
+      <li><span class="num" style="background:var(--cta); color:#fff;">1</span><div><h3>Rellena los datos</h3><p>Los adultos de la familia y vuestros hijos e hijas.</p></div></li>
+      <li><span class="num" style="background:#F2B705; color:var(--ink);">2</span><div><h3>Paga 25 €</h3><p>Por transferencia, y sube el justificante en el mismo formulario.</p></div></li>
+      <li><span class="num" style="background:#5E9426; color:#fff;">3</span><div><h3>Recibe tu número de socio</h3><p>La Junta revisa la solicitud y os llega un email de bienvenida.</p></div></li>
+    </ol>
+    <a href="hazte-socio.html" class="btn btn-cta btn-grande">Empezar la solicitud</a>
+    <p style="margin:14px 0 0; font-size:15px; color:var(--ink-soft);">¿Fuisteis socios otros años? <a href="reactivar-cuenta.html">Reactivad vuestra cuenta</a>.</p>
+  </section>
+
+  <!-- Solo aparece si hay eventos próximos -->
+  <section class="bloque fondo-azul" id="bloqueEventos" hidden>
+    <div class="contenedor dos-columnas">
+      <div style="flex:1 1 300px;">
+        <h2>Próximos eventos</h2>
+        <p style="margin:0 0 20px; color:#D6E6F7;">Los que están abiertos a familias no socias se pueden reservar sin cuenta.</p>
+        <a href="publico.html" style="color:#fff; font-weight:700;">Ver los eventos abiertos</a>
+      </div>
+      <div style="flex:2 1 520px;"><div class="eventos-lista" id="eventosLista"></div></div>
+    </div>
+  </section>
+
+  <!-- Solo aparece si hay vídeos -->
+  <section class="bloque contenedor" id="bloqueVideos" hidden>
+    <h2 style="margin-bottom:20px;">Vídeos</h2>
+    <div style="max-width:880px;">
+      <div class="video-principal"><iframe id="videoFrame" title="Vídeo del AMPA" allow="accelerometer; encrypted-media; gyroscope; picture-in-picture" allowfullscreen loading="lazy"></iframe></div>
+      <p class="video-titulo" id="videoTitulo"></p>
+      <div class="videos-otros" id="videosOtros"></div>
+    </div>
+  </section>
+
+  <section class="bloque fondo-suave" id="junta">
+    <div class="contenedor dos-columnas">
       <div>
-        <p class="section-label" style="margin-top:0;">¿Qué hacemos desde el AMPA?</p>
-        <p style="font-size:14.5px; color:var(--ink-soft);">
-          Durante el curso organizamos y apoyamos numerosas actividades que enriquecen la vida
-          del colegio. Algunas de las más habituales son:
-        </p>
-        <ul style="font-size:14px; color:var(--ink-soft); padding-left:18px; margin:10px 0 0;">
-          <li style="margin-bottom:8px;"><b>Actividades y eventos escolares:</b> teatros o cuentacuentos, la chocolatada de Navidad y la barbacoa de fin de curso junto con el colegio.</li>
-          <li style="margin-bottom:8px;"><b>Talleres y actividades extraescolares:</b> juegos de mesa, rol y talleres de ciencias.</li>
-          <li style="margin-bottom:8px;"><b>Donación e intercambio de uniformes:</b> recogida y reparto para darles una segunda vida.</li>
-          <li style="margin-bottom:8px;"><b>Lotería de Navidad:</b> participaciones solidarias para financiar actividades del curso.</li>
-          <li style="margin-bottom:8px;"><b>Charlas y talleres para familias:</b> en colaboración con la FAPA y otros organismos.</li>
-          <li style="margin-bottom:8px;"><b>Comunicación y comunidad:</b> difusión de información útil a través de WhatsApp, correo electrónico e Instagram.</li>
+        <h2>La Junta</h2>
+        <p class="intro" style="margin-bottom:16px;">Madres y padres del colegio que coordinamos las actividades de forma voluntaria.</p>
+        <ul class="junta">
+          <li><b>Presidente: Federico Prado Enrico</b>Familia monoparental con una niña en la ESO.<br><em>"Mi objetivo es contribuir al desarrollo educativo de los niños y niñas a través de actividades complementarias, fomentando una comunidad que refuerce la relación entre las familias y el Colegio."</em></li>
+          <li><b>Vicepresidenta: Paula Albo Pariente</b>Madre de un hijo en Primaria y otro en Educación Infantil.<br><em>"Quiero contribuir a mejorar la comunicación entre la escuela y las familias."</em></li>
+          <li><b>Secretaria: Isabel Gaona Herranz</b>Madre de una niña en Primaria.<br><em>"Quiero ayudar a seguir mejorando entre todos la comunidad escolar."</em></li>
+          <li><b>Tesorera: Beatriz Gómez Macho</b>Madre de dos hijos.<br><em>"Me gustaría contribuir a una mayor colaboración entre el colegio y las familias."</em></li>
         </ul>
       </div>
+      <div>
+        <!-- Solo aparece si hay documentos publicados -->
+        <div id="bloqueDocs" hidden style="margin-bottom:40px;">
+          <h2>Newsletters y documentos</h2>
+          <div id="docsLista"></div>
+        </div>
+        <h2>Escríbenos</h2>
+        <p style="color:#3B4A60; margin:0 0 16px;">¿Dudas o sugerencias? Te contestamos por email.</p>
+        <div class="field"><label for="contactoNombre">Tu nombre (opcional)</label><input type="text" id="contactoNombre"></div>
+        <div class="field"><label for="contactoEmail">Tu email</label><input type="email" id="contactoEmail"></div>
+        <div class="field"><label for="contactoMensaje">Mensaje</label><textarea id="contactoMensaje" rows="4"></textarea></div>
+        <button type="button" class="btn btn-primary" id="contactoBtn">Enviar mensaje</button>
+        <p id="contactoMsg" style="display:none;"></p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="pie-web">
+  <div class="contenedor pie-cols">
+    <div class="pie-marca">
+      <span class="pie-logo"><img src="assets/logo-ampa.png" alt="AMPA"></span>
+      <p>Asociación de Familias del Colegio Juan de Valdés. Sin ánimo de lucro, hecha por familias voluntarias.</p>
+    </div>
+    <div class="pie-siguenos">
+      <h2 class="pie-titulo">Síguenos</h2>
+      <ul class="pie-redes">
+        <li><a href="https://www.instagram.com/ampacolegiojuandevaldes/" target="_blank" rel="noopener">
+          <span class="red red-ig"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg></span>
+          <span><b>Instagram</b><small>@ampacolegiojuandevaldes</small></span></a></li>
+        <li><a href="https://whatsapp.com/channel/0029Vb5wJn6G8l57tBQ4Oe3K" target="_blank" rel="noopener">
+          <span class="red red-wa"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.5 15.2L2 22l4.9-1.5A10 10 0 1 0 12 2zm0 18a8 8 0 0 1-4.1-1.1l-.3-.2-3 .9.9-2.9-.2-.3A8 8 0 1 1 12 20zm4.4-6c-.2-.1-1.4-.7-1.6-.8-.2-.1-.4-.1-.5.1-.2.2-.6.8-.8 1-.1.2-.3.2-.5.1-1.4-.7-2.3-1.3-3.2-2.9-.2-.4.2-.4.6-1.2.1-.1 0-.3 0-.4-.1-.1-.5-1.2-.7-1.7-.2-.4-.4-.4-.5-.4h-.5c-.2 0-.4.1-.6.3-.7.7-1 1.5-.9 2.4.2 1.6 1.4 3.1 1.6 3.3.2.2 2.7 4.1 6.5 5.5 3.2 1.2 3.2.8 3.8.7.6-.1 1.8-.7 2-1.4.2-.7.2-1.3.2-1.4-.1-.1-.3-.2-.5-.3z"/></svg></span>
+          <span><b>Canal de WhatsApp</b><small>Avisos del AMPA en el móvil</small></span></a></li>
+        <li><a href="mailto:ampa_j_valdes@fapaginerdelosrios.org">
+          <span class="red red-mail"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 6l10 7 10-7"/></svg></span>
+          <span><b>Email</b><small>ampa_j_valdes@fapaginerdelosrios.org</small></span></a></li>
+      </ul>
+    </div>
+    <div>
+      <h2 class="pie-titulo">En la web</h2>
+      <ul class="pie-enlaces">
+        <li><a href="hazte-socio.html">Hazte socio</a></li>
+        <li><a href="login.html">Entrar como socio</a></li>
+        <li><a href="publico.html">Eventos abiertos</a></li>
+        <li><a href="reactivar-cuenta.html">Reactivar mi cuenta</a></li>
+      </ul>
     </div>
   </div>
-
-  <div class="card">
-    <p class="section-label">Newsletters y documentos</p>
-    <div id="newslettersWrap"><p class="loading">Cargando...</p></div>
-    <div id="documentosWrap" style="margin-top:20px;"></div>
+  <div class="contenedor pie-final">
+    <span class="pie-colegio"><img src="assets/logo-colegio.png" alt="Colegio Juan de Valdés"></span>
+    <span>AMPA Colegio Juan de Valdés</span>
   </div>
-
-  <div class="card">
-    <p class="section-label">Contacta con el AMPA</p>
-    <p style="font-size:14px; color:var(--ink-soft); margin-top:-8px;">
-      ¿Tienes alguna duda o comentario? Escríbenos y te contestaremos por email.
-    </p>
-    <div class="field"><label>Tu nombre (opcional)</label><input type="text" id="contactoNombre"></div>
-    <div class="field" style="margin-top:14px;"><label>Tu email</label><input type="email" id="contactoEmail"></div>
-    <div class="field" style="margin-top:14px;"><label>Mensaje</label><textarea id="contactoMensaje" rows="4"></textarea></div>
-    <button type="button" class="btn btn-primary" id="contactoBtn" style="margin-top:14px;">Enviar</button>
-    <p id="contactoMsg" style="display:none; margin-top:12px;"></p>
-  </div>
-</section>
-
-<footer class="note" style="margin:32px 0 40px;"><b>AMPA Colegio Juan de Valdés</b></footer>
+</footer>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="shared/supabaseClient.js"></script>
-<script src="shared/carrusel.js"></script>
+<script src="shared/datos-ampa.js"></script>
 <script>
-// ---- YouTube (opcional): pon tu clave y el ID del canal para activarlo ----
-const YOUTUBE_API_KEY = ''; // https://console.cloud.google.com/apis/credentials
-const YOUTUBE_CHANNEL_ID = '';
+const esc = (t) => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-async function cargarVideos() {
-  const wrap = document.getElementById('videosWrap');
-  if (!YOUTUBE_API_KEY || !YOUTUBE_CHANNEL_ID) return;
-  try {
-    const url = `https://www.googleapis.com/youtube/v3/search?key=${YOUTUBE_API_KEY}&channelId=${YOUTUBE_CHANNEL_ID}&part=snippet&order=date&maxResults=3&type=video`;
-    const resp = await fetch(url);
-    const data = await resp.json();
-    if (!data.items || data.items.length === 0) { wrap.innerHTML = '<p class="empty-hint">Sin vídeos por ahora.</p>'; return; }
-    wrap.innerHTML = '<div class="videos-grid">' + data.items.map(v => `
-      <div class="video-item">
-        <iframe src="https://www.youtube.com/embed/${v.id.videoId}" allowfullscreen loading="lazy"></iframe>
-        <p>${v.snippet.title}</p>
-      </div>
-    `).join('') + '</div>';
-  } catch (e) {
-    wrap.innerHTML = '<p class="empty-hint">No se pudieron cargar los vídeos.</p>';
+// La cuota sale de datos-ampa.js para no tenerla repetida
+if (typeof AMPA_CUOTA_ANUAL !== 'undefined') {
+  document.getElementById('ctaHero').textContent = 'Hazte socio por ' + AMPA_CUOTA_ANUAL + ' al año';
+}
+
+/* ---------- Carrusel de fotos (oculto si no hay ninguna) ---------- */
+async function cargarFotos() {
+  const { data: fotos, error } = await sb.from('fotos_carrusel').select('url, pie').is('evento_id', null).order('orden');
+  if (error || !fotos || !fotos.length) return;
+  const bloque = document.getElementById('bloqueFotos');
+  const img = document.getElementById('carImg');
+  const minis = document.getElementById('carMinis');
+  let i = 0;
+  if (fotos.length === 1) { document.getElementById('carBotones').hidden = true; minis.hidden = true; }
+  minis.innerHTML = fotos.map((f, k) => `<button type="button" data-k="${k}" aria-label="Ver foto ${k + 1}"><img src="${esc(f.url)}" alt="" loading="lazy"></button>`).join('');
+  function mostrar(k) {
+    i = (k + fotos.length) % fotos.length;
+    const f = fotos[i];
+    img.src = f.url;
+    img.alt = f.pie || 'Foto de un evento del AMPA';
+    document.getElementById('carTitulo').textContent = f.pie || '';
+    document.getElementById('carNum').textContent = fotos.length > 1 ? `Foto ${i + 1} de ${fotos.length}` : '';
+    document.getElementById('carPie').hidden = !f.pie && fotos.length === 1;
+    minis.querySelectorAll('button').forEach(b => b.setAttribute('aria-current', String(Number(b.dataset.k) === i)));
   }
+  document.getElementById('carAnt').addEventListener('click', () => mostrar(i - 1));
+  document.getElementById('carSig').addEventListener('click', () => mostrar(i + 1));
+  minis.addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) mostrar(Number(b.dataset.k)); });
+  // deslizar con el dedo en el móvil
+  let x0 = null;
+  const foto = document.getElementById('carFoto');
+  foto.addEventListener('touchstart', (e) => { x0 = e.touches[0].clientX; }, { passive: true });
+  foto.addEventListener('touchend', (e) => {
+    if (x0 === null) return;
+    const dx = e.changedTouches[0].clientX - x0; x0 = null;
+    if (Math.abs(dx) > 40) mostrar(i + (dx < 0 ? 1 : -1));
+  });
+  mostrar(0);
+  bloque.hidden = false;
 }
 
-function renderLista(contenedorId, tituloVacio, items) {
-  const wrap = document.getElementById(contenedorId);
-  if (!items || items.length === 0) { wrap.innerHTML = `<p class="empty-hint">${tituloVacio}</p>`; return; }
-  wrap.innerHTML = items.map(d => `
-    <div class="doc-item">
-      <div>
-        <div>${d.titulo}</div>
-        ${d.fecha ? `<div class="doc-fecha">${new Date(d.fecha).toLocaleDateString('es-ES', { year: 'numeric', month: 'long' })}</div>` : ''}
-      </div>
-      <a class="btn btn-outline" href="${d.url}" target="_blank" rel="noopener">Descargar</a>
-    </div>
-  `).join('');
+/* ---------- Próximos eventos (oculto si no hay) ---------- */
+async function cargarEventos() {
+  const { data, error } = await sb.from('eventos').select('id, titulo, fecha, abierto_no_socios')
+    .eq('activo', true).gte('fecha', new Date().toISOString()).order('fecha').limit(3);
+  if (error || !data || !data.length) return;
+  document.getElementById('eventosLista').innerHTML = data.map(ev => {
+    const f = new Date(ev.fecha);
+    const mes = f.toLocaleDateString('es-ES', { month: 'short' }).replace('.', '');
+    const hora = f.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+    return `<a class="evento" href="${ev.abierto_no_socios ? 'publico.html' : 'login.html'}">
+      <span class="dia"><b>${f.getDate()}</b><span>${mes}</span></span>
+      <span class="txt"><b>${esc(ev.titulo)}</b><span>${ev.abierto_no_socios ? 'Abierto también a familias no socias' : 'Para familias socias'}, a las ${hora}</span></span>
+    </a>`;
+  }).join('');
+  document.getElementById('bloqueEventos').hidden = false;
 }
 
-(async () => {
-  await cargarVideos();
+/* ---------- Vídeos (oculto si no hay) ---------- */
+async function cargarVideos() {
+  const { data, error } = await sb.from('videos_portada').select('titulo, youtube_id').order('orden');
+  if (error || !data || !data.length) return;
+  const frame = document.getElementById('videoFrame');
+  const otros = document.getElementById('videosOtros');
+  function poner(k) {
+    frame.src = 'https://www.youtube-nocookie.com/embed/' + encodeURIComponent(data[k].youtube_id);
+    document.getElementById('videoTitulo').textContent = data[k].titulo;
+    otros.querySelectorAll('button').forEach(b => b.setAttribute('aria-current', String(Number(b.dataset.k) === k)));
+  }
+  if (data.length > 1) {
+    otros.innerHTML = data.map((v, k) => `<button type="button" data-k="${k}"><img src="https://i.ytimg.com/vi/${encodeURIComponent(v.youtube_id)}/hqdefault.jpg" alt="" loading="lazy"><span>${esc(v.titulo)}</span></button>`).join('');
+    otros.addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) poner(Number(b.dataset.k)); });
+  }
+  poner(0);
+  document.getElementById('bloqueVideos').hidden = false;
+}
 
-  const { data: fotos } = await sb.from('fotos_carrusel').select('url').is('evento_id', null).order('orden');
-  renderCarrusel(document.getElementById('carruselPortada'), (fotos || []).map(f => f.url));
-
+/* ---------- Documentos (oculto si no hay) ---------- */
+async function cargarDocumentos() {
   const { data, error } = await sb.from('documentos').select('*').eq('activo', true).order('fecha', { ascending: false });
-  if (error) { document.getElementById('newslettersWrap').innerHTML = '<p class="msg-error">No se pudieron cargar.</p>'; return; }
+  if (error || !data || !data.length) return;
+  document.getElementById('docsLista').innerHTML = data.slice(0, 6).map(d => `
+    <div class="doc-item">
+      <div><div>${esc(d.titulo)}</div>${d.fecha ? `<div class="doc-fecha">${d.categoria === 'newsletter' ? 'Newsletter, ' : ''}${new Date(d.fecha).toLocaleDateString('es-ES', { year: 'numeric', month: 'long' })}</div>` : ''}</div>
+      <a class="btn btn-outline" href="${esc(d.url)}" target="_blank" rel="noopener">Abrir</a>
+    </div>`).join('');
+  document.getElementById('bloqueDocs').hidden = false;
+}
 
-  const newsletters = (data || []).filter(d => d.categoria === 'newsletter');
-  const documentos = (data || []).filter(d => d.categoria === 'documento');
-
-  document.getElementById('newslettersWrap').outerHTML = '<p class="section-label" style="margin-top:0;">Newsletters</p><div id="newslettersWrap"></div>';
-  renderLista('newslettersWrap', 'Todavía no hay newsletters publicadas.', newsletters);
-
-  document.getElementById('documentosWrap').innerHTML = '<p class="section-label">Otros documentos</p><div id="documentosListWrap"></div>';
-  renderLista('documentosListWrap', 'No hay documentos disponibles por ahora.', documentos);
-})();
+cargarFotos(); cargarEventos(); cargarVideos(); cargarDocumentos();
 
 document.getElementById('contactoBtn').addEventListener('click', async () => {
   const nombre = document.getElementById('contactoNombre').value.trim();
   const email = document.getElementById('contactoEmail').value.trim();
   const mensaje = document.getElementById('contactoMensaje').value.trim();
   const msg = document.getElementById('contactoMsg');
-
   if (!email || !mensaje) {
     msg.style.display = 'block'; msg.className = 'msg-error';
-    msg.textContent = 'Completa tu email y el mensaje.';
+    msg.textContent = 'Escribe tu email y el mensaje.';
     return;
   }
-
   try {
     const resp = await fetch('/.netlify/functions/comentario-publico', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ nombre, email, mensaje })
     });
     const data = await resp.json();
     if (!resp.ok) throw new Error(data.error || 'No se pudo enviar');
     msg.style.display = 'block'; msg.className = 'msg-ok';
-    msg.textContent = 'Enviado ✓. Te contestaremos por email.';
+    msg.textContent = 'Mensaje enviado. Te contestaremos por email.';
     document.getElementById('contactoMensaje').value = '';
   } catch (err) {
     msg.style.display = 'block'; msg.className = 'msg-error';

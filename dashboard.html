@@ -5,85 +5,137 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Inicio · AMPA Juan de Valdés</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="shared/styles.css">
 <style>
-  .grid{ display:grid; grid-template-columns:1fr 1fr; gap:16px; }
-  @media (max-width:560px){ .grid{ grid-template-columns:1fr; } }
-  .tile{ background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:22px; text-decoration:none; display:block; }
-  .tile h2{ margin-bottom:6px; }
-  .tile p{ color:var(--ink-soft); font-size:13.5px; margin:0; }
-  .evento-mini{ padding:10px 0; border-bottom:1px solid var(--line); font-size:14px; }
-  .evento-mini:last-child{ border-bottom:none; }
-  .evento-mini .f{ font-family:'Inter', sans-serif; font-size:12px; color:var(--ink-soft); }
+  .wrap{ max-width:1100px; }
+  .familia{ color:#3B4A60; font-size:17px; margin:0 0 28px; }
+
+  /* Pendientes */
+  .pendientes{ background:#fff; border-radius:var(--radius-card); padding:8px; margin-bottom:34px; border:1px solid var(--line); }
+  .pendiente{ display:flex; align-items:center; gap:16px; padding:14px 16px; border-radius:14px; text-decoration:none; color:var(--ink); flex-wrap:wrap; }
+  .pendiente + .pendiente{ border-top:1px solid #EEF1F5; border-radius:0; }
+  .pendiente:hover{ color:var(--ink); background:#F9FAFC; }
+  .pendiente .icono{ flex:0 0 44px; height:44px; border-radius:12px; display:flex; align-items:center; justify-content:center; }
+  .pendiente .txt{ flex:1 1 260px; min-width:0; }
+  .pendiente .txt span{ display:block; font-size:15px; color:var(--ink-soft); }
+  .pendiente .accion{ flex:0 0 auto; background:var(--cta); color:#fff; font-weight:700; font-size:15px; border-radius:999px; padding:10px 18px; }
+
+  /* Servicios */
+  h2.bloque{ font-family:var(--font-title); font-weight:800; font-size:26px; margin:0 0 14px; }
+  .servicios{ display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:14px; margin-bottom:34px; }
+  .servicio{ display:block; border-radius:var(--radius-card); padding:22px; text-decoration:none; color:var(--ink); border:2px solid transparent; }
+  .servicio:hover{ color:var(--ink); border-color:var(--ink); }
+  .servicio h3{ font-size:22px; margin:10px 0 4px; }
+  .servicio p{ margin:0; font-size:15px; }
+  .servicio.blanco{ background:#fff; border-color:var(--line); }
+  .servicio.blanco:hover{ border-color:var(--ink); }
+  .c-libros{ background:var(--libros-bg); } .c-libros svg{ stroke:var(--libros); }
+  .c-uniformes{ background:var(--uniformes-bg); } .c-uniformes svg{ stroke:var(--uniformes); }
+  .c-eventos{ background:var(--eventos-bg); } .c-eventos svg{ stroke:var(--eventos); }
+  .c-mochila{ background:var(--mochila-bg); } .c-mochila svg{ stroke:var(--mochila); }
+  .blanco svg{ stroke:var(--navy); }
+
+  /* Mochila */
+  .mochila{ background:var(--mochila-bg); border-radius:var(--radius-card); padding:22px 24px; margin-bottom:34px; display:flex; gap:18px; flex-wrap:wrap; align-items:flex-start; }
+  .mochila > svg{ flex:0 0 auto; stroke:var(--mochila); }
+  .mochila .cuerpo{ flex:1 1 300px; min-width:0; }
+  .mochila h2{ margin:0 0 4px; }
+  .mochila p{ margin:0; }
+
+  /* Administración */
+  .admin{ background:var(--ink); color:#fff; border-radius:var(--radius-card); padding:24px; margin-bottom:34px; }
+  .admin h2{ color:#fff; margin:0 0 4px; }
+  .admin .grupo{ margin-top:18px; }
+  .admin .grupo-titulo{ color:#C9D4E3; font-size:15px; margin:0 0 8px; }
+  .admin .grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:10px; }
+  .admin a.tile{ display:block; background:#22324D; border-radius:14px; padding:14px 16px; text-decoration:none; color:#fff; }
+  .admin a.tile:hover{ background:#2C3F60; color:#fff; }
+  .admin a.tile h2{ font-family:var(--font-text); font-size:17px; color:#fff; margin:0 0 2px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .admin a.tile p{ margin:0; font-size:14px; color:#C9D4E3; }
+  .admin .estado-badge{ background:#F2B705; color:var(--ink); }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <div class="eyebrow">AMPA · Portal de socios</div>
   <h1 id="saludo">Hola</h1>
-  <p class="lede">Desde aquí puedes gestionar los datos de tu familia, el préstamo de libros y apuntarte a los eventos del AMPA.</p>
+  <p class="familia" id="familia"></p>
 
-  <div class="card">
-    <p class="section-label">Mochila Jugona Exploradora</p>
-    <div id="mochilaWrap"><p class="loading">Cargando...</p></div>
+  <!-- Solo aparece si hay algo pendiente -->
+  <section class="pendientes" id="pendientes" aria-label="Tenéis pendiente" hidden></section>
+
+  <h2 class="bloque">Todo lo del AMPA</h2>
+  <!-- Cada tarjeta solo aparece si ese servicio tiene algo en marcha -->
+  <div class="servicios" id="servicios">
+    <a class="servicio c-libros" href="prestamo.html" id="tLibros" hidden>
+      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2V5z"/><path d="M4 19a2 2 0 0 1 2-2h13"/></svg>
+      <h3>Libros</h3><p></p>
+    </a>
+    <a class="servicio c-uniformes" href="uniformes.html" id="tUniformes" hidden>
+      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3L3 6l2 4 3-1v12h8V9l3 1 2-4-5-3a4 4 0 0 1-8 0z"/></svg>
+      <h3>Uniformes</h3><p></p>
+    </a>
+    <a class="servicio c-eventos" href="eventos.html" id="tEventos" hidden>
+      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+      <h3>Eventos</h3><p></p>
+    </a>
+    <a class="servicio blanco" href="encuestas.html" id="tEncuestas" hidden>
+      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 20V10M12 20V4M19 20v-7"/></svg>
+      <h3>Encuestas</h3><p></p>
+    </a>
+    <a class="servicio blanco" href="mis-datos.html" id="tFamilia">
+      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M15 20c0-2 1-4 3-4.5 2 .5 3 2.5 3 4.5"/></svg>
+      <h3>Mi familia</h3><p>Adultos, hijos e hijas, forma de pago y domiciliación.</p>
+    </a>
   </div>
 
-  <div class="grid">
-    <a class="tile" href="mis-datos.html">
-      <h2>Mis datos</h2>
-      <p>Adultos, alumnos, forma de pago y domiciliación.</p>
-    </a>
-    <a class="tile" href="eventos.html">
-      <h2>Eventos</h2>
-      <p>Consulta y apúntate a los próximos eventos del AMPA.</p>
-    </a>
-    <a class="tile" href="prestamo.html">
-      <h2>Préstamo de libros</h2>
-      <p>Pide libros de lectura y consulta los que tenéis prestados.</p>
-    </a>
-    <a class="tile" href="uniformes.html">
-      <h2>Uniformes</h2>
-      <p>Reclama prendas de uniforme para tus hijos/as.</p>
-    </a>
-    <a class="tile" href="encuestas.html">
-      <h2>Encuestas</h2>
-      <p>Consulta y responde a las encuestas abiertas del AMPA.</p>
-    </a>
-  </div>
-
-  <div class="card" style="margin-top:20px;">
-    <p class="section-label">Próximos eventos</p>
-    <div id="proximosWrap"><p class="loading">Cargando...</p></div>
-  </div>
-
-  <div id="adminSection" style="display:none;">
-    <p class="section-label" style="margin-top:28px;">Administración</p>
-    <div class="grid">
-      <a class="tile" href="admin-socios.html"><h2>Socios <span id="tileSolicitudes" class="estado-badge estado-baja" style="display:none;"></span></h2><p>Lista completa, edición, altas y reactivaciones pendientes.</p></a>
-      <a class="tile" href="admin-importar.html"><h2>Alta de socios</h2><p>CSV o manual.</p></a>
-      <a class="tile" href="admin-comprobantes.html"><h2>Comprobantes de invitados</h2><p>Pagos de invitados a eventos.</p></a>
-      <a class="tile" href="admin-eventos.html"><h2>Eventos</h2><p>Crear, sortear y gestionar eventos.</p></a>
-      <a class="tile" href="admin-libros.html"><h2>Préstamo de libros</h2><p>Catálogo, ejemplares y reparto.</p></a>
-      <a class="tile" href="admin-uniformes.html"><h2>Uniformes</h2><p>Catálogo y reparto.</p></a>
-      <a class="tile" href="admin-encuestas.html"><h2>Encuestas</h2><p>Crear y ver resultados.</p></a>
-      <a class="tile" href="admin-carrusel.html"><h2>Carrusel de portada</h2><p>Fotos de la web pública.</p></a>
-      <a class="tile" href="admin-documentos.html"><h2>Documentos</h2><p>Newsletters y archivos.</p></a>
-      <a class="tile" href="admin-email.html"><h2>Enviar email</h2><p>Comunicaciones masivas.</p></a>
-      <a class="tile" href="admin-respuestas.html"><h2>Respuestas</h2><p>Listados exportables.</p></a>
-      <a class="tile" href="admin-sepa.html"><h2>Domiciliación SEPA</h2><p>Plantilla del mandato y mandatos firmados.</p></a>
+  <section class="mochila" aria-labelledby="mochilaTitulo">
+    <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9a6 6 0 0 1 12 0v11H6z"/><path d="M9 5V3h6v2M9 14h6"/></svg>
+    <div class="cuerpo">
+      <h2 id="mochilaTitulo">Mochila Jugona Exploradora</h2>
+      <div id="mochilaWrap"><p class="loading">Cargando...</p></div>
     </div>
-  </div>
+  </section>
+
+  <section class="admin" id="adminSection" hidden>
+    <h2>Administración</h2>
+    <p style="margin:0; color:#C9D4E3;">Solo lo ve la Junta.</p>
+    <div class="grupo">
+      <p class="grupo-titulo">Socios y cuotas</p>
+      <div class="grid">
+        <a class="tile" href="admin-socios.html"><h2>Socios <span id="tileSolicitudes" class="estado-badge" hidden></span></h2><p>Solicitudes, lista y fichas</p></a>
+        <a class="tile" href="admin-importar.html"><h2>Alta de socios</h2><p>Manual o desde CSV</p></a>
+        <a class="tile" href="admin-sepa.html"><h2>Domiciliación SEPA</h2><p>Plantilla y mandatos firmados</p></a>
+        <a class="tile" href="admin-comprobantes.html"><h2>Comprobantes</h2><p>Pagos de invitados a eventos</p></a>
+      </div>
+    </div>
+    <div class="grupo">
+      <p class="grupo-titulo">Actividades</p>
+      <div class="grid">
+        <a class="tile" href="admin-eventos.html"><h2>Eventos</h2><p>Crear, sortear y gestionar</p></a>
+        <a class="tile" href="admin-libros.html"><h2>Préstamo de libros</h2><p>Catálogo, reparto y compras</p></a>
+        <a class="tile" href="admin-uniformes.html"><h2>Uniformes</h2><p>Stock y reparto</p></a>
+        <a class="tile" href="admin-encuestas.html"><h2>Encuestas</h2><p>Crear y ver resultados</p></a>
+        <a class="tile" href="admin-respuestas.html"><h2>Respuestas</h2><p>Listados exportables</p></a>
+      </div>
+    </div>
+    <div class="grupo">
+      <p class="grupo-titulo">Comunicación</p>
+      <div class="grid">
+        <a class="tile" href="admin-email.html"><h2>Enviar email</h2><p>A todas las familias o a grupos</p></a>
+        <a class="tile" href="admin-documentos.html"><h2>Documentos</h2><p>Newsletters y archivos</p></a>
+        <a class="tile" href="admin-carrusel.html"><h2>Fotos y vídeos de portada</h2><p>Lo que se ve en la web pública</p></a>
+      </div>
+    </div>
+  </section>
 
   <div class="card">
     <p class="section-label">¿Algo que decirle al AMPA?</p>
-    <p style="font-size:13px; color:var(--ink-soft); margin-top:-8px;">Te contestaremos por email.</p>
-    <textarea id="comentarioTexto" rows="3" placeholder="Escribe aquí tu comentario o duda..."></textarea>
+    <p style="color:var(--ink-soft); margin:-6px 0 12px;">Te contestaremos por email.</p>
+    <textarea id="comentarioTexto" aria-label="Comentario para el AMPA" rows="3" placeholder="Escribe aquí tu comentario o duda"></textarea>
     <button type="button" class="btn btn-primary" id="comentarioBtn" style="margin-top:12px;">Enviar</button>
-    <p id="comentarioMsg" style="display:none; margin-top:10px;"></p>
+    <p id="comentarioMsg" style="display:none;"></p>
   </div>
-
-  <footer class="note"><b>AMPA Colegio Juan de Valdés</b></footer>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -91,27 +143,155 @@
 <script src="shared/nav.js"></script>
 <script>
 let ctxGlobal = null;
+const esc = (t) => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const fechaCorta = (f) => new Date(f).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' });
+const ahora = () => new Date();
+const vigente = (conv) => conv && conv.estado === 'abierta' && new Date(conv.fecha_cierre) > ahora();
+const nombres = (lista) => lista.length <= 1 ? lista.join('') : lista.slice(0, -1).join(', ') + ' y ' + lista[lista.length - 1];
+
+const ICONOS = {
+  libros: ['var(--libros-bg)', 'var(--libros)', '<path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2V5z"/><path d="M4 19a2 2 0 0 1 2-2h13"/>'],
+  uniformes: ['var(--uniformes-bg)', 'var(--uniformes)', '<path d="M8 3L3 6l2 4 3-1v12h8V9l3 1 2-4-5-3a4 4 0 0 1-8 0z"/>'],
+  eventos: ['var(--eventos-bg)', 'var(--eventos)', '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>'],
+  encuestas: ['#EEF4FB', 'var(--navy)', '<path d="M5 20V10M12 20V4M19 20v-7"/>'],
+  mochila: ['var(--mochila-bg)', 'var(--mochila)', '<path d="M6 9a6 6 0 0 1 12 0v11H6z"/><path d="M9 5V3h6v2M9 14h6"/>']
+};
+function htmlPendiente(p) {
+  const [bg, tinta, svg] = ICONOS[p.tipo];
+  return `<a class="pendiente" href="${p.href}">
+    <span class="icono" style="background:${bg}"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="${tinta}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${svg}</svg></span>
+    <span class="txt"><b>${esc(p.titulo)}</b><span>${esc(p.detalle)}</span></span>
+    <span class="accion">${esc(p.accion)}</span>
+  </a>`;
+}
+function tarjeta(id, texto) {
+  const t = document.getElementById(id);
+  t.querySelector('p').textContent = texto;
+  t.hidden = false;
+}
+
+/* ---------------- Estado de cada servicio ---------------- */
+async function estadoLibros(socioId, alumnos) {
+  const pend = [];
+  const [{ data: convs }, { data: items }, { data: catalogo }] = await Promise.all([
+    sb.from('prestamo_convocatorias').select('id, estado, fecha_cierre').order('created_at', { ascending: false }).limit(1),
+    sb.from('prestamo_items').select('alumno_id, convocatoria_id, estado, entregado_en, fecha_devolucion').eq('socio_id', socioId).eq('tipo', 'solicitud'),
+    sb.from('libros_catalogo').select('cursos, etapa, curso')
+  ]);
+  const conv = convs && convs[0];
+  const prestados = (items || []).filter(i => i.estado === 'asignado' && i.entregado_en && !i.fecha_devolucion).length;
+  const textos = [];
+  if (vigente(conv)) {
+    // Alumnos con libros en su curso que aún no tienen petición en esta convocatoria
+    const cursosConLibros = new Set();
+    (catalogo || []).forEach(l => (l.cursos && l.cursos.length ? l.cursos : [l.etapa + '|' + l.curso]).forEach(c => cursosConLibros.add(c)));
+    const conPeticion = new Set((items || []).filter(i => i.convocatoria_id === conv.id).map(i => i.alumno_id));
+    const faltan = alumnos.filter(a => a.curso && cursosConLibros.has(a.etapa + '|' + a.curso) && !conPeticion.has(a.id));
+    if (faltan.length) {
+      pend.push({ tipo: 'libros', href: 'prestamo.html', titulo: 'Pedid los libros de lectura', accion: 'Pedir libros',
+        detalle: `El plazo cierra el ${fechaCorta(conv.fecha_cierre)}. Falta la petición de ${nombres(faltan.map(a => a.nombre))}.` });
+      textos.push(`Plazo abierto hasta el ${fechaCorta(conv.fecha_cierre)}.`);
+    } else if (conPeticion.size) {
+      textos.push('Petición enviada.');
+    } else {
+      textos.push(`Plazo abierto hasta el ${fechaCorta(conv.fecha_cierre)}.`);
+    }
+  }
+  if (prestados) textos.push(prestados === 1 ? '1 libro prestado.' : `${prestados} libros prestados.`);
+  if (textos.length) tarjeta('tLibros', textos.join(' '));
+  return pend;
+}
+
+async function estadoUniformes(socioId) {
+  const pend = [];
+  const [{ data: convs }, { data: pedidos }] = await Promise.all([
+    sb.from('uniformes_convocatorias').select('id, estado, fecha_cierre').order('created_at', { ascending: false }).limit(1),
+    sb.from('uniformes_pedidos').select('convocatoria_id, estado').eq('socio_id', socioId)
+  ]);
+  const conv = convs && convs[0];
+  if (!conv || conv.estado === 'cancelada') return pend;
+  const mios = (pedidos || []).filter(p => p.convocatoria_id === conv.id);
+  if (vigente(conv)) {
+    if (!mios.length) {
+      pend.push({ tipo: 'uniformes', href: 'uniformes.html', titulo: 'Pedid prendas de uniforme', accion: 'Pedir uniformes',
+        detalle: `Prendas donadas por otras familias. El plazo cierra el ${fechaCorta(conv.fecha_cierre)}.` });
+      tarjeta('tUniformes', `Plazo abierto hasta el ${fechaCorta(conv.fecha_cierre)}.`);
+    } else {
+      tarjeta('tUniformes', 'Pedido enviado. Veréis el resultado cuando se cierre el reparto.');
+    }
+  } else if (mios.length) {
+    if (conv.estado === 'finalizada') {
+      const n = mios.filter(p => p.estado === 'asignado').length;
+      tarjeta('tUniformes', n ? `Os han tocado ${n} prenda${n > 1 ? 's' : ''}.` : 'Esta vez no ha habido prendas para vuestro pedido.');
+    } else {
+      tarjeta('tUniformes', 'Plazo cerrado. Veréis el resultado cuando se cierre el reparto.');
+    }
+  }
+  return pend;
+}
+
+async function estadoEventos(socioId) {
+  const pend = [];
+  const [{ data: eventos }, { data: insc }] = await Promise.all([
+    sb.from('eventos').select('id, titulo, fecha, sin_inscripcion, fecha_apertura_socios, fecha_cierre_inscripcion')
+      .eq('activo', true).gte('fecha', ahora().toISOString()).order('fecha'),
+    sb.from('evento_inscripciones').select('evento_id').eq('socio_id', socioId)
+  ]);
+  if (!eventos || !eventos.length) return pend;
+  const apuntados = new Set((insc || []).map(i => i.evento_id));
+  const misEventos = eventos.filter(e => apuntados.has(e.id));
+  eventos.forEach(e => {
+    const abierto = !e.sin_inscripcion
+      && (!e.fecha_apertura_socios || new Date(e.fecha_apertura_socios) <= ahora())
+      && (!e.fecha_cierre_inscripcion || new Date(e.fecha_cierre_inscripcion) > ahora());
+    if (abierto && !apuntados.has(e.id)) {
+      pend.push({ tipo: 'eventos', href: 'eventos.html', titulo: e.titulo, accion: 'Apuntarse',
+        detalle: (e.fecha_cierre_inscripcion ? `Inscripción abierta hasta el ${fechaCorta(e.fecha_cierre_inscripcion)}.` : 'Inscripción abierta.') + ` Es el ${fechaCorta(e.fecha)}.` });
+    }
+  });
+  tarjeta('tEventos', misEventos.length
+    ? `Apuntados a ${misEventos[0].titulo} (${fechaCorta(misEventos[0].fecha)})${misEventos.length > 1 ? ` y ${misEventos.length - 1} más` : ''}.`
+    : `Próximo: ${eventos[0].titulo}, el ${fechaCorta(eventos[0].fecha)}.`);
+  return pend;
+}
+
+async function estadoEncuestas(socioId) {
+  const pend = [];
+  const [{ data: encuestas }, { data: hechas }] = await Promise.all([
+    sb.from('encuestas').select('id, titulo, fecha_cierre, estado').eq('estado', 'abierta'),
+    sb.from('encuesta_control_respondidos').select('encuesta_id').eq('socio_id', socioId)
+  ]);
+  const abiertas = (encuestas || []).filter(e => !e.fecha_cierre || new Date(e.fecha_cierre) > ahora());
+  if (!abiertas.length) return pend;
+  const respondidas = new Set((hechas || []).map(h => h.encuesta_id));
+  const faltan = abiertas.filter(e => !respondidas.has(e.id));
+  faltan.forEach(e => pend.push({ tipo: 'encuestas', href: 'encuestas.html', titulo: 'Encuesta: ' + e.titulo, accion: 'Responder',
+    detalle: e.fecha_cierre ? `Abierta hasta el ${fechaCorta(e.fecha_cierre)}.` : 'Abierta.' }));
+  tarjeta('tEncuestas', faltan.length ? `${faltan.length} sin responder.` : 'Todas respondidas.');
+  return pend;
+}
 
 /* ---------------- Mochila Jugona Exploradora ---------------- */
-
+let pendienteMochila = null;
 async function cargarMochila() {
   const wrap = document.getElementById('mochilaWrap');
+  pendienteMochila = null;
   const { data: propia, error } = await sb
     .from('mochila_cola')
     .select('posicion, fecha_devolucion_prevista, notificado_en')
     .eq('socio_id', ctxGlobal.socio.id)
     .maybeSingle();
 
-  if (error) { wrap.innerHTML = '<p class="msg-error">No se pudo cargar.</p>'; return; }
+  if (error) { wrap.innerHTML = '<p class="msg-error">No se pudo cargar la Mochila. Recarga la página.</p>'; return; }
 
   if (!propia) {
     const { data: total } = await sb.rpc('mochila_cola_length');
     wrap.innerHTML = `
-      <p style="font-size:14.5px;">Hay <b>${total ?? 0}</b> familia(s) apuntadas en la lista.</p>
-      <button type="button" class="btn btn-primary" id="mochilaApuntarseBtn" style="margin-top:8px;">Apuntarme a la Mochila</button>
-      <p id="mochilaMsg" style="display:none; margin-top:10px;"></p>
+      <p>Una mochila llena de juegos que pasa una semana en cada casa. ${total ? `Hay ${total} familia${total > 1 ? 's' : ''} en la lista.` : 'Ahora mismo no hay nadie en la lista.'}</p>
+      <button type="button" class="btn btn-primary" id="mochilaApuntarseBtn" style="margin-top:12px;">Apuntarnos a la Mochila</button>
+      <p id="mochilaMsg" style="display:none;"></p>
     `;
-    document.getElementById('mochilaApuntarseBtn').addEventListener('click', mochilaApuntarse);
+    document.getElementById('mochilaApuntarseBtn').addEventListener('click', () => mochilaLlamar('mochila-apuntarse'));
     return;
   }
 
@@ -119,35 +299,29 @@ async function cargarMochila() {
     const fecha = propia.fecha_devolucion_prevista
       ? new Date(propia.fecha_devolucion_prevista).toLocaleDateString('es-ES', { dateStyle: 'long' })
       : 'próximamente';
-    wrap.innerHTML = `<p style="font-size:14.5px;">🎒 Tienes la Mochila Jugona Exploradora. Debes devolverla el <b>${fecha}</b>.</p>`;
+    wrap.innerHTML = `<p>La tenéis vosotros. Hay que devolverla el <b>${fecha}</b>.</p>`;
     return;
   }
 
   let avisoHtml = '';
   if (propia.posicion === 1 && propia.notificado_en) {
     const horas = Math.max(0, Math.floor((Date.now() - new Date(propia.notificado_en).getTime()) / 3600000));
-    avisoHtml = `<p style="font-size:13px; color:var(--ink-soft); margin-top:6px;">Te avisamos hace ${horas} h. Tienes 24 h para confirmarnos si la quieres esta semana.</p>`;
+    avisoHtml = `<p style="margin-top:6px;">Os avisamos hace ${horas} h. Tenéis 24 h para confirmarnos si la queréis esta semana.</p>`;
+    pendienteMochila = { tipo: 'mochila', href: '#mochilaTitulo', titulo: 'Os toca la Mochila Jugona', accion: 'Ver',
+      detalle: 'Confirmadnos en 24 h si la queréis esta semana.' };
   }
 
   wrap.innerHTML = `
-    <p style="font-size:14.5px;">Estás en la posición <b>${propia.posicion}</b> de la lista.</p>
+    <p>Estáis en el puesto <b>${propia.posicion}</b> de la lista.</p>
     ${avisoHtml}
     <div style="display:flex; gap:14px; flex-wrap:wrap; align-items:center; margin-top:12px;">
-      <button type="button" class="btn btn-outline" id="mochilaPosponerBtn">Prefiero esperar una semana más</button>
-      <button type="button" class="btn-danger-link" id="mochilaDesapuntarseBtn">Desapuntarme de la Mochila</button>
+      <button type="button" class="btn btn-outline" id="mochilaPosponerBtn">Preferimos esperar una semana más</button>
+      <button type="button" class="btn-danger-link" id="mochilaDesapuntarseBtn">Desapuntarnos</button>
     </div>
-    <p id="mochilaMsg" style="display:none; margin-top:10px;"></p>
+    <p id="mochilaMsg" style="display:none;"></p>
   `;
-  document.getElementById('mochilaPosponerBtn').addEventListener('click', () => mochilaAccion('mochila-posponer'));
-  document.getElementById('mochilaDesapuntarseBtn').addEventListener('click', () => mochilaAccion('mochila-desapuntarse'));
-}
-
-async function mochilaApuntarse() {
-  await mochilaLlamar('mochila-apuntarse');
-}
-
-async function mochilaAccion(endpoint) {
-  await mochilaLlamar(endpoint);
+  document.getElementById('mochilaPosponerBtn').addEventListener('click', () => mochilaLlamar('mochila-posponer'));
+  document.getElementById('mochilaDesapuntarseBtn').addEventListener('click', () => mochilaLlamar('mochila-desapuntarse'));
 }
 
 async function mochilaLlamar(endpoint) {
@@ -168,6 +342,7 @@ async function mochilaLlamar(endpoint) {
   }
 }
 
+/* ---------------- Comentarios ---------------- */
 document.getElementById('comentarioBtn').addEventListener('click', async () => {
   const texto = document.getElementById('comentarioTexto');
   const msg = document.getElementById('comentarioMsg');
@@ -185,51 +360,50 @@ document.getElementById('comentarioBtn').addEventListener('click', async () => {
     });
     const data = await resp.json();
     if (!resp.ok) throw new Error(data.error || 'No se pudo enviar');
-    msg.style.display = 'block'; msg.className = 'msg-ok'; msg.textContent = 'Enviado ✓';
+    msg.style.display = 'block'; msg.className = 'msg-ok'; msg.textContent = 'Mensaje enviado.';
     texto.value = '';
   } catch (err) {
     msg.style.display = 'block'; msg.className = 'msg-error'; msg.textContent = err.message;
   }
 });
 
-/* ---------------- Resto del inicio ---------------- */
-
+/* ---------------- Inicio ---------------- */
 (async () => {
   const ctx = await requireAuth();
   if (!ctx) return;
   ctxGlobal = ctx;
   renderNav('dashboard', ctx);
+  const socioId = ctx.socio.id;
   document.getElementById('saludo').textContent = 'Hola, ' + ctx.adulto.nombre;
+
   if (ctx.adulto.role === 'admin') {
-    document.getElementById('adminSection').style.display = 'block';
-    // Aviso de solicitudes de alta / reactivación pendientes
+    document.getElementById('adminSection').hidden = false;
     sb.from('socios').select('estado, reactivacion_solicitada_en').neq('estado', 'activa').then(({ data }) => {
       const n = (data || []).filter(x => x.estado === 'recien_creada' || x.reactivacion_solicitada_en).length;
       const el = document.getElementById('tileSolicitudes');
-      if (n) { el.textContent = n + ' pendiente' + (n > 1 ? 's' : ''); el.style.display = 'inline-block'; }
+      if (n) { el.textContent = n + ' pendiente' + (n > 1 ? 's' : ''); el.hidden = false; }
     });
   }
 
-  await cargarMochila();
+  const { data: alumnos } = await sb.from('alumnos').select('id, nombre, etapa, curso').eq('socio_id', socioId).order('nombre');
+  const hijos = (alumnos || []).map(a => a.nombre + (a.curso ? ` en ${a.curso} de ${a.etapa}` : ''));
+  const numero = ctx.socio.numero_socio_completo ? `Socio nº ${ctx.socio.numero_socio_completo}` : 'Socio';
+  document.getElementById('familia').textContent = numero + (hijos.length ? `, con ${nombres(hijos)}.` : '.');
 
-  const { data: eventos } = await sb
-    .from('eventos')
-    .select('*')
-    .eq('activo', true)
-    .order('fecha', { ascending: true })
-    .limit(5);
-
-  const wrap = document.getElementById('proximosWrap');
-  if (!eventos || eventos.length === 0) {
-    wrap.innerHTML = '<p class="empty-hint">No hay eventos próximos.</p>';
-    return;
+  const resultados = await Promise.all([
+    estadoLibros(socioId, alumnos || []).catch(() => []),
+    estadoUniformes(socioId).catch(() => []),
+    estadoEventos(socioId).catch(() => []),
+    estadoEncuestas(socioId).catch(() => []),
+    cargarMochila().catch(() => {})
+  ]);
+  const pendientes = resultados.slice(0, 4).flat();
+  if (pendienteMochila) pendientes.unshift(pendienteMochila);
+  if (pendientes.length) {
+    const sec = document.getElementById('pendientes');
+    sec.innerHTML = pendientes.map(htmlPendiente).join('');
+    sec.hidden = false;
   }
-  wrap.innerHTML = eventos.map(ev => `
-    <div class="evento-mini">
-      <div class="f">${ev.fecha ? new Date(ev.fecha).toLocaleDateString('es-ES', { dateStyle: 'long' }) : 'Fecha por confirmar'}</div>
-      <div>${ev.titulo}</div>
-    </div>
-  `).join('');
 })();
 </script>
 </body>

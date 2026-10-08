@@ -5,12 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Uniformes · AMPA Juan de Valdés</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="shared/styles.css">
 </head>
 <body>
 <div class="wrap">
-  <div class="eyebrow">AMPA · Uniformes</div>
+  <div class="eyebrow">Uniformes</div>
   <h1>Entrega de uniformes</h1>
   <p class="lede">Elige, para cada hijo/a, 3 prendas ordenadas por prioridad. 🔴 queda poco stock, 🟡 stock medio, 🟢 stock amplio.</p>
 
@@ -30,7 +30,7 @@
 
   <div class="card" id="conseguidosCard" style="display:none;">
     <p class="section-label">Uniformes que os han tocado</p>
-    <p style="font-size:13px; color:var(--ink-soft); margin-top:-6px;">El AMPA os indicará cuándo y dónde recogerlos.</p>
+    <p style="font-size:14px; color:var(--ink-soft); margin-top:-6px;">El AMPA os indicará cuándo y dónde recogerlos.</p>
     <div id="conseguidosWrap"></div>
   </div>
 
@@ -181,7 +181,7 @@ function renderAlumnoCard(alumno, seleccionInicial) {
     t.dataset.actual = guardada ? guardada.tipo : '';
   });
   const leyenda = document.createElement('p');
-  leyenda.style.cssText = 'font-size:12.5px; color:var(--ink-soft); margin-top:10px;';
+  leyenda.style.cssText = 'font-size:14px; color:var(--ink-soft); margin-top:10px;';
   leyenda.textContent = 'La 2ª prioridad no puede ser 🔴 y la 3ª tiene que ser 🟢.';
   body.appendChild(leyenda);
 

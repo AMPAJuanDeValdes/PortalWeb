@@ -37,13 +37,13 @@ test.describe('Hazte socio y reactivación', () => {
     activa = await crearFamilia({ etiqueta: 'yaactiva' });
   });
 
-  test('Web pública: botones separados de Eventos, Hazte socio y Reactivar', async ({ page }) => {
+  test('Web pública: entrar, eventos, hazte socio y reactivar a la vista', async ({ page }) => {
     await page.goto('/index.html');
     // (por texto, no por dirección: Netlify reescribe los enlaces "x.html" como "/x")
-    const botones = page.locator('.cta-row');
-    await expect(botones.getByRole('link', { name: 'Eventos', exact: true })).toBeVisible();
-    await expect(botones.getByRole('link', { name: 'Hazte socio', exact: true })).toBeVisible();
-    await expect(botones.getByRole('link', { name: 'Reactivar mi cuenta' })).toBeVisible();
+    await expect(page.locator('header').getByRole('link', { name: 'Entrar como socio' })).toBeVisible();
+    await expect(page.locator('header').getByRole('link', { name: 'Eventos', exact: true })).toBeVisible();
+    await expect(page.getByRole('link', { name: /^Hazte socio por/ })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Reactivad vuestra cuenta' })).toBeVisible();
     await page.goto('/publico.html');
     await expect(page.getByRole('link', { name: /reactivar mi cuenta/i })).toBeVisible();
   });

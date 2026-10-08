@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Préstamo de libros · AMPA Juan de Valdés</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="shared/styles.css">
 <style>
   .donar-row{ margin-top:24px; padding-top:16px; border-top:1px solid var(--line); }
@@ -13,7 +13,7 @@
 </head>
 <body>
 <div class="wrap">
-  <div class="eyebrow">AMPA · Préstamo de libros</div>
+  <div class="eyebrow">Préstamo de libros</div>
   <h1>Préstamo de libros de lectura</h1>
   <p class="lede">Elige un alumno/a y marca los libros que necesitáis para su curso. Repite para cada alumno de la familia.</p>
 
@@ -27,7 +27,7 @@
   <div class="card" id="peticionCard" style="display:none;">
     <p class="section-label">Alumno/a</p>
     <select id="alumnoSelect"></select>
-    <p id="sinAlumnosMsg" style="display:none; font-size:13px; color:var(--ink-soft); margin-top:10px;">
+    <p id="sinAlumnosMsg" style="display:none; font-size:14px; color:var(--ink-soft); margin-top:10px;">
       Todavía no tienes alumnos añadidos. Ve a
       <a href="mis-datos.html">Mis datos</a> para darlos de alta.
     </p>
@@ -42,7 +42,7 @@
   <div class="card">
     <div class="donar-row" style="margin-top:0; padding-top:0; border-top:none;">
       <p class="section-label">¿Quieres donar un libro?</p>
-      <p style="font-size:13px; color:var(--ink-soft); margin-top:-6px;">
+      <p style="font-size:14px; color:var(--ink-soft); margin-top:-6px;">
         No suma al stock hasta que el AMPA reciba el libro en mano.
       </p>
       <div style="display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap; margin-top:10px;">
@@ -84,7 +84,7 @@ async function cargarPrestados() {
   wrap.innerHTML = data.map(it => `
     <div class="evento-mini">
       ${it.alumnos?.nombre || ''} ${it.alumnos?.apellidos || ''} — <b>${it.libros_catalogo?.titulo}</b> (ejemplar ${it.libros_ejemplares?.codigo})
-      <div style="font-size:12.5px; color:var(--ink-soft);">${it.entregado_en
+      <div style="font-size:14px; color:var(--ink-soft);">${it.entregado_en
         ? 'Lo tenéis desde el ' + new Date(it.entregado_en).toLocaleDateString('es-ES') + '. Recordad devolverlo al AMPA al acabar el curso.'
         : 'Asignado: pendiente de recoger en el AMPA.'}</div>
     </div>

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Encuestas · AMPA Juan de Valdés</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="shared/styles.css">
 <style>
   .opcion-fila{ display:flex; align-items:flex-start; gap:8px; padding:6px 0; font-size:14px; }
@@ -14,7 +14,7 @@
 </head>
 <body>
 <div class="wrap">
-  <div class="eyebrow">AMPA · Encuestas</div>
+  <div class="eyebrow">Encuestas</div>
   <h1>Encuestas</h1>
   <p class="lede">Tu opinión ayuda a la Junta a tomar decisiones.</p>
 
@@ -69,8 +69,8 @@ function renderEncuestaForm(encuesta, preguntas) {
   const wrap = document.createElement('div');
   wrap.innerHTML = `
     <p class="section-label">${encuesta.titulo}</p>
-    ${encuesta.descripcion ? `<p style="font-size:13.5px; color:var(--ink-soft); margin-top:-8px;">${encuesta.descripcion}</p>` : ''}
-    ${encuesta.anonima ? '<p style="font-size:12.5px; color:var(--ink-soft);">Esta encuesta es anónima: tus respuestas no quedarán ligadas a tu cuenta.</p>' : ''}
+    ${encuesta.descripcion ? `<p style="font-size:14px; color:var(--ink-soft); margin-top:-8px;">${encuesta.descripcion}</p>` : ''}
+    ${encuesta.anonima ? '<p style="font-size:14px; color:var(--ink-soft);">Esta encuesta es anónima: tus respuestas no quedarán ligadas a tu cuenta.</p>' : ''}
   `;
 
   const respuestasEstado = {}; // pregunta_id -> valor(es)

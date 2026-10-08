@@ -11,11 +11,15 @@ function renderNav(activePage, ctx) {
 
   const topbar = document.createElement('div');
   topbar.className = 'topbar-simple';
+  const esc = (t) => String(t || '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   topbar.innerHTML = `
-    ${activePage !== 'dashboard' ? '<a href="dashboard.html" class="topbar-inicio">‹ Inicio</a>' : '<span></span>'}
-    <div class="topbar-right">
-      <span class="topbar-user">${adulto ? adulto.nombre + ' ' + adulto.apellidos : ''}</span>
-      <button class="linklike" id="navSignOut">Cerrar sesión</button>
+    <div class="topbar-in">
+      <a href="dashboard.html" class="topbar-brand"><img src="assets/logo-ampa.png" alt="AMPA"><span>Portal de socios</span></a>
+      <div class="topbar-right">
+        ${activePage !== 'dashboard' ? '<a href="dashboard.html" class="topbar-inicio">Inicio</a>' : ''}
+        <span class="topbar-user">${adulto ? esc(adulto.nombre + ' ' + adulto.apellidos) : ''}</span>
+        <button class="linklike" id="navSignOut">Cerrar sesión</button>
+      </div>
     </div>
   `;
   document.body.insertBefore(topbar, document.body.firstChild);

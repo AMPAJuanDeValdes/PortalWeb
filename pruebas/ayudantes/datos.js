@@ -7,6 +7,8 @@ const { cargarEntorno } = require('./entorno');
 cargarEntorno();
 
 const MARCA = 'ampa-prueba-';
+// Fecha de cierre que marca las convocatorias de préstamo abiertas por las pruebas
+const CIERRE_PRUEBA = '2099-12-31T23:59:59Z';
 const PASSWORD = 'Prueba-1234!';
 const COMPROBANTE = path.join(__dirname, '..', 'fixtures', 'comprobante.pdf');
 
@@ -117,6 +119,7 @@ function aceptarDialogos(page) {
 }
 
 module.exports = {
+  CIERRE_PRUEBA,
   admin, MARCA, PASSWORD, COMPROBANTE, emailPrueba, dniPrueba, crearFamilia, socioPorEmail,
   clienteComo, llamarFuncion, entrar, aceptarDialogos, siguienteNumeroLibre
 };

@@ -5,47 +5,44 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Préstamo de libros · Admin AMPA</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="shared/styles.css">
 <style>
   .wrap{ max-width:1060px; }
-  .tabs{ display:flex; gap:6px; margin-bottom:20px; flex-wrap:wrap; }
-  .tabs button{ font-family:'Inter', sans-serif; font-size:12.5px; text-transform:uppercase; padding:9px 14px; border-radius:var(--radius); border:1px solid var(--line); background:#fff; color:var(--ink-soft); cursor:pointer; }
-  .tabs button.active{ background:var(--navy); color:#fff; border-color:var(--navy); }
   .panel{ display:none; } .panel.active{ display:block; }
   .two-col{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
   @media (max-width:600px){ .two-col{ grid-template-columns:1fr; } }
   .fila{ display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; }
   .fila .field{ margin:0; }
-  table.t{ width:100%; border-collapse:collapse; font-size:13px; }
-  table.t th{ text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-soft); font-weight:600; padding:7px 6px; border-bottom:1px solid var(--line); background:#FAF8F2; }
+  table.t{ width:100%; border-collapse:collapse; font-size:14px; }
+  table.t th{ text-align:left; font-size:14px; color:var(--ink-soft); font-weight:600; padding:7px 6px; border-bottom:1px solid var(--line); background:#FAF8F2; }
   table.t td{ padding:7px 6px; border-bottom:1px solid var(--line); vertical-align:top; }
   table.t td.n, table.t th.n{ text-align:right; white-space:nowrap; }
-  .sub{ color:var(--ink-soft); font-size:12px; }
+  .sub{ color:var(--ink-soft); font-size:14px; }
   .stats{ display:flex; gap:10px; flex-wrap:wrap; margin:6px 0 16px; }
-  .stats div{ border:1px solid var(--line); padding:8px 12px; font-size:12px; color:var(--ink-soft); background:#fff; min-width:110px; }
+  .stats div{ border:1px solid var(--line); padding:8px 12px; font-size:14px; color:var(--ink-soft); background:#fff; min-width:110px; }
   .stats b{ display:block; font-size:19px; color:var(--ink); }
   .stats div.warn b{ color:var(--red); }
-  .cursos-check{ display:grid; grid-template-columns:repeat(4, 1fr); gap:4px 14px; font-size:13px; }
+  .cursos-check{ display:grid; grid-template-columns:repeat(4, 1fr); gap:4px 14px; font-size:14px; }
   @media (max-width:600px){ .cursos-check{ grid-template-columns:1fr 1fr; } }
-  .cursos-check .etq{ font-weight:600; margin-top:4px; grid-column:1/-1; font-size:12px; color:var(--ink-soft); text-transform:uppercase; }
+  .cursos-check .etq{ font-weight:600; margin-top:4px; grid-column:1/-1; font-size:14px; color:var(--ink-soft); }
   .cursos-check label{ display:flex; gap:6px; align-items:center; font-weight:400; }
   .cursos-check input{ width:auto; }
   .ok{ color:#1E7A46; font-weight:600; } .falta{ color:var(--red); font-weight:600; }
-  .mini input, .mini select{ padding:4px 6px; font-size:12px; width:auto; }
+  .mini input, .mini select{ padding:4px 6px; font-size:14px; width:auto; }
   td.mini{ min-width:330px; }
   .familia{ border:1px solid var(--line); margin-bottom:10px; background:#fff; }
-  .familia-head{ display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:center; padding:8px 12px; background:#FAF8F2; border-bottom:1px solid var(--line); font-size:13.5px; }
-  .item{ display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:center; padding:7px 12px; border-bottom:1px solid var(--line); font-size:13px; }
+  .familia-head{ display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:center; padding:8px 12px; background:#FAF8F2; border-bottom:1px solid var(--line); font-size:14px; }
+  .item{ display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:center; padding:7px 12px; border-bottom:1px solid var(--line); font-size:14px; }
   .item:last-child{ border-bottom:none; }
   .botones{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
-  .btn-s{ padding:5px 10px; font-size:12px; }
+  .btn-s{ padding:5px 10px; font-size:14px; }
   details.card > summary{ cursor:pointer; }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <div class="eyebrow">AMPA · Administración</div>
+  <div class="eyebrow">Administración</div>
   <h1>Préstamo de libros</h1>
   <p class="lede">Catálogo, ejemplares, convocatoria y reparto, compras y seguimiento de entregas y devoluciones.</p>
 
@@ -72,7 +69,7 @@
         <div class="cursos-check" id="nCursos"></div></div>
       <div class="botones" style="margin-top:14px;">
         <button type="button" class="btn btn-primary" id="guardarTituloBtn">Añadir al catálogo</button>
-        <button type="button" class="linklike" id="cancelarEdicionBtn" style="display:none; font-size:13px;">Cancelar edición</button>
+        <button type="button" class="linklike" id="cancelarEdicionBtn" style="display:none; font-size:14px;">Cancelar edición</button>
       </div>
       <p id="tMsg" style="display:none; margin-top:12px;"></p>
     </div>
@@ -123,7 +120,7 @@
       <p class="section-label">Historial de compras</p>
       <div class="fila" style="margin-bottom:10px;">
         <div class="field"><select id="hFiltro"><option value="">Todas</option><option value="reservado">Solo reservados</option><option value="comprado">Solo comprados</option><option value="recibido">Solo obtenidos</option></select></div>
-        <span id="hGasto" style="font-size:13.5px;"></span>
+        <span id="hGasto" style="font-size:14px;"></span>
       </div>
       <div style="overflow-x:auto;" id="hWrap"></div>
       <div class="botones" style="margin-top:12px;">
@@ -133,7 +130,7 @@
 
     <details class="card">
       <summary class="section-label" style="margin:0;">Importar compras de la web antigua de libros (CSV)</summary>
-      <p style="font-size:13.5px; margin-top:12px;">En la web antigua (panel de análisis → "Historial de compras registradas") pulsa <b>Descargar historial (CSV)</b> y sube aquí ese archivo. Verás una vista previa antes de importar; las compras que ya estén importadas no se duplican.</p>
+      <p style="font-size:14px; margin-top:12px;">En la web antigua (panel de análisis → "Historial de compras registradas") pulsa <b>Descargar historial (CSV)</b> y sube aquí ese archivo. Verás una vista previa antes de importar; las compras que ya estén importadas no se duplican.</p>
       <input type="file" id="impFile" accept=".csv,text/csv">
       <div id="impPreview" style="margin-top:12px;"></div>
     </details>
@@ -236,8 +233,8 @@ function pintarCatalogo() {
     [...libros].sort(ordenLibro).map(l => `<tr>
       <td><b>${esc(l.titulo)}</b></td><td>${esc(cursosTxt(l))}</td><td>${IDIOMA[l.asignatura] || esc(l.asignatura)}</td>
       <td>${esc(l.editorial)}<div class="sub">${esc(l.isbn)}</div></td><td class="n">${n(l.id)}</td>
-      <td class="botones"><button class="linklike" data-edit="${l.id}" style="font-size:12px;">Editar</button>
-      <button class="btn-danger-link" data-del="${l.id}" style="font-size:12px;">Borrar</button></td></tr>`).join('') + '</tbody></table>';
+      <td class="botones"><button class="linklike" data-edit="${l.id}" style="font-size:14px;">Editar</button>
+      <button class="btn-danger-link" data-del="${l.id}" style="font-size:14px;">Borrar</button></td></tr>`).join('') + '</tbody></table>';
   wrap.querySelectorAll('[data-edit]').forEach(b => b.addEventListener('click', () => editarTitulo(b.dataset.edit)));
   wrap.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', async () => {
     if (!confirm('¿Borrar este título del catálogo? (Solo se puede si no tiene ejemplares ni peticiones.)')) return;
@@ -279,12 +276,14 @@ document.getElementById('guardarTituloBtn').addEventListener('click', async () =
   const cursos = [...document.querySelectorAll('#nCursos input:checked')].map(i => i.value);
   const ok = marcarCamposVacios([document.getElementById('nTitulo'), document.getElementById('nEditorial'), document.getElementById('nIsbn')]);
   if (!ok || !cursos.length) { aviso('tMsg', false, cursos.length ? 'Completa los campos marcados.' : 'Marca al menos un curso.'); return; }
+  const repetido = libros.find(l => l.id !== editandoId && l.titulo.trim().toLowerCase() === titulo.toLowerCase());
+  if (repetido) { aviso('tMsg', false, 'Ese título ya está en el catálogo: edítalo y marca el curso nuevo.'); return; }
   const [etapa, curso] = cursos[0].split('|');
   const fila = { titulo, editorial, isbn, asignatura, cursos, etapa, curso };
   const { error } = editandoId
     ? await sb.from('libros_catalogo').update(fila).eq('id', editandoId)
     : await sb.from('libros_catalogo').insert(fila);
-  if (error) { aviso('tMsg', false, error.message); return; }
+  if (error) { aviso('tMsg', false, /duplicate|unique/i.test(error.message) ? 'Ese título ya está en el catálogo: edítalo y marca el curso nuevo.' : error.message); return; }
   aviso('tMsg', true, editandoId ? 'Cambios guardados ✓' : 'Añadido ✓');
   limpiarFormTitulo();
   await refrescarCatalogo();
@@ -309,7 +308,7 @@ function pintarEjemplares() {
     lista.map(e => `<tr><td><b>${esc(e.codigo)}</b></td><td>${esc(tituloDe[e.libro_id] || '')}</td>
       <td>${e.estado === 'prestado' ? 'prestado <span class="sub">(se cambia desde Entregas)</span>' :
         `<select class="mini" data-id="${e.id}">${['disponible', 'perdido', 'baja'].map(v => `<option ${e.estado === v ? 'selected' : ''}>${v}</option>`).join('')}</select>`}</td>
-      <td>${e.estado === 'disponible' ? `<button class="btn-danger-link" data-del="${e.id}" style="font-size:12px;">Borrar</button>` : ''}</td></tr>`).join('') + '</tbody></table>';
+      <td>${e.estado === 'disponible' ? `<button class="btn-danger-link" data-del="${e.id}" style="font-size:14px;">Borrar</button>` : ''}</td></tr>`).join('') + '</tbody></table>';
   wrap.querySelectorAll('select[data-id]').forEach(s => s.addEventListener('change', async () => {
     const { error } = await sb.from('libros_ejemplares').update({ estado: s.value }).eq('id', s.dataset.id);
     if (error) alert(error.message);
@@ -435,7 +434,7 @@ async function cargarItems(convocatoriaId) {
         if (it.estado === 'asignado') {
           der = `<span class="ok">Ejemplar ${esc(it.libros_ejemplares?.codigo)}</span>` +
             (it.entregado_en ? ` <span class="sub">· entregado ${fecha(it.entregado_en)}${it.fecha_devolucion ? ' · devuelto' : ''}</span>`
-              : (editable ? ` <button class="btn-danger-link" data-quitar="${it.id}" style="font-size:12px;">Quitar</button>` : ''));
+              : (editable ? ` <button class="btn-danger-link" data-quitar="${it.id}" style="font-size:14px;">Quitar</button>` : ''));
         } else {
           der = `<span class="sub">${it.estado === 'no_asignado' ? 'sin ejemplar' : 'pendiente'}</span>` + (editable ? ` <select class="mini" data-sel="${it.id}" ${opciones.length ? '' : 'disabled'}>${opciones.length ? opciones.map(o => `<option value="${o.id}">Ejemplar ${esc(o.codigo)}</option>`).join('') : '<option>Sin ejemplares libres</option>'}</select>
             <button class="btn btn-outline btn-s" data-asignar="${it.id}" ${opciones.length ? '' : 'disabled'}>Asignar</button>` : '');
@@ -551,7 +550,7 @@ function pintarHistorial() {
       <td>${esc(tituloDe[c.libro_id] || '')}</td><td class="n">${c.cantidad}</td>
       <td class="mini"><select data-estado="${c.id}">${Object.entries(ESTADOS_COMPRA).map(([v, t]) => `<option value="${v}" ${c.estado === v ? 'selected' : ''}>${t}</option>`).join('')}</select></td>
       <td>${esc(c.tienda || '')}</td><td class="n">${c.coste != null ? euros(c.coste) : '—'}</td>
-      <td><button class="btn-danger-link" data-borrar="${c.id}" style="font-size:12px;">Borrar</button></td></tr>`).join('') + '</tbody></table>';
+      <td><button class="btn-danger-link" data-borrar="${c.id}" style="font-size:14px;">Borrar</button></td></tr>`).join('') + '</tbody></table>';
   wrap.querySelectorAll('[data-estado]').forEach(s => s.addEventListener('change', async () => {
     const { error } = await sb.from('libros_compras').update({ estado: s.value, actualizado_por_nombre: ctxGlobal.adulto.nombre + ' ' + ctxGlobal.adulto.apellidos, actualizado_en: new Date().toISOString() }).eq('id', s.dataset.estado);
     if (error) alert(error.message);
@@ -632,7 +631,7 @@ async function prepararImportacion(filas) {
     return fila;
   });
   const aImportar = preparadas.filter(p => p.valida && !p.duplicada);
-  wrap.innerHTML = `<p style="font-size:13.5px;">${preparadas.length} filas: <b>${aImportar.length}</b> para importar, ${preparadas.filter(p => p.duplicada).length} ya importadas, ${preparadas.filter(p => !p.valida).length} con problemas.</p>
+  wrap.innerHTML = `<p style="font-size:14px;">${preparadas.length} filas: <b>${aImportar.length}</b> para importar, ${preparadas.filter(p => p.duplicada).length} ya importadas, ${preparadas.filter(p => !p.valida).length} con problemas.</p>
     <table class="t"><thead><tr><th>Fecha</th><th>Quién</th><th>Libro</th><th class="n">Cant.</th><th>Estado</th><th class="n">Coste</th><th></th></tr></thead><tbody>` +
     preparadas.map(p => `<tr><td>${p.fecha ? fechaHora(p.fecha) : '<span class="falta">?</span>'}</td><td>${esc(p.quien)}</td><td>${esc(p.titulo)}</td><td class="n">${p.cantidad || '?'}</td><td>${ESTADOS_COMPRA[p.estado]}</td><td class="n">${p.coste != null ? euros(p.coste) : '—'}</td>
       <td>${p.duplicada ? '<span class="sub">ya importada</span>' : !p.libro ? '<span class="falta">libro no encontrado en el catálogo</span>' : !p.valida ? '<span class="falta">fecha o cantidad no válida</span>' : '<span class="ok">OK</span>'}</td></tr>`).join('') +
@@ -671,18 +670,18 @@ async function cargarEntregas() {
   document.getElementById('eRecordarInfo').textContent = `${Object.keys(enCasa).length} familia(s) con libros pendientes de devolver.`;
   document.getElementById('eRecordarTodosBtn').disabled = !Object.keys(enCasa).length;
   document.getElementById('eDevolverWrap').innerHTML = Object.keys(enCasa).length ? Object.entries(enCasa).map(([sid, its]) =>
-    `<div class="familia">${cab(sid, `<button class="linklike" data-recordar="${sid}" style="font-size:12.5px;">Enviar recordatorio por email</button>`)}` +
+    `<div class="familia">${cab(sid, `<button class="linklike" data-recordar="${sid}" style="font-size:14px;">Enviar recordatorio por email</button>`)}` +
     its.map(i => `<div class="item"><span>${libroTxt(i)} <span class="sub">· entregado ${fecha(i.entregado_en)}</span></span>
       <span class="botones"><button class="btn btn-outline btn-s" data-acc="devuelto" data-id="${i.id}">Devuelto</button>
-      <button class="btn-danger-link" data-acc="perdido" data-id="${i.id}" style="font-size:12px;">Perdido</button>
-      <button class="linklike" data-acc="deshacer_entrega" data-id="${i.id}" style="font-size:12px;">No se entregó</button></span></div>`).join('') + '</div>').join('')
+      <button class="btn-danger-link" data-acc="perdido" data-id="${i.id}" style="font-size:14px;">Perdido</button>
+      <button class="linklike" data-acc="deshacer_entrega" data-id="${i.id}" style="font-size:14px;">No se entregó</button></span></div>`).join('') + '</div>').join('')
     : '<p class="empty-hint">No hay libros en préstamo ahora mismo.</p>';
 
   const hist = lista.filter(i => i.fecha_devolucion).sort((a, b) => b.fecha_devolucion.localeCompare(a.fecha_devolucion)).slice(0, 100);
   document.getElementById('eHistWrap').innerHTML = hist.length ? '<table class="t"><thead><tr><th>Fecha</th><th>Familia</th><th>Libro</th><th>Resultado</th><th></th></tr></thead><tbody>' +
     hist.map(i => `<tr><td>${fecha(i.fecha_devolucion)}</td><td>Nº ${esc(socios[i.socio_id]?.numero_socio || '—')}</td><td>${libroTxt(i)}</td>
       <td>${i.perdido ? '<span class="falta">Perdido</span>' : '<span class="ok">Devuelto</span>'}</td>
-      <td><button class="linklike" data-acc="deshacer_devolucion" data-id="${i.id}" style="font-size:12px;">Deshacer</button></td></tr>`).join('') + '</tbody></table>'
+      <td><button class="linklike" data-acc="deshacer_devolucion" data-id="${i.id}" style="font-size:14px;">Deshacer</button></td></tr>`).join('') + '</tbody></table>'
     : '<p class="empty-hint">Todavía no hay devoluciones registradas.</p>';
 
   document.querySelectorAll('#panel-entregas [data-acc]').forEach(b => b.addEventListener('click', async () => {

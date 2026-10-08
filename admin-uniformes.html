@@ -5,21 +5,18 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Uniformes · Admin AMPA</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="shared/styles.css">
 <style>
   .wrap{ max-width:980px; }
-  .tabs{ display:flex; gap:6px; margin-bottom:20px; flex-wrap:wrap; }
-  .tabs button{ font-family:'Inter', sans-serif; font-size:12.5px; text-transform:uppercase; padding:9px 14px; border-radius:var(--radius); border:1px solid var(--line); background:#fff; color:var(--ink-soft); cursor:pointer; }
-  .tabs button.active{ background:var(--navy); color:#fff; border-color:var(--navy); }
   .panel{ display:none; } .panel.active{ display:block; }
   .fila{ display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; }
   .fila .field{ margin:0; }
   .fila select{ min-width:90px; }
-  .matriz{ border-collapse:collapse; font-size:13.5px; width:100%; }
+  .matriz{ border-collapse:collapse; font-size:14px; width:100%; }
   .matriz th, .matriz td{ border:1px solid var(--line); padding:6px 4px; text-align:center; }
-  .matriz th{ background:#FAF8F2; font-size:11.5px; color:var(--ink-soft); font-weight:600; }
-  .matriz th.tipo{ text-align:left; padding-left:10px; color:var(--ink); font-size:13px; white-space:nowrap; }
+  .matriz th{ background:#FAF8F2; font-size:14px; color:var(--ink-soft); font-weight:600; }
+  .matriz th.tipo{ text-align:left; padding-left:10px; color:var(--ink); font-size:14px; white-space:nowrap; }
   .matriz td.celda{ cursor:pointer; font-weight:600; }
   .matriz td.celda:hover{ outline:2px solid var(--navy); outline-offset:-2px; }
   .matriz td.vacia{ color:#C9C4B8; font-weight:400; }
@@ -27,18 +24,18 @@
   .c-amarillo{ background:#FFF4D1; color:#8A6A00; }
   .c-verde{ background:#E5F3EA; color:#1E7A46; }
   .c-cero{ background:#F2F0EA; color:#9A958A; }
-  .leyenda{ font-size:12.5px; color:var(--ink-soft); margin-top:8px; }
-  .mov{ font-size:13px; padding:6px 0; border-bottom:1px solid var(--line); display:flex; gap:10px; flex-wrap:wrap; }
+  .leyenda{ font-size:14px; color:var(--ink-soft); margin-top:8px; }
+  .mov{ font-size:14px; padding:6px 0; border-bottom:1px solid var(--line); display:flex; gap:10px; flex-wrap:wrap; }
   .mov:last-child{ border-bottom:none; }
   .mov .q-pos{ color:#1E7A46; font-weight:600; } .mov .q-neg{ color:var(--red); font-weight:600; }
   .resumen{ display:flex; gap:10px; flex-wrap:wrap; margin:12px 0; }
-  .resumen div{ border:1px solid var(--line); padding:8px 12px; font-size:12.5px; color:var(--ink-soft); background:#fff; }
+  .resumen div{ border:1px solid var(--line); padding:8px 12px; font-size:14px; color:var(--ink-soft); background:#fff; }
   .resumen b{ display:block; font-size:18px; color:var(--ink); }
   .familia{ border:1px solid var(--line); margin-bottom:12px; background:#fff; }
-  .familia-head{ display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:center; padding:10px 12px; background:#FAF8F2; border-bottom:1px solid var(--line); font-size:13.5px; }
-  .alumno{ padding:10px 12px; border-bottom:1px solid var(--line); font-size:13.5px; }
+  .familia-head{ display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:center; padding:10px 12px; background:#FAF8F2; border-bottom:1px solid var(--line); font-size:14px; }
+  .alumno{ padding:10px 12px; border-bottom:1px solid var(--line); font-size:14px; }
   .alumno:last-child{ border-bottom:none; }
-  .prios{ color:var(--ink-soft); font-size:12.5px; margin-top:3px; }
+  .prios{ color:var(--ink-soft); font-size:14px; margin-top:3px; }
   .prios .ok{ color:#1E7A46; font-weight:600; }
   .asig{ margin-top:6px; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
   .asig select{ max-width:260px; }
@@ -47,7 +44,7 @@
 </head>
 <body>
 <div class="wrap">
-  <div class="eyebrow">AMPA · Administración</div>
+  <div class="eyebrow">Administración</div>
   <h1>Uniformes</h1>
   <p class="lede">Stock por movimientos (lo que entra y lo que sale), convocatorias y reparto por prioridades.</p>
 
@@ -66,7 +63,7 @@
 
     <div class="card" id="movCard">
       <p class="section-label">Registrar movimiento</p>
-      <p style="font-size:13px; color:var(--ink-soft); margin-top:-6px;">Ej.: donan 2 camisetas talla 6 → "Entran 2". Si la combinación no existía, se crea sola.</p>
+      <p style="font-size:14px; color:var(--ink-soft); margin-top:-6px;">Ej.: donan 2 camisetas talla 6 → "Entran 2". Si la combinación no existía, se crea sola.</p>
       <div class="fila">
         <div class="field"><label>Tipo</label>
           <select id="mTipo"></select></div>
@@ -87,7 +84,7 @@
 
     <div class="card">
       <p class="section-label">Eliminar una combinación</p>
-      <p style="font-size:13px; color:var(--ink-soft); margin-top:-6px;">Solo para quitarla del todo de la lista (por ejemplo, una talla que ya no existe). Tiene que estar a 0 y no haber sido pedida nunca.</p>
+      <p style="font-size:14px; color:var(--ink-soft); margin-top:-6px;">Solo para quitarla del todo de la lista (por ejemplo, una talla que ya no existe). Tiene que estar a 0 y no haber sido pedida nunca.</p>
       <div class="fila">
         <div class="field"><select id="delSelect"></select></div>
         <button type="button" class="btn btn-outline" id="delBtn">Eliminar</button>
@@ -156,7 +153,7 @@ function pintarMatriz() {
     });
     html += `<td><b>${suma}</b></td></tr>`;
   });
-  html += `</tbody></table><p style="font-size:13px; margin:8px 0 0;">Total: <b>${total}</b> prendas en ${prendas.filter(p => p.stock > 0).length} combinaciones con stock.</p>`;
+  html += `</tbody></table><p style="font-size:14px; margin:8px 0 0;">Total: <b>${total}</b> prendas en ${prendas.filter(p => p.stock > 0).length} combinaciones con stock.</p>`;
   const wrap = document.getElementById('matrizWrap');
   wrap.innerHTML = html;
   wrap.querySelectorAll('td.celda').forEach(td => td.addEventListener('click', () => {
@@ -258,7 +255,7 @@ async function cargarConvocatoria() {
           <button class="btn btn-primary" data-accion="finalizar">Cerrar y guardar</button>
           <button class="btn-danger-link" id="resetearBtn">Anular todo el reparto y volver a empezar</button>
         </div>
-        <p style="font-size:12.5px; color:var(--ink-soft); margin-top:10px;">Para abrir una convocatoria nueva, primero cierra y guarda esta.</p>`;
+        <p style="font-size:14px; color:var(--ink-soft); margin-top:10px;">Para abrir una convocatoria nueva, primero cierra y guarda esta.</p>`;
     } else if (c.estado === 'finalizada') {
       html += resumenHtml(c) + `<p style="font-size:14px;">Cerrada y guardada el ${fechaHora(c.finalizada_en)}${c.finalizada_por ? ' por ' + esc(c.finalizada_por) : ''}. Solo lectura. Las familias ya ven su resultado.</p>`;
     } else if (c.estado === 'cancelada') {
@@ -290,7 +287,7 @@ function resumenHtml(c) {
     <div><b>${r.total_alumnos}</b>alumnos/as con pedido</div>
     <div><b>${r.asignados}</b>con prenda</div>
     <div><b>${r.no_asignados}</b>sin prenda</div>
-  </div><p style="font-size:12.5px; color:var(--ink-soft); margin-top:-4px;">Sorteo del ${fechaHora(r.repartido_en)}${r.repartido_por ? ' por ' + esc(r.repartido_por) : ''}${r.asignados_a_mano_antes ? ' · ' + r.asignados_a_mano_antes + ' asignados a mano antes del sorteo' : ''}.</p>`;
+  </div><p style="font-size:14px; color:var(--ink-soft); margin-top:-4px;">Sorteo del ${fechaHora(r.repartido_en)}${r.repartido_por ? ' por ' + esc(r.repartido_por) : ''}${r.asignados_a_mano_antes ? ' · ' + r.asignados_a_mano_antes + ' asignados a mano antes del sorteo' : ''}.</p>`;
 }
 
 async function accionConvocatoria(accion) {
@@ -383,13 +380,13 @@ async function cargarPedidos() {
       const prios = lista.filter(p => p.prioridad > 0).sort((a, b) => a.prioridad - b.prioridad)
         .map(p => `<span class="${p.estado === 'asignado' ? 'ok' : ''}">${p.prioridad}ª ${esc(p.prendas_catalogo?.tipo)} T${esc(p.prendas_catalogo?.talla)}${p.estado === 'asignado' ? ' ✓' : ''}</span>`).join(' · ');
       const resultado = asignado
-        ? `<b style="color:#1E7A46;">✓ ${esc(asignado.prendas_catalogo?.tipo)} talla ${esc(asignado.prendas_catalogo?.talla)}</b>${asignado.prioridad === 0 ? ' <span style="color:var(--ink-soft); font-size:12px;">(a mano)</span>' : ''}`
+        ? `<b style="color:#1E7A46;">✓ ${esc(asignado.prendas_catalogo?.tipo)} talla ${esc(asignado.prendas_catalogo?.talla)}</b>${asignado.prioridad === 0 ? ' <span style="color:var(--ink-soft); font-size:14px;">(a mano)</span>' : ''}`
         : `<span style="color:var(--ink-soft);">${convocatoria.estado === 'repartida' || convocatoria.estado === 'finalizada' ? 'Sin prenda' : 'Pendiente del sorteo'}</span>`;
       html += `<div class="alumno" data-alumno="${lista[0].alumno_id}">
         <b>${esc(al.nombre)} ${esc(al.apellidos)}</b> <span style="color:var(--ink-soft);">· ${esc(al.curso || '')} ${esc(al.etapa || '')}</span> — ${resultado}
         <div class="prios">${prios || '<i>sin prioridades</i>'}</div>
         ${puedeAsignar ? `<div class="asig"><select class="asigSel"><option value="">${asignado ? 'Cambiar por...' : 'Asignar a mano...'}</option>${opcionesStock}</select>
-          <button class="btn btn-outline asigBtn" style="padding:6px 12px; font-size:12px;">${asignado ? 'Cambiar' : 'Asignar'}</button>
+          <button class="btn btn-outline asigBtn" style="padding:6px 12px; font-size:14px;">${asignado ? 'Cambiar' : 'Asignar'}</button>
           ${asignado ? '<button class="btn-danger-link quitarBtn">Quitar</button>' : ''}</div>` : ''}
       </div>`;
       filasCsv.push({

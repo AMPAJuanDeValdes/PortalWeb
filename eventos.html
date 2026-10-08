@@ -5,24 +5,24 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Eventos · AMPA Juan de Valdés</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="shared/styles.css">
 <style>
   .evento-card{ margin-bottom:20px; }
-  .evento-fecha{ font-family:'Inter', sans-serif; font-size:12.5px; color:var(--ink-soft); margin-bottom:4px; }
-  .aforo-tag{ font-family:'Inter', sans-serif; font-size:11.5px; color:var(--gold); margin-top:6px; display:inline-block; }
+  .evento-fecha{ font-family:var(--font-text); font-size:14px; color:var(--ink-soft); margin-bottom:4px; }
+  .aforo-tag{ font-family:var(--font-text); font-size:14px; color:var(--gold); margin-top:6px; display:inline-block; }
   .miembro-row{ display:flex; justify-content:space-between; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid #F1EFE8; }
   .miembro-row:last-child{ border-bottom:none; }
   .actividad-block{ border:1px solid var(--line); border-radius:var(--radius); padding:14px; margin-top:14px; }
-  .actividad-block h3{ font-family:'Space Grotesk', sans-serif; font-size:15px; margin:0 0 4px; color:var(--navy-deep); }
+  .actividad-block h3{ font-family:var(--font-title); font-size:15px; margin:0 0 4px; color:var(--navy-deep); }
   .voluntariado-block{ margin-top:16px; padding-top:14px; border-top:1px solid var(--line); }
   .invitados-block{ margin-top:16px; padding-top:14px; border-top:1px solid var(--line); }
-  .completo-tag{ font-family:'Inter', sans-serif; font-size:11px; color:var(--red); }
+  .completo-tag{ font-family:var(--font-text); font-size:14px; color:var(--red); }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <div class="eyebrow">AMPA · Actividades</div>
+  <div class="eyebrow">Actividades</div>
   <h1>Eventos</h1>
   <p class="lede">Solo se muestran los eventos en los que algún miembro de tu familia puede participar.</p>
 
@@ -155,7 +155,7 @@ async function renderEventoConcurso(evento) {
   bloque.style.marginTop = '14px';
   bloque.innerHTML = `
     <p class="section-label">Envío por alumno/a</p>
-    <p style="font-size:12.5px; color:var(--ink-soft); margin-top:-6px;">Cada alumno/a puede enviar un texto. Se mantiene anónimo para el jurado hasta que se decida el ganador.</p>
+    <p style="font-size:14px; color:var(--ink-soft); margin-top:-6px;">Cada alumno/a puede enviar un texto. Se mantiene anónimo para el jurado hasta que se decida el ganador.</p>
   `;
 
   if (elegibles.alumnos.length === 0) {
@@ -525,7 +525,7 @@ async function renderEventoNormal(evento) {
       block.className = 'actividad-block';
       block.innerHTML = `
         <h3>${act.nombre}</h3>
-        <p style="font-size:12.5px; color:var(--ink-soft); margin:0 0 8px;">${act.horario || ''}
+        <p style="font-size:14px; color:var(--ink-soft); margin:0 0 8px;">${act.horario || ''}
           ${plazasAct != null ? ' · ' + (plazasAct > 0 ? plazasAct + ' plazas libres' : 'Completo') : ''}
         </p>
       `;
@@ -594,7 +594,7 @@ async function renderEventoNormal(evento) {
       const alumnosDisponibles = misAlumnos.filter(a => !voluntariosAlumno.some(v => v.alumno_id === a.id));
       if (alumnosDisponibles.length > 0) {
         const nota = document.createElement('p');
-        nota.style.cssText = 'font-size:12.5px; color:var(--ink-soft); margin:10px 0 4px;';
+        nota.style.cssText = 'font-size:14px; color:var(--ink-soft); margin:10px 0 4px;';
         nota.textContent = 'Un alumno/a solo puede colaborar acompañado de un adulto de la familia:';
         const selectAl = document.createElement('select');
         selectAl.innerHTML = alumnosDisponibles.map(a => `<option value="${a.id}">${a.nombre} ${a.apellidos}</option>`).join('');
@@ -624,7 +624,7 @@ async function renderEventoNormal(evento) {
     iBlock.className = 'invitados-block';
     iBlock.innerHTML = `
       <p class="section-label" style="margin:0 0 8px;">Invitar a alguien (pagando su entrada)</p>
-      ${evento.precio_invitado ? `<p style="font-size:13px; color:var(--ink-soft);">Precio por invitado: ${Number(evento.precio_invitado).toFixed(2)} €</p>` : ''}
+      ${evento.precio_invitado ? `<p style="font-size:14px; color:var(--ink-soft);">Precio por invitado: ${Number(evento.precio_invitado).toFixed(2)} €</p>` : ''}
     `;
     const invitadosExistentes = (misInscripciones || []).filter(i => i.tipo_miembro === 'invitado');
     invitadosExistentes.forEach(inv => {

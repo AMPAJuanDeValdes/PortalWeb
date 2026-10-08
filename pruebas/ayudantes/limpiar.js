@@ -49,6 +49,10 @@ module.exports = async function limpiar() {
   }
   await admin.from('prendas_movimientos').delete().ilike('motivo', `%${MARCA}%`);
 
+  // 7. Convocatoria de préstamo de prueba que se hubiera quedado abierta
+  const { CIERRE_PRUEBA } = require('./datos');
+  await admin.from('prestamo_convocatorias').delete().eq('fecha_cierre', CIERRE_PRUEBA);
+
   if (ids.length || socios.length) {
     console.log(`\n🧹 Limpieza: ${ids.length} usuario(s) y ${socios.length} familia(s) de prueba borrados.`);
   }

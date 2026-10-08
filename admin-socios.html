@@ -5,50 +5,47 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Socios · Admin AMPA</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="shared/styles.css">
 <style>
   .wrap{ max-width:980px; }
-  .tabs{ display:flex; gap:6px; margin-bottom:20px; flex-wrap:wrap; }
-  .tabs button{ font-family:'Inter', sans-serif; font-size:12.5px; text-transform:uppercase; padding:9px 14px; border-radius:var(--radius); border:1px solid var(--line); background:#fff; color:var(--ink-soft); cursor:pointer; }
-  .tabs button.active{ background:var(--navy); color:#fff; border-color:var(--navy); }
-  .tabs .num{ display:inline-block; min-width:18px; padding:0 5px; border-radius:9px; background:var(--red); color:#fff; font-size:11px; margin-left:4px; }
+  .tabs .num{ display:inline-block; min-width:18px; padding:0 5px; border-radius:9px; background:var(--red); color:#fff; font-size:14px; margin-left:4px; }
   .panel{ display:none; } .panel.active{ display:block; }
   .filtros{ display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; margin-bottom:14px; }
   .filtros .field{ margin:0; flex:1; min-width:180px; }
-  .tabla-socios{ width:100%; border-collapse:collapse; font-size:13.5px; }
-  .tabla-socios th{ text-align:left; font-size:11.5px; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-soft); font-weight:600; padding:8px 6px; border-bottom:1px solid var(--line); }
+  .tabla-socios{ width:100%; border-collapse:collapse; font-size:14px; }
+  .tabla-socios th{ text-align:left; font-size:14px; color:var(--ink-soft); font-weight:600; padding:8px 6px; border-bottom:1px solid var(--line); }
   .tabla-socios td{ padding:9px 6px; border-bottom:1px solid var(--line); vertical-align:top; }
   .tabla-socios tr.fila:hover td{ background:#FAF8F2; cursor:pointer; }
   .tabla-socios tr.abierta td{ background:#F3F7FC; }
-  .tabla-socios .sub{ color:var(--ink-soft); font-size:12px; }
-  .mono{ font-family:ui-monospace, Menlo, Consolas, monospace; font-size:12.5px; }
+  .tabla-socios .sub{ color:var(--ink-soft); font-size:14px; }
+  .mono{ font-family:ui-monospace, Menlo, Consolas, monospace; font-size:14px; }
   .detalle{ padding:6px 2px 18px; }
   .bloque{ border:1px solid var(--line); border-radius:var(--radius); background:#fff; padding:16px; margin-top:14px; }
-  .bloque h3{ font-family:'Space Grotesk', sans-serif; font-size:15px; margin:0 0 12px; display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; }
+  .bloque h3{ font-family:var(--font-title); font-size:15px; margin:0 0 12px; display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; }
   .grid3{ display:grid; grid-template-columns:repeat(3, 1fr); gap:10px 14px; }
   .grid4{ display:grid; grid-template-columns:repeat(4, 1fr); gap:10px 14px; }
   @media (max-width:700px){ .grid3, .grid4{ grid-template-columns:1fr 1fr; } }
   @media (max-width:440px){ .grid3, .grid4{ grid-template-columns:1fr; } }
   .grid3 .field, .grid4 .field{ margin:0; }
-  .field label{ font-size:12px; }
+  .field label{ font-size:14px; }
   .persona{ border-top:1px dashed var(--line); padding-top:14px; margin-top:14px; }
   .persona:first-of-type{ border-top:none; padding-top:0; margin-top:0; }
   .persona-head{ display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:10px; font-weight:600; font-size:14px; }
   .acciones{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top:12px; }
-  .dato-ro{ font-size:13.5px; } .dato-ro span{ color:var(--ink-soft); font-size:12px; display:block; }
-  .resumen-solicitud dl{ display:grid; grid-template-columns:max-content 1fr; gap:4px 14px; margin:6px 0 0; font-size:13.5px; }
+  .dato-ro{ font-size:14px; } .dato-ro span{ color:var(--ink-soft); font-size:14px; display:block; }
+  .resumen-solicitud dl{ display:grid; grid-template-columns:max-content 1fr; gap:4px 14px; margin:6px 0 0; font-size:14px; }
   .resumen-solicitud dt{ color:var(--ink-soft); }
   .resumen-solicitud dd{ margin:0; }
   .falta{ color:var(--red); font-weight:600; }
   .solicitud{ border:1px solid var(--line); border-left:4px solid var(--navy); padding:16px; margin-bottom:18px; background:#fff; }
   .solicitud.reactivacion{ border-left-color:var(--gold); }
-  .msg-linea{ font-size:13px; margin:8px 0 0; }
+  .msg-linea{ font-size:14px; margin:8px 0 0; }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <div class="eyebrow">AMPA · Administración</div>
+  <div class="eyebrow">Administración</div>
   <h1>Socios</h1>
   <p class="lede">Todas las cuentas (activas, pendientes de pago y de baja) con todos sus datos. Desde aquí se aprueban las solicitudes de alta y de reactivación, se edita cualquier dato (incluido el número de socio) y se da de baja o se reactiva una cuenta.</p>
 
@@ -80,7 +77,7 @@
         </div>
         <button type="button" class="btn btn-outline" id="exportBtn">Exportar CSV</button>
       </div>
-      <p class="sub" id="contador" style="font-size:12.5px; color:var(--ink-soft); margin:0 0 6px;"></p>
+      <p class="sub" id="contador" style="font-size:14px; color:var(--ink-soft); margin:0 0 6px;"></p>
       <div style="overflow-x:auto;">
         <table class="tabla-socios">
           <thead><tr><th>Nº socio</th><th>Familia</th><th>Contacto</th><th>Alumnos</th><th>Estado</th></tr></thead>
@@ -174,7 +171,7 @@ async function htmlComprobantes(socioId) {
   if (!data || !data.length) return '<p class="falta">⚠ Sin comprobante de pago.</p>';
   const filas = await Promise.all(data.map(async c => {
     const url = await urlComprobante(c.archivo_url);
-    return `<div style="font-size:13.5px; padding:3px 0;">📎 ${url ? `<a href="${url}" target="_blank" rel="noopener">Ver comprobante</a>` : 'Archivo no disponible'} · subido el ${fecha(c.created_at)} ${c.verificado ? '<span class="sub">· verificado</span>' : '<b style="color:var(--gold);">· sin revisar</b>'}</div>`;
+    return `<div style="font-size:14px; padding:3px 0;">📎 ${url ? `<a href="${url}" target="_blank" rel="noopener">Ver comprobante</a>` : 'Archivo no disponible'} · subido el ${fecha(c.created_at)} ${c.verificado ? '<span class="sub">· verificado</span>' : '<b style="color:var(--gold);">· sin revisar</b>'}</div>`;
   }));
   return filas.join('');
 }
@@ -219,7 +216,7 @@ async function pintarSolicitudes() {
     div.innerHTML = `
       <div style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:baseline;">
         <b style="font-size:15.5px;">${reactivacion ? '🔁 Reactivación' : '🆕 Alta nueva'} — ${esc(s.adultos.map(a => a.nombre + ' ' + a.apellidos).join(' / ') || '(sin adultos)')}</b>
-        <span class="sub" style="font-size:12.5px; color:var(--ink-soft);">${reactivacion
+        <span class="sub" style="font-size:14px; color:var(--ink-soft);">${reactivacion
           ? 'Pedida el ' + fecha(s.reactivacion_solicitada_en) + ' · ahora: ' + badge(s.estado) + (s.numero_socio_completo ? ' · nº ' + esc(s.numero_socio_completo) : '')
           : 'Solicitada el ' + fecha(s.created_at)}</span>
       </div>
@@ -229,14 +226,14 @@ async function pintarSolicitudes() {
       <dl><dt>Forma de pago</dt><dd>${esc(s.forma_pago || 'Sin especificar')}</dd>${s.iban ? `<dt>IBAN</dt><dd class="mono">${esc(s.iban)}</dd>` : ''}${s.motivo_rechazo ? `<dt>Rechazo anterior</dt><dd>${esc(s.motivo_rechazo)}</dd>` : ''}</dl>
       ${s.adultos.map((a, i) => `<p class="section-label" style="margin:14px 0 4px;">${i === 0 ? 'Adulto principal' : 'Segundo adulto'}</p>${resumenPersona(a)}`).join('')}
       <p class="section-label" style="margin:14px 0 4px;">Alumnos (${s.alumnos.length})</p>
-      ${s.alumnos.length ? '<ul style="margin:4px 0; padding-left:18px; font-size:13.5px;">' + s.alumnos.map(resumenAlumno).join('') + '</ul>' : '<p class="empty-hint">Sin alumnos.</p>'}
+      ${s.alumnos.length ? '<ul style="margin:4px 0; padding-left:18px; font-size:14px;">' + s.alumnos.map(resumenAlumno).join('') + '</ul>' : '<p class="empty-hint">Sin alumnos.</p>'}
       <div class="acciones">
         <button class="btn btn-primary activarBtn">Activar cuenta y enviar bienvenida</button>
         <button class="btn btn-outline rechazarAbrirBtn">Rechazar…</button>
-        <button class="linklike editarBtn" style="font-size:13px;">Editar datos</button>
+        <button class="linklike editarBtn" style="font-size:14px;">Editar datos</button>
       </div>
       <div class="rechazoZona" style="display:none; margin-top:12px;">
-        <label style="font-size:13px;">Motivo del rechazo (se enviará por email a la familia) *</label>
+        <label style="font-size:14px;">Motivo del rechazo (se enviará por email a la familia) *</label>
         <textarea rows="3" class="motivoTxt" placeholder="Ej.: no hemos recibido la transferencia / el comprobante no se lee bien..."></textarea>
         <div class="acciones"><button class="btn btn-primary confirmarRechazoBtn" style="background:var(--red);">Rechazar y enviar email</button></div>
       </div>
@@ -372,7 +369,7 @@ function pintarDetalle(s, td) {
         <div class="field" style="grid-column: span 2;"><label>IBAN de la familia</label><input type="text" data-f="iban" value="${esc(s.iban || '')}"></div>
         <div class="dato-ro"><span>Cuenta creada</span>${fecha(s.created_at)}</div>
       </div>
-      ${s.motivo_rechazo ? `<p style="font-size:13px; margin:10px 0 0;"><b>Motivo de rechazo:</b> ${esc(s.motivo_rechazo)}</p>` : ''}
+      ${s.motivo_rechazo ? `<p style="font-size:14px; margin:10px 0 0;"><b>Motivo de rechazo:</b> ${esc(s.motivo_rechazo)}</p>` : ''}
       <div class="acciones"><button class="btn btn-primary guardarCuentaBtn">Guardar cuenta</button></div>
       <p class="msg-linea" style="display:none;"></p>
     </div>
@@ -382,10 +379,10 @@ function pintarDetalle(s, td) {
       <div class="acciones" style="margin-top:0;">
         ${s.estado !== 'activa' ? '<button class="btn btn-primary activarBtn">Activar cuenta y enviar bienvenida</button>' : ''}
         ${s.estado !== 'baja' ? '<button class="btn btn-outline bajaBtn" style="border-color:var(--red); color:var(--red);">Dar de baja</button>' : ''}
-        ${s.estado !== 'activa' && s.estado !== 'baja' ? '<button class="linklike rechazarAbrirBtn" style="font-size:13px;">Rechazar con motivo…</button>' : ''}
+        ${s.estado !== 'activa' && s.estado !== 'baja' ? '<button class="linklike rechazarAbrirBtn" style="font-size:14px;">Rechazar con motivo…</button>' : ''}
       </div>
       <div class="rechazoZona" style="display:none; margin-top:12px;">
-        <label style="font-size:13px;">Motivo (se enviará por email a la familia) *</label>
+        <label style="font-size:14px;">Motivo (se enviará por email a la familia) *</label>
         <textarea rows="3" class="motivoTxt"></textarea>
         <div class="acciones"><button class="btn btn-primary confirmarRechazoBtn" style="background:var(--red);">Rechazar y enviar email</button></div>
       </div>
@@ -403,7 +400,7 @@ function pintarDetalle(s, td) {
     </div>
 
     <div class="bloque" data-b="alumnos">
-      <h3>Alumnos (${s.alumnos.length}) <button class="btn btn-outline addAlumnoBtn" style="padding:6px 12px; font-size:12px;">+ Añadir alumno</button></h3>
+      <h3>Alumnos (${s.alumnos.length}) <button class="btn btn-outline addAlumnoBtn" style="padding:6px 12px; font-size:14px;">+ Añadir alumno</button></h3>
       <div class="alumnosWrap"></div>
     </div>
   `;
@@ -521,7 +518,7 @@ function pintarDetalle(s, td) {
         ${select('Aula', 'aula', al.aula, ['A', 'B', 'C', 'D'], 'Sin especificar')}
         <div class="field"><label>&nbsp;</label><label style="display:flex; gap:6px; align-items:center; font-weight:400;"><input type="checkbox" data-f="verificado" style="width:auto;" ${al.verificado ? 'checked' : ''}> Matrícula verificada</label></div>
       </div>
-      <div class="acciones"><button class="btn btn-primary guardarBtn">${nuevo ? 'Añadir alumno' : 'Guardar alumno'}</button>${nuevo ? '<button class="linklike cancelarBtn" style="font-size:13px;">Cancelar</button>' : ''}</div>
+      <div class="acciones"><button class="btn btn-primary guardarBtn">${nuevo ? 'Añadir alumno' : 'Guardar alumno'}</button>${nuevo ? '<button class="linklike cancelarBtn" style="font-size:14px;">Cancelar</button>' : ''}</div>
       <p class="msg-linea" style="display:none;"></p>`;
     const msg = lineaMsg(div);
     div.querySelector('[data-f="etapa"]').addEventListener('change', (e) => {

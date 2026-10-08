@@ -5,22 +5,19 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Domiciliación SEPA · Admin AMPA</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="shared/styles.css">
 <style>
   .two-col{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
   @media (max-width:560px){ .two-col{ grid-template-columns:1fr; } }
-  .tabs{ display:flex; gap:6px; margin-bottom:20px; flex-wrap:wrap; }
-  .tabs button{ font-family:'Inter', sans-serif; font-size:12.5px; text-transform:uppercase; padding:9px 14px; border-radius:var(--radius); border:1px solid var(--line); background:#fff; color:var(--ink-soft); cursor:pointer; }
-  .tabs button.active{ background:var(--navy); color:#fff; border-color:var(--navy); }
   .panel{ display:none; } .panel.active{ display:block; }
-  .fila-mandato{ padding:12px 0; border-bottom:1px solid var(--line); font-size:13.5px; }
+  .fila-mandato{ padding:12px 0; border-bottom:1px solid var(--line); font-size:14px; }
   .fila-mandato:last-child{ border-bottom:none; }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <div class="eyebrow">AMPA · Administración</div>
+  <div class="eyebrow">Administración</div>
   <h1>Domiciliación bancaria (SEPA)</h1>
   <p class="lede">Configura la plantilla del mandato una sola vez; cada socio la rellena y firma desde "Mis datos".</p>
 
@@ -33,7 +30,7 @@
   <div class="panel active" id="panel-plantilla">
     <div class="card">
       <p class="section-label">Datos del acreedor (el AMPA)</p>
-      <p style="font-size:12.5px; color:var(--ink-soft); margin-top:-8px;">Estos datos se rellenan solos en cada mandato que firme un socio.</p>
+      <p style="font-size:14px; color:var(--ink-soft); margin-top:-8px;">Estos datos se rellenan solos en cada mandato que firme un socio.</p>
       <div class="field"><label>Identificador del acreedor</label><input type="text" id="acIdentificador"></div>
       <div class="field" style="margin-top:14px;"><label>Nombre del acreedor</label><input type="text" id="acNombre"></div>
       <div class="field" style="margin-top:14px;"><label>Dirección</label><input type="text" id="acDireccion"></div>
@@ -56,7 +53,7 @@
 
     <div class="card">
       <p class="section-label">Colocar los campos en la plantilla</p>
-      <p style="font-size:12.5px; color:var(--ink-soft); margin-top:-8px;">
+      <p style="font-size:14px; color:var(--ink-soft); margin-top:-8px;">
         Guarda la plantilla primero. Los campos de acreedor y "tipo de pago (fijo)" se rellenan solos; el resto los completa el socio.
       </p>
       <div id="editorWrap"><p class="empty-hint">Sube primero un PDF de plantilla.</p></div>

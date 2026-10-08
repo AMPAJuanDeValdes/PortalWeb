@@ -5,13 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Eventos (admin) · AMPA Juan de Valdés</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="shared/styles.css">
 <style>
   .two-col{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
   @media (max-width:560px){ .two-col{ grid-template-columns:1fr; } }
   .cursos-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(110px,1fr)); gap:6px; margin-top:8px; }
-  .cursos-grid label{ font-weight:400; font-size:12.5px; display:flex; align-items:center; gap:6px; }
+  .cursos-grid label{ font-weight:400; font-size:14px; display:flex; align-items:center; gap:6px; }
   .evento-row{ padding:14px 0; border-bottom:1px solid var(--line); }
   .evento-row:last-child{ border-bottom:none; }
   .actividad-item{ border:1px solid var(--line); border-radius:var(--radius); padding:12px; margin-top:10px; }
@@ -19,7 +19,7 @@
 </head>
 <body>
 <div class="wrap">
-  <div class="eyebrow">AMPA · Administración</div>
+  <div class="eyebrow">Administración</div>
   <h1>Eventos</h1>
 
   <div class="card">
@@ -240,7 +240,7 @@ async function cargarEventos() {
     row.innerHTML =
       '<div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px;">' +
         '<div><b>' + ev.titulo + '</b> ' + (ev.activo ? '' : '<span class="badge badge-socio">Oculto</span>') + '<br>' +
-          '<span style="font-size:12.5px; color:var(--ink-soft);">' +
+          '<span style="font-size:14px; color:var(--ink-soft);">' +
             (ev.fecha ? new Date(ev.fecha).toLocaleString('es-ES') : 'Sin fecha') + ' · ' + ev.tipo_elegibilidad +
           '</span></div>' +
         '<div style="display:flex; gap:8px; flex-wrap:wrap;">' +
@@ -410,9 +410,9 @@ async function renderActividades(panel, evento) {
     item.innerHTML =
       '<div style="display:flex; justify-content:space-between;"><b>' + act.nombre + '</b>' +
         '<button class="btn-danger-link borrarActBtn">Borrar</button></div>' +
-      '<p style="font-size:12.5px; color:var(--ink-soft); margin:4px 0;">' + (act.horario || '') + (act.aforo ? ' · Aforo: ' + act.aforo : '') + '</p>' +
+      '<p style="font-size:14px; color:var(--ink-soft); margin:4px 0;">' + (act.horario || '') + (act.aforo ? ' · Aforo: ' + act.aforo : '') + '</p>' +
       (otras.length
-        ? '<label style="font-size:12.5px; color:var(--ink-soft);">Excluye a:</label><div class="cursos-grid">' +
+        ? '<label style="font-size:14px; color:var(--ink-soft);">Excluye a:</label><div class="cursos-grid">' +
           otras.map(o => '<label><input type="checkbox" class="exclCb" data-otro="' + o.id + '" ' + (excluidasActuales.includes(o.id) ? 'checked' : '') + '> ' + o.nombre + '</label>').join('') +
           '</div>'
         : '');
@@ -536,7 +536,7 @@ async function renderDocsEvento(panel, evento) {
         <b>${doc.titulo}</b>
         <button class="btn-danger-link docBorrarBtn">Borrar</button>
       </div>
-      <p style="font-size:12.5px; color:var(--ink-soft); margin:4px 0;">
+      <p style="font-size:14px; color:var(--ink-soft); margin:4px 0;">
         Rellena: ${doc.aplica_a === 'adulto' ? 'un adulto' : 'un alumno'} · página ${doc.pagina_rellenable} · ${(doc.campos || []).length} campos
       </p>
       <button class="btn btn-outline docEditarBtn">Editar plantilla</button>
@@ -597,7 +597,7 @@ async function renderConcursoEvento(panel, evento) {
     }
 
     item.innerHTML = `
-      <p style="white-space:pre-wrap; font-size:13.5px;">${envio.texto}</p>
+      <p style="white-space:pre-wrap; font-size:14px;">${envio.texto}</p>
       ${identidadHtml}
       <button type="button" class="btn ${envio.es_ganador ? 'btn-danger-link' : 'btn-outline'} marcarBtn" style="margin-top:8px;">
         ${envio.es_ganador ? 'Desmarcar ganador' : 'Marcar como ganador'}

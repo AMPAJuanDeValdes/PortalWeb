@@ -3,91 +3,170 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Carrusel de portada · Admin AMPA</title>
+<title>Fotos y vídeos de portada · Admin AMPA</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="shared/styles.css">
 <style>
-  .foto-row{ display:flex; align-items:center; gap:14px; padding:10px 0; border-bottom:1px solid var(--line); }
-  .foto-row:last-child{ border-bottom:none; }
-  .foto-row img{ width:90px; height:64px; object-fit:cover; border-radius:var(--radius); border:1px solid var(--line); }
-  .foto-row input[type=number]{ width:70px; }
+  .fila{ display:flex; align-items:center; gap:14px; padding:12px 0; border-bottom:1px solid var(--line); flex-wrap:wrap; }
+  .fila:last-child{ border-bottom:none; }
+  .fila img{ width:120px; height:76px; object-fit:cover; border-radius:10px; flex-shrink:0; background:#E9EEF4; }
+  .fila .datos{ flex:1 1 240px; min-width:0; display:flex; flex-direction:column; gap:8px; }
+  .fila .orden{ width:90px; }
+  .fila .orden input{ width:90px; }
+  .ayuda{ color:var(--ink-soft); font-size:15px; margin:0 0 14px; }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <div class="eyebrow">AMPA · Administración</div>
-  <h1>Carrusel de portada</h1>
-  <p class="lede">Fotos que aparecen en el carrusel de la página principal.</p>
+  <div class="eyebrow">Administración</div>
+  <h1>Fotos y vídeos de portada</h1>
+  <p class="lede">Lo que se ve en la web pública en «Así lo vivimos» y «Vídeos». Si no hay fotos o vídeos, esa parte no aparece en la portada.</p>
 
-  <div class="card">
-    <p class="section-label">Subir foto</p>
-    <input type="file" id="fotoFile" accept="image/*">
-    <button type="button" class="btn btn-primary" id="subirBtn" style="margin-top:14px;">Subir al carrusel</button>
-    <p id="msg" style="display:none; margin-top:14px;"></p>
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="fotos">Fotos</button>
+    <button class="tab-btn" data-tab="videos">Vídeos</button>
   </div>
 
-  <div class="card">
-    <p class="section-label">Fotos actuales (el número de orden decide en qué posición aparecen)</p>
-    <div id="listaWrap"><p class="loading">Cargando...</p></div>
+  <div id="tab-fotos">
+    <div class="card">
+      <p class="section-label">Subir fotos</p>
+      <p class="ayuda">Puedes elegir varias a la vez. Mejor fotos apaisadas y sin caras de menores en primer plano si no tenéis permiso.</p>
+      <div class="field"><label for="fotoFile">Fotos</label><input type="file" id="fotoFile" accept="image/*" multiple></div>
+      <div class="field"><label for="fotoPie">Texto bajo la foto (opcional)</label><input type="text" id="fotoPie" placeholder="Ej. Chocolatada de Navidad 2025"></div>
+      <button type="button" class="btn btn-primary" id="subirBtn">Subir fotos</button>
+      <p id="msg" style="display:none;"></p>
+    </div>
+    <div class="card">
+      <p class="section-label">Fotos en la portada</p>
+      <p class="ayuda">El número de orden decide la posición (de menor a mayor). Los cambios se guardan al salir de cada campo.</p>
+      <div id="listaWrap"><p class="loading">Cargando...</p></div>
+    </div>
   </div>
 
-  <footer class="note"><b>AMPA Colegio Juan de Valdés</b> — panel de administración</footer>
+  <div id="tab-videos" hidden>
+    <div class="card">
+      <p class="section-label">Añadir vídeo</p>
+      <p class="ayuda">Sube el vídeo a YouTube (puede ser «oculto», así solo se ve desde aquí) y pega el enlace.</p>
+      <div class="field"><label for="vUrl">Enlace de YouTube</label><input type="url" id="vUrl" placeholder="https://youtu.be/..."></div>
+      <div class="field"><label for="vTitulo">Título</label><input type="text" id="vTitulo" placeholder="Ej. Barbacoa de fin de curso"></div>
+      <button type="button" class="btn btn-primary" id="vBtn">Añadir vídeo</button>
+      <p id="vMsg" style="display:none;"></p>
+    </div>
+    <div class="card">
+      <p class="section-label">Vídeos en la portada</p>
+      <p class="ayuda">El primero (orden más bajo) es el que se ve en grande.</p>
+      <div id="vLista"><p class="loading">Cargando...</p></div>
+    </div>
+  </div>
 </div>
-
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="shared/supabaseClient.js"></script>
 <script src="shared/nav.js"></script>
 <script>
+const esc = (t) => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+function aviso(id, ok, texto) { const m = document.getElementById(id); m.style.display = 'block'; m.className = ok ? 'msg-ok' : 'msg-error'; m.textContent = texto; }
+
+document.querySelectorAll('.tab-btn').forEach(btn => btn.addEventListener('click', () => {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b === btn));
+  document.getElementById('tab-fotos').hidden = btn.dataset.tab !== 'fotos';
+  document.getElementById('tab-videos').hidden = btn.dataset.tab !== 'videos';
+}));
+
+/* ================= FOTOS ================= */
 document.getElementById('subirBtn').addEventListener('click', async () => {
-  const file = document.getElementById('fotoFile').files[0];
-  const msg = document.getElementById('msg');
+  const files = [...document.getElementById('fotoFile').files];
+  const pie = document.getElementById('fotoPie').value.trim() || null;
   const btn = document.getElementById('subirBtn');
-  if (!file) { msg.style.display = 'block'; msg.className = 'msg-error'; msg.textContent = 'Selecciona una foto.'; return; }
-
-  btn.disabled = true; btn.textContent = 'Subiendo...';
-  const path = `portada/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_')}`;
-  const { error: upErr } = await sb.storage.from('carrusel').upload(path, file);
-  if (upErr) {
-    msg.style.display = 'block'; msg.className = 'msg-error'; msg.textContent = 'Error al subir: ' + upErr.message;
-    btn.disabled = false; btn.textContent = 'Subir al carrusel';
-    return;
+  if (!files.length) { aviso('msg', false, 'Elige al menos una foto.'); return; }
+  btn.disabled = true;
+  const { data: ultimas } = await sb.from('fotos_carrusel').select('orden').is('evento_id', null).order('orden', { ascending: false }).limit(1);
+  let orden = ultimas && ultimas.length ? ultimas[0].orden + 1 : 0;
+  let subidas = 0;
+  for (const file of files) {
+    btn.textContent = `Subiendo ${subidas + 1} de ${files.length}...`;
+    const path = `portada/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_')}`;
+    const { error: upErr } = await sb.storage.from('carrusel').upload(path, file);
+    if (upErr) { aviso('msg', false, `Error al subir ${file.name}: ${upErr.message}`); break; }
+    const { data: urlData } = sb.storage.from('carrusel').getPublicUrl(path);
+    const { error: insErr } = await sb.from('fotos_carrusel').insert({ url: urlData.publicUrl, orden: orden++, pie });
+    if (insErr) { aviso('msg', false, 'Error: ' + insErr.message); break; }
+    subidas++;
   }
-  const { data: urlData } = sb.storage.from('carrusel').getPublicUrl(path);
-  const { count } = await sb.from('fotos_carrusel').select('id', { count: 'exact', head: true }).is('evento_id', null);
-  const { error: insErr } = await sb.from('fotos_carrusel').insert({ url: urlData.publicUrl, orden: count || 0 });
-
-  msg.style.display = 'block';
-  msg.className = insErr ? 'msg-error' : 'msg-ok';
-  msg.textContent = insErr ? 'Error: ' + insErr.message : 'Foto añadida ✓';
-  btn.disabled = false; btn.textContent = 'Subir al carrusel';
-  if (!insErr) { document.getElementById('fotoFile').value = ''; cargarLista(); }
+  if (subidas === files.length) aviso('msg', true, subidas === 1 ? 'Foto añadida.' : `${subidas} fotos añadidas.`);
+  btn.disabled = false; btn.textContent = 'Subir fotos';
+  document.getElementById('fotoFile').value = '';
+  cargarFotos();
 });
 
-async function cargarLista() {
+async function cargarFotos() {
   const wrap = document.getElementById('listaWrap');
   const { data, error } = await sb.from('fotos_carrusel').select('*').is('evento_id', null).order('orden');
-  if (error) { wrap.innerHTML = '<p class="msg-error">No se pudo cargar.</p>'; return; }
-  if (!data || data.length === 0) { wrap.innerHTML = '<p class="empty-hint">Todavía no hay fotos.</p>'; return; }
-
-  wrap.innerHTML = '';
-  data.forEach(f => {
-    const row = document.createElement('div');
-    row.className = 'foto-row';
-    row.innerHTML = `
-      <img src="${f.url}" alt="">
-      <input type="number" value="${f.orden}" class="ordenInput">
-      <button class="btn-danger-link">Borrar</button>
-    `;
-    row.querySelector('.ordenInput').addEventListener('change', async (e) => {
-      await sb.from('fotos_carrusel').update({ orden: parseInt(e.target.value, 10) || 0 }).eq('id', f.id);
-    });
+  if (error) { wrap.innerHTML = '<p class="msg-error">No se pudieron cargar las fotos.</p>'; return; }
+  if (!data || !data.length) { wrap.innerHTML = '<p class="empty-hint">No hay fotos: la portada no muestra el carrusel.</p>'; return; }
+  wrap.innerHTML = data.map(f => `
+    <div class="fila" data-id="${f.id}">
+      <img src="${esc(f.url)}" alt="">
+      <div class="datos">
+        <input type="text" class="pie" value="${esc(f.pie || '')}" placeholder="Texto bajo la foto" aria-label="Texto bajo la foto">
+      </div>
+      <div class="orden"><input type="number" class="ordenInput" value="${f.orden}" aria-label="Orden"></div>
+      <button class="btn-danger-link">Quitar</button>
+    </div>`).join('');
+  wrap.querySelectorAll('.fila').forEach(row => {
+    const id = row.dataset.id;
+    row.querySelector('.pie').addEventListener('change', e => sb.from('fotos_carrusel').update({ pie: e.target.value.trim() || null }).eq('id', id));
+    row.querySelector('.ordenInput').addEventListener('change', async e => { await sb.from('fotos_carrusel').update({ orden: parseInt(e.target.value, 10) || 0 }).eq('id', id); cargarFotos(); });
     row.querySelector('.btn-danger-link').addEventListener('click', async () => {
-      if (!confirm('¿Quitar esta foto del carrusel?')) return;
-      await sb.from('fotos_carrusel').delete().eq('id', f.id);
-      cargarLista();
+      if (!confirm('¿Quitar esta foto de la portada?')) return;
+      await sb.from('fotos_carrusel').delete().eq('id', id);
+      cargarFotos();
     });
-    wrap.appendChild(row);
+  });
+}
+
+/* ================= VÍDEOS ================= */
+// Saca el identificador de cualquier enlace de YouTube (watch, youtu.be, shorts, embed)
+function idYoutube(url) {
+  const m = String(url).trim().match(/(?:youtu\.be\/|youtube(?:-nocookie)?\.com\/(?:watch\?(?:.*&)?v=|shorts\/|embed\/|live\/))([A-Za-z0-9_-]{11})/);
+  return m ? m[1] : (/^[A-Za-z0-9_-]{11}$/.test(String(url).trim()) ? String(url).trim() : null);
+}
+
+document.getElementById('vBtn').addEventListener('click', async () => {
+  const id = idYoutube(document.getElementById('vUrl').value);
+  const titulo = document.getElementById('vTitulo').value.trim();
+  if (!id) { aviso('vMsg', false, 'Ese enlace no parece de YouTube. Copia el enlace del botón «Compartir» del vídeo.'); return; }
+  if (!titulo) { aviso('vMsg', false, 'Escribe un título.'); return; }
+  const { data: ultimos } = await sb.from('videos_portada').select('orden').order('orden', { ascending: false }).limit(1);
+  const orden = ultimos && ultimos.length ? ultimos[0].orden + 1 : 0;
+  const { error } = await sb.from('videos_portada').insert({ youtube_id: id, titulo, orden });
+  if (error) { aviso('vMsg', false, /videos_portada/.test(error.message) ? 'Falta ejecutar supabase/migracion-portada.sql en Supabase.' : error.message); return; }
+  aviso('vMsg', true, 'Vídeo añadido.');
+  document.getElementById('vUrl').value = ''; document.getElementById('vTitulo').value = '';
+  cargarVideos();
+});
+
+async function cargarVideos() {
+  const wrap = document.getElementById('vLista');
+  const { data, error } = await sb.from('videos_portada').select('*').order('orden');
+  if (error) { wrap.innerHTML = '<p class="msg-error">' + (/videos_portada/.test(error.message) ? 'Falta ejecutar supabase/migracion-portada.sql en Supabase.' : 'No se pudieron cargar los vídeos.') + '</p>'; return; }
+  if (!data || !data.length) { wrap.innerHTML = '<p class="empty-hint">No hay vídeos: la portada no muestra esa parte.</p>'; return; }
+  wrap.innerHTML = data.map(v => `
+    <div class="fila" data-id="${v.id}">
+      <img src="https://i.ytimg.com/vi/${encodeURIComponent(v.youtube_id)}/hqdefault.jpg" alt="">
+      <div class="datos"><input type="text" class="titulo" value="${esc(v.titulo)}" aria-label="Título"></div>
+      <div class="orden"><input type="number" class="ordenInput" value="${v.orden}" aria-label="Orden"></div>
+      <button class="btn-danger-link">Quitar</button>
+    </div>`).join('');
+  wrap.querySelectorAll('.fila').forEach(row => {
+    const id = row.dataset.id;
+    row.querySelector('.titulo').addEventListener('change', e => { if (e.target.value.trim()) sb.from('videos_portada').update({ titulo: e.target.value.trim() }).eq('id', id); });
+    row.querySelector('.ordenInput').addEventListener('change', async e => { await sb.from('videos_portada').update({ orden: parseInt(e.target.value, 10) || 0 }).eq('id', id); cargarVideos(); });
+    row.querySelector('.btn-danger-link').addEventListener('click', async () => {
+      if (!confirm('¿Quitar este vídeo de la portada?')) return;
+      await sb.from('videos_portada').delete().eq('id', id);
+      cargarVideos();
+    });
   });
 }
 
@@ -95,7 +174,7 @@ async function cargarLista() {
   const ctx = await requireAdmin();
   if (!ctx) return;
   renderNav('admin-carrusel', ctx);
-  await cargarLista();
+  cargarFotos(); cargarVideos();
 })();
 </script>
 </body>

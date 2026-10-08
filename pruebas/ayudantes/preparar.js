@@ -16,6 +16,11 @@ module.exports = async function preparar() {
   const { error: errMig2 } = await admin.from('libros_compras').select('id', { head: true });
   if (errMig2) throw new Error('Falta ejecutar supabase/migracion-libros-uniformes.sql en Supabase (' + errMig2.message + ')');
 
+  const { data: titulos } = await admin.from('libros_catalogo').select('titulo');
+  const vistos = new Set(), repetidos = new Set();
+  (titulos || []).forEach(t => { const k = t.titulo.trim().toLowerCase(); (vistos.has(k) ? repetidos : vistos).add(k); });
+  if (repetidos.size) throw new Error('Hay títulos repetidos en el catálogo de libros (' + [...repetidos].join(', ') + '). Ejecuta supabase/migracion-fusionar-libros-repetidos.sql en Supabase');
+
   await require('./limpiar')();
   console.log(`\n▶ Probando ${process.env.SITE_URL} (ejecución ${process.env.RUN_ID})\n`);
 };

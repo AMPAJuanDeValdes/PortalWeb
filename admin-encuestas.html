@@ -5,22 +5,19 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Encuestas · Admin AMPA</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="shared/styles.css">
 <style>
-  .tabs{ display:flex; gap:6px; margin-bottom:20px; flex-wrap:wrap; }
-  .tabs button{ font-family:'Inter', sans-serif; font-size:12.5px; text-transform:uppercase; padding:9px 14px; border-radius:var(--radius); border:1px solid var(--line); background:#fff; color:var(--ink-soft); cursor:pointer; }
-  .tabs button.active{ background:var(--navy); color:#fff; border-color:var(--navy); }
   .panel{ display:none; } .panel.active{ display:block; }
-  .pregunta-staged{ border:1px solid var(--line); border-radius:var(--radius); padding:12px; margin-bottom:10px; font-size:13.5px; }
+  .pregunta-staged{ border:1px solid var(--line); border-radius:var(--radius); padding:12px; margin-bottom:10px; font-size:14px; }
   .encuesta-fila{ padding:14px 0; border-bottom:1px solid var(--line); }
   .encuesta-fila:last-child{ border-bottom:none; }
-  .resultado-opcion{ display:flex; justify-content:space-between; padding:4px 0; font-size:13.5px; border-bottom:1px solid #F1EFE8; }
+  .resultado-opcion{ display:flex; justify-content:space-between; padding:4px 0; font-size:14px; border-bottom:1px solid #F1EFE8; }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <div class="eyebrow">AMPA · Administración</div>
+  <div class="eyebrow">Administración</div>
   <h1>Encuestas</h1>
   <p class="lede">Crea encuestas, revisa resultados y cruza respuestas entre preguntas.</p>
 
@@ -252,7 +249,7 @@ async function cargarResultados(encuestaId, wrap) {
       <p class="section-label" style="margin-top:22px;">Consulta cruzada</p>
       <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
         <select class="cruzarA">${preguntasOpcion.map(p => `<option value="${p.id}">${p.texto}</option>`).join('')}</select>
-        <span style="color:var(--ink-soft); font-size:13px;">vs.</span>
+        <span style="color:var(--ink-soft); font-size:14px;">vs.</span>
         <select class="cruzarB">${preguntasOpcion.map((p, i) => `<option value="${p.id}" ${i === 1 ? 'selected' : ''}>${p.texto}</option>`).join('')}</select>
         <button type="button" class="btn btn-outline cruzarBtn">Cruzar</button>
       </div>
