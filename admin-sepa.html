@@ -19,10 +19,10 @@
 <div class="wrap">
   <div class="eyebrow">Administración</div>
   <h1>Domiciliación bancaria (SEPA)</h1>
-  <p class="lede">Configura la plantilla del mandato una sola vez; cada socio la rellena y firma desde "Mis datos".</p>
+  <p class="lede">Cada socio domicilia la cuota desde "Mis datos": revisa sus datos, firma y queda guardado el mandato en PDF.</p>
 
   <div class="tabs">
-    <button class="tab-btn active" data-tab="plantilla">Plantilla y acreedor</button>
+    <button class="tab-btn active" data-tab="plantilla">Documento y acreedor</button>
     <button class="tab-btn" data-tab="mandatos">Mandatos firmados</button>
   </div>
 
@@ -30,7 +30,7 @@
   <div class="panel active" id="panel-plantilla">
     <div class="card">
       <p class="section-label">Datos del acreedor (el AMPA)</p>
-      <p style="font-size:14px; color:var(--ink-soft); margin-top:-8px;">Estos datos se rellenan solos en cada mandato que firme un socio.</p>
+      <p style="font-size:14px; color:var(--ink-soft); margin-top:-8px;">Para tenerlos a mano (ya vienen impresos en el documento).</p>
       <div class="field"><label>Identificador del acreedor</label><input type="text" id="acIdentificador"></div>
       <div class="field" style="margin-top:14px;"><label>Nombre del acreedor</label><input type="text" id="acNombre"></div>
       <div class="field" style="margin-top:14px;"><label>Dirección</label><input type="text" id="acDireccion"></div>
@@ -43,20 +43,10 @@
     </div>
 
     <div class="card">
-      <p class="section-label">Plantilla del mandato (PDF)</p>
-      <div id="plantillaActualWrap" style="margin-bottom:14px;"></div>
-      <input type="file" id="plantillaFile" accept="application/pdf">
-      <div class="field" style="margin-top:14px; max-width:160px;"><label>Página rellenable</label><input type="number" id="plantillaPagina" min="1" value="1"></div>
-      <button type="button" class="btn btn-primary" id="subirPlantillaBtn" style="margin-top:14px;">Subir / reemplazar plantilla</button>
-      <p id="plantillaMsg" style="display:none; margin-top:14px;"></p>
-    </div>
-
-    <div class="card">
-      <p class="section-label">Colocar los campos en la plantilla</p>
-      <p style="font-size:14px; color:var(--ink-soft); margin-top:-8px;">
-        Guarda la plantilla primero. Los campos de acreedor y "tipo de pago (fijo)" se rellenan solos; el resto los completa el socio.
-      </p>
-      <div id="editorWrap"><p class="empty-hint">Sube primero un PDF de plantilla.</p></div>
+      <p class="section-label">Documento del mandato</p>
+      <p style="font-size:15px; margin-top:-4px;">Cada socio solo revisa sus datos y firma en pantalla. El portal escribe sus datos, el IBAN, la fecha y la firma en su sitio sobre el impreso del AMPA (<code>assets/mandato-sepa-ampa.pdf</code>) y guarda el PDF firmado.</p>
+      <button type="button" class="btn btn-outline" id="ejemploBtn">Ver un mandato de ejemplo</button>
+      <p id="ejemploMsg" style="display:none; margin-top:12px;"></p>
     </div>
   </div>
 
@@ -70,7 +60,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="shared/supabaseClient.js"></script>
 <script src="shared/nav.js"></script>
-<script src="shared/documentoRellenable.js"></script>
+<script src="shared/mandatoSepa.js"></script>
 <script>
 document.querySelectorAll('.tab-btn').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -94,15 +84,7 @@ async function cargarConfig() {
   document.getElementById('acDireccion').value = data.direccion_acreedor || '';
   document.getElementById('acCp').value = data.cp_acreedor || '';
   document.getElementById('acPais').value = data.pais_acreedor || 'España';
-  document.getElementById('plantillaPagina').value = data.pagina_rellenable || 1;
 
-  const wrap = document.getElementById('plantillaActualWrap');
-  if (data.archivo_base_url) {
-    wrap.innerHTML = `<p class="msg-ok" style="margin:0;">Ya hay una plantilla subida (página ${data.pagina_rellenable}).</p>`;
-    await cargarEditor();
-  } else {
-    wrap.innerHTML = '<p class="empty-hint">Todavía no se ha subido ninguna plantilla.</p>';
-  }
 }
 
 document.getElementById('guardarAcreedorBtn').addEventListener('click', async () => {
@@ -121,41 +103,19 @@ document.getElementById('guardarAcreedorBtn').addEventListener('click', async ()
   if (!error) cargarConfig();
 });
 
-document.getElementById('subirPlantillaBtn').addEventListener('click', async () => {
-  const file = document.getElementById('plantillaFile').files[0];
-  const pagina = parseInt(document.getElementById('plantillaPagina').value, 10) || 1;
-  const msg = document.getElementById('plantillaMsg');
-  if (!file) { msg.style.display = 'block'; msg.className = 'msg-error'; msg.textContent = 'Selecciona un PDF.'; return; }
-
-  const path = `plantilla-${Date.now()}.pdf`;
-  const { error: upErr } = await sb.storage.from('mandato-sepa-plantilla').upload(path, file, { upsert: true });
-  if (upErr) { msg.style.display = 'block'; msg.className = 'msg-error'; msg.textContent = 'Error al subir: ' + upErr.message; return; }
-
-  const { data: urlData } = sb.storage.from('mandato-sepa-plantilla').getPublicUrl(path);
-  const { error } = await sb.from('mandato_sepa_config').update({
-    archivo_base_url: urlData.publicUrl, pagina_rellenable: pagina, campos: [], updated_at: new Date().toISOString()
-  }).eq('id', 1);
-
-  msg.style.display = 'block';
-  msg.className = error ? 'msg-error' : 'msg-ok';
-  msg.textContent = error ? 'Error: ' + error.message : 'Plantilla subida ✓ (los campos se han reiniciado, vuelve a colocarlos)';
-  if (!error) cargarConfig();
-});
-
-async function cargarEditor() {
-  const wrap = document.getElementById('editorWrap');
-  wrap.innerHTML = '<p class="loading">Cargando documento...</p>';
+document.getElementById('ejemploBtn').addEventListener('click', async () => {
+  const msg = document.getElementById('ejemploMsg');
+  msg.style.display = 'block'; msg.className = ''; msg.textContent = 'Generando...';
   try {
-    const { dataUrl } = await renderizarPaginaPDF(configActual.archivo_base_url, configActual.pagina_rellenable);
-    abrirEditorPlantilla(wrap, dataUrl, configActual.campos || [], async (campos) => {
-      const { error } = await sb.from('mandato_sepa_config').update({ campos, updated_at: new Date().toISOString() }).eq('id', 1);
-      alert(error ? 'Error al guardar: ' + error.message : 'Plantilla guardada ✓');
-      if (!error) cargarConfig();
+    const blob = await generarMandatoSepaPdf({
+      referencia: '2026-0000', titular: 'Nombre Apellido Apellido', direccion: 'Calle Ejemplo 12, 3º A',
+      cpPoblacion: '28022 - Madrid - Madrid', pais: 'España', bic: 'CAIXESBB',
+      iban: 'ES9121000418450200051332', fechaLugar: new Date().toLocaleDateString('es-ES') + ' – Madrid'
     });
-  } catch (err) {
-    wrap.innerHTML = '<p class="msg-error">No se pudo cargar el PDF: ' + err.message + '</p>';
-  }
-}
+    window.open(URL.createObjectURL(blob), '_blank');
+    msg.style.display = 'none';
+  } catch (err) { msg.className = 'msg-error'; msg.textContent = 'No se pudo generar: ' + err.message; }
+});
 
 async function cargarMandatos() {
   const wrap = document.getElementById('mandatosWrap');
