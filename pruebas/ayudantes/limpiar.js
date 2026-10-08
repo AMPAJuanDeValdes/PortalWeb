@@ -33,6 +33,11 @@ module.exports = async function limpiar() {
   //    sesión; se borran sus entradas (las familias de prueba van al final)
   if (socios.length) await admin.from('mochila_cola').delete().in('socio_id', socios);
 
+  // Eventos de prueba (y sus inscripciones, en cascada) antes de borrar
+  // a las familias, que si no quedan referenciadas
+  await admin.from('eventos').delete().ilike('titulo', `${MARCA}%`);
+  if (socios.length) await admin.from('evento_inscripciones').delete().in('socio_id', socios);
+
   // 4. Borrar usuarios (sus fichas de adulto se borran en cascada) y familias
   for (const id of ids) await admin.auth.admin.deleteUser(id);
   if (socios.length) await admin.from('socios').delete().in('id', socios);

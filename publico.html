@@ -8,144 +8,222 @@
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="shared/styles.css">
 <style>
-  .top-simple{ max-width:760px; margin:0 auto; padding:32px 20px 0; }
-  .brand-row{ display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:14px; margin-bottom:16px; }
-  .logo-ampa{ height:44px; } .logo-colegio{ height:32px; }
-  .back-link{ font-family:var(--font-text); font-size:14px; color:var(--navy); text-decoration:none; }
-  .evento-card{ margin-bottom:18px; }
-  .evento-fecha{ font-family:var(--font-text); font-size:14px; color:var(--ink-soft); margin-bottom:4px; }
-  .cta-socio{ text-align:center; padding:32px 20px; }
-  .cta-socio .card{ display:inline-block; text-align:left; max-width:480px; }
+  .evento-card{ margin-bottom:22px; }
+  .evento-fecha{ font-size:15px; color:var(--ink-soft); margin:0 0 4px; font-weight:700; }
+  .etiquetas{ display:flex; flex-wrap:wrap; gap:8px; margin:10px 0 4px; }
+  .etiqueta{ display:inline-block; font-size:14px; font-weight:700; padding:3px 12px; border-radius:999px; background:#EEF4FB; color:var(--navy); }
+  .etiqueta.llena{ background:#FBE4E1; color:var(--red); }
+  .form-publico{ display:grid; gap:14px; margin-top:16px; padding-top:16px; border-top:1px solid var(--line); }
+  .form-publico h3{ font-size:18px; margin:6px 0 0; }
+  .dos{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  @media (max-width:560px){ .dos{ grid-template-columns:1fr; } }
+  .radios{ display:flex; gap:18px; flex-wrap:wrap; }
+  .radios label, .checks label{ font-weight:400; display:flex; gap:8px; align-items:center; margin:0; }
+  .checks{ display:grid; gap:8px; }
+  .cta-socio{ background:var(--libros-bg); border-radius:var(--radius-card); padding:24px; margin-top:32px; }
 </style>
 </head>
 <body>
-<div class="top-simple">
+<header class="pub-head">
   <div class="brand-row">
-    <img class="logo-ampa" src="assets/logo-ampa.png" alt="AMPA">
-    <img class="logo-colegio" src="assets/logo-colegio.png" alt="Colegio Juan de Valdés">
+    <a href="index.html"><img class="logo-ampa" src="assets/logo-ampa.png" alt="AMPA, ir a la portada"></a>
   </div>
-  <a class="back-link" href="index.html">‹ Volver a la web del AMPA</a>
-</div>
+  <nav class="pub-links">
+    <a href="index.html">Web del AMPA</a>
+    <a href="login.html">Entrar como socio</a>
+  </nav>
+</header>
 
 <div class="wrap">
-  <div class="eyebrow" style="margin-top:24px;">Comunidad educativa</div>
+  <div class="eyebrow">Para todas las familias</div>
   <h1>Eventos abiertos</h1>
-  <p class="lede">Eventos del AMPA abiertos a toda la comunidad, seas socio o no. Si el evento tiene coste, sube el comprobante de pago al apuntarte.</p>
+  <p class="lede">Actividades del AMPA en las que pueden participar también familias que no son socias.</p>
 
   <p id="loadingMsg" class="loading">Cargando eventos...</p>
   <div id="eventosContainer"></div>
 
   <div class="cta-socio">
-    <div class="card">
-      <p class="section-label">¿No eres socio todavía?</p>
-      <p style="font-size:14px; color:var(--ink-soft); margin-bottom:16px;">
-        Hacerte socio del AMPA te da acceso al préstamo de libros de lectura,
-        precios especiales en actividades y voz en las decisiones de la asociación.
-      </p>
-      <div style="display:flex; gap:10px; flex-wrap:wrap;">
-        <a href="hazte-socio.html" class="btn btn-primary">Quiero hacerme socio</a>
-        <a href="reactivar-cuenta.html" class="btn btn-outline">Ya fui socio: reactivar mi cuenta</a>
-      </div>
+    <h2>¿Aún no sois socios?</h2>
+    <p>Por 25 € al año por familia, los talleres son gratis y tenéis préstamo de libros, uniformes y todos los eventos del AMPA.</p>
+    <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
+      <a href="hazte-socio.html" class="btn btn-cta">Hazte socio</a>
+      <a href="reactivar-cuenta.html">Ya fui socio: reactivar mi cuenta</a>
     </div>
   </div>
-
-  <footer class="note"><b>AMPA Colegio Juan de Valdés</b></footer>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="shared/supabaseClient.js"></script>
+<script src="shared/datos-ampa.js"></script>
+<script src="shared/catalogo.js"></script>
 <script src="shared/carrusel.js"></script>
 <script>
-function formatFecha(f) { return f ? new Date(f).toLocaleString('es-ES', { dateStyle: 'full', timeStyle: 'short' }) : 'Fecha por confirmar'; }
+const esc = (t) => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const euros = (n) => Number(n).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+const fechaLarga = (f) => f ? new Date(f).toLocaleString('es-ES', { dateStyle: 'full', timeStyle: 'short' }) : 'Fecha por confirmar';
+const textoError = (e) => ((e && e.message) || String(e)).replace(/^.*?ERROR:\s*/, '');
+
+if (typeof AMPA_CUOTA_ANUAL !== 'undefined') {
+  document.querySelector('.cta-socio p').textContent = `Por ${AMPA_CUOTA_ANUAL} al año por familia, los talleres son gratis y tenéis préstamo de libros, uniformes y todos los eventos del AMPA.`;
+}
 
 async function cargarEventos() {
   const cont = document.getElementById('eventosContainer');
-  // Solo eventos marcados explícitamente como abiertos a no socios por
-  // el admin. abierto_no_socios es independiente de permite_invitados
-  // (ese es para que un SOCIO invite a alguien desde su propia cuenta,
-  // ej. la Chocolatada — nunca debe aparecer aquí).
-  const { data: eventos, error } = await sb
-    .from('eventos').select('*').eq('activo', true)
-    .eq('abierto_no_socios', true)
-    .eq('sin_inscripcion', false)
-    .eq('usa_concurso_texto', false)
+  // Solo los que el admin abre a no socios (la Chocolatada, por ejemplo, no:
+  // allí los no socios los apunta un socio desde su cuenta)
+  const { data: eventos, error } = await sb.from('eventos').select('*').eq('activo', true)
+    .eq('abierto_no_socios', true).eq('sin_inscripcion', false).eq('usa_concurso_texto', false)
     .order('fecha', { ascending: true });
-
   document.getElementById('loadingMsg').style.display = 'none';
-  if (error) { cont.innerHTML = '<p class="msg-error">No se pudieron cargar los eventos.</p>'; return; }
-  if (!eventos || eventos.length === 0) { cont.innerHTML = '<p class="empty-hint">No hay eventos abiertos por ahora.</p>'; return; }
-
+  if (error) { cont.innerHTML = '<p class="msg-error">No se pudieron cargar los eventos. Recarga la página.</p>'; return; }
+  const futuros = (eventos || []).filter(e => !e.fecha || new Date(e.fecha) > new Date());
+  if (!futuros.length) { cont.innerHTML = '<p class="empty-hint">Ahora mismo no hay eventos abiertos a no socios.</p>'; return; }
   cont.innerHTML = '';
-  eventos.forEach(ev => {
-    const ahora = new Date();
-    let estadoPlazo = null;
-    if (ev.fecha_apertura_no_socios && ahora < new Date(ev.fecha_apertura_no_socios)) {
-      estadoPlazo = 'Las inscripciones para no socios se abren el ' +
-        new Date(ev.fecha_apertura_no_socios).toLocaleString('es-ES', { dateStyle: 'long', timeStyle: 'short' }) + '.';
-    } else if (ev.fecha_cierre_inscripcion && ahora >= new Date(ev.fecha_cierre_inscripcion)) {
-      estadoPlazo = 'El plazo de inscripción para este evento ya se ha cerrado.';
-    }
+  for (const ev of futuros) cont.appendChild(await tarjetaEvento(ev));
+}
 
-    const card = document.createElement('div');
-    card.className = 'card evento-card';
-    card.innerHTML = `
-      <p class="evento-fecha">${formatFecha(ev.fecha)}</p>
-      <h2>${ev.titulo}</h2>
-      <div class="eventoCarrusel" style="max-width:340px; margin-bottom:12px;"></div>
-      <p style="color:var(--ink-soft); font-size:14px;">${ev.descripcion || ''}</p>
-      ${ev.precio_invitado ? `<p style="font-size:14px; color:var(--gold);">Entrada: ${Number(ev.precio_invitado).toFixed(2)} €</p>` : ''}
-      ${estadoPlazo
-        ? `<p class="empty-hint" style="margin-top:14px;">${estadoPlazo}</p>`
-        : `<details style="margin-top:14px;">
-        <summary style="cursor:pointer; font-family:var(--font-text); font-size:14px; color:var(--navy);">Apuntarme</summary>
-        <div style="margin-top:14px; display:grid; gap:12px; max-width:360px;">
-          <div class="field"><label>Nombre de la persona que asiste</label><input type="text" class="pubNombre"></div>
-          <div class="field"><label>Email de contacto</label><input type="email" class="pubEmail"></div>
-          <div class="field"><label>Teléfono</label><input type="text" class="pubTelefono"></div>
-          ${ev.precio_invitado ? '<div class="field"><label>Comprobante de pago</label><input type="file" class="pubComprobante" accept="image/*,.pdf"></div>' : ''}
-          <button type="button" class="btn btn-primary pubSubmitBtn">Confirmar inscripción</button>
-          <p class="pubMsg" style="display:none;"></p>
-        </div>
-      </details>`}
-    `;
-
-    sb.from('fotos_carrusel').select('url').eq('evento_id', ev.id).order('orden').then(({ data: fotos }) => {
-      renderCarrusel(card.querySelector('.eventoCarrusel'), (fotos || []).map(f => f.url));
-    });
-
-    if (estadoPlazo) { cont.appendChild(card); return; }
-
-    const btn = card.querySelector('.pubSubmitBtn');
-    btn.addEventListener('click', async () => {
-      const nombre = card.querySelector('.pubNombre').value.trim();
-      const email = card.querySelector('.pubEmail').value.trim();
-      const telefono = card.querySelector('.pubTelefono').value.trim();
-      const msg = card.querySelector('.pubMsg');
-
-      if (!nombre || !email) { msg.style.display = 'block'; msg.className = 'pubMsg msg-error'; msg.textContent = 'Completa nombre y email.'; return; }
-
-      const { data: inscripcion, error: insError } = await sb.from('evento_inscripciones').insert({
-        evento_id: ev.id, tipo_miembro: 'publico',
-        nombre_contacto: nombre, email_contacto: email, telefono_contacto: telefono || null
-      }).select('id').single();
-
-      if (insError) { msg.style.display = 'block'; msg.className = 'pubMsg msg-error'; msg.textContent = insError.message; return; }
-
-      const fileInput = card.querySelector('.pubComprobante');
-      if (fileInput && fileInput.files[0]) {
-        const file = fileInput.files[0];
-        const path = `publico/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_')}`;
-        await sb.storage.from('comprobantes').upload(path, file);
-        await sb.from('comprobantes_pago').insert({ tipo: 'invitado_evento', evento_inscripcion_id: inscripcion.id, archivo_url: path });
-      }
-
-      msg.style.display = 'block'; msg.className = 'pubMsg msg-ok';
-      msg.textContent = 'Inscripción registrada ✓. ¡Nos vemos allí!';
-      btn.disabled = true;
-    });
-
-    cont.appendChild(card);
+async function tarjetaEvento(ev) {
+  const card = document.createElement('div');
+  card.className = 'card evento-card';
+  const precio = Number(ev.precio_invitado) || 0;
+  card.innerHTML = `
+    <p class="evento-fecha">${fechaLarga(ev.fecha)}</p>
+    <h2>${esc(ev.titulo)}</h2>
+    <div class="eventoCarrusel" style="max-width:420px; margin:10px 0;"></div>
+    ${ev.descripcion ? `<p style="white-space:pre-line; margin:0;">${esc(ev.descripcion)}</p>` : ''}
+    ${ev.aviso_no_socios ? `<p class="aviso">${esc(ev.aviso_no_socios)}</p>` : ''}
+    <div class="etiquetas"></div>`;
+  const etiqueta = (t, llena) => card.querySelector('.etiquetas').insertAdjacentHTML('beforeend', `<span class="etiqueta${llena ? ' llena' : ''}">${esc(t)}</span>`);
+  sb.from('fotos_carrusel').select('url').eq('evento_id', ev.id).order('orden').then(({ data: fotos }) => {
+    const c = card.querySelector('.eventoCarrusel');
+    if (fotos && fotos.length) renderCarrusel(c, fotos.map(f => f.url)); else c.remove();
   });
+
+  if (precio && !ev.publico_solo_actividades) etiqueta(`No socios: ${euros(precio)}`);
+  if (ev.tipo_elegibilidad === 'alumnos' && ev.elegibilidad_modo === 'curso' && (ev.cursos_permitidos || []).length) {
+    etiqueta('Para ' + resumirCursos(ev.cursos_permitidos));
+  }
+
+  // Plazo
+  const ahora = new Date();
+  let cerrado = null;
+  if (ev.fecha_apertura_no_socios && ahora < new Date(ev.fecha_apertura_no_socios)) {
+    cerrado = 'La inscripción para no socios se abre el ' + new Date(ev.fecha_apertura_no_socios).toLocaleString('es-ES', { dateStyle: 'long', timeStyle: 'short' }) + '.';
+  } else if (ev.fecha_cierre_inscripcion && ahora >= new Date(ev.fecha_cierre_inscripcion)) {
+    cerrado = 'El plazo de inscripción ya se ha cerrado.';
+  } else if (ev.metodo_asignacion === 'aforo' && ev.aforo_total != null && !ev.publico_solo_actividades) {
+    const { data: libres } = await sb.rpc('evento_plazas_disponibles', { p_evento_id: ev.id });
+    if (libres != null && libres <= 0) cerrado = 'No quedan plazas.';
+    else if (libres != null) etiqueta(`${libres} plazas libres`);
+  }
+  if (cerrado) { card.insertAdjacentHTML('beforeend', `<p class="empty-hint" style="margin-top:12px;">${esc(cerrado)}</p>`); return card; }
+
+  const { data: actividades } = await sb.from('evento_actividades').select('*').eq('evento_id', ev.id).order('created_at');
+  const acts = [];
+  for (const a of actividades || []) {
+    const libres = a.aforo != null ? (await sb.rpc('actividad_plazas_disponibles', { p_actividad_id: a.id })).data : null;
+    acts.push({ ...a, libres });
+  }
+  if (ev.publico_solo_actividades && !acts.length) return card;
+
+  const abrir = document.createElement('button');
+  abrir.type = 'button'; abrir.className = 'btn btn-primary'; abrir.style.marginTop = '14px';
+  abrir.textContent = 'Apuntarse';
+  card.appendChild(abrir);
+  abrir.addEventListener('click', () => { abrir.hidden = true; card.appendChild(formulario(ev, acts, precio)); });
+  return card;
+}
+
+function resumirCursos(cursos) {
+  return cursos.map(c => `${c.curso} ${c.etapa}`).join(', ');
+}
+
+function formulario(ev, acts, precio) {
+  const esAlumno = ev.tipo_elegibilidad === 'alumnos';
+  const pagan = precio > 0 && !ev.publico_solo_actividades;
+  const f = document.createElement('div');
+  f.className = 'form-publico';
+  let html = '';
+  if (esAlumno) {
+    const cursos = ev.elegibilidad_modo === 'curso' && (ev.cursos_permitidos || []).length
+      ? ev.cursos_permitidos
+      : Object.entries(CURSOS_POR_ETAPA).flatMap(([etapa, cs]) => cs.map(curso => ({ etapa, curso })));
+    html += `<h3>Alumno o alumna</h3>
+      <div class="dos"><div class="field"><label>Nombre</label><input type="text" class="aNombre"></div>
+      <div class="field"><label>Apellidos</label><input type="text" class="aApellidos"></div></div>
+      <div class="dos">
+        <div class="field"><label>Curso</label><select class="aCurso"><option value="">Elige el curso</option>${cursos.map(c => `<option value="${esc(c.etapa)}|${esc(c.curso)}">${esc(c.curso)} ${esc(c.etapa)}</option>`).join('')}</select></div>
+        ${ev.elegibilidad_modo === 'edad' ? '<div class="field"><label>Edad</label><input type="number" class="aEdad" min="0" max="20"></div>' : ''}
+      </div>`;
+    if (ev.pregunta_extra && (ev.pregunta_opciones || []).length) {
+      html += `<div class="field"><label>${esc(ev.pregunta_extra)}</label><select class="pregunta"><option value="">Elige una opción</option>${ev.pregunta_opciones.map(o => `<option>${esc(o)}</option>`).join('')}</select></div>`;
+    }
+  }
+  if (ev.pide_alergias) {
+    html += `<div><span style="font-weight:700;">¿Tiene alguna alergia o intolerancia?</span>
+      <div class="radios" style="margin-top:6px;"><label><input type="radio" name="al-${ev.id}" value="no"> No</label><label><input type="radio" name="al-${ev.id}" value="si"> Sí</label></div>
+      <input type="text" class="alergias" placeholder="¿Cuáles?" hidden style="margin-top:8px;"></div>`;
+  }
+  if (acts.length) {
+    html += `<div><span style="font-weight:700;">${ev.publico_solo_actividades ? 'Actividades a las que se apunta' : 'Torneos y actividades (opcional)'}</span>
+      <div class="checks" style="margin-top:8px;">${acts.map(a => `<label><input type="checkbox" class="act" value="${a.id}" ${a.libres != null && a.libres <= 0 ? 'disabled' : ''}> ${esc(a.nombre)}${a.horario ? ', ' + esc(a.horario) : ''}${a.libres != null ? (a.libres > 0 ? ` (${a.libres} plazas)` : ' (completo)') : ''}</label>`).join('')}</div></div>`;
+  }
+  html += `<h3>${esAlumno ? 'Adulto responsable' : 'Tus datos'}</h3>
+    <div class="field"><label>Nombre y apellidos</label><input type="text" class="cNombre"></div>
+    <div class="dos"><div class="field"><label>Teléfono</label><input type="tel" class="cTel"></div>
+    <div class="field"><label>Email</label><input type="email" class="cEmail"></div></div>`;
+  if (pagan) {
+    html += `<h3>Pago: ${euros(precio)}</h3>
+      <div class="datos-pago">
+        <div><span>IBAN</span><b class="iban">${AMPA_IBAN}</b></div>
+        <div><span>Titular</span><b>${AMPA_TITULAR_CUENTA}</b></div>
+        <div><span>Concepto</span><b>${esc(ev.titulo)} + nombre${esAlumno ? ' del alumno' : ''}</b></div>
+      </div>
+      <div class="field"><label>Justificante de la transferencia</label><input type="file" class="justif" accept="image/*,.pdf"></div>`;
+  }
+  html += `<button type="button" class="btn btn-primary enviar">Confirmar inscripción</button><p class="msg" hidden></p>`;
+  f.innerHTML = html;
+  f.querySelectorAll(`input[name="al-${ev.id}"]`).forEach(r => r.addEventListener('change', () => { f.querySelector('.alergias').hidden = r.value !== 'si'; }));
+
+  const msg = f.querySelector('.msg');
+  const error = (t) => { msg.hidden = false; msg.className = 'msg msg-error'; msg.textContent = t; };
+  const val = (s) => { const el = f.querySelector(s); return el ? el.value.trim() : ''; };
+
+  f.querySelector('.enviar').addEventListener('click', async () => {
+    const datos = { nombre_contacto: val('.cNombre'), email_contacto: val('.cEmail'), telefono_contacto: val('.cTel') };
+    if (esAlumno) {
+      const [etapa, curso] = val('.aCurso').split('|');
+      Object.assign(datos, { alumno_nombre: val('.aNombre'), alumno_apellidos: val('.aApellidos'), alumno_etapa: etapa || null, alumno_curso: curso || null, edad: val('.aEdad') });
+      if (!datos.alumno_nombre || !datos.alumno_apellidos || !etapa) return error('Completa nombre, apellidos y curso del alumno.');
+      if (f.querySelector('.aEdad') && !datos.edad) return error('Indica la edad del alumno.');
+      if (f.querySelector('.pregunta')) { datos.respuesta_extra = val('.pregunta'); if (!datos.respuesta_extra) return error('Responde: ' + ev.pregunta_extra); }
+    }
+    if (ev.pide_alergias) {
+      const sel = f.querySelector(`input[name="al-${ev.id}"]:checked`);
+      if (!sel) return error('Indica si tiene alergias.');
+      datos.tiene_alergias = sel.value === 'si';
+      datos.alergias = datos.tiene_alergias ? val('.alergias') : null;
+      if (datos.tiene_alergias && !datos.alergias) return error('Escribe qué alergias tiene.');
+    }
+    if (!datos.nombre_contacto || !datos.email_contacto || !datos.telefono_contacto) return error('Completa nombre, teléfono y email del adulto.');
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(datos.email_contacto)) return error('Revisa el email.');
+    const actividades = [...f.querySelectorAll('.act:checked')].map(c => c.value);
+    if (ev.publico_solo_actividades && !actividades.length) return error('Elige al menos una actividad.');
+    const file = pagan ? f.querySelector('.justif').files[0] : null;
+    if (pagan && !file) return error('Sube el justificante de la transferencia.');
+
+    const btn = f.querySelector('.enviar');
+    btn.disabled = true; btn.textContent = 'Enviando...';
+    const { data: id, error: e } = await sb.rpc('evento_inscribir_publico', { p_evento_id: ev.id, p_datos: datos, p_actividades: actividades });
+    if (e) { btn.disabled = false; btn.textContent = 'Confirmar inscripción'; return error(textoError(e)); }
+    if (file) {
+      const path = `publico/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_')}`;
+      const { error: upErr } = await sb.storage.from('comprobantes').upload(path, file);
+      if (!upErr) await sb.from('comprobantes_pago').insert({ tipo: 'invitado_evento', evento_inscripcion_id: id, archivo_url: path });
+    }
+    f.innerHTML = `<p class="msg-ok">Inscripción recibida${pagan ? '. La Junta revisará el justificante' : ''}. ${ev.aviso_no_socios ? esc(ev.aviso_no_socios) : '¡Nos vemos allí!'}</p>`;
+  });
+  return f;
 }
 
 cargarEventos();

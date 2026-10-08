@@ -15,6 +15,13 @@
   .evento-row{ padding:14px 0; border-bottom:1px solid var(--line); }
   .evento-row:last-child{ border-bottom:none; }
   .actividad-item{ border:1px solid var(--line); border-radius:var(--radius); padding:12px; margin-top:10px; }
+  .subtitulo{ font-size:18px; margin:24px 0 10px; padding-top:18px; border-top:1px solid var(--line); }
+  label.check{ display:flex; align-items:flex-start; gap:10px; font-weight:400; margin:0 0 10px; }
+  label.check input{ width:18px; height:18px; margin-top:3px; flex-shrink:0; }
+  .ayuda{ color:var(--ink-soft); font-size:14px; margin:4px 0 0; }
+  .tabla-wrap{ overflow-x:auto; margin-top:10px; }
+  .tabla-wrap table{ font-size:14px; min-width:900px; }
+  .tabla-wrap .aviso-fila td{ background:#FFF3C4; }
 </style>
 </head>
 <body>
@@ -22,17 +29,43 @@
   <div class="eyebrow">Administración</div>
   <h1>Eventos</h1>
 
-  <div class="card">
-    <p class="section-label">Nuevo evento</p>
-    <div class="field"><label>Título</label><input type="text" id="eTitulo"></div>
-    <div class="field" style="margin-top:14px;"><label>Descripción</label><textarea id="eDescripcion"></textarea></div>
-    <div class="two-col" style="margin-top:14px;">
-      <div class="field"><label>Fecha y hora</label><input type="datetime-local" id="eFecha"></div>
-      <div class="field"><label>Aforo total (opcional)</label><input type="number" id="eAforo" min="1"></div>
+  <div class="card" id="formCard">
+    <p class="section-label" id="formTitulo">Nuevo evento</p>
+
+    <div class="field" id="plantillaWrap">
+      <label for="ePlantilla">Empezar desde</label>
+      <select id="ePlantilla">
+        <option value="">Evento en blanco</option>
+        <option value="chocolatada">Chocolatada (familias, invitados de pago, alergias, voluntarios)</option>
+        <option value="cabalgata">Cabalgata (niño con adulto, sorteo, documentos)</option>
+        <option value="juegos">Taller de juegos de mesa (pregunta de Patines, torneos, externos de pago)</option>
+        <option value="taller">Otro taller: rol, ciencias, Warhammer (alumnos por curso, aforo, externos de pago)</option>
+        <option value="barbacoa">Barbacoa (alumnos, subactividades, voluntarios)</option>
+        <option value="comedor">Visita al comedor (adultos, sorteo con prioridad)</option>
+        <option value="concurso">Concurso literario (un texto o un Word por alumno)</option>
+        <option value="informativo">Concurso sin inscripción (ej. Christmas, Olimpiadas matemáticas)</option>
+      </select>
+      <p class="ayuda">Rellena las opciones típicas de ese evento. Luego puedes cambiar cualquiera.</p>
     </div>
 
-    <div class="field" style="margin-top:14px;">
-      <label>¿Quién puede apuntarse?</label>
+    <div class="field"><label for="eTitulo">Título</label><input type="text" id="eTitulo"></div>
+    <div class="field"><label for="eDescripcion">Descripción (día, horario, qué llevar...)</label><textarea id="eDescripcion"></textarea></div>
+    <div class="two-col">
+      <div class="field"><label for="eFecha">Fecha y hora</label><input type="datetime-local" id="eFecha"></div>
+      <div class="field"><label for="eAforo">Aforo total (vacío = sin límite)</label><input type="number" id="eAforo" min="1"></div>
+    </div>
+
+    <div class="field">
+      <label for="eTipoEspecial">Tipo</label>
+      <select id="eTipoEspecial">
+        <option value="normal">Con inscripción</option>
+        <option value="concurso">Concurso: cada alumno envía un texto (anónimo hasta elegir ganador)</option>
+        <option value="informativo">Solo informativo, sin inscripción</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label for="eTipoElegibilidad">¿Quién puede apuntarse?</label>
       <select id="eTipoElegibilidad">
         <option value="toda_familia">Toda la familia (adultos y alumnos)</option>
         <option value="alumnos">Solo alumnos (por curso o edad)</option>
@@ -40,72 +73,89 @@
       </select>
     </div>
 
-    <div id="elegibilidadAlumnosWrap" style="display:none; margin-top:14px;">
+    <div id="elegibilidadAlumnosWrap" hidden>
       <div class="field">
-        <label>Modo de elegibilidad</label>
-        <select id="eModo"><option value="curso">Por curso/etapa</option><option value="edad">Por edad real</option></select>
+        <label for="eModo">Alumnos que pueden ir</label>
+        <select id="eModo"><option value="curso">Por curso</option><option value="edad">Por edad</option></select>
       </div>
-      <div id="eCursosWrap" class="field" style="margin-top:14px;">
-        <label>Cursos permitidos</label>
+      <div id="eCursosWrap" class="field">
+        <label>Cursos <button type="button" class="linklike" id="eTodosCursos" style="font-weight:400; margin-left:8px;">marcar todos</button></label>
         <div class="cursos-grid" id="eCursosGrid"></div>
       </div>
-      <div id="eEdadWrap" class="two-col" style="display:none; margin-top:14px;">
-        <div class="field"><label>Edad mínima</label><input type="number" id="eEdadMin"></div>
-        <div class="field"><label>Edad máxima</label><input type="number" id="eEdadMax"></div>
+      <div id="eEdadWrap" class="two-col" hidden>
+        <div class="field"><label for="eEdadMin">Edad mínima</label><input type="number" id="eEdadMin"></div>
+        <div class="field"><label for="eEdadMax">Edad máxima</label><input type="number" id="eEdadMax"></div>
       </div>
-    </div>
-
-    <div class="field" style="margin-top:14px;">
-      <label style="display:flex; align-items:center; gap:8px;">
-        <input type="checkbox" id="eSinInscripcion" style="width:auto;"> Sin inscripción (solo informativo, ej. Concurso de Christmas)
-      </label>
-    </div>
-    <div class="field" style="margin-top:10px;">
-      <label style="display:flex; align-items:center; gap:8px;">
-        <input type="checkbox" id="eUsaConcurso" style="width:auto;"> Es un concurso con envío de texto anónimo (ej. Concurso literario)
-      </label>
     </div>
 
     <div id="inscripcionWrap">
-      <div class="two-col" style="margin-top:14px;">
-        <div class="field"><label><input type="checkbox" id="eVoluntariado" style="width:auto;"> Permite voluntariado</label></div>
-        <div class="field"><label><input type="checkbox" id="eVoluntariadoExcluye" style="width:auto;"> El voluntariado excluye ser asistente</label></div>
-      </div>
-
-      <p class="section-label" style="margin-top:20px;">Público y fechas</p>
-      <div class="field"><label><input type="checkbox" id="eAbiertoNoSocios" style="width:auto;"> Abierto también a no socios (aparece en la web pública)</label></div>
-      <div class="two-col" style="margin-top:10px;">
-        <div class="field"><label>Apertura para socios</label><input type="datetime-local" id="eFechaAperturaSocios"></div>
-        <div class="field" id="eFechaAperturaNoSociosWrap" style="display:none;"><label>Apertura para no socios</label><input type="datetime-local" id="eFechaAperturaNoSocios"></div>
-      </div>
-      <div class="field" style="margin-top:10px; max-width:260px;"><label>Cierre de inscripción (una sola fecha, para todos)</label><input type="datetime-local" id="eFechaCierreInscripcion"></div>
-
-      <p class="section-label" style="margin-top:20px;">Cómo se resuelve el exceso de demanda</p>
+      <h3 class="subtitulo">Plazas</h3>
       <div class="field">
-        <label>Método de asignación</label>
+        <label for="eMetodoAsignacion">Si hay más gente que plazas</label>
         <select id="eMetodoAsignacion">
-          <option value="aforo">Aforo (por orden hasta llenar)</option>
-          <option value="sorteo">Sorteo</option>
+          <option value="aforo">Por orden de llegada hasta llenar el aforo</option>
+          <option value="sorteo">Sorteo cuando cierre el plazo</option>
         </select>
       </div>
-      <div id="eSorteoOpcionesWrap" style="display:none; margin-top:10px;">
-        <div class="field"><label><input type="checkbox" id="eRequierePareja" style="width:auto;"> Requiere pareja 1 adulto : 1 alumno (ej. Cabalgata) — si pierde uno, pierden los dos</label></div>
-        <div class="field" style="margin-top:8px;"><label><input type="checkbox" id="eUsaPrioridadHistorial" style="width:auto;"> Da prioridad a quien nunca ha participado antes (ej. Comedor)</label></div>
+      <div id="eSorteoOpcionesWrap" hidden>
+        <label class="check"><input type="checkbox" id="eRequierePareja"> Cada niño va con un adulto (si no sale uno, no sale ninguno). Pueden ir adultos solos. El aforo cuenta niños.</label>
+        <label class="check"><input type="checkbox" id="eUsaPrioridadHistorial"> Primero quienes nunca han ido; si sobran plazas, se sortean entre los que ya fueron (Comedor)</label>
       </div>
 
-      <p class="section-label" style="margin-top:20px;">Precio</p>
-      <div class="two-col">
-        <div class="field"><label>Precio adulto socio (€, vacío = gratis)</label><input type="number" id="ePrecioAdulto" min="0" step="0.01"></div>
-        <div class="field"><label>Precio alumno socio (€, vacío = gratis)</label><input type="number" id="ePrecioAlumno" min="0" step="0.01"></div>
+      <h3 class="subtitulo">Qué se pregunta al apuntarse</h3>
+      <label class="check"><input type="checkbox" id="ePideAlergias"> Alergias de cada persona</label>
+      <label class="check"><input type="checkbox" id="eAlumnosRequierenAdulto"> Si una familia apunta solo niños, tiene que decir con qué adulto socio van</label>
+      <div class="two-col" style="margin-top:8px;">
+        <div class="field"><label for="ePregunta">Pregunta para cada alumno (opcional)</label><input type="text" id="ePregunta" placeholder="Ej. ¿Cómo llega al taller?"></div>
+        <div class="field"><label for="eOpciones">Respuestas posibles, separadas por comas</label><input type="text" id="eOpciones" placeholder="Directo de clase, Pasa antes por Patines"></div>
       </div>
-      <div class="two-col" style="margin-top:14px;">
-        <div class="field"><label><input type="checkbox" id="ePermiteInvitados" style="width:auto;"> Permite que un socio invite a terceros (de pago), desde su cuenta</label></div>
-        <div class="field"><label>Precio por invitado (€)</label><input type="number" id="ePrecioInvitado" min="0" step="0.01"></div>
+
+      <h3 class="subtitulo">Voluntarios</h3>
+      <div class="two-col">
+        <div class="field">
+          <label for="eVoluntariadoModo">¿Se buscan voluntarios?</label>
+          <select id="eVoluntariadoModo">
+            <option value="no">No</option>
+            <option value="adultos">Sí, solo adultos</option>
+            <option value="adultos_y_ninos">Sí, adultos o adultos con sus niños</option>
+          </select>
+        </div>
+        <label class="check" style="align-self:end;"><input type="checkbox" id="eVoluntariadoExcluye"> Quien es voluntario no cuenta como asistente</label>
+      </div>
+
+      <h3 class="subtitulo">Personas no socias</h3>
+      <label class="check"><input type="checkbox" id="ePermiteInvitados"> Un socio puede apuntar desde su cuenta a personas no socias (pagan)</label>
+      <label class="check"><input type="checkbox" id="eAbiertoNoSocios"> Formulario en la web pública para familias no socias</label>
+      <div id="publicoWrap" hidden style="margin-left:28px;">
+        <label class="check"><input type="checkbox" id="ePublicoSoloActividades"> Solo pueden apuntarse a las subactividades, no al evento (Barbacoa)</label>
+        <div class="field"><label for="eAvisoNoSocios">Aviso para no socios (opcional)</label><input type="text" id="eAvisoNoSocios" placeholder="Ej. Recordad que hay que pagar la entrada de la Barbacoa"></div>
+        <div class="field" style="max-width:300px;"><label for="eFechaAperturaNoSocios">Apertura para no socios</label><input type="datetime-local" id="eFechaAperturaNoSocios"></div>
+      </div>
+      <div class="field" style="max-width:300px; margin-top:8px;"><label for="ePrecioInvitado">Precio por persona no socia (€)</label><input type="number" id="ePrecioInvitado" min="0" step="0.01"></div>
+      <p class="ayuda">Pagan por transferencia y suben el justificante; la Junta lo revisa en Comprobantes.</p>
+
+      <h3 class="subtitulo">Precio para socios (informativo)</h3>
+      <div class="two-col">
+        <div class="field"><label for="ePrecioAdulto">Adulto socio (€, vacío = gratis)</label><input type="number" id="ePrecioAdulto" min="0" step="0.01"></div>
+        <div class="field"><label for="ePrecioAlumno">Alumno socio (€, vacío = gratis)</label><input type="number" id="ePrecioAlumno" min="0" step="0.01"></div>
+      </div>
+      <p class="ayuda">Se muestra a las familias; se paga en el evento.</p>
+    </div>
+
+    <div id="fechasWrap">
+      <h3 class="subtitulo">Fechas de inscripción</h3>
+      <div class="two-col">
+        <div class="field"><label for="eFechaAperturaSocios">Apertura para socios (vacío = ya)</label><input type="datetime-local" id="eFechaAperturaSocios"></div>
+        <div class="field"><label for="eFechaCierreInscripcion">Cierre (vacío = hasta el evento)</label><input type="datetime-local" id="eFechaCierreInscripcion"></div>
       </div>
     </div>
 
-    <button type="button" class="btn btn-primary" id="crearEventoBtn" style="margin-top:18px;">Crear evento</button>
-    <p id="crearMsg" style="display:none; margin-top:14px;"></p>
+    <div style="display:flex; gap:14px; align-items:center; flex-wrap:wrap; margin-top:18px;">
+      <button type="button" class="btn btn-primary" id="crearEventoBtn">Crear evento</button>
+      <button type="button" class="linklike" id="cancelarEdicionBtn" hidden>Cancelar edición</button>
+    </div>
+    <p id="crearMsg" style="display:none;"></p>
+    <p class="ayuda" style="margin-top:10px;">Las subactividades o torneos, las fotos y los documentos a firmar se añaden después, desde la lista de eventos.</p>
   </div>
 
   <div class="card">
@@ -123,6 +173,11 @@
 <script src="shared/csv.js"></script>
 <script src="shared/documentoRellenable.js"></script>
 <script>
+const $ = (id) => document.getElementById(id);
+const esc = (t) => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+let editandoId = null;
+let eventosCache = [];
+
 function pintarCursosGrid(contenedorId, nombrePrefijo) {
   const grid = document.getElementById(contenedorId);
   grid.innerHTML = '';
@@ -134,118 +189,246 @@ function pintarCursosGrid(contenedorId, nombrePrefijo) {
 }
 pintarCursosGrid('eCursosGrid', 'evt');
 
-document.getElementById('eTipoElegibilidad').addEventListener('change', (e) => {
-  document.getElementById('elegibilidadAlumnosWrap').style.display = e.target.value === 'alumnos' ? 'block' : 'none';
-});
-document.getElementById('eModo').addEventListener('change', (e) => {
-  document.getElementById('eCursosWrap').style.display = e.target.value === 'curso' ? 'block' : 'none';
-  document.getElementById('eEdadWrap').style.display = e.target.value === 'edad' ? 'grid' : 'none';
-});
-
-function actualizarVisibilidadInscripcion() {
-  const sinInscripcion = document.getElementById('eSinInscripcion').checked;
-  const usaConcurso = document.getElementById('eUsaConcurso').checked;
-  document.getElementById('inscripcionWrap').style.display = (sinInscripcion || usaConcurso) ? 'none' : 'block';
+function actualizarVisibilidad() {
+  const tipoEsp = $('eTipoEspecial').value;
+  $('inscripcionWrap').hidden = tipoEsp !== 'normal';
+  $('fechasWrap').hidden = tipoEsp === 'informativo';
+  $('elegibilidadAlumnosWrap').hidden = $('eTipoElegibilidad').value !== 'alumnos';
+  $('eCursosWrap').hidden = $('eModo').value !== 'curso';
+  $('eEdadWrap').hidden = $('eModo').value !== 'edad';
+  $('eSorteoOpcionesWrap').hidden = $('eMetodoAsignacion').value !== 'sorteo';
+  $('publicoWrap').hidden = !$('eAbiertoNoSocios').checked;
 }
-document.getElementById('eSinInscripcion').addEventListener('change', actualizarVisibilidadInscripcion);
-document.getElementById('eUsaConcurso').addEventListener('change', actualizarVisibilidadInscripcion);
-
-document.getElementById('eAbiertoNoSocios').addEventListener('change', (e) => {
-  document.getElementById('eFechaAperturaNoSociosWrap').style.display = e.target.checked ? 'block' : 'none';
-});
-document.getElementById('eMetodoAsignacion').addEventListener('change', (e) => {
-  document.getElementById('eSorteoOpcionesWrap').style.display = e.target.value === 'sorteo' ? 'block' : 'none';
-});
+['eTipoEspecial', 'eTipoElegibilidad', 'eModo', 'eMetodoAsignacion', 'eAbiertoNoSocios']
+  .forEach(id => $(id).addEventListener('change', actualizarVisibilidad));
+$('eTodosCursos').addEventListener('click', () => document.querySelectorAll('.evt-curso-cb').forEach(cb => cb.checked = true));
 
 function leerCursosSeleccionados(claseCb) {
   return Array.from(document.querySelectorAll('.' + claseCb + ':checked')).map(cb => ({ etapa: cb.dataset.etapa, curso: cb.dataset.curso }));
 }
 
-document.getElementById('crearEventoBtn').addEventListener('click', async () => {
-  const tipo = document.getElementById('eTipoElegibilidad').value;
-  const payload = {
-    titulo: document.getElementById('eTitulo').value.trim(),
-    descripcion: document.getElementById('eDescripcion').value.trim(),
-    fecha: document.getElementById('eFecha').value ? new Date(document.getElementById('eFecha').value).toISOString() : null,
-    aforo_total: document.getElementById('eAforo').value ? parseInt(document.getElementById('eAforo').value, 10) : null,
+// Fechas: el input datetime-local trabaja en hora local
+const aLocal = (iso) => {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+};
+const aISO = (v) => v ? new Date(v).toISOString() : null;
+const num = (v, entero) => v === '' || v == null ? null : (entero ? parseInt(v, 10) : parseFloat(v));
+
+const CAMPOS_VACIOS = {
+  titulo: '', descripcion: '', fecha: null, aforo_total: null, tipo_elegibilidad: 'toda_familia',
+  elegibilidad_modo: 'curso', cursos_permitidos: [], edad_min: null, edad_max: null,
+  sin_inscripcion: false, usa_concurso_texto: false, metodo_asignacion: 'aforo',
+  requiere_pareja_adulto_alumno: false, usa_prioridad_historial: false,
+  pide_alergias: false, alumnos_requieren_adulto: false, pregunta_extra: null, pregunta_opciones: null,
+  voluntariado_modo: 'no', voluntariado_excluye_asistencia: false,
+  permite_invitados: false, abierto_no_socios: false, publico_solo_actividades: false, aviso_no_socios: null,
+  precio_invitado: null, precio_adulto: null, precio_alumno: null,
+  fecha_apertura_socios: null, fecha_apertura_no_socios: null, fecha_cierre_inscripcion: null
+};
+const TODOS_LOS_CURSOS = Object.entries(CURSOS_POR_ETAPA).flatMap(([etapa, cs]) => cs.map(curso => ({ etapa, curso })));
+
+const PLANTILLAS = {
+  chocolatada: { titulo: 'Chocolatada de Navidad', tipo_elegibilidad: 'toda_familia', pide_alergias: true,
+    alumnos_requieren_adulto: true, voluntariado_modo: 'adultos_y_ninos', permite_invitados: true },
+  cabalgata: { titulo: 'Cabalgata de Reyes', tipo_elegibilidad: 'toda_familia', metodo_asignacion: 'sorteo',
+    requiere_pareja_adulto_alumno: true, aforo_total: 20 },
+  juegos: { titulo: 'Taller de juegos de mesa', tipo_elegibilidad: 'alumnos', elegibilidad_modo: 'curso', abierto_no_socios: true,
+    voluntariado_modo: 'adultos', pregunta_extra: '¿Cómo llega al taller?', pregunta_opciones: ['Directo de clase', 'Pasa antes por Patines'] },
+  taller: { titulo: 'Taller de ', tipo_elegibilidad: 'alumnos', elegibilidad_modo: 'curso', abierto_no_socios: true,
+    voluntariado_modo: 'adultos' },
+  barbacoa: { titulo: 'Barbacoa de fin de curso', tipo_elegibilidad: 'alumnos', elegibilidad_modo: 'curso',
+    cursos_permitidos: TODOS_LOS_CURSOS, voluntariado_modo: 'adultos_y_ninos', abierto_no_socios: true,
+    publico_solo_actividades: true, aviso_no_socios: 'Recordad que hay que pagar la entrada de la Barbacoa.' },
+  comedor: { titulo: 'Visita al comedor', tipo_elegibilidad: 'adultos', aforo_total: 2, metodo_asignacion: 'sorteo',
+    usa_prioridad_historial: true },
+  concurso: { titulo: 'Concurso literario', tipo_elegibilidad: 'alumnos', elegibilidad_modo: 'curso',
+    cursos_permitidos: TODOS_LOS_CURSOS, usa_concurso_texto: true },
+  informativo: { titulo: 'Concurso de Christmas', sin_inscripcion: true }
+};
+
+function rellenarFormulario(ev) {
+  const e = { ...CAMPOS_VACIOS, ...ev };
+  $('eTitulo').value = e.titulo || '';
+  $('eDescripcion').value = e.descripcion || '';
+  $('eFecha').value = aLocal(e.fecha);
+  $('eAforo').value = e.aforo_total ?? '';
+  $('eTipoEspecial').value = e.sin_inscripcion ? 'informativo' : e.usa_concurso_texto ? 'concurso' : 'normal';
+  $('eTipoElegibilidad').value = e.tipo_elegibilidad;
+  $('eModo').value = e.elegibilidad_modo || 'curso';
+  const cursos = e.cursos_permitidos || [];
+  document.querySelectorAll('.evt-curso-cb').forEach(cb => {
+    cb.checked = cursos.some(c => c.etapa === cb.dataset.etapa && c.curso === cb.dataset.curso);
+  });
+  $('eEdadMin').value = e.edad_min ?? '';
+  $('eEdadMax').value = e.edad_max ?? '';
+  $('eMetodoAsignacion').value = e.metodo_asignacion;
+  $('eRequierePareja').checked = e.requiere_pareja_adulto_alumno;
+  $('eUsaPrioridadHistorial').checked = e.usa_prioridad_historial;
+  $('ePideAlergias').checked = e.pide_alergias;
+  $('eAlumnosRequierenAdulto').checked = e.alumnos_requieren_adulto;
+  $('ePregunta').value = e.pregunta_extra || '';
+  $('eOpciones').value = (e.pregunta_opciones || []).join(', ');
+  $('eVoluntariadoModo').value = e.voluntariado_modo || 'no';
+  $('eVoluntariadoExcluye').checked = e.voluntariado_excluye_asistencia;
+  $('ePermiteInvitados').checked = e.permite_invitados;
+  $('eAbiertoNoSocios').checked = e.abierto_no_socios;
+  $('ePublicoSoloActividades').checked = e.publico_solo_actividades;
+  $('eAvisoNoSocios').value = e.aviso_no_socios || '';
+  $('ePrecioInvitado').value = e.precio_invitado ?? '';
+  $('ePrecioAdulto').value = e.precio_adulto ?? '';
+  $('ePrecioAlumno').value = e.precio_alumno ?? '';
+  $('eFechaAperturaSocios').value = aLocal(e.fecha_apertura_socios);
+  $('eFechaAperturaNoSocios').value = aLocal(e.fecha_apertura_no_socios);
+  $('eFechaCierreInscripcion').value = aLocal(e.fecha_cierre_inscripcion);
+  actualizarVisibilidad();
+}
+
+function leerFormulario() {
+  const tipoEsp = $('eTipoEspecial').value;
+  const tipo = $('eTipoElegibilidad').value;
+  const modo = $('eModo').value;
+  const opciones = $('eOpciones').value.split(',').map(t => t.trim()).filter(Boolean);
+  const metodo = $('eMetodoAsignacion').value;
+  return {
+    titulo: $('eTitulo').value.trim(),
+    descripcion: $('eDescripcion').value.trim(),
+    fecha: aISO($('eFecha').value),
+    aforo_total: num($('eAforo').value, true),
+    sin_inscripcion: tipoEsp === 'informativo',
+    usa_concurso_texto: tipoEsp === 'concurso',
     tipo_elegibilidad: tipo,
-    sin_inscripcion: document.getElementById('eSinInscripcion').checked,
-    usa_concurso_texto: document.getElementById('eUsaConcurso').checked,
-    voluntariado_habilitado: document.getElementById('eVoluntariado').checked,
-    voluntariado_excluye_asistencia: document.getElementById('eVoluntariadoExcluye').checked,
-    abierto_no_socios: document.getElementById('eAbiertoNoSocios').checked,
-    fecha_apertura_socios: document.getElementById('eFechaAperturaSocios').value ? new Date(document.getElementById('eFechaAperturaSocios').value).toISOString() : null,
-    fecha_apertura_no_socios: document.getElementById('eFechaAperturaNoSocios').value ? new Date(document.getElementById('eFechaAperturaNoSocios').value).toISOString() : null,
-    fecha_cierre_inscripcion: document.getElementById('eFechaCierreInscripcion').value ? new Date(document.getElementById('eFechaCierreInscripcion').value).toISOString() : null,
-    metodo_asignacion: document.getElementById('eMetodoAsignacion').value,
-    requiere_pareja_adulto_alumno: document.getElementById('eRequierePareja').checked,
-    usa_prioridad_historial: document.getElementById('eUsaPrioridadHistorial').checked,
-    precio_adulto: document.getElementById('ePrecioAdulto').value ? parseFloat(document.getElementById('ePrecioAdulto').value) : null,
-    precio_alumno: document.getElementById('ePrecioAlumno').value ? parseFloat(document.getElementById('ePrecioAlumno').value) : null,
-    permite_invitados: document.getElementById('ePermiteInvitados').checked,
-    precio_invitado: document.getElementById('ePrecioInvitado').value ? parseFloat(document.getElementById('ePrecioInvitado').value) : null
+    elegibilidad_modo: tipo === 'alumnos' ? modo : null,
+    cursos_permitidos: tipo === 'alumnos' && modo === 'curso' ? leerCursosSeleccionados('evt-curso-cb') : null,
+    edad_min: tipo === 'alumnos' && modo === 'edad' ? num($('eEdadMin').value, true) : null,
+    edad_max: tipo === 'alumnos' && modo === 'edad' ? num($('eEdadMax').value, true) : null,
+    metodo_asignacion: metodo,
+    requiere_pareja_adulto_alumno: metodo === 'sorteo' && $('eRequierePareja').checked,
+    usa_prioridad_historial: metodo === 'sorteo' && $('eUsaPrioridadHistorial').checked,
+    pide_alergias: $('ePideAlergias').checked,
+    alumnos_requieren_adulto: $('eAlumnosRequierenAdulto').checked,
+    pregunta_extra: $('ePregunta').value.trim() || null,
+    pregunta_opciones: $('ePregunta').value.trim() && opciones.length ? opciones : null,
+    voluntariado_modo: $('eVoluntariadoModo').value,
+    voluntariado_habilitado: $('eVoluntariadoModo').value !== 'no',
+    voluntariado_excluye_asistencia: $('eVoluntariadoExcluye').checked,
+    permite_invitados: $('ePermiteInvitados').checked,
+    abierto_no_socios: $('eAbiertoNoSocios').checked,
+    publico_solo_actividades: $('eAbiertoNoSocios').checked && $('ePublicoSoloActividades').checked,
+    aviso_no_socios: $('eAvisoNoSocios').value.trim() || null,
+    precio_invitado: num($('ePrecioInvitado').value),
+    precio_adulto: num($('ePrecioAdulto').value),
+    precio_alumno: num($('ePrecioAlumno').value),
+    fecha_apertura_socios: aISO($('eFechaAperturaSocios').value),
+    fecha_apertura_no_socios: aISO($('eFechaAperturaNoSocios').value),
+    fecha_cierre_inscripcion: aISO($('eFechaCierreInscripcion').value)
   };
-  if (tipo === 'alumnos') {
-    const modo = document.getElementById('eModo').value;
-    payload.elegibilidad_modo = modo;
-    if (modo === 'curso') payload.cursos_permitidos = leerCursosSeleccionados('evt-curso-cb');
-    else {
-      payload.edad_min = document.getElementById('eEdadMin').value ? parseInt(document.getElementById('eEdadMin').value, 10) : null;
-      payload.edad_max = document.getElementById('eEdadMax').value ? parseInt(document.getElementById('eEdadMax').value, 10) : null;
-    }
-  }
+}
 
-  const msg = document.getElementById('crearMsg');
-  if (!payload.titulo) { msg.style.display = 'block'; msg.className = 'msg-error'; msg.textContent = 'Pon un título.'; return; }
-
-  const { error } = await sb.from('eventos').insert(payload);
-  msg.style.display = 'block';
-  msg.className = error ? 'msg-error' : 'msg-ok';
-  msg.textContent = error ? 'Error: ' + error.message : 'Evento creado ✓';
-  if (!error) {
-    document.getElementById('eTitulo').value = '';
-    document.getElementById('eDescripcion').value = '';
-    document.getElementById('eFecha').value = '';
-    document.getElementById('eAforo').value = '';
-    document.getElementById('eSinInscripcion').checked = false;
-    document.getElementById('eUsaConcurso').checked = false;
-    document.getElementById('eAbiertoNoSocios').checked = false;
-    document.getElementById('eFechaAperturaSocios').value = '';
-    document.getElementById('eFechaAperturaNoSocios').value = '';
-    document.getElementById('eFechaCierreInscripcion').value = '';
-    document.getElementById('eMetodoAsignacion').value = 'aforo';
-    document.getElementById('eRequierePareja').checked = false;
-    document.getElementById('eUsaPrioridadHistorial').checked = false;
-    document.getElementById('ePrecioAdulto').value = '';
-    document.getElementById('ePrecioAlumno').value = '';
-    document.getElementById('ePermiteInvitados').checked = false;
-    document.getElementById('ePrecioInvitado').value = '';
-    actualizarVisibilidadInscripcion();
-    document.getElementById('eFechaAperturaNoSociosWrap').style.display = 'none';
-    document.getElementById('eSorteoOpcionesWrap').style.display = 'none';
-    cargarEventos();
-  }
+$('ePlantilla').addEventListener('change', (e) => {
+  if (!e.target.value) { rellenarFormulario({}); return; }
+  rellenarFormulario(PLANTILLAS[e.target.value]);
+  $('eTitulo').focus();
 });
+
+function aviso(texto, ok) {
+  const msg = $('crearMsg');
+  msg.style.display = 'block'; msg.className = ok ? 'msg-ok' : 'msg-error'; msg.textContent = texto;
+}
+
+function salirDeEdicion() {
+  editandoId = null;
+  $('formTitulo').textContent = 'Nuevo evento';
+  $('crearEventoBtn').textContent = 'Crear evento';
+  $('cancelarEdicionBtn').hidden = true;
+  $('plantillaWrap').hidden = false;
+  $('ePlantilla').value = '';
+  rellenarFormulario({});
+}
+$('cancelarEdicionBtn').addEventListener('click', () => { salirDeEdicion(); $('crearMsg').style.display = 'none'; });
+
+async function editarEvento(ev) {
+  editandoId = ev.id;
+  rellenarFormulario(ev);
+  $('formTitulo').textContent = 'Editar: ' + ev.titulo;
+  $('crearEventoBtn').textContent = 'Guardar cambios';
+  $('cancelarEdicionBtn').hidden = false;
+  $('plantillaWrap').hidden = true;
+  $('crearMsg').style.display = 'none';
+  $('formCard').scrollIntoView({ behavior: 'smooth' });
+}
+
+$('crearEventoBtn').addEventListener('click', async () => {
+  const payload = leerFormulario();
+  if (!payload.titulo) { aviso('Pon un título.', false); return; }
+  if (!payload.fecha) { aviso('Pon la fecha del evento.', false); return; }
+  if (payload.tipo_elegibilidad === 'alumnos' && payload.elegibilidad_modo === 'curso' && !payload.cursos_permitidos.length) {
+    aviso('Marca al menos un curso.', false); return;
+  }
+  if (payload.metodo_asignacion === 'sorteo' && !payload.aforo_total) { aviso('Un sorteo necesita un aforo (número de plazas).', false); return; }
+  if ((payload.permite_invitados || payload.abierto_no_socios) && payload.precio_invitado == null && !payload.publico_solo_actividades) {
+    if (!confirm('No has puesto precio para las personas no socias. ¿Es gratis para ellas?')) return;
+  }
+
+  if (editandoId) {
+    // Avisos si el cambio deja a gente fuera
+    const { data: plazas } = await sb.rpc('evento_plazas_disponibles', { p_evento_id: editandoId });
+    const anterior = eventosCache.find(e => e.id === editandoId);
+    if (payload.aforo_total != null && anterior && anterior.aforo_total != null && plazas != null) {
+      const ocupadas = anterior.aforo_total - plazas;
+      if (ocupadas > payload.aforo_total &&
+          !confirm(`Ya hay ${ocupadas} personas apuntadas y el nuevo aforo es ${payload.aforo_total}. Nadie se borra, pero no entrará nadie más hasta que haya hueco. ¿Guardar?`)) return;
+    }
+    const { error } = await sb.from('eventos').update(payload).eq('id', editandoId);
+    if (error) { aviso('No se pudo guardar: ' + error.message, false); return; }
+    aviso('Cambios guardados. Las inscripciones se mantienen.', true);
+    salirDeEdicion();
+  } else {
+    const { error } = await sb.from('eventos').insert(payload);
+    if (error) { aviso('No se pudo crear: ' + error.message, false); return; }
+    aviso('Evento creado.', true);
+    rellenarFormulario({});
+    $('ePlantilla').value = '';
+  }
+  cargarEventos();
+});
+actualizarVisibilidad();
 
 async function cargarEventos() {
   const wrap = document.getElementById('eventosWrap');
   const { data: eventos, error } = await sb.from('eventos').select('*').order('fecha', { ascending: true });
   if (error) { wrap.innerHTML = '<p class="msg-error">No se pudieron cargar.</p>'; return; }
+  eventosCache = eventos || [];
   if (!eventos || eventos.length === 0) { wrap.innerHTML = '<p class="empty-hint">Todavía no hay eventos.</p>'; return; }
+
+  // Ocupación de cada evento con aforo
+  const ocupacion = {};
+  await Promise.all(eventos.filter(e => e.aforo_total != null).map(async e => {
+    const { data } = await sb.rpc('evento_plazas_disponibles', { p_evento_id: e.id });
+    if (data != null) ocupacion[e.id] = e.aforo_total - data;
+  }));
+  const QUIEN = { toda_familia: 'Toda la familia', alumnos: 'Alumnos', adultos: 'Adultos' };
 
   wrap.innerHTML = '';
   for (const ev of eventos) {
     const row = document.createElement('div');
     row.className = 'evento-row';
     row.innerHTML =
-      '<div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px;">' +
-        '<div><b>' + ev.titulo + '</b> ' + (ev.activo ? '' : '<span class="badge badge-socio">Oculto</span>') + '<br>' +
+      '<div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap;">' +
+        '<div><b>' + esc(ev.titulo) + '</b> ' + (ev.activo ? '' : '<span class="badge badge-socio">Oculto</span>') + '<br>' +
           '<span style="font-size:14px; color:var(--ink-soft);">' +
-            (ev.fecha ? new Date(ev.fecha).toLocaleString('es-ES') : 'Sin fecha') + ' · ' + ev.tipo_elegibilidad +
+            (ev.fecha ? new Date(ev.fecha).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' }) : 'Sin fecha') +
+            (ev.sin_inscripcion ? ', informativo' : ev.usa_concurso_texto ? ', concurso' : ', ' + QUIEN[ev.tipo_elegibilidad]) +
+            (ev.aforo_total != null ? (ev.requiere_pareja_adulto_alumno ? `, ${ev.aforo_total} plazas de niños` : `, ${ocupacion[ev.id] ?? 0} de ${ev.aforo_total} plazas`) : '') +
+            (ev.metodo_asignacion === 'sorteo' ? ', por sorteo' : '') +
           '</span></div>' +
         '<div style="display:flex; gap:8px; flex-wrap:wrap;">' +
+          '<button class="btn btn-outline editarBtn">Editar</button>' +
+          (!ev.sin_inscripcion && !ev.usa_concurso_texto ? '<button class="btn btn-outline toggleInscritosBtn">Inscritos</button>' : '') +
           (ev.usa_concurso_texto ? '<button class="btn btn-outline toggleConcursoBtn">Concurso</button>' : '') +
-          (!ev.sin_inscripcion && !ev.usa_concurso_texto ? '<button class="btn btn-outline toggleActividadesBtn">Actividades</button>' : '') +
+          (!ev.sin_inscripcion && !ev.usa_concurso_texto ? '<button class="btn btn-outline toggleActividadesBtn">Subactividades</button>' : '') +
+          '<button class="btn btn-outline togglePremiosBtn">Premios</button>' +
           '<button class="btn btn-outline toggleFotosBtn">Fotos</button>' +
           (!ev.sin_inscripcion && !ev.usa_concurso_texto ? '<button class="btn btn-outline toggleDocsBtn">Documentos</button>' : '') +
           (ev.metodo_asignacion === 'sorteo' && !ev.sorteo_realizado ? '<button class="btn btn-outline sortearBtn">Sortear</button>' : '') +
@@ -254,18 +437,31 @@ async function cargarEventos() {
           '<button class="btn-danger-link borrarBtn">Borrar</button>' +
         '</div>' +
       '</div>' +
+      '<div class="inscritosPanel" style="display:none; margin-top:14px;"></div>' +
       '<div class="actividadesPanel" style="display:none; margin-top:14px;"></div>' +
+      '<div class="premiosPanel" style="display:none; margin-top:14px;"></div>' +
       '<div class="fotosPanel" style="display:none; margin-top:14px;"></div>' +
       '<div class="docsPanel" style="display:none; margin-top:14px;"></div>' +
       '<div class="concursoPanel" style="display:none; margin-top:14px;"></div>' +
       '<p class="sortearMsg" style="display:none; margin-top:10px;"></p>';
+
+    row.querySelector('.editarBtn').addEventListener('click', () => editarEvento(ev));
+    const inscritosPanel = row.querySelector('.inscritosPanel');
+    const toggleInscritosBtn = row.querySelector('.toggleInscritosBtn');
+    if (toggleInscritosBtn) {
+      toggleInscritosBtn.addEventListener('click', async () => {
+        const visible = inscritosPanel.style.display === 'block';
+        inscritosPanel.style.display = visible ? 'none' : 'block';
+        if (!visible) await renderInscritos(inscritosPanel, ev);
+      });
+    }
 
     row.querySelector('.toggleActivoBtn').addEventListener('click', async () => {
       await sb.from('eventos').update({ activo: !ev.activo }).eq('id', ev.id);
       cargarEventos();
     });
     row.querySelector('.borrarBtn').addEventListener('click', async () => {
-      if (!confirm('¿Borrar este evento y todo lo asociado?')) return;
+      if (!confirm('¿Borrar este evento con todas sus inscripciones? No se puede deshacer. Si solo quieres corregir algo, usa Editar.')) return;
       await sb.from('eventos').delete().eq('id', ev.id);
       cargarEventos();
     });
@@ -279,6 +475,13 @@ async function cargarEventos() {
         if (!visible) await renderActividades(panel, ev);
       });
     }
+
+    const premiosPanel = row.querySelector('.premiosPanel');
+    row.querySelector('.togglePremiosBtn').addEventListener('click', async () => {
+      const visible = premiosPanel.style.display === 'block';
+      premiosPanel.style.display = visible ? 'none' : 'block';
+      if (!visible) await renderPremios(premiosPanel, ev);
+    });
 
     const fotosPanel = row.querySelector('.fotosPanel');
     row.querySelector('.toggleFotosBtn').addEventListener('click', async () => {
@@ -334,6 +537,138 @@ async function cargarEventos() {
 
     wrap.appendChild(row);
   }
+}
+
+/* ================= Listado de inscritos ================= */
+async function renderInscritos(panel, ev) {
+  panel.innerHTML = '<p class="loading">Cargando inscritos...</p>';
+  const { data, error } = await sb.from('evento_inscripciones')
+    .select('*, adultos(nombre, apellidos), alumnos(nombre, apellidos, fecha_nacimiento, etapa, curso), evento_actividades(nombre), socios(numero_socio_completo), comprobantes_pago(verificado)')
+    .eq('evento_id', ev.id).order('created_at');
+  if (error) { panel.innerHTML = '<p class="msg-error">No se pudo cargar: ' + esc(error.message) + '</p>'; return; }
+  if (!data || !data.length) { panel.innerHTML = '<p class="empty-hint">Todavía no se ha apuntado nadie.</p>'; return; }
+
+  const pagan = Number(ev.precio_invitado) > 0;
+  // Familias con algún adulto socio apuntado como asistente
+  const familiasConAdulto = new Set(data.filter(i => i.tipo_miembro === 'adulto' && !i.actividad_id && !i.es_voluntario).map(i => i.socio_id));
+
+  const filas = data.map(i => {
+    let nombre = '', apellidos = '', tipo = '', edad = '', curso = '';
+    if (i.tipo_miembro === 'adulto') { nombre = i.adultos?.nombre; apellidos = i.adultos?.apellidos; tipo = 'Adulto socio'; }
+    else if (i.tipo_miembro === 'alumno') {
+      nombre = i.alumnos?.nombre; apellidos = i.alumnos?.apellidos; tipo = 'Alumno socio';
+      edad = i.alumnos?.fecha_nacimiento ? calcularEdad(i.alumnos.fecha_nacimiento) : '';
+      curso = i.alumnos ? `${i.alumnos.curso} ${i.alumnos.etapa}` : '';
+    } else if (i.tipo_miembro === 'invitado') {
+      nombre = i.nombre_invitado; apellidos = i.apellidos_invitado || ''; tipo = 'Invitado no socio'; edad = i.edad ?? '';
+    } else {
+      tipo = 'Externo';
+      if (i.alumno_nombre) { nombre = i.alumno_nombre; apellidos = i.alumno_apellidos || ''; curso = i.alumno_curso ? `${i.alumno_curso} ${i.alumno_etapa}` : ''; edad = i.edad ?? ''; }
+      else { nombre = i.nombre_contacto; }
+    }
+    const debePagar = pagan && (i.tipo_miembro === 'invitado' || (i.tipo_miembro === 'publico' && !i.actividad_id));
+    const comp = (i.comprobantes_pago || [])[0];
+    const sinAdulto = ev.alumnos_requieren_adulto && i.tipo_miembro === 'alumno' && !i.actividad_id && !i.es_voluntario
+      && !i.responsable_nombre && !familiasConAdulto.has(i.socio_id);
+    return {
+      _sinAdulto: sinAdulto,
+      'Apartado': i.es_voluntario ? 'Voluntario' : (i.evento_actividades ? i.evento_actividades.nombre : 'Asistente'),
+      'Nombre': nombre || '', 'Apellidos': apellidos || '', 'Tipo': tipo, 'Edad': edad, 'Curso': curso,
+      'Alergias': i.tiene_alergias === true ? ('Sí: ' + (i.alergias || '')) : i.tiene_alergias === false ? 'No' : '',
+      'Va con': i.responsable_nombre || (i.tipo_miembro === 'publico' && i.alumno_nombre ? i.nombre_contacto : '') || (sinAdulto ? 'FALTA ADULTO' : ''),
+      [ev.pregunta_extra || 'Respuesta']: i.respuesta_extra || '',
+      'Pago': debePagar ? (comp ? (comp.verificado ? 'Verificado' : 'Justificante por revisar') : 'Sin justificante') : '',
+      'Sorteo': ev.metodo_asignacion === 'sorteo' && !i.es_voluntario && !i.actividad_id ? ({ pendiente: 'Pendiente', ganador: 'Con plaza', no_ganador: 'Sin plaza' }[i.estado] || '') : '',
+      'Nº socio': i.socios?.numero_socio_completo || '',
+      'Email': i.email_contacto || '', 'Teléfono': i.telefono_contacto || ''
+    };
+  });
+
+  const asistentes = filas.filter(f => f['Apartado'] === 'Asistente').length;
+  const voluntarios = filas.filter(f => f['Apartado'] === 'Voluntario').length;
+  const columnas = Object.keys(filas[0]).filter(c => !c.startsWith('_') && filas.some(f => f[c] !== '' && f[c] != null));
+  const orden = ['Asistente', ...new Set(filas.map(f => f['Apartado']).filter(a => a !== 'Asistente' && a !== 'Voluntario')), 'Voluntario'];
+  filas.sort((a, b) => orden.indexOf(a['Apartado']) - orden.indexOf(b['Apartado']));
+
+  panel.innerHTML = `
+    <div style="display:flex; flex-wrap:wrap; gap:10px 20px; align-items:center; justify-content:space-between;">
+      <p style="margin:0;"><b>${asistentes}</b> asistente${asistentes === 1 ? '' : 's'}${ev.aforo_total != null ? ' de ' + ev.aforo_total + ' plazas' : ''}${voluntarios ? `, <b>${voluntarios}</b> voluntario${voluntarios === 1 ? '' : 's'}` : ''}</p>
+      <button type="button" class="btn btn-outline csvBtn">Descargar listado (CSV)</button>
+    </div>
+    ${filas.some(f => f._sinAdulto) ? '<p class="aviso">Hay niños sin ningún adulto encargado (marcados en amarillo).</p>' : ''}
+    <div class="tabla-wrap"><table>
+      <thead><tr>${columnas.map(c => `<th>${esc(c)}</th>`).join('')}</tr></thead>
+      <tbody>${filas.map(f => `<tr class="${f._sinAdulto ? 'aviso-fila' : ''}">${columnas.map(c => `<td>${esc(f[c])}</td>`).join('')}</tr>`).join('')}</tbody>
+    </table></div>`;
+  panel.querySelector('.csvBtn').addEventListener('click', () => {
+    descargarCSV(filas.map(f => Object.fromEntries(columnas.map(c => [c, f[c]]))), 'inscritos-' + ev.titulo.replace(/[^\wáéíóúñÁÉÍÓÚÑ-]+/g, '-') + '.csv');
+  });
+}
+
+/* ================= Premios (concursos y torneos) ================= */
+async function renderPremios(panel, ev) {
+  panel.innerHTML = '<p class="loading">Cargando...</p>';
+  const [{ data: premios, error }, { data: acts }] = await Promise.all([
+    sb.from('evento_premios').select('*').eq('evento_id', ev.id).order('orden').order('created_at'),
+    sb.from('evento_actividades').select('id, nombre').eq('evento_id', ev.id).order('created_at')
+  ]);
+  if (error) { panel.innerHTML = '<p class="msg-error">' + (/evento_premios/.test(error.message) ? 'Falta ejecutar supabase/migracion-eventos-v2.sql en Supabase.' : esc(error.message)) + '</p>'; return; }
+  const grupos = [{ id: null, nombre: ev.titulo + ' (evento)' }, ...(acts || [])];
+  panel.innerHTML = `<p class="section-label">Premios</p>
+    <p class="ayuda" style="margin-bottom:12px;">Las familias ven los premios en el evento. Cuando sepáis quién ha ganado, escribidlo y se mostrará.</p>
+    <div class="premiosLista"></div>
+    <div class="actividad-item">
+      <div class="two-col">
+        ${acts && acts.length ? `<div class="field"><label>De</label><select class="pDe">${grupos.map(g => `<option value="${g.id || ''}">${esc(g.nombre)}</option>`).join('')}</select></div>` : ''}
+        <div class="field"><label>Puesto</label><input type="text" class="pPuesto" placeholder="1er premio"></div>
+        <div class="field"><label>Premio</label><input type="text" class="pPremio" placeholder="Lote de libros"></div>
+      </div>
+      <button type="button" class="btn btn-outline pAdd">Añadir premio</button>
+      <p class="pMsg msg-error" hidden></p>
+    </div>`;
+  const lista = panel.querySelector('.premiosLista');
+  grupos.forEach(g => {
+    const suyos = (premios || []).filter(p => (p.actividad_id || null) === g.id);
+    if (!suyos.length) return;
+    lista.insertAdjacentHTML('beforeend', `<p style="font-weight:700; margin:12px 0 6px;">${esc(g.nombre)}</p>`);
+    suyos.forEach(p => {
+      const item = document.createElement('div');
+      item.className = 'actividad-item';
+      item.innerHTML = `<div class="two-col">
+          <div class="field"><label>Puesto</label><input type="text" class="ePuesto" value="${esc(p.puesto)}"></div>
+          <div class="field"><label>Premio</label><input type="text" class="ePremio" value="${esc(p.premio || '')}"></div>
+        </div>
+        <div class="field"><label>Ganador/a (vacío hasta que se sepa)</label><input type="text" class="eGanador" value="${esc(p.ganador || '')}"></div>
+        <div style="display:flex; gap:14px; align-items:center; flex-wrap:wrap;"><button type="button" class="btn btn-outline guardar">Guardar</button><button type="button" class="btn-danger-link borrar">Borrar</button><span class="ok msg-ok" hidden>Guardado</span></div>`;
+      item.querySelector('.guardar').addEventListener('click', async () => {
+        const { error } = await sb.from('evento_premios').update({
+          puesto: item.querySelector('.ePuesto').value.trim() || p.puesto,
+          premio: item.querySelector('.ePremio').value.trim() || null,
+          ganador: item.querySelector('.eGanador').value.trim() || null
+        }).eq('id', p.id);
+        if (error) { alert(error.message); return; }
+        item.querySelector('.ok').hidden = false;
+      });
+      item.querySelector('.borrar').addEventListener('click', async () => {
+        if (!confirm('¿Borrar este premio?')) return;
+        await sb.from('evento_premios').delete().eq('id', p.id);
+        renderPremios(panel, ev);
+      });
+      lista.appendChild(item);
+    });
+  });
+  panel.querySelector('.pAdd').addEventListener('click', async () => {
+    const puesto = panel.querySelector('.pPuesto').value.trim();
+    const msg = panel.querySelector('.pMsg');
+    if (!puesto) { msg.textContent = 'Escribe el puesto (ej. 1er premio).'; msg.hidden = false; return; }
+    const de = panel.querySelector('.pDe');
+    const { error } = await sb.from('evento_premios').insert({
+      evento_id: ev.id, actividad_id: de && de.value ? de.value : null, puesto,
+      premio: panel.querySelector('.pPremio').value.trim() || null, orden: (premios || []).length
+    });
+    if (error) { msg.textContent = error.message; msg.hidden = false; return; }
+    renderPremios(panel, ev);
+  });
 }
 
 async function renderFotosEvento(panel, evento) {
@@ -568,17 +903,25 @@ async function renderConcursoEvento(panel, evento) {
   panel.innerHTML = '<p class="loading">Cargando...</p>';
   const { data: envios, error } = await sb
     .from('concurso_envios')
-    .select('id, texto, es_ganador, created_at')
+    .select('id, texto, archivo_path, es_ganador, created_at')
     .eq('evento_id', evento.id)
     .order('created_at');
 
   if (error) { panel.innerHTML = '<p class="msg-error">No se pudo cargar.</p>'; return; }
   if (!envios || envios.length === 0) { panel.innerHTML = '<p class="empty-hint">Todavía no hay ningún envío.</p>'; return; }
 
-  panel.innerHTML = '<p class="section-label">Envíos (anónimos hasta marcar ganador)</p><div class="enviosLista"></div>';
+  panel.innerHTML = `<p class="section-label">${envios.length} envío${envios.length === 1 ? '' : 's'} (anónimos hasta marcar ganador)</p>
+    <button type="button" class="btn btn-outline todosTxt">Descargar todos los textos</button>
+    <div class="enviosLista"></div>`;
   const lista = panel.querySelector('.enviosLista');
+  panel.querySelector('.todosTxt').addEventListener('click', () => {
+    const txt = envios.map((e, k) => `TEXTO ${k + 1}${e.archivo_path ? ' (entregado en Word)' : ''}\n\n${e.texto}`).join('\n\n----------------------------------------\n\n');
+    const blob = new Blob([txt], { type: 'text/plain;charset=utf-8' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+    a.download = 'textos-' + evento.titulo.replace(/[^\wáéíóúñÁÉÍÓÚÑ-]+/g, '-') + '.txt'; a.click();
+  });
 
-  for (const envio of envios) {
+  for (const [k, envio] of envios.entries()) {
     const item = document.createElement('div');
     item.className = 'actividad-item';
 
@@ -597,12 +940,21 @@ async function renderConcursoEvento(panel, evento) {
     }
 
     item.innerHTML = `
-      <p style="white-space:pre-wrap; font-size:14px;">${envio.texto}</p>
+      <p style="font-weight:700; margin:0 0 6px;">Texto ${k + 1}${envio.archivo_path ? ' (Word)' : ''}</p>
+      <details><summary>${esc((envio.texto || '').slice(0, 140))}${(envio.texto || '').length > 140 ? '…' : ''}</summary>
+        <p style="white-space:pre-wrap; font-size:15px;">${esc(envio.texto)}</p></details>
+      ${envio.archivo_path ? '<button type="button" class="btn btn-outline wordBtn" style="margin-top:8px;">Descargar el Word</button>' : ''}
       ${identidadHtml}
       <button type="button" class="btn ${envio.es_ganador ? 'btn-danger-link' : 'btn-outline'} marcarBtn" style="margin-top:8px;">
         ${envio.es_ganador ? 'Desmarcar ganador' : 'Marcar como ganador'}
       </button>
     `;
+    const wordBtn = item.querySelector('.wordBtn');
+    if (wordBtn) wordBtn.addEventListener('click', async () => {
+      const { data, error } = await sb.storage.from('concursos').createSignedUrl(envio.archivo_path, 300, { download: `texto-${k + 1}.docx` });
+      if (error) { alert('No se pudo descargar: ' + error.message); return; }
+      window.location.href = data.signedUrl;
+    });
     item.querySelector('.marcarBtn').addEventListener('click', async () => {
       await sb.from('concurso_envios').update({ es_ganador: !envio.es_ganador }).eq('id', envio.id);
       renderConcursoEvento(panel, evento);

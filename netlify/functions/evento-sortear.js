@@ -5,8 +5,9 @@
 //     pendientes, hasta cubrir el aforo.
 //   - Por pareja (requiere_pareja_adulto_alumno, ej. Cabalgata): las
 //     inscripciones vienen agrupadas por grupo_id (un adulto + un
-//     alumno de la misma familia); se sortea por GRUPO completo, nunca
-//     por persona suelta — si pierde la pareja, pierden los dos.
+//     alumno, o un adulto solo); se sortea por GRUPO completo, nunca
+//     por persona suelta — si pierde la pareja, pierden los dos. El
+//     aforo cuenta niños; los adultos solos no ocupan plaza.
 //   - Con prioridad histórica (usa_prioridad_historial, ej. Comedor):
 //     quienes no han participado antes (adultos.ya_visito_comedor =
 //     false) entran primero al sorteo; los que ya participaron solo
@@ -67,6 +68,12 @@ exports.handler = async (event) => {
     return { statusCode: 400, body: JSON.stringify({ error: 'Falta el id del evento' }) };
   }
 
+  // No se sortea con el plazo todavía abierto (alguien podría seguir apuntándose)
+  const { data: previo } = await supabaseAdmin.from('eventos').select('fecha_cierre_inscripcion').eq('id', eventoId).maybeSingle();
+  if (previo && previo.fecha_cierre_inscripcion && new Date(previo.fecha_cierre_inscripcion) > new Date()) {
+    return { statusCode: 400, body: JSON.stringify({ error: 'El plazo de inscripción sigue abierto. Sortea cuando haya cerrado.' }) };
+  }
+
   // Reclamo atómico: si sorteo_realizado ya era true, esta actualización
   // no afecta a ninguna fila y sabemos que ya se sorteó antes.
   const { data: reclamado, error: claimError } = await supabaseAdmin
@@ -89,6 +96,8 @@ exports.handler = async (event) => {
     .from('evento_inscripciones')
     .select('id, tipo_miembro, adulto_id, grupo_id')
     .eq('evento_id', eventoId)
+    .is('actividad_id', null)        // las subactividades no entran en el sorteo
+    .eq('es_voluntario', false)      // los voluntarios tampoco
     .eq('estado', 'pendiente');
   if (insError) {
     return { statusCode: 500, body: JSON.stringify({ error: insError.message }) };
@@ -104,9 +113,17 @@ exports.handler = async (event) => {
       const clave = i.grupo_id || i.id; // por si alguna fila quedó suelta sin grupo
       (grupos[clave] = grupos[clave] || []).push(i);
     }
-    const gruposIds = mezclar(Object.keys(grupos));
-    const gruposGanadores = cupo != null ? gruposIds.slice(0, cupo) : gruposIds;
-    ganadoresIds = gruposGanadores.flatMap(g => grupos[g].map(i => i.id));
+    // El aforo cuenta NIÑOS (Cabalgata: 12 o 20 plazas). Se sacan parejas
+    // niño+adulto al azar mientras queden plazas; cada niño va con su
+    // adulto. Los adultos que van solos no ocupan plaza de niño.
+    let plazas = cupo;
+    for (const g of mezclar(Object.keys(grupos))) {
+      const ninos = grupos[g].filter(i => i.tipo_miembro === 'alumno').length;
+      if (ninos === 0) { ganadoresIds.push(...grupos[g].map(i => i.id)); continue; }
+      if (plazas != null && ninos > plazas) continue;
+      ganadoresIds.push(...grupos[g].map(i => i.id));
+      if (plazas != null) plazas -= ninos;
+    }
 
   } else if (reclamado.usa_prioridad_historial) {
     const adultoIds = inscripciones.map(i => i.adulto_id).filter(Boolean);

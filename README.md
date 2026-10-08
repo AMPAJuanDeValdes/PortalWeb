@@ -125,8 +125,9 @@ Lo único que sigue siendo obligatorio en Supabase:
 
 En este orden, si no las has ejecutado: `migracion-gestion-cuentas.sql` y
 después `migracion-libros-uniformes.sql`, `migracion-fusionar-libros-repetidos.sql`
-(deja un solo registro por título con todos sus cursos) y `migracion-portada.sql`
-(pie de foto del carrusel y vídeos de portada). Todas se pueden
+(deja un solo registro por título con todos sus cursos) `migracion-portada.sql`
+(pie de foto del carrusel y vídeos de portada) y `migracion-eventos-v2.sql`
+(reglas de inscripción de los eventos). Todas se pueden
 ejecutar dos veces sin problema.
 
 ## Variables de entorno en Netlify

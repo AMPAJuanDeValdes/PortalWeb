@@ -449,22 +449,30 @@ de la Mochila que pueden mover la cola.
 
 ---
 
-## 4. Taxonomía de tipos de evento (definida en esta sesión)
+## 4. Taxonomía de tipos de evento (revisada con la Junta, oct. 2026)
 
-Todos usan las mismas tablas (`eventos` + flags), pero cada "tipo" es en
-realidad una combinación concreta de esos flags. Esta lista es la
-referencia de qué flags activar para replicar cada tipo:
+Todos usan las mismas tablas (`eventos` + flags). En el admin, «Empezar
+desde» rellena las opciones típicas de cada tipo. Las reglas se comprueban
+en la base de datos (`eventos_validar_inscripcion()`, migracion-eventos-v2.sql):
+plazo, aforo con bloqueo (sin pasarse aunque dos familias se apunten a la
+vez), duplicados, alergias obligatorias, niños con adulto, voluntarios,
+subactividades solo para quien está en el evento, curso de los externos.
+Los voluntarios no ocupan plaza; los invitados no socios sí.
 
-| Tipo de evento | Flags clave |
+| Evento | Opciones |
 |---|---|
-| **Talleres** (Juegos, Rol, Warhammer, Ciencias, Arqueología...) | `abierto_no_socios` = true/false a elección del admin; `fecha_apertura_socios` y `fecha_apertura_no_socios` distintas; `metodo_asignacion = 'aforo'`; se cierra por aforo completo o por `fecha_cierre_inscripcion`. Si es público, el no-socio escribe los datos del alumno a mano (`tipo_miembro = 'publico'`); el socio elige de su lista existente. |
-| **Cabalgata del distrito** | `requiere_pareja_adulto_alumno = true`; `metodo_asignacion = 'sorteo'`; límite de edad en alumnos; el adulto puede ser no-socio (se escriben sus datos) o socio (un clic). Si pierde la pareja, pierden los dos (nunca se rompe). Es el único evento con documento a firmar hoy — solo lo firman quienes ganan el sorteo (o, si se prefiere simplificar el sorteo, se puede pedir la firma a todos antes de sortear). |
-| **Visita al Comedor** | Siempre 2 plazas (`aforo_total = 2`); `metodo_asignacion = 'sorteo'`; `usa_prioridad_historial = true`; solo adultos socios (selector). Quien ya visitó (`adultos.ya_visito_comedor`) solo compite si sobran plazas tras asignar a quienes nunca fueron. |
-| **Concurso de Christmas** | `sin_inscripcion = true`. Puramente informativo, sin ningún flujo de apuntarse. |
-| **Concurso literario** | Envío de texto vía `concurso_enviar_texto()`, anónimo hasta que el admin marca un envío como ganador (`concurso_envios.es_ganador`), momento en el que su identidad se vuelve visible. |
-| **Chocolatada** | `permite_invitados = true` (el socio invita, pagando, desde su cuenta), `abierto_no_socios = false` (nunca aparece en la web pública — solo socios pueden iniciar la inscripción de terceros). Miembros de la familia que son socios: un clic; el resto: escriben sus datos. |
-| **Formulario de voluntarios** | `voluntariado_habilitado = true`, sin aforo ni fecha estrictas. Adultos se apuntan directamente; **un alumno solo puede apuntarse si un adulto de su familia ya está apuntado en el mismo evento** (trigger `verificar_alumno_voluntario_acompanado`). |
-| **Barbacoa del Cole** | `precio_alumno = 0` (gratis pero debe apuntarse, para el recuento), `precio_adulto` > 0 (todos pagan). Usa `evento_actividades` para los talleres/torneos anidados (Warhammer, rol, ajedrez), cada uno con su propio aforo. |
+| **Chocolatada** | Toda la familia, sin aforo. `pide_alergias`; `alumnos_requieren_adulto` (si la familia apunta solo niños, indica con qué adulto socio van: `responsable_nombre`); `permite_invitados` + `precio_invitado` (el socio apunta a no socios con nombre, apellidos, edad, alergias y justificante); `voluntariado_modo = 'adultos_y_ninos'`. No aparece en la web pública. Listado con nombre, apellidos, edad y alergias en «Inscritos». |
+| **Cabalgata** | `metodo_asignacion = 'sorteo'`, `requiere_pareja_adulto_alumno` (cada niño con un adulto; adultos solos también, sin ocupar plaza; el acompañante puede ser no socio con DNI), aforo en NIÑOS (12 o 20). Dos documentos (adulto y alumno) que firma cada persona apuntada; tras el sorteo, solo quien tiene plaza. |
+| **Talleres** (juegos de mesa, rol, ciencias, Warhammer) | Solo alumnos de ciertos cursos, aforo por orden de llegada. Socios gratis; externos por la web pública (`abierto_no_socios`) con alumno, curso en rango, adulto responsable, teléfono, email y justificante (`precio_invitado`). Pregunta opcional (`pregunta_extra`/`pregunta_opciones`): Patines solo en juegos de mesa. Torneos = subactividades elegibles en el mismo formulario. `voluntariado_modo = 'adultos'`. |
+| **Barbacoa** | Solo alumnos (gratis); los adultos no se apuntan y pagan en la entrada (`precio_adulto`, informativo). Subactividades con aforo, solo para alumnos apuntados al evento. Externos solo a subactividades (`publico_solo_actividades`) con `aviso_no_socios`. Voluntarios como en la Chocolatada. |
+| **Visita al comedor** | Solo adultos, `sorteo` + `usa_prioridad_historial`: primero entre quienes nunca fueron; si sobran plazas, entre los que ya fueron. |
+| **Concurso literario** | `usa_concurso_texto`: un texto por alumno en Word (.docx, bucket privado `concursos`, nombre al azar) o escrito; anónimo hasta elegir ganador. El texto del Word se extrae en el navegador con mammoth para leerlo en el panel. |
+| **Christmas, Olimpiadas matemáticas** | `sin_inscripcion`: informativo, con premios. |
+
+**Premios** (`evento_premios`): puesto, premio y ganador, del evento o de una subactividad (torneos). Se muestran a las familias.
+
+Los eventos se pueden editar en cualquier momento sin perder inscripciones.
+La inscripción pública va por `evento_inscribir_publico()` (todo o nada).
 
 ---
 

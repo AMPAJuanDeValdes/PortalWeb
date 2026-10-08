@@ -53,7 +53,7 @@ test.describe('Mis datos y Mochila', () => {
     const wrap = page.locator('#mochilaWrap');
     await expect(page.locator('#mochilaApuntarseBtn')).toBeVisible();
     await page.click('#mochilaApuntarseBtn');
-    await expect(wrap).toContainText('Estás en la posición', { timeout: 30_000 });
+    await expect(wrap).toContainText('Estáis en el puesto', { timeout: 30_000 });
     const { data } = await admin.from('mochila_cola').select('posicion').eq('socio_id', fam.socio.id);
     expect(data.length).toBe(1);
 
