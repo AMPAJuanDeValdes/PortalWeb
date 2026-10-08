@@ -8,16 +8,45 @@
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="shared/styles.css">
 <style>
-  .evento-card{ margin-bottom:22px; }
-  .evento-fecha{ font-size:15px; color:var(--ink-soft); margin:0 0 4px; font-weight:700; }
-  .etiquetas{ display:flex; flex-wrap:wrap; gap:8px; margin:10px 0 4px; }
-  .etiqueta{ display:inline-block; font-size:14px; font-weight:700; padding:3px 12px; border-radius:999px; background:#EEF4FB; color:var(--navy); }
+  /* Tarjeta de evento: cabecera de color según el tipo */
+  .t-verde{ --t:#3F6E12; --t-bg:#E6F2D8; --t-fuerte:#5E9426; }
+  .t-rosa{ --t:#B0185A; --t-bg:#FDE7F1; --t-fuerte:#D6246E; }
+  .t-amarillo{ --t:#8A6400; --t-bg:#FFF3C4; --t-fuerte:#9A6E00; }
+  .t-cielo{ --t:#006D9C; --t-bg:#DCF0FA; --t-fuerte:#0098D8; }
+  .t-morado{ --t:#6B3FA0; --t-bg:#EFE7FA; --t-fuerte:#8A5CC2; }
+  .evento-card{ margin-bottom:26px; padding:0 24px 22px; overflow:hidden; border:0; box-shadow:0 1px 0 var(--line), 0 0 0 1px var(--line); }
+  .ev-cab{ margin:0 -24px 16px; padding:22px 24px; background:var(--t-bg); display:flex; gap:18px; align-items:flex-start; position:relative; }
+  .ev-fecha{ flex:0 0 74px; background:var(--t-fuerte); color:#fff; border-radius:16px; text-align:center; padding:8px 4px; line-height:1.1; }
+  .ev-fecha b{ display:block; font-family:var(--font-title); font-weight:800; font-size:34px; line-height:1; margin:2px 0; }
+  .ev-fecha span{ font-size:14px; font-weight:700; text-transform:none; }
+  .ev-tit{ flex:1 1 auto; min-width:0; padding-right:56px; }
+  .ev-tit h2{ font-size:clamp(22px,3.4vw,28px); font-weight:800; margin:0 0 4px; }
+  .ev-hora{ margin:0; color:var(--t); font-weight:700; }
+  .ev-icono{ position:absolute; right:20px; top:18px; width:46px; height:46px; color:var(--t); opacity:.55; }
+  .ev-fotos{ max-width:520px; margin:0 0 14px; }
+  .ev-desc{ white-space:pre-line; margin:0 0 6px; font-size:17px; }
+  .etiquetas{ display:flex; flex-wrap:wrap; gap:8px; margin:10px 0 0; }
+  .etiqueta{ display:inline-block; font-size:14px; font-weight:700; padding:3px 12px; border-radius:999px; background:#fff; color:var(--t); }
   .etiqueta.llena{ background:#FBE4E1; color:var(--red); }
+  .avatar{ flex:0 0 36px; width:36px; height:36px; border-radius:50%; background:var(--t-bg); color:var(--t); font-weight:700; font-size:14px; display:inline-flex; align-items:center; justify-content:center; margin-right:10px; }
+  .persona{ display:flex; align-items:center; min-width:0; }
+  .filtros{ display:flex; gap:8px; flex-wrap:wrap; margin:0 0 22px; }
+  .filtros button{ font:inherit; font-weight:700; font-size:15px; min-height:42px; padding:0 18px; border-radius:999px; border:1.5px solid #C9D3DF; background:#fff; color:var(--ink); cursor:pointer; }
+  .filtros button[aria-pressed="true"]{ background:var(--ink); border-color:var(--ink); color:#fff; }
+  @media (max-width:560px){
+    .evento-card{ padding:0 16px 18px; }
+    .ev-cab{ margin:0 -16px 14px; padding:18px 16px; gap:12px; }
+    .ev-fecha{ flex-basis:62px; }
+    .ev-fecha b{ font-size:28px; }
+    .ev-icono{ display:none; }
+    .ev-tit{ padding-right:0; }
+  }
   .precios{ font-size:15px; color:var(--ink-soft); margin:8px 0 0; }
-  .bloque{ margin-top:18px; padding-top:16px; border-top:1px solid var(--line); }
-  .bloque > h3{ font-size:18px; margin:0 0 4px; }
+  .bloque{ margin-top:16px; padding:16px 18px; background:#F9FAFC; border-radius:18px; }
+  .bloque > h3{ font-size:19px; margin:0 0 4px; display:flex; align-items:center; gap:10px; }
+  .bloque > h3::before{ content:""; width:10px; height:10px; border-radius:50%; background:var(--t-fuerte); }
   .bloque > .ayuda{ color:var(--ink-soft); font-size:15px; margin:0 0 8px; }
-  .miembro{ padding:10px 0; border-bottom:1px solid #EEF1F5; }
+  .miembro{ padding:10px 0; border-bottom:1px solid #E9EDF2; }
   .miembro:last-child{ border-bottom:none; }
   .miembro-fila{ display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; }
   .miembro-fila .nombre{ font-weight:700; }
@@ -29,9 +58,11 @@
   .estado-ok{ color:var(--green); font-weight:700; font-size:15px; }
   .estado-no{ color:var(--red); font-weight:700; font-size:15px; }
   .estado-gris{ color:var(--ink-soft); font-size:15px; }
-  .actividad{ border:1px solid var(--line); border-radius:var(--radius); padding:14px; margin-top:12px; }
+  .actividad{ background:#fff; border:1px solid var(--line); border-radius:14px; padding:14px; margin-top:12px; }
   .actividad h4{ font-family:var(--font-title); font-size:17px; margin:0; }
-  .falta-adulto{ background:#FFF3C4; border-radius:var(--radius); padding:10px 12px; margin-top:8px; }
+  .falta-adulto{ background:#FFF3C4; border-radius:var(--radius); padding:12px 14px; margin-top:8px; }
+  .check-acomp{ display:flex; align-items:center; gap:8px; font-weight:700; margin:0; cursor:pointer; }
+  .check-acomp input{ width:20px; height:20px; }
   .bloque-premios{ background:var(--uniformes-bg); border-radius:var(--radius); padding:14px 16px; margin-top:12px; }
   .bloque-premios h3{ font-size:17px; margin:0 0 6px; }
   .premios{ margin:6px 0 0; padding-left:20px; }
@@ -45,8 +76,13 @@
 <div class="wrap">
   <div class="eyebrow">Actividades</div>
   <h1>Eventos</h1>
-  <p class="lede">Solo aparecen los eventos en los que puede participar alguien de tu familia.</p>
+  <p class="lede">Los eventos en los que puede participar alguien de tu familia.</p>
 
+  <div class="filtros" id="filtros" hidden>
+    <button type="button" data-f="todos" aria-pressed="true">Todos</button>
+    <button type="button" data-f="abierto" aria-pressed="false">Puedes apuntarte</button>
+    <button type="button" data-f="apuntado" aria-pressed="false">Ya apuntados</button>
+  </div>
   <p id="loadingMsg" class="loading">Cargando eventos...</p>
   <div id="eventosContainer"></div>
 </div>
@@ -118,6 +154,22 @@ async function cargarEventos() {
 
   cont.innerHTML = '';
   for (const ev of visibles) cont.appendChild(await renderEvento(ev));
+  activarFiltros();
+}
+
+function activarFiltros() {
+  const caja = document.getElementById('filtros');
+  const tarjetas = () => [...document.querySelectorAll('#eventosContainer .evento-card')];
+  if (tarjetas().length < 2) { caja.hidden = true; return; }
+  caja.hidden = false;
+  caja.querySelectorAll('button').forEach(b => {
+    const n = b.dataset.f === 'todos' ? tarjetas().length : tarjetas().filter(t => t.dataset[b.dataset.f]).length;
+    b.textContent = b.textContent.replace(/ \(\d+\)$/, '') + ` (${n})`;
+    b.onclick = () => {
+      caja.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+      tarjetas().forEach(t => { t.hidden = b.dataset.f !== 'todos' && !t.dataset[b.dataset.f]; });
+    };
+  });
 }
 
 async function repintar(card, evento) {
@@ -157,17 +209,47 @@ async function premiosDe(eventoId) {
   return premiosCache[eventoId];
 }
 
+// Color e icono según el tipo de evento
+const TIPOS_VISUAL = {
+  chocolatada: ['rosa', '<path d="M5 9h11v6a5 5 0 0 1-5 5h-1a5 5 0 0 1-5-5z"/><path d="M16 11h1.5a2.5 2.5 0 0 1 0 5H16"/><path d="M8 3c0 1.5 1 1.5 1 3M11 3c0 1.5 1 1.5 1 3"/>'],
+  cabalgata: ['cielo', '<path d="M3 8l4 4 5-7 5 7 4-4-2 11H5z"/>'],
+  juegos: ['amarillo', '<rect x="4" y="4" width="16" height="16" rx="3"/><circle cx="9" cy="9" r="1.2"/><circle cx="15" cy="15" r="1.2"/><circle cx="15" cy="9" r="1.2"/><circle cx="9" cy="15" r="1.2"/>'],
+  taller: ['amarillo', '<path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3"/>'],
+  barbacoa: ['verde', '<path d="M12 3c2 3 5 5 5 9a5 5 0 0 1-10 0c0-2 1-3 2-4 0 2 1 3 2 3 0-3 1-5 1-8z"/>'],
+  comedor: ['morado', '<path d="M7 3v8M5 3v5a2 2 0 0 0 4 0V3M7 11v10M17 3c-2 0-3 2-3 6h3v12"/>'],
+  concurso: ['rosa', '<path d="M4 20l4-1 11-11-3-3L5 16z"/><path d="M14 6l3 3"/>'],
+  informativo: ['morado', '<path d="M8 4h8v5a4 4 0 0 1-8 0zM5 5h3v2a3 3 0 0 1-3-2zM19 5h-3v2a3 3 0 0 0 3-2zM12 13v4M8 20h8"/>']
+};
+const ICONO_EVENTO = '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>';
+
+function iniciales(nombre) {
+  return String(nombre || '').split(/\s+/).filter(Boolean).slice(0, 2).map(p => p[0]).join('').toUpperCase();
+}
+function avatar(nombre) { return `<span class="avatar" aria-hidden="true">${esc(iniciales(nombre))}</span>`; }
+
 function cabeceraEvento(evento) {
-  const card = document.createElement('div');
-  card.className = 'card evento-card';
+  const card = document.createElement('article');
+  // Eventos sin tipo: un color del logo fijo para cada uno, para que no sean todos iguales
+  const PALETA = ['verde', 'rosa', 'amarillo', 'cielo', 'morado'];
+  const hash = [...String(evento.id)].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7);
+  const [color, icono] = TIPOS_VISUAL[evento.plantilla] || [PALETA[hash % PALETA.length], ICONO_EVENTO];
+  card.className = 'card evento-card t-' + color;
   const precios = textoPrecios(evento);
+  const f = evento.fecha ? new Date(evento.fecha) : null;
   card.innerHTML = `
-    <p class="evento-fecha">${evento.fecha ? new Date(evento.fecha).toLocaleString('es-ES', { dateStyle: 'full', timeStyle: 'short' }) : 'Fecha por confirmar'}</p>
-    <h2>${esc(evento.titulo)}</h2>
-    <div class="eventoCarrusel" style="max-width:420px; margin:10px 0;"></div>
-    ${evento.descripcion ? `<p style="white-space:pre-line; margin:0;">${esc(evento.descripcion)}</p>` : ''}
+    <header class="ev-cab">
+      ${f ? `<div class="ev-fecha"><span>${f.toLocaleDateString('es-ES', { month: 'short' }).replace('.', '')}</span><b>${f.getDate()}</b><span>${f.toLocaleDateString('es-ES', { weekday: 'short' }).replace('.', '')}</span></div>` : '<div class="ev-fecha"><b>?</b><span>fecha</span></div>'}
+      <div class="ev-tit">
+        <h2>${esc(evento.titulo)}</h2>
+        <p class="ev-hora">${f ? f.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }) + ', a las ' + f.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : 'Fecha por confirmar'}</p>
+        <div class="etiquetas"></div>
+      </div>
+      <svg class="ev-icono" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icono}</svg>
+    </header>
+    <div class="eventoCarrusel ev-fotos"></div>
+    ${evento.descripcion ? `<p class="ev-desc">${esc(evento.descripcion)}</p>` : ''}
     ${precios ? `<p class="precios">${esc(precios)}</p>` : ''}
-    <div class="etiquetas"></div>
+    <div class="ev-premios"></div>
   `;
   sb.from('fotos_carrusel').select('url').eq('evento_id', evento.id).order('orden').then(({ data: fotos }) => {
     const c = card.querySelector('.eventoCarrusel');
@@ -175,7 +257,9 @@ function cabeceraEvento(evento) {
   });
   premiosDe(evento.id).then(lista => {
     const delEvento = lista.filter(p => !p.actividad_id);
-    if (delEvento.length) card.querySelector('.etiquetas').insertAdjacentHTML('afterend', '<div class="bloque-premios"><h3>Premios</h3>' + htmlPremios(delEvento) + '</div>');
+    const hueco = card.querySelector('.ev-premios');
+    if (delEvento.length) hueco.outerHTML = '<div class="bloque-premios"><h3>Premios</h3>' + htmlPremios(delEvento) + '</div>';
+    else hueco.remove();
   });
   return card;
 }
@@ -214,9 +298,7 @@ function camposPersona(evento, tipo, opciones = {}) {
       <select id="${id}p"><option value="">Elige una opción</option>${evento.pregunta_opciones.map(o => `<option>${esc(o)}</option>`).join('')}</select></div>`;
   }
   if (opciones.pideResponsable) {
-    html += `<div class="field"><label for="${id}r">¿Con qué adulto socio irá?</label>
-      <input type="text" id="${id}r" placeholder="Nombre y apellidos del adulto que se encarga">
-      <p style="margin:6px 0 0; font-size:14px; color:var(--ink-soft);">Ningún adulto de tu familia está apuntado. Siempre tiene que haber un adulto encargado de cada niño.</p></div>`;
+    html += camposAcompanante(id);
   }
   wrap.innerHTML = html;
   const q = (s) => wrap.querySelector('#' + id + s);
@@ -248,14 +330,30 @@ function camposPersona(evento, tipo, opciones = {}) {
       datos.respuesta_extra = q('p').value;
       if (!datos.respuesta_extra) return { error: 'Responde: ' + evento.pregunta_extra };
     }
-    if (q('r')) {
-      datos.responsable_nombre = q('r').value.trim();
-      if (!datos.responsable_nombre) return { error: 'Indica con qué adulto socio irá.' };
+    if (q('rn')) {
+      datos._acomp = { numero: q('rn').value.trim(), nombre: q('rnom').value.trim() };
+      if (!datos._acomp.numero || !datos._acomp.nombre) return { error: 'Escribe el número de socio y el nombre del adulto que le acompaña.' };
     }
     return { datos };
   };
   wrap.vacio = html === '';
   return wrap;
+}
+
+// Adulto socio de OTRA familia que acompaña a los alumnos (tiene que estar apuntado)
+function camposAcompanante(id) {
+  return `<div class="falta-adulto" style="margin:0;"><p style="margin:0 0 8px; font-weight:700;">Acompaña a otro socio</p>
+    <p style="margin:0 0 10px; font-size:15px;">Ningún adulto de tu familia está apuntado. El alumno o alumna puede ir con un adulto socio de otra familia que ya esté apuntado.</p>
+    <div class="dos"><div class="field"><label for="${id}rn">Número de socio</label><input type="text" inputmode="numeric" id="${id}rn" placeholder="Ej. 0007"></div>
+    <div class="field"><label for="${id}rnom">Nombre del adulto</label><input type="text" id="${id}rnom" placeholder="Nombre y apellidos"></div></div></div>`;
+}
+// Comprueba el acompañante en la base de datos y devuelve los datos a guardar
+async function resolverAcompanante(evento, acomp) {
+  const { data, error } = await sb.rpc('evento_buscar_acompanante', { p_evento_id: evento.id, p_numero: acomp.numero, p_nombre: acomp.nombre });
+  if (error) throw error;
+  const a = data && data[0];
+  if (!a) throw new Error('No se encontró a ese adulto.');
+  return { responsable_adulto_id: a.adulto_id, responsable_nombre: `${a.nombre} (socio nº ${acomp.numero})` };
 }
 
 function detalleInscripcion(i, evento) {
@@ -297,6 +395,11 @@ async function renderEventoNormal(evento) {
   const hayAdultoFamilia = () => principales.some(i => i.tipo_miembro === 'adulto');
 
   async function apuntar(m, actividadId, datos, msgEl) {
+    if (datos._acomp) {
+      try { Object.assign(datos, await resolverAcompanante(evento, datos._acomp)); }
+      catch (e) { msgEl.className = 'msg-error'; msgEl.textContent = textoError(e); msgEl.hidden = false; return; }
+      delete datos._acomp;
+    }
     const payload = { evento_id: evento.id, actividad_id: actividadId || null, tipo_miembro: m.tipo, socio_id: ctxGlobal.socio.id, ...datos };
     if (m.tipo === 'adulto') payload.adulto_id = m.id; else payload.alumno_id = m.id;
     const { error } = await sb.from('evento_inscripciones').insert(payload);
@@ -308,6 +411,9 @@ async function renderEventoNormal(evento) {
     if (error) { alert(textoError(error)); return; }
     repintar(card, evento);
   }
+
+  card.dataset.abierto = gate.abierta ? '1' : '';
+  card.dataset.apuntado = ins.length ? '1' : '';
 
   /* ---- Asistentes ---- */
   const bloque = document.createElement('div');
@@ -321,7 +427,7 @@ async function renderEventoNormal(evento) {
     const i = inscripcionDe(m.tipo, m.id);
     const fila = document.createElement('div');
     fila.className = 'miembro';
-    fila.innerHTML = `<div class="miembro-fila"><span class="nombre">${esc(m.nombre)}<span class="detalle">${esc([m.sub, i ? detalleInscripcion(i, evento) : ''].filter(Boolean).join('. '))}</span></span><span class="accion"></span></div>`;
+    fila.innerHTML = `<div class="miembro-fila"><span class="persona">${avatar(m.nombre)}<span class="nombre">${esc(m.nombre)}<span class="detalle">${esc([m.sub, i ? detalleInscripcion(i, evento) : ''].filter(Boolean).join('. '))}</span></span></span><span class="accion"></span></div>`;
     const accion = fila.querySelector('.accion');
     const msg = document.createElement('p'); msg.hidden = true; msg.className = 'msg-error';
 
@@ -336,18 +442,21 @@ async function renderEventoNormal(evento) {
         b.addEventListener('click', () => quitar(i));
         accion.appendChild(b);
       }
-      // Niño sin adulto encargado (p. ej. se quitó al adulto después)
-      if (m.tipo === 'alumno' && evento.alumnos_requieren_adulto && !i.responsable_nombre && !hayAdultoFamilia()) {
+      // Alumno sin adulto encargado (p. ej. se quitó al adulto de la familia después)
+      if (m.tipo === 'alumno' && evento.alumnos_requieren_adulto && !i.responsable_adulto_id && !hayAdultoFamilia()) {
+        const aid = 'fa' + i.id.slice(0, 6);
         const aviso = document.createElement('div');
-        aviso.className = 'falta-adulto';
-        aviso.innerHTML = `<label style="margin-bottom:6px;">Ningún adulto de tu familia va. ¿Con qué adulto socio irá ${esc(m.nombre.split(' ')[0])}?</label>
-          <div style="display:flex; gap:8px; flex-wrap:wrap;"><input type="text" style="flex:1 1 220px;" placeholder="Nombre y apellidos"><button class="btn btn-primary" type="button">Guardar</button></div>`;
+        aviso.style.marginTop = '8px';
+        aviso.innerHTML = camposAcompanante(aid) + '<button class="btn btn-primary" type="button" style="margin-top:8px;">Guardar acompañante</button><p class="msg-error" hidden></p>';
         aviso.querySelector('button').addEventListener('click', async () => {
-          const v = aviso.querySelector('input').value.trim();
-          if (!v) return;
-          const { error } = await sb.from('evento_inscripciones').update({ responsable_nombre: v }).eq('id', i.id);
-          if (error) { alert(textoError(error)); return; }
-          repintar(card, evento);
+          const err = aviso.querySelector('.msg-error');
+          const acomp = { numero: aviso.querySelector('#' + aid + 'rn').value.trim(), nombre: aviso.querySelector('#' + aid + 'rnom').value.trim() };
+          try {
+            const datos = await resolverAcompanante(evento, acomp);
+            const { error } = await sb.from('evento_inscripciones').update(datos).eq('id', i.id);
+            if (error) throw error;
+            repintar(card, evento);
+          } catch (e) { err.textContent = textoError(e); err.hidden = false; }
         });
         fila.appendChild(aviso);
       }
@@ -357,12 +466,33 @@ async function renderEventoNormal(evento) {
       accion.innerHTML = '<span class="estado-no">Completo</span>';
     } else if (evento.voluntariado_excluye_asistencia && inscripcionDe(m.tipo, m.id, null, true)) {
       accion.innerHTML = '<span class="estado-gris">Va como voluntario/a</span>';
+    } else if (m.tipo === 'alumno' && evento.alumnos_requieren_adulto && !hayAdultoFamilia()) {
+      // Sin ningún adulto de la familia apuntado: solo puede ir con un adulto socio de otra familia
+      const t = document.createElement('label');
+      t.className = 'check-acomp';
+      t.innerHTML = '<input type="checkbox"> Acompaña a otro socio';
+      accion.appendChild(t);
+      const cb = t.querySelector('input');
+      let form = null;
+      cb.addEventListener('change', () => {
+        if (!cb.checked) { if (form) form.remove(); form = null; return; }
+        form = camposPersona(evento, 'alumno', { pideResponsable: true });
+        const ok = document.createElement('div');
+        ok.style.cssText = 'display:flex; gap:12px; align-items:center; flex-wrap:wrap;';
+        ok.innerHTML = '<button type="button" class="btn btn-primary">Apuntar</button>';
+        form.appendChild(ok); form.appendChild(msg);
+        ok.children[0].addEventListener('click', () => {
+          const r = form.leer();
+          if (r.error) { msg.textContent = r.error; msg.hidden = false; return; }
+          apuntar(m, null, r.datos, msg);
+        });
+        fila.appendChild(form);
+      });
     } else {
       const b = document.createElement('button'); b.className = 'btn btn-outline'; b.textContent = 'Apuntar';
       accion.appendChild(b);
       b.addEventListener('click', () => {
-        const pideResponsable = m.tipo === 'alumno' && evento.alumnos_requieren_adulto && !hayAdultoFamilia();
-        const form = camposPersona(evento, m.tipo, { pideResponsable });
+        const form = camposPersona(evento, m.tipo, {});
         if (form.vacio) { apuntar(m, null, {}, msg); return; }
         b.hidden = true;
         const ok = document.createElement('div');
@@ -396,7 +526,8 @@ async function renderEventoNormal(evento) {
       box.className = 'actividad';
       box.innerHTML = `<div class="miembro-fila"><h4>${esc(act.nombre)}</h4><span class="estado-gris">${esc(act.horario || '')}${libres != null ? (act.horario ? ', ' : '') + (libres > 0 ? libres + ' plazas libres' : 'completo') : ''}</span></div>`
         + htmlPremios((await premiosDe(evento.id)).filter(p => p.actividad_id === act.id));
-      const candidatos = miembros.filter(m => m.tipo === 'alumno' || evento.tipo_elegibilidad !== 'alumnos')
+      // Las subactividades (torneos, rol, ajedrez...) son solo para alumnos
+      const candidatos = miembros.filter(m => m.tipo === 'alumno')
         .filter(m => !act.elegibilidad_modo || m.tipo !== 'alumno' || cumpleElegibilidad(misAlumnos.find(a => a.id === m.id), act.elegibilidad_modo, act.cursos_permitidos, act.edad_min, act.edad_max));
       candidatos.forEach(m => {
         const enPrincipal = inscripcionDe(m.tipo, m.id);
@@ -509,7 +640,7 @@ function bloqueVoluntarios(evento, ins, gate, card) {
   const b = document.createElement('div');
   b.className = 'bloque';
   b.innerHTML = `<h3>Voluntarios</h3><p class="ayuda">${evento.voluntariado_modo === 'adultos_y_ninos'
-    ? 'Pueden ayudar adultos, solos o con sus niños. Un niño solo puede ser voluntario si va con un adulto de la familia que también lo sea.'
+    ? 'Pueden ayudar adultos, solos o con alumnos de su familia. Un alumno o alumna solo puede ser voluntario si va con un adulto de la familia que también lo sea.'
     : 'Buscamos adultos que echen una mano.'} Los voluntarios no ocupan plaza.</p>`;
   const vol = ins.filter(i => i.es_voluntario);
   const adultosVol = vol.filter(i => i.tipo_miembro === 'adulto');
@@ -521,7 +652,7 @@ function bloqueVoluntarios(evento, ins, gate, card) {
     const i = vol.find(v => v.tipo_miembro === tipo && (tipo === 'adulto' ? v.adulto_id : v.alumno_id) === p.id);
     const fila = document.createElement('div');
     fila.className = 'miembro';
-    fila.innerHTML = `<div class="miembro-fila"><span>${esc(nombreCompleto(p))}</span><span class="accion"></span></div>`;
+    fila.innerHTML = `<div class="miembro-fila"><span class="persona">${avatar(nombreCompleto(p))}<span>${esc(nombreCompleto(p))}</span></span><span class="accion"></span></div>`;
     const accion = fila.querySelector('.accion');
     if (i) {
       accion.innerHTML = '<span class="estado-ok">Voluntario/a</span>';
@@ -529,7 +660,7 @@ function bloqueVoluntarios(evento, ins, gate, card) {
         const q = document.createElement('button'); q.className = 'btn-danger-link'; q.textContent = 'Quitar';
         q.addEventListener('click', async () => {
           if (tipo === 'adulto' && adultosVol.length === 1 && vol.some(v => v.tipo_miembro === 'alumno')) {
-            alert('Quita antes a los niños voluntarios: no pueden ir sin un adulto de la familia.'); return;
+            alert('Quita antes a los alumnos voluntarios: no pueden ir sin un adulto de la familia.'); return;
           }
           const { error } = await sb.from('evento_inscripciones').delete().eq('id', i.id);
           if (error) { alert(textoError(error)); return; }
@@ -633,12 +764,12 @@ async function abrirRellenoDocumento(doc, persona, clave, box) {
   }
 }
 
-/* ==================== Cabalgata: cada niño con un adulto; adultos solos también ==================== */
+/* ==================== Cabalgata: cada alumno con un adulto; adultos solos también ==================== */
 async function renderEventoPareja(evento) {
   const card = cabeceraEvento(evento);
   const elegibles = miembrosElegiblesEvento(evento);
   const gate = estadoInscripcionSocio(evento);
-  etiqueta(card, evento.sorteo_realizado ? 'Sorteo hecho' : `Por sorteo${evento.aforo_total ? `, ${evento.aforo_total} plazas para niños` : ''}`);
+  etiqueta(card, evento.sorteo_realizado ? 'Sorteo hecho' : `Por sorteo${evento.aforo_total ? `, ${evento.aforo_total} plazas para alumnos` : ''}`);
   if (!gate.abierta && !evento.sorteo_realizado) etiqueta(card, gate.mensaje.replace(/\.$/, ''), true);
 
   const { data } = await sb.from('evento_inscripciones').select('*').eq('evento_id', evento.id).eq('socio_id', ctxGlobal.socio.id);
@@ -646,13 +777,15 @@ async function renderEventoPareja(evento) {
   const grupos = {};
   ins.forEach(i => { const g = i.grupo_id || i.id; (grupos[g] = grupos[g] || []).push(i); });
 
+  card.dataset.abierto = gate.abierta ? '1' : '';
+  card.dataset.apuntado = ins.length ? '1' : '';
   const nombreDe = (i) => i.tipo_miembro === 'adulto' ? nombreCompleto(misAdultos.find(a => a.id === i.adulto_id))
     : i.tipo_miembro === 'alumno' ? nombreCompleto(misAlumnos.find(a => a.id === i.alumno_id))
     : `${i.nombre_invitado} ${i.apellidos_invitado || ''} (no socio)`;
 
   const b = document.createElement('div');
   b.className = 'bloque';
-  b.innerHTML = '<h3>Quién va de tu familia</h3><p class="ayuda">Cada niño tiene que ir con un adulto. También pueden ir adultos solos. Las plazas son para niños y se sortean al cerrar el plazo; cada niño que sale va con su adulto.</p>';
+  b.innerHTML = '<h3>Quién va de tu familia</h3><p class="ayuda">Cada alumno o alumna tiene que ir con un adulto. También pueden ir adultos solos. Las plazas son para alumnos y se sortean al cerrar el plazo; cada alumno que sale va con su adulto.</p>';
   const ordenTipo = { alumno: 0, adulto: 1, invitado: 1 };
   Object.entries(grupos).forEach(([g, filas]) => {
     filas.sort((x, y) => ordenTipo[x.tipo_miembro] - ordenTipo[y.tipo_miembro]);
@@ -684,7 +817,7 @@ async function renderEventoPareja(evento) {
 
     const acciones = document.createElement('div');
     acciones.style.cssText = 'display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;';
-    if (alumnosLibres.length) acciones.insertAdjacentHTML('beforeend', '<button type="button" class="btn btn-primary conNino">Apuntar a un niño con su adulto</button>');
+    if (alumnosLibres.length) acciones.insertAdjacentHTML('beforeend', '<button type="button" class="btn btn-primary conNino">Apuntar a un alumno con su adulto</button>');
     if (adultosLibres.length) acciones.insertAdjacentHTML('beforeend', '<button type="button" class="btn btn-outline soloAdulto">Apuntar a un adulto solo</button>');
     b.appendChild(acciones);
     const zona = document.createElement('div');
@@ -697,7 +830,7 @@ async function renderEventoPareja(evento) {
         const id = crypto.randomUUID();
         const { error } = await sb.from('evento_inscripciones').insert({ id, evento_id: evento.id, socio_id: ctxGlobal.socio.id, grupo_id: grupo, ...f });
         if (error) {
-          if (creadas.length) await sb.from('evento_inscripciones').delete().in('id', creadas);   // nunca dejar un niño sin su adulto
+          if (creadas.length) await sb.from('evento_inscripciones').delete().in('id', creadas);   // nunca dejar un alumno sin su adulto
           msg.textContent = textoError(error); msg.hidden = false; return;
         }
         creadas.push(id);
@@ -710,7 +843,7 @@ async function renderEventoPareja(evento) {
       zona.innerHTML = '';
       const f = document.createElement('div');
       f.className = 'mini-form';
-      f.innerHTML = `<div class="field"><label>Niño o niña</label><select class="selAl">${alumnosLibres.map(a => `<option value="${a.id}">${esc(nombreCompleto(a))}</option>`).join('')}</select></div>
+      f.innerHTML = `<div class="field"><label>Alumno o alumna</label><select class="selAl">${alumnosLibres.map(a => `<option value="${a.id}">${esc(nombreCompleto(a))}</option>`).join('')}</select></div>
         <div class="alDatos"></div>
         <div class="field"><label>Adulto que le acompaña</label><select class="selAd">${adultosLibres.map(a => `<option value="${a.id}">${esc(nombreCompleto(a))}</option>`).join('')}<option value="otro">Otro adulto, no socio (abuelo, tía...)</option></select></div>
         <div class="adDatos"></div>
@@ -806,6 +939,8 @@ async function renderEventoConcurso(evento) {
     .select('alumno_id, concurso_envios(evento_id, es_ganador)').eq('socio_id', ctxGlobal.socio.id);
   const enviosDeEsteEvento = (misEnvios || []).filter(i => i.concurso_envios && i.concurso_envios.evento_id === evento.id);
   const gate = estadoInscripcionSocio(evento);
+  card.dataset.abierto = gate.abierta ? '1' : '';
+  card.dataset.apuntado = enviosDeEsteEvento.length ? '1' : '';
 
   const b = document.createElement('div');
   b.className = 'bloque';

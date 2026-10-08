@@ -38,9 +38,10 @@
   .resumen-solicitud dt{ color:var(--ink-soft); }
   .resumen-solicitud dd{ margin:0; }
   .falta{ color:var(--red); font-weight:600; }
-  .solicitud{ border:1px solid var(--line); border-left:4px solid var(--navy); padding:16px; margin-bottom:18px; background:#fff; }
-  .solicitud.reactivacion{ border-left-color:var(--gold); }
-  .msg-linea{ font-size:14px; margin:8px 0 0; }
+  .solicitud{ border:1px solid var(--line); border-radius:var(--radius-card); padding:18px; margin-bottom:18px; background:#fff; }
+  .solicitud .tipo-sol{ display:inline-block; font-size:14px; font-weight:700; padding:2px 12px; border-radius:999px; background:#DCF0FA; color:#006D9C; margin-right:8px; }
+  .solicitud.reactivacion .tipo-sol{ background:#FFF3C4; color:#8A6400; }
+    .msg-linea{ font-size:14px; margin:8px 0 0; }
 </style>
 </head>
 <body>
@@ -87,7 +88,6 @@
     </div>
   </div>
 
-  <footer class="note"><b>AMPA Colegio Juan de Valdés</b> — panel de administración</footer>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -215,7 +215,7 @@ async function pintarSolicitudes() {
     div.className = 'solicitud resumen-solicitud' + (reactivacion ? ' reactivacion' : '');
     div.innerHTML = `
       <div style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:baseline;">
-        <b style="font-size:15.5px;">${reactivacion ? '🔁 Reactivación' : '🆕 Alta nueva'} — ${esc(s.adultos.map(a => a.nombre + ' ' + a.apellidos).join(' / ') || '(sin adultos)')}</b>
+        <span class="tipo-sol">${reactivacion ? 'Reactivación' : 'Alta nueva'}</span><b style="font-size:17px;">${esc(s.adultos.map(a => a.nombre + ' ' + a.apellidos).join(' / ') || '(sin adultos)')}</b>
         <span class="sub" style="font-size:14px; color:var(--ink-soft);">${reactivacion
           ? 'Pedida el ' + fecha(s.reactivacion_solicitada_en) + ' · ahora: ' + badge(s.estado) + (s.numero_socio_completo ? ' · nº ' + esc(s.numero_socio_completo) : '')
           : 'Solicitada el ' + fecha(s.created_at)}</span>

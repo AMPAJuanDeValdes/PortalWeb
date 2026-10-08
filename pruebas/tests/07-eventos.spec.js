@@ -19,7 +19,7 @@ async function crearEvento(campos) {
 
 test.describe('Eventos', () => {
   test.beforeAll(async () => {
-    fam = await crearFamilia({ etiqueta: 'eventos', alumnos: 2 });
+    fam = await crearFamilia({ etiqueta: 'eventos', alumnos: 2, conNumero: true });
     cli = (await clienteComo(fam.adultos[0].email)).cliente;
     choco = await crearEvento({ titulo: 'Chocolatada', tipo_elegibilidad: 'toda_familia', pide_alergias: true,
       alumnos_requieren_adulto: true, voluntariado_modo: 'adultos_y_ninos', permite_invitados: true, precio_invitado: 3 });
@@ -33,9 +33,9 @@ test.describe('Eventos', () => {
 
   const base = () => ({ evento_id: choco.id, socio_id: fam.socio.id });
 
-  test('Chocolatada: un niño solo necesita adulto encargado y todos indican alergias', async () => {
+  test('Chocolatada: un alumno solo necesita adulto encargado y todos indican alergias', async () => {
     let r = await cli.from('evento_inscripciones').insert({ ...base(), tipo_miembro: 'alumno', alumno_id: fam.alumnos[0].id, tiene_alergias: false });
-    expect(r.error?.message).toContain('con qué adulto');
+    expect(r.error?.message).toContain('adulto socio de otra familia');
     r = await cli.from('evento_inscripciones').insert({ ...base(), tipo_miembro: 'adulto', adulto_id: fam.adultos[0].id });
     expect(r.error?.message).toContain('alergias');
     r = await cli.from('evento_inscripciones').insert({ ...base(), tipo_miembro: 'adulto', adulto_id: fam.adultos[0].id, tiene_alergias: true, alergias: 'Gluten' });
@@ -48,7 +48,22 @@ test.describe('Eventos', () => {
     expect(r.error).toBeNull();
   });
 
-  test('Chocolatada: un niño solo puede ser voluntario con un adulto de su familia', async () => {
+  test('Chocolatada: alumnos de otra familia sin adulto van con un socio ya apuntado', async () => {
+    const otra = await crearFamilia({ etiqueta: 'acompana', alumnos: 1 });
+    const c2 = (await clienteComo(otra.adultos[0].email)).cliente;
+    const numero = fam.socio.numero_secuencial;
+    let r = await c2.rpc('evento_buscar_acompanante', { p_evento_id: choco.id, p_numero: numero, p_nombre: 'Nadie' });
+    expect(r.error?.message).toContain('no hay ningún adulto');
+    r = await c2.rpc('evento_buscar_acompanante', { p_evento_id: choco.id, p_numero: numero, p_nombre: fam.adultos[0].nombre });
+    expect(r.error).toBeNull();
+    const acompanante = r.data[0].adulto_id;
+    expect(acompanante).toBe(fam.adultos[0].id);
+    r = await c2.from('evento_inscripciones').insert({ evento_id: choco.id, socio_id: otra.socio.id, tipo_miembro: 'alumno',
+      alumno_id: otra.alumnos[0].id, tiene_alergias: false, responsable_adulto_id: acompanante, responsable_nombre: 'Prueba' });
+    expect(r.error).toBeNull();
+  });
+
+  test('Chocolatada: un alumno solo puede ser voluntario con un adulto de su familia', async () => {
     let r = await cli.from('evento_inscripciones').insert({ ...base(), tipo_miembro: 'alumno', alumno_id: fam.alumnos[1].id, es_voluntario: true });
     expect(r.error).not.toBeNull();
     r = await cli.from('evento_inscripciones').insert({ ...base(), tipo_miembro: 'adulto', adulto_id: fam.adultos[0].id, es_voluntario: true });

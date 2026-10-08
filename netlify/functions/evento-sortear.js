@@ -7,7 +7,7 @@
 //     inscripciones vienen agrupadas por grupo_id (un adulto + un
 //     alumno, o un adulto solo); se sortea por GRUPO completo, nunca
 //     por persona suelta — si pierde la pareja, pierden los dos. El
-//     aforo cuenta niños; los adultos solos no ocupan plaza.
+//     aforo cuenta alumnos; los adultos solos no ocupan plaza.
 //   - Con prioridad histórica (usa_prioridad_historial, ej. Comedor):
 //     quienes no han participado antes (adultos.ya_visito_comedor =
 //     false) entran primero al sorteo; los que ya participaron solo
@@ -113,16 +113,16 @@ exports.handler = async (event) => {
       const clave = i.grupo_id || i.id; // por si alguna fila quedó suelta sin grupo
       (grupos[clave] = grupos[clave] || []).push(i);
     }
-    // El aforo cuenta NIÑOS (Cabalgata: 12 o 20 plazas). Se sacan parejas
-    // niño+adulto al azar mientras queden plazas; cada niño va con su
-    // adulto. Los adultos que van solos no ocupan plaza de niño.
+    // El aforo cuenta ALUMNOS (Cabalgata: 12 o 20 plazas). Se sacan parejas
+    // alumno+adulto al azar mientras queden plazas; cada alumno va con su
+    // adulto. Los adultos que van solos no ocupan plaza de alumno.
     let plazas = cupo;
     for (const g of mezclar(Object.keys(grupos))) {
-      const ninos = grupos[g].filter(i => i.tipo_miembro === 'alumno').length;
-      if (ninos === 0) { ganadoresIds.push(...grupos[g].map(i => i.id)); continue; }
-      if (plazas != null && ninos > plazas) continue;
+      const alumnos = grupos[g].filter(i => i.tipo_miembro === 'alumno').length;
+      if (alumnos === 0) { ganadoresIds.push(...grupos[g].map(i => i.id)); continue; }
+      if (plazas != null && alumnos > plazas) continue;
       ganadoresIds.push(...grupos[g].map(i => i.id));
-      if (plazas != null) plazas -= ninos;
+      if (plazas != null) plazas -= alumnos;
     }
 
   } else if (reclamado.usa_prioridad_historial) {

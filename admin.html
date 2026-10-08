@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Panel de la Junta · AMPA Juan de Valdés</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared/styles.css">
+<style>
+  .fecha-hoy{ color:var(--ink-soft); margin:0 0 24px; }
+  h2.titulo{ font-family:var(--font-title); font-weight:800; font-size:24px; margin:0 0 12px; }
+
+  /* Pendientes */
+  .tareas{ background:#fff; border:1px solid var(--line); border-radius:var(--radius-card); padding:6px; margin-bottom:30px; }
+  .tarea{ display:flex; align-items:center; gap:14px; padding:12px 14px; border-radius:14px; text-decoration:none; color:var(--ink); }
+  .tarea + .tarea{ border-top:1px solid #EEF1F5; border-radius:0; }
+  .tarea:hover{ background:#F9FAFC; color:var(--ink); }
+  .tarea .num{ flex:0 0 46px; height:46px; border-radius:12px; background:var(--area-bg); color:var(--area); font-family:var(--font-title); font-weight:800; font-size:22px; display:flex; align-items:center; justify-content:center; }
+  .tarea .txt{ flex:1 1 auto; min-width:0; }
+  @media (max-width:560px){ .tarea .ir{ display:none; } .tarea .num{ flex-basis:40px; height:40px; font-size:19px; } }
+  .tarea .txt span{ display:block; color:var(--ink-soft); font-size:15px; }
+  .tarea .ir{ color:var(--area); font-weight:700; font-size:15px; }
+  .al-dia{ display:flex; align-items:center; gap:12px; padding:16px; color:var(--green); font-weight:700; }
+
+  /* Cifras */
+  .cifras{ display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:12px; margin-bottom:30px; }
+  .cifra{ background:#fff; border:1px solid var(--line); border-radius:16px; padding:16px 18px; text-decoration:none; color:var(--ink); }
+  a.cifra:hover{ border-color:var(--ink); color:var(--ink); }
+  .cifra b{ display:block; font-family:var(--font-title); font-weight:800; font-size:32px; line-height:1.1; }
+  .cifra span{ color:var(--ink-soft); font-size:15px; }
+
+  /* Áreas */
+  .areas{ display:grid; grid-template-columns:repeat(auto-fill,minmax(min(100%,330px),1fr)); gap:16px; margin-bottom:30px; }
+  .area{ background:#fff; border:1px solid var(--line); border-radius:var(--radius-card); overflow:hidden; display:flex; flex-direction:column; }
+  .area-cab{ background:var(--area-bg); padding:14px 18px; display:flex; justify-content:space-between; align-items:center; gap:10px; }
+  .area-cab h3{ margin:0; font-size:19px; color:var(--ink); }
+  .area-cab a{ color:var(--area); font-weight:700; font-size:15px; }
+  .area-cuerpo{ padding:14px 18px 18px; display:grid; gap:10px; }
+  .estado-conv{ font-weight:700; }
+  .linea{ display:flex; justify-content:space-between; gap:12px; font-size:15px; }
+  .linea span:first-child{ color:var(--ink-soft); }
+  .ev{ display:grid; gap:4px; padding:8px 0; border-bottom:1px solid #EEF1F5; }
+  .ev:last-child{ border-bottom:none; }
+  .ev-top{ display:flex; justify-content:space-between; gap:10px; font-size:15px; }
+  .barra{ height:8px; border-radius:999px; background:#EEF1F5; overflow:hidden; }
+  .barra i{ display:block; height:100%; background:var(--area); border-radius:999px; }
+  .nada{ color:var(--ink-soft); font-size:15px; margin:0; }
+
+  /* Mensajes */
+  .mensaje{ background:#fff; border:1px solid var(--line); border-radius:16px; padding:14px 16px; margin-bottom:10px; }
+  .mensaje.atendido{ opacity:.6; }
+  .mensaje-cab{ display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; font-size:15px; color:var(--ink-soft); }
+  .mensaje p{ margin:8px 0; white-space:pre-line; }
+  .mensaje-acc{ display:flex; gap:16px; flex-wrap:wrap; align-items:center; font-size:15px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Resumen</h1>
+  <p class="fecha-hoy" id="hoy"></p>
+
+  <h2 class="titulo">Pendiente de hacer</h2>
+  <section class="tareas" id="tareas" aria-live="polite"><p class="loading" style="padding:12px;">Revisando...</p></section>
+
+  <h2 class="titulo">Cifras</h2>
+  <div class="cifras" id="cifras"></div>
+
+  <h2 class="titulo">Cómo va cada área</h2>
+  <div class="areas">
+    <section class="area area-eventos" id="aEventos"><div class="area-cab"><h3>Próximos eventos</h3><a href="admin-eventos.html">Gestionar</a></div><div class="area-cuerpo"><p class="loading">Cargando...</p></div></section>
+    <section class="area area-libros" id="aLibros"><div class="area-cab"><h3>Préstamo de libros</h3><a href="admin-libros.html">Gestionar</a></div><div class="area-cuerpo"><p class="loading">Cargando...</p></div></section>
+    <section class="area area-uniformes" id="aUniformes"><div class="area-cab"><h3>Uniformes</h3><a href="admin-uniformes.html">Gestionar</a></div><div class="area-cuerpo"><p class="loading">Cargando...</p></div></section>
+    <section class="area area-socios" id="mochila"><div class="area-cab"><h3>Mochila Jugona</h3></div><div class="area-cuerpo"><p class="loading">Cargando...</p></div></section>
+    <section class="area area-comunicacion" id="aEncuestas"><div class="area-cab"><h3>Encuestas</h3><a href="admin-encuestas.html">Gestionar</a></div><div class="area-cuerpo"><p class="loading">Cargando...</p></div></section>
+  </div>
+
+  <h2 class="titulo" id="mensajes">Mensajes de las familias</h2>
+  <div id="mensajesLista"><p class="loading">Cargando...</p></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="shared/supabaseClient.js"></script>
+<script src="shared/nav.js"></script>
+<script>
+const esc = (t) => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const fCorta = (f) => new Date(f).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' });
+const ahora = new Date();
+const tareas = [];
+function cuerpo(id) { return document.querySelector('#' + id + ' .area-cuerpo'); }
+function tarea(area, num, titulo, detalle, href, ir) { tareas.push({ area, num, titulo, detalle, href, ir }); }
+const cuenta = async (q) => { const { count } = await q; return count || 0; };
+
+async function socios() {
+  const { data } = await sb.from('socios').select('estado, reactivacion_solicitada_en');
+  const s = data || [];
+  const activas = s.filter(x => x.estado === 'activa').length;
+  const faltaPago = s.filter(x => x.estado === 'falta_pago').length;
+  const solicitudes = s.filter(x => x.estado === 'recien_creada' || (x.reactivacion_solicitada_en && x.estado !== 'activa')).length;
+  if (solicitudes) tarea('socios', solicitudes, solicitudes === 1 ? 'Solicitud de alta o reactivación' : 'Solicitudes de alta o reactivación', 'Revisa el justificante y activa o rechaza.', 'admin-socios.html', 'Revisar');
+  const [alumnos, domiciliadas, comprobantes] = await Promise.all([
+    cuenta(sb.from('alumnos').select('id, socios!inner(estado)', { count: 'exact', head: true }).eq('socios.estado', 'activa')),
+    cuenta(sb.from('mandatos_sepa').select('id', { count: 'exact', head: true }).eq('vigente', true)),
+    cuenta(sb.from('comprobantes_pago').select('id', { count: 'exact', head: true }).eq('tipo', 'invitado_evento').eq('verificado', false).eq('reembolsado', false))
+  ]);
+  if (comprobantes) tarea('socios', comprobantes, comprobantes === 1 ? 'Justificante de pago por revisar' : 'Justificantes de pago por revisar', 'Personas no socias apuntadas a eventos y talleres.', 'admin-comprobantes.html', 'Revisar');
+  document.getElementById('cifras').innerHTML = [
+    ['admin-socios.html', activas, 'familias socias'],
+    ['admin-respuestas.html', alumnos, 'alumnos de familias socias'],
+    ['admin-socios.html', faltaPago, 'pendientes de pagar la cuota'],
+    ['admin-sepa.html', domiciliadas, 'familias con domiciliación']
+  ].map(([h, n, t]) => `<a class="cifra" href="${h}"><b>${n}</b><span>${t}</span></a>`).join('');
+}
+
+async function eventos() {
+  const [{ data: prox }, { data: sinSortear }] = await Promise.all([
+    sb.from('eventos').select('id, titulo, fecha, aforo_total, metodo_asignacion, requiere_pareja_adulto_alumno, sin_inscripcion, usa_concurso_texto').eq('activo', true).gte('fecha', ahora.toISOString()).order('fecha').limit(5),
+    sb.from('eventos').select('id, titulo, fecha_cierre_inscripcion').eq('activo', true).eq('metodo_asignacion', 'sorteo').eq('sorteo_realizado', false).lt('fecha_cierre_inscripcion', ahora.toISOString())
+  ]);
+  (sinSortear || []).forEach(e => tarea('eventos', '!', 'Sortear: ' + e.titulo, 'El plazo cerró el ' + fCorta(e.fecha_cierre_inscripcion) + '. Las familias esperan el resultado.', 'admin-eventos.html', 'Sortear'));
+  const c = cuerpo('aEventos');
+  if (!prox || !prox.length) { c.innerHTML = '<p class="nada">No hay eventos próximos.</p>'; return; }
+  const filas = await Promise.all(prox.map(async e => {
+    let info = e.sin_inscripcion ? 'Sin inscripción' : e.usa_concurso_texto ? 'Concurso' : '';
+    let barra = '';
+    if (!info) {
+      let q = sb.from('evento_inscripciones').select('id', { count: 'exact', head: true })
+        .eq('evento_id', e.id).is('actividad_id', null).eq('es_voluntario', false);
+      if (e.requiere_pareja_adulto_alumno) q = q.eq('tipo_miembro', 'alumno');   // la Cabalgata cuenta alumnos
+      const { count } = await q;
+      const n = count || 0;
+      info = e.aforo_total ? `${n} de ${e.aforo_total}${e.requiere_pareja_adulto_alumno ? ' alumnos' : ''}` : `${n} apuntados`;
+      if (e.aforo_total) barra = `<div class="barra" aria-hidden="true"><i style="width:${Math.min(100, Math.round(n / e.aforo_total * 100))}%"></i></div>`;
+    }
+    return `<div class="ev"><div class="ev-top"><span><b>${esc(e.titulo)}</b><br><span style="color:var(--ink-soft);">${fCorta(e.fecha)}</span></span><span>${info}</span></div>${barra}</div>`;
+  }));
+  c.innerHTML = filas.join('');
+}
+
+async function libros() {
+  const c = cuerpo('aLibros');
+  const { data: convs } = await sb.from('prestamo_convocatorias').select('id, estado, fecha_cierre').order('created_at', { ascending: false }).limit(1);
+  const conv = convs && convs[0];
+  const prestados = await cuenta(sb.from('prestamo_items').select('id', { count: 'exact', head: true }).eq('estado', 'asignado').not('entregado_en', 'is', null).is('fecha_devolucion', null));
+  let html = '';
+  if (!conv) html += '<p class="nada">Todavía no se ha abierto ninguna convocatoria.</p>';
+  else {
+    const solicitudes = await cuenta(sb.from('prestamo_items').select('id', { count: 'exact', head: true }).eq('convocatoria_id', conv.id).eq('tipo', 'solicitud'));
+    const cerrada = new Date(conv.fecha_cierre) <= ahora;
+    const estado = conv.estado === 'abierta' ? (cerrada ? 'Plazo cerrado, falta repartir' : 'Plazo abierto hasta el ' + fCorta(conv.fecha_cierre))
+      : conv.estado === 'repartida' ? 'Repartida' : 'Cancelada';
+    if (conv.estado === 'abierta' && cerrada) tarea('libros', '!', 'Repartir los libros de lectura', `El plazo cerró el ${fCorta(conv.fecha_cierre)} con ${solicitudes} peticiones.`, 'admin-libros.html', 'Repartir');
+    html += `<p class="estado-conv">${estado}</p><div class="linea"><span>Peticiones en la convocatoria</span><b>${solicitudes}</b></div>`;
+  }
+  html += `<div class="linea"><span>Libros en manos de las familias</span><b>${prestados}</b></div>`;
+  c.innerHTML = html;
+}
+
+async function uniformes() {
+  const c = cuerpo('aUniformes');
+  const [{ data: convs }, { data: prendas }] = await Promise.all([
+    sb.from('uniformes_convocatorias').select('id, estado, fecha_cierre').order('created_at', { ascending: false }).limit(1),
+    sb.from('prendas_catalogo').select('tipo, talla, stock')
+  ]);
+  const conv = convs && convs[0];
+  const stock = (prendas || []).reduce((t, p) => t + (p.stock || 0), 0);
+  const poco = (prendas || []).filter(p => p.stock > 0 && p.stock <= 2).length;
+  let html = '';
+  if (!conv) html += '<p class="nada">Todavía no se ha abierto ninguna convocatoria.</p>';
+  else {
+    const { data: ped } = await sb.from('uniformes_pedidos').select('alumno_id').eq('convocatoria_id', conv.id);
+    const alumnos = new Set((ped || []).map(p => p.alumno_id)).size;
+    const cerrada = new Date(conv.fecha_cierre) <= ahora;
+    const estado = { abierta: cerrada ? 'Plazo cerrado, falta repartir' : 'Plazo abierto hasta el ' + fCorta(conv.fecha_cierre), repartida: 'Repartida, falta cerrar y guardar', finalizada: 'Cerrada: las familias ven el resultado', cancelada: 'Cancelada' }[conv.estado] || conv.estado;
+    if (conv.estado === 'abierta' && cerrada) tarea('uniformes', '!', 'Repartir los uniformes', `El plazo cerró el ${fCorta(conv.fecha_cierre)}. ${alumnos} alumnos han pedido prendas.`, 'admin-uniformes.html', 'Repartir');
+    if (conv.estado === 'repartida') tarea('uniformes', '!', 'Cerrar y guardar el reparto de uniformes', 'Las familias no ven lo que les ha tocado hasta que lo cierres.', 'admin-uniformes.html', 'Revisar');
+    html += `<p class="estado-conv">${estado}</p><div class="linea"><span>Alumnos con pedido</span><b>${alumnos}</b></div>`;
+  }
+  html += `<div class="linea"><span>Prendas en stock</span><b>${stock}</b></div>`;
+  if (poco) html += `<div class="linea"><span>Tallas con 1 o 2 prendas</span><b>${poco}</b></div>`;
+  c.innerHTML = html;
+}
+
+async function mochila() {
+  const c = cuerpo('mochila');
+  const { data } = await sb.from('mochila_cola').select('posicion, tipo, nombre_contacto, fecha_devolucion_prevista, socios(numero_socio_completo)').order('posicion');
+  const cola = data || [];
+  const tiene = cola.find(x => x.posicion === 0);
+  const nombre = (x) => x.tipo === 'no_socio' ? (x.nombre_contacto || 'Familia no socia') : 'Socio nº ' + (x.socios?.numero_socio_completo || '?');
+  let html = tiene
+    ? `<p class="estado-conv">La tiene: ${esc(nombre(tiene))}</p>${tiene.fecha_devolucion_prevista ? `<div class="linea"><span>Debe devolverla</span><b>${fCorta(tiene.fecha_devolucion_prevista)}</b></div>` : ''}`
+    : '<p class="estado-conv">Está en el AMPA</p>';
+  if (tiene && tiene.fecha_devolucion_prevista && new Date(tiene.fecha_devolucion_prevista) < new Date(ahora.toDateString()))
+    tarea('socios', '!', 'La Mochila Jugona no ha vuelto', `${nombre(tiene)} tenía que devolverla el ${fCorta(tiene.fecha_devolucion_prevista)}.`, '#mochila', 'Ver');
+  html += `<div class="linea"><span>Familias esperando</span><b>${cola.filter(x => x.posicion > 0).length}</b></div>`;
+  c.innerHTML = html;
+}
+
+async function encuestas() {
+  const c = cuerpo('aEncuestas');
+  const { data } = await sb.from('encuestas').select('id, titulo, fecha_cierre, estado').eq('estado', 'abierta');
+  const abiertas = (data || []).filter(e => !e.fecha_cierre || new Date(e.fecha_cierre) > ahora);
+  if (!abiertas.length) { c.innerHTML = '<p class="nada">No hay encuestas abiertas.</p>'; return; }
+  const filas = await Promise.all(abiertas.map(async e => {
+    const n = await cuenta(sb.from('encuesta_control_respondidos').select('encuesta_id', { count: 'exact', head: true }).eq('encuesta_id', e.id));
+    return `<div class="linea"><span>${esc(e.titulo)}${e.fecha_cierre ? ', hasta el ' + fCorta(e.fecha_cierre) : ''}</span><b>${n} familias</b></div>`;
+  }));
+  c.innerHTML = filas.join('');
+}
+
+async function mensajes() {
+  const wrap = document.getElementById('mensajesLista');
+  const { data, error } = await sb.from('comentarios').select('*').order('created_at', { ascending: false }).limit(30);
+  if (error) { wrap.innerHTML = '<p class="msg-error">No se pudieron cargar los mensajes.</p>'; return; }
+  const lista = data || [];
+  const sinAtender = lista.filter(m => !m.atendido).length;
+  if (sinAtender) tarea('comunicacion', sinAtender, sinAtender === 1 ? 'Mensaje de una familia sin atender' : 'Mensajes de familias sin atender', 'Desde la web pública o desde el portal de socios.', '#mensajes', 'Leer');
+  if (!lista.length) { wrap.innerHTML = '<p class="nada">No ha llegado ningún mensaje.</p>'; return; }
+  wrap.innerHTML = '';
+  lista.forEach(m => {
+    const d = document.createElement('div');
+    d.className = 'mensaje' + (m.atendido ? ' atendido' : '');
+    const quien = m.origen === 'socio' ? 'Familia socia' : (m.nombre_contacto || 'Web pública');
+    d.innerHTML = `<div class="mensaje-cab"><span><b style="color:var(--ink);">${esc(quien)}</b>${m.email_contacto ? ', ' + esc(m.email_contacto) : ''}</span><span>${new Date(m.created_at).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' })}</span></div>
+      <p>${esc(m.mensaje)}</p>
+      <div class="mensaje-acc">${m.email_contacto ? `<a href="mailto:${esc(m.email_contacto)}?subject=${encodeURIComponent('Tu mensaje al AMPA')}">Responder por email</a>` : ''}
+        <button type="button" class="linklike">${m.atendido ? 'Marcar como pendiente' : 'Marcar como atendido'}</button></div>`;
+    d.querySelector('button').addEventListener('click', async () => {
+      const { error } = await sb.from('comentarios').update({ atendido: !m.atendido }).eq('id', m.id);
+      if (error) { alert(/atendido/.test(error.message) ? 'Falta ejecutar supabase/migracion-panel-junta.sql en Supabase.' : error.message); return; }
+      m.atendido = !m.atendido;
+      d.classList.toggle('atendido', m.atendido);
+      d.querySelector('button').textContent = m.atendido ? 'Marcar como pendiente' : 'Marcar como atendido';
+    });
+    wrap.appendChild(d);
+  });
+}
+
+function pintarTareas() {
+  const t = document.getElementById('tareas');
+  if (!tareas.length) { t.innerHTML = '<div class="al-dia">Todo al día. No hay nada pendiente.</div>'; return; }
+  t.innerHTML = tareas.map(x => `<a class="tarea area-${x.area}" href="${x.href}">
+      <span class="num" aria-hidden="true">${x.num}</span>
+      <span class="txt"><b>${esc(x.titulo)}</b><span>${esc(x.detalle)}</span></span>
+      <span class="ir">${esc(x.ir)}</span></a>`).join('');
+}
+
+(async () => {
+  const ctx = await requireAdmin();
+  if (!ctx) return;
+  renderNav('admin', ctx);
+  document.getElementById('hoy').textContent = 'Hola, ' + ctx.adulto.nombre + '. Hoy es ' + ahora.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }) + '.';
+  await Promise.all([socios(), eventos(), libros(), uniformes(), mochila(), encuestas(), mensajes()].map(p => p.catch(e => console.error(e))));
+  pintarTareas();
+})();
+</script>
+</body>
+</html>

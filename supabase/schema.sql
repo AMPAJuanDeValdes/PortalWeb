@@ -2265,7 +2265,7 @@ create policy "admins gestionan los videos de portada" on videos_portada for all
 -- 1. Opciones nuevas del evento ---------------------------------------------
 alter table eventos add column if not exists pide_alergias boolean not null default false;
 -- Voluntariado: 'no', 'adultos' (solo adultos) o 'adultos_y_ninos'
--- (adultos solos, o adultos con niños de su familia; nunca niños solos)
+-- (adultos solos, o adultos con alumnos de su familia; nunca alumnos solos)
 alter table eventos add column if not exists voluntariado_modo text not null default 'no';
 do $$ begin
   if not exists (select 1 from pg_constraint where conname = 'eventos_voluntariado_modo_check') then
@@ -2275,8 +2275,8 @@ do $$ begin
 end $$;
 update eventos set voluntariado_modo = 'adultos_y_ninos'
   where voluntariado_habilitado = true and voluntariado_modo = 'no';
--- Si una familia apunta niños sin ningún adulto suyo, tiene que decir con
--- qué adulto socio irán (Chocolatada)
+-- Si una familia apunta alumnos sin ningún adulto suyo, tienen que ir con
+-- un adulto socio de otra familia ya apuntado (Chocolatada)
 alter table eventos add column if not exists alumnos_requieren_adulto boolean not null default false;
 -- Pregunta extra para cada alumno (ej. "¿Cómo llega?" Directo de clase /
 -- Pasa antes por Patines)
@@ -2294,6 +2294,8 @@ alter table evento_inscripciones add column if not exists dni_invitado text;
 alter table evento_inscripciones add column if not exists tiene_alergias boolean;
 alter table evento_inscripciones add column if not exists alergias text;
 alter table evento_inscripciones add column if not exists responsable_nombre text;
+-- Adulto socio de otra familia que acompaña al alumno (Chocolatada)
+alter table evento_inscripciones add column if not exists responsable_adulto_id uuid references adultos(id) on delete set null;
 alter table evento_inscripciones add column if not exists respuesta_extra text;
 -- Alumno externo (formulario público de talleres)
 alter table evento_inscripciones add column if not exists alumno_nombre text;
@@ -2434,15 +2436,20 @@ begin
     if ocupadas >= ev.aforo_total then raise exception 'El evento está completo.'; end if;
   end if;
 
-  -- Niños sin ningún adulto de su familia: hay que decir con quién van
+  -- Alumnos sin ningún adulto de su familia: tienen que ir con un adulto
+  -- socio de otra familia que ya esté apuntado a este evento
   if ev.alumnos_requieren_adulto and new.tipo_miembro = 'alumno'
-     and coalesce(btrim(new.responsable_nombre), '') = ''
      and not exists (
        select 1 from evento_inscripciones i
        where i.evento_id = new.evento_id and i.socio_id = new.socio_id and i.actividad_id is null
          and i.tipo_miembro = 'adulto' and not i.es_voluntario
-     ) then
-    raise exception 'Indica con qué adulto socio irá, o apunta antes a un adulto de la familia.';
+     )
+     and not (new.responsable_adulto_id is not null and exists (
+       select 1 from evento_inscripciones i
+       where i.evento_id = new.evento_id and i.actividad_id is null and i.tipo_miembro = 'adulto'
+         and i.adulto_id = new.responsable_adulto_id
+     )) then
+    raise exception 'Apunta antes a un adulto de la familia, o indica el adulto socio de otra familia que le acompaña (tiene que estar apuntado).';
   end if;
 
   if ev.pide_alergias and new.tipo_miembro <> 'publico' and new.tiene_alergias is null then
@@ -2602,3 +2609,110 @@ begin
 end;
 $$;
 grant execute on function concurso_enviar_texto(uuid, text, uuid, text, jsonb) to authenticated;
+
+
+-- 9. Buscar el adulto socio de otra familia que acompaña a unos alumnos
+--    (por número de socio y nombre). Solo dice si existe y si ya está
+--    apuntado a ese evento; no devuelve más datos de esa familia.
+create or replace function evento_buscar_acompanante(p_evento_id uuid, p_numero text, p_nombre text)
+returns table (adulto_id uuid, nombre text)
+language plpgsql security definer set search_path = public as $$
+declare
+  v_mio uuid := mi_socio_id();
+  v_num text := regexp_replace(coalesce(p_numero, ''), '\D', '', 'g');
+  v_nombre text := lower(translate(btrim(coalesce(p_nombre, '')), 'áéíóúüñÁÉÍÓÚÜÑ', 'aeiouunaeiouun'));
+  v_socio uuid;
+  v_adulto adultos%rowtype;
+begin
+  if v_mio is null then raise exception 'Tienes que entrar con tu cuenta de socio.'; end if;
+  if v_num = '' or length(v_nombre) < 2 then raise exception 'Escribe el número de socio y el nombre del adulto.'; end if;
+  select id into v_socio from socios
+    where estado = 'activa' and (numero_socio_completo = v_num or (length(v_num) <= 4 and numero_secuencial = lpad(v_num, 4, '0')))
+    limit 1;
+  if v_socio is null then raise exception 'No hay ningún socio activo con el número %.', p_numero; end if;
+  if v_socio = v_mio then raise exception 'Ese es tu propio número de socio: apunta a un adulto de tu familia.'; end if;
+  select a.* into v_adulto from adultos a
+    where a.socio_id = v_socio
+      and (lower(translate(a.nombre || ' ' || a.apellidos, 'áéíóúüñÁÉÍÓÚÜÑ', 'aeiouunaeiouun')) like '%' || v_nombre || '%'
+        or v_nombre like lower(translate(a.nombre, 'áéíóúüñÁÉÍÓÚÜÑ', 'aeiouunaeiouun')) || '%')
+    limit 1;
+  if v_adulto.id is null then raise exception 'En el socio nº % no hay ningún adulto con ese nombre.', p_numero; end if;
+  if not exists (select 1 from evento_inscripciones i where i.evento_id = p_evento_id and i.actividad_id is null
+                 and i.tipo_miembro = 'adulto' and i.adulto_id = v_adulto.id) then
+    raise exception '% todavía no está apuntado/a a este evento. Tiene que apuntarse antes.', v_adulto.nombre;
+  end if;
+  return query select v_adulto.id, v_adulto.nombre || ' ' || v_adulto.apellidos;
+end;
+$$;
+grant execute on function evento_buscar_acompanante(uuid, text, text) to authenticated;
+
+-- 10. Tipo de evento: cada tipo fija sus reglas y no se pueden cambiar
+--     (p. ej. en la Barbacoa solo se apuntan alumnos, nunca adultos).
+alter table eventos add column if not exists plantilla text;
+do $$ begin
+  if not exists (select 1 from pg_constraint where conname = 'eventos_plantilla_check') then
+    alter table eventos add constraint eventos_plantilla_check check (plantilla is null or plantilla in
+      ('chocolatada', 'cabalgata', 'juegos', 'taller', 'barbacoa', 'comedor', 'concurso', 'informativo'));
+  end if;
+end $$;
+
+create or replace function eventos_aplicar_tipo()
+returns trigger language plpgsql as $$
+begin
+  if new.plantilla is null then return new; end if;
+  -- Por defecto, con inscripción normal
+  if new.plantilla not in ('concurso', 'informativo') then
+    new.sin_inscripcion := false; new.usa_concurso_texto := false;
+  end if;
+  if new.plantilla in ('juegos', 'taller', 'barbacoa', 'concurso') then
+    new.tipo_elegibilidad := 'alumnos';
+    if new.elegibilidad_modo is null then new.elegibilidad_modo := 'curso'; end if;
+  end if;
+  case new.plantilla
+    when 'chocolatada' then
+      new.tipo_elegibilidad := 'toda_familia'; new.pide_alergias := true; new.alumnos_requieren_adulto := true;
+      new.permite_invitados := true; new.abierto_no_socios := false; new.publico_solo_actividades := false;
+      new.metodo_asignacion := 'aforo'; new.requiere_pareja_adulto_alumno := false;
+    when 'cabalgata' then
+      new.tipo_elegibilidad := 'toda_familia'; new.metodo_asignacion := 'sorteo';
+      new.requiere_pareja_adulto_alumno := true; new.usa_prioridad_historial := false;
+    when 'juegos', 'taller' then
+      new.metodo_asignacion := 'aforo'; new.requiere_pareja_adulto_alumno := false;
+      if new.voluntariado_modo = 'adultos_y_ninos' then new.voluntariado_modo := 'adultos'; end if;
+    when 'barbacoa' then
+      new.metodo_asignacion := 'aforo'; new.requiere_pareja_adulto_alumno := false;
+      new.voluntariado_modo := 'adultos_y_ninos'; new.voluntariado_habilitado := true;
+      new.permite_invitados := false;
+      if new.abierto_no_socios then new.publico_solo_actividades := true; end if;
+      -- Sin cursos marcados = todos los alumnos del colegio
+      if new.elegibilidad_modo = 'curso' and (new.cursos_permitidos is null or jsonb_array_length(new.cursos_permitidos) = 0) then
+        new.cursos_permitidos := (select jsonb_agg(jsonb_build_object('etapa', e, 'curso', c)) from (values
+          ('Infantil','0 años'),('Infantil','1 año'),('Infantil','2 años'),('Infantil','3 años'),
+          ('Primaria','1º'),('Primaria','2º'),('Primaria','3º'),('Primaria','4º'),('Primaria','5º'),('Primaria','6º'),
+          ('ESO','1º'),('ESO','2º'),('ESO','3º'),('ESO','4º'),('Bachillerato','1º'),('Bachillerato','2º')) v(e, c));
+      end if;
+    when 'comedor' then
+      new.tipo_elegibilidad := 'adultos'; new.metodo_asignacion := 'sorteo';
+      new.usa_prioridad_historial := true; new.requiere_pareja_adulto_alumno := false;
+    when 'concurso' then
+      new.usa_concurso_texto := true; new.sin_inscripcion := false;
+    when 'informativo' then
+      new.sin_inscripcion := true; new.usa_concurso_texto := false;
+    else null;
+  end case;
+  return new;
+end;
+$$;
+drop trigger if exists trg_eventos_aplicar_tipo on eventos;
+create trigger trg_eventos_aplicar_tipo before insert or update on eventos
+for each row execute function eventos_aplicar_tipo();
+
+-- ======== migracion-panel-junta.sql ========
+-- ============================================================
+-- Panel de la Junta: los mensajes de las familias se pueden marcar como
+-- atendidos. Se puede ejecutar varias veces sin problema.
+-- ============================================================
+alter table comentarios add column if not exists atendido boolean not null default false;
+drop policy if exists "admins marcan comentarios atendidos" on comentarios;
+create policy "admins marcan comentarios atendidos" on comentarios for update
+  using (is_admin()) with check (is_admin());

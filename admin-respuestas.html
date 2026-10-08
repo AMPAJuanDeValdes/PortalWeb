@@ -33,7 +33,6 @@
 
   <div class="panel" id="panel-alumnos"><div class="card" id="wrapAlumnos"><p class="loading">Cargando...</p></div></div>
 
-  <footer class="note"><b>AMPA Colegio Juan de Valdés</b> — panel de administración</footer>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -55,7 +54,7 @@ async function cargarPrestamo() {
   const wrap = document.getElementById('wrapPrestamo');
   const { data, error } = await sb
     .from('prestamo_items')
-    .select('tipo, socio_id, created_at, libros_catalogo(titulo, curso, etapa), alumnos(nombre, apellidos)')
+    .select('tipo, socio_id, created_at, libros_catalogo(titulo), alumnos(nombre, apellidos, curso, etapa)')
     .order('created_at', { ascending: false });
 
   if (error) { wrap.innerHTML = '<p class="msg-error">No se pudo cargar.</p>'; return; }
@@ -67,7 +66,7 @@ async function cargarPrestamo() {
     data.map(d => '<tr>' +
       '<td>' + (d.tipo === 'donacion' ? 'Donación' : 'Solicitud') + '</td>' +
       '<td>' + (d.libros_catalogo ? d.libros_catalogo.titulo : '') + '</td>' +
-      '<td>' + (d.libros_catalogo ? d.libros_catalogo.curso + ' ' + d.libros_catalogo.etapa : '') + '</td>' +
+      '<td>' + (d.alumnos ? d.alumnos.curso + ' ' + d.alumnos.etapa : '') + '</td>' +
       '<td>' + (d.alumnos ? d.alumnos.nombre + ' ' + d.alumnos.apellidos : '') + '</td>' +
       '<td>' + (resumen[d.socio_id] ? resumen[d.socio_id].nombre : '') + ' (' + (resumen[d.socio_id] ? resumen[d.socio_id].numero_socio : '') + ')</td>' +
     '</tr>').join('') + '</tbody></table>' +
@@ -76,7 +75,7 @@ async function cargarPrestamo() {
   document.getElementById('descargarPrestamoBtn').addEventListener('click', () => {
     descargarCSV(data.map(d => ({
       tipo: d.tipo, libro: d.libros_catalogo ? d.libros_catalogo.titulo : '',
-      curso: d.libros_catalogo ? d.libros_catalogo.curso + ' ' + d.libros_catalogo.etapa : '',
+      curso: d.alumnos ? d.alumnos.curso + ' ' + d.alumnos.etapa : '',
       alumno: d.alumnos ? d.alumnos.nombre + ' ' + d.alumnos.apellidos : '',
       familia: resumen[d.socio_id] ? resumen[d.socio_id].nombre : '',
       numero_socio: resumen[d.socio_id] ? resumen[d.socio_id].numero_socio : ''

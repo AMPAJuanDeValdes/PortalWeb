@@ -125,6 +125,11 @@ async function tarjetaEvento(ev) {
     acts.push({ ...a, libres });
   }
   if (ev.publico_solo_actividades && !acts.length) return card;
+  // Si no queda sitio en ninguna actividad, no se ofrece apuntarse
+  if (ev.publico_solo_actividades && acts.every(a => a.libres != null && a.libres <= 0)) {
+    card.insertAdjacentHTML('beforeend', '<p class="empty-hint" style="margin-top:12px;">No quedan plazas.</p>');
+    return card;
+  }
 
   const abrir = document.createElement('button');
   abrir.type = 'button'; abrir.className = 'btn btn-primary'; abrir.style.marginTop = '14px';

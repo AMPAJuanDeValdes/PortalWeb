@@ -65,7 +65,6 @@
     <div class="card" id="mandatosWrap"><p class="loading">Cargando...</p></div>
   </div>
 
-  <footer class="note"><b>AMPA Colegio Juan de Valdés</b> — panel de administración</footer>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -86,8 +85,9 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 let configActual = null;
 
 async function cargarConfig() {
-  const { data } = await sb.from('mandato_sepa_config').select('*').eq('id', 1).single();
-  configActual = data;
+  const { data: fila } = await sb.from('mandato_sepa_config').select('*').eq('id', 1).maybeSingle();
+  const data = fila || {};
+  configActual = fila;
 
   document.getElementById('acIdentificador').value = data.identificador_acreedor || '';
   document.getElementById('acNombre').value = data.nombre_acreedor || '';

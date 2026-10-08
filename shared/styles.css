@@ -90,6 +90,7 @@ h3{ font-family:var(--font-title); font-weight:700; }
 .card{
   background:var(--card); border:1px solid var(--line); border-radius:var(--radius-card);
   padding:26px 24px; margin-bottom:20px; position:relative;
+  overflow-x:auto;   /* las tablas anchas se desplazan dentro de la tarjeta en el móvil */
 }
 .section-label{
   font-family:var(--font-title); font-weight:700; font-size:20px; line-height:1.25;
@@ -275,3 +276,37 @@ button.linklike{ background:none; border:none; padding:0; color:var(--navy); tex
 @media (prefers-reduced-motion:reduce){ *{ transition:none !important; scroll-behavior:auto !important; } }
 [hidden]{ display:none !important; }
 img[src*="logo-ampa"]{ mix-blend-mode:multiply; }
+
+/* -------- Panel de la Junta: menú lateral y tono más sereno -------- */
+.area-socios{ --area:#006D9C; --area-bg:#DCF0FA; }
+.area-eventos{ --area:#3F6E12; --area-bg:#E6F2D8; }
+.area-libros{ --area:#B0185A; --area-bg:#FDE7F1; }
+.area-uniformes{ --area:#8A6400; --area-bg:#FFF3C4; }
+.area-comunicacion{ --area:#6B3FA0; --area-bg:#EFE7FA; }
+.topbar-simple:has(+ .admin-shell) .topbar-in{ max-width:1260px; }
+.admin-shell{ display:flex; gap:28px; max-width:1260px; margin:0 auto; padding:0 20px; align-items:flex-start; }
+.admin-shell > .wrap{ flex:1 1 0; min-width:0; max-width:none; margin:0; padding:28px 0 80px; }
+.admin-menu{ flex:0 0 236px; position:sticky; top:16px; margin-top:28px; background:#fff; border:1px solid var(--line); border-radius:18px; padding:10px; }
+.admin-menu a{ display:block; padding:8px 12px; border-radius:10px; color:var(--ink); text-decoration:none; font-size:15px; }
+.admin-menu a:hover{ background:#F3F5F9; color:var(--ink); }
+.admin-menu a.activo{ background:var(--area-bg, #FFF3C4); color:var(--area, var(--ink)); font-weight:700; }
+.admin-menu-inicio{ font-weight:700; margin-bottom:4px; }
+.admin-menu-grupo{ border-top:1px solid var(--line); padding-top:8px; margin-top:8px; }
+.admin-menu-titulo{ display:flex; align-items:center; gap:8px; margin:2px 12px 4px; font-size:14px; font-weight:700; color:var(--ink-soft); }
+.admin-menu-titulo::before{ content:""; width:10px; height:10px; border-radius:50%; background:var(--area); }
+.admin-shell .btn-primary{ background:var(--ink); }
+.admin-shell .btn-primary:hover{ background:#2C3F60; }
+.admin-shell .btn-outline{ border-color:#9AA8BA; color:var(--ink); }
+.admin-shell .btn-outline:hover{ background:#F3F5F9; color:var(--ink); border-color:var(--ink); }
+.admin-shell h1{ font-size:clamp(28px,4vw,38px); }
+@media (max-width:900px){
+  .admin-shell{ flex-direction:column; gap:0; padding:0; }
+  .admin-shell > .wrap{ padding:20px 16px 80px; width:100%; }
+  .admin-menu{ flex:0 0 auto; position:static; margin:0; width:100%; border-radius:0; border-width:0 0 1px; display:flex; align-items:center; gap:6px; overflow-x:auto; white-space:nowrap; padding:8px 12px; }
+  .admin-menu-grupo{ border:0; padding:0; margin:0; }
+  .admin-menu-grupo{ display:contents; }
+  .admin-menu-titulo{ display:none; }
+  .admin-menu a{ flex:0 0 auto; border:1px solid var(--line); padding:6px 12px; }
+  .admin-menu-inicio{ margin:0; }
+}
+input:disabled, select:disabled, textarea:disabled{ background:#F3F5F9; color:var(--ink-soft); cursor:not-allowed; }

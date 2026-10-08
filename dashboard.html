@@ -43,17 +43,14 @@
   .mochila h2{ margin:0 0 4px; }
   .mochila p{ margin:0; }
 
-  /* Administración */
-  .admin{ background:var(--ink); color:#fff; border-radius:var(--radius-card); padding:24px; margin-bottom:34px; }
-  .admin h2{ color:#fff; margin:0 0 4px; }
-  .admin .grupo{ margin-top:18px; }
-  .admin .grupo-titulo{ color:#C9D4E3; font-size:15px; margin:0 0 8px; }
-  .admin .grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:10px; }
-  .admin a.tile{ display:block; background:#22324D; border-radius:14px; padding:14px 16px; text-decoration:none; color:#fff; }
-  .admin a.tile:hover{ background:#2C3F60; color:#fff; }
-  .admin a.tile h2{ font-family:var(--font-text); font-size:17px; color:#fff; margin:0 0 2px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
-  .admin a.tile p{ margin:0; font-size:14px; color:#C9D4E3; }
-  .admin .estado-badge{ background:#F2B705; color:var(--ink); }
+  /* Acceso al panel de la Junta */
+  .junta{ display:flex; align-items:center; gap:16px; flex-wrap:wrap; background:#fff; border:2px solid var(--ink); border-radius:var(--radius-card); padding:18px 22px; margin-bottom:34px; text-decoration:none; color:var(--ink); }
+  .junta:hover{ background:#F9FAFC; color:var(--ink); }
+  .junta > span:first-child{ flex:1 1 280px; }
+  .junta b{ font-family:var(--font-title); font-size:20px; display:block; }
+  .junta span span{ color:var(--ink-soft); font-size:15px; }
+  .junta-pend{ background:#FFF3C4; color:#6B4E00; font-weight:700; border-radius:999px; padding:4px 14px; font-size:15px; }
+  .junta-ir{ font-weight:700; }
 </style>
 </head>
 <body>
@@ -97,37 +94,11 @@
     </div>
   </section>
 
-  <section class="admin" id="adminSection" hidden>
-    <h2>Administración</h2>
-    <p style="margin:0; color:#C9D4E3;">Solo lo ve la Junta.</p>
-    <div class="grupo">
-      <p class="grupo-titulo">Socios y cuotas</p>
-      <div class="grid">
-        <a class="tile" href="admin-socios.html"><h2>Socios <span id="tileSolicitudes" class="estado-badge" hidden></span></h2><p>Solicitudes, lista y fichas</p></a>
-        <a class="tile" href="admin-importar.html"><h2>Alta de socios</h2><p>Manual o desde CSV</p></a>
-        <a class="tile" href="admin-sepa.html"><h2>Domiciliación SEPA</h2><p>Plantilla y mandatos firmados</p></a>
-        <a class="tile" href="admin-comprobantes.html"><h2>Comprobantes</h2><p>Pagos de invitados a eventos</p></a>
-      </div>
-    </div>
-    <div class="grupo">
-      <p class="grupo-titulo">Actividades</p>
-      <div class="grid">
-        <a class="tile" href="admin-eventos.html"><h2>Eventos</h2><p>Crear, sortear y gestionar</p></a>
-        <a class="tile" href="admin-libros.html"><h2>Préstamo de libros</h2><p>Catálogo, reparto y compras</p></a>
-        <a class="tile" href="admin-uniformes.html"><h2>Uniformes</h2><p>Stock y reparto</p></a>
-        <a class="tile" href="admin-encuestas.html"><h2>Encuestas</h2><p>Crear y ver resultados</p></a>
-        <a class="tile" href="admin-respuestas.html"><h2>Respuestas</h2><p>Listados exportables</p></a>
-      </div>
-    </div>
-    <div class="grupo">
-      <p class="grupo-titulo">Comunicación</p>
-      <div class="grid">
-        <a class="tile" href="admin-email.html"><h2>Enviar email</h2><p>A todas las familias o a grupos</p></a>
-        <a class="tile" href="admin-documentos.html"><h2>Documentos</h2><p>Newsletters y archivos</p></a>
-        <a class="tile" href="admin-carrusel.html"><h2>Fotos y vídeos de portada</h2><p>Lo que se ve en la web pública</p></a>
-      </div>
-    </div>
-  </section>
+  <a class="junta" id="adminSection" href="admin.html" hidden>
+    <span><b>Panel de la Junta</b><span>Socios, eventos, préstamo, uniformes, comunicación y lo que está pendiente.</span></span>
+    <span class="junta-pend" id="tileSolicitudes" hidden></span>
+    <span class="junta-ir">Abrir</span>
+  </a>
 
   <div class="card">
     <p class="section-label">¿Algo que decirle al AMPA?</p>
@@ -230,25 +201,48 @@ async function estadoUniformes(socioId) {
   return pend;
 }
 
-async function estadoEventos(socioId) {
+// ¿Puede alguien de la familia apuntarse de verdad a este evento ahora?
+function alumnoCumple(al, e) {
+  if (e.elegibilidad_modo === 'edad') {
+    const edad = al.fecha_nacimiento ? calcularEdad(al.fecha_nacimiento) : null;
+    return edad != null && (e.edad_min == null || edad >= e.edad_min) && (e.edad_max == null || edad <= e.edad_max);
+  }
+  return (e.cursos_permitidos || []).some(c => c.etapa === al.etapa && c.curso === al.curso);
+}
+
+async function estadoEventos(socioId, alumnos) {
   const pend = [];
-  const [{ data: eventos }, { data: insc }] = await Promise.all([
-    sb.from('eventos').select('id, titulo, fecha, sin_inscripcion, fecha_apertura_socios, fecha_cierre_inscripcion')
-      .eq('activo', true).gte('fecha', ahora().toISOString()).order('fecha'),
-    sb.from('evento_inscripciones').select('evento_id').eq('socio_id', socioId)
+  const [{ data: eventos }, { data: insc }, { data: textos }] = await Promise.all([
+    sb.from('eventos').select('*').eq('activo', true).gte('fecha', ahora().toISOString()).order('fecha'),
+    sb.from('evento_inscripciones').select('evento_id').eq('socio_id', socioId),
+    sb.from('concurso_identidades').select('alumno_id, concurso_envios(evento_id)').eq('socio_id', socioId)
   ]);
   if (!eventos || !eventos.length) return pend;
   const apuntados = new Set((insc || []).map(i => i.evento_id));
   const misEventos = eventos.filter(e => apuntados.has(e.id));
-  eventos.forEach(e => {
-    const abierto = !e.sin_inscripcion
-      && (!e.fecha_apertura_socios || new Date(e.fecha_apertura_socios) <= ahora())
-      && (!e.fecha_cierre_inscripcion || new Date(e.fecha_cierre_inscripcion) > ahora());
-    if (abierto && !apuntados.has(e.id)) {
-      pend.push({ tipo: 'eventos', href: 'eventos.html', titulo: e.titulo, accion: 'Apuntarse',
-        detalle: (e.fecha_cierre_inscripcion ? `Inscripción abierta hasta el ${fechaCorta(e.fecha_cierre_inscripcion)}.` : 'Inscripción abierta.') + ` Es el ${fechaCorta(e.fecha)}.` });
+  for (const e of eventos) {
+    if (e.sin_inscripcion || e.sorteo_realizado || apuntados.has(e.id)) continue;
+    if (e.fecha_apertura_socios && new Date(e.fecha_apertura_socios) > ahora()) continue;
+    if (e.fecha_cierre_inscripcion && new Date(e.fecha_cierre_inscripcion) <= ahora()) continue;
+    // Alguien de la familia tiene que poder ir
+    const alumnosOk = e.tipo_elegibilidad === 'adultos' ? [] : e.tipo_elegibilidad === 'alumnos' ? alumnos.filter(al => alumnoCumple(al, e)) : alumnos;
+    const hayAdultos = e.tipo_elegibilidad !== 'alumnos';
+    if (!alumnosOk.length && !hayAdultos) continue;
+    const cierre = e.fecha_cierre_inscripcion ? `Hasta el ${fechaCorta(e.fecha_cierre_inscripcion)}.` : 'Plazo abierto.';
+    if (e.usa_concurso_texto) {
+      const enviados = new Set((textos || []).filter(t => t.concurso_envios && t.concurso_envios.evento_id === e.id).map(t => t.alumno_id));
+      if (alumnosOk.some(al => !enviados.has(al.id)))
+        pend.push({ tipo: 'eventos', href: 'eventos.html', titulo: e.titulo, accion: 'Enviar texto', detalle: cierre });
+      continue;
     }
-  });
+    // Sin plazas, no se ofrece apuntarse (en los de sorteo no hay límite al apuntarse)
+    if (e.metodo_asignacion !== 'sorteo' && e.aforo_total != null) {
+      const { data: libres } = await sb.rpc('evento_plazas_disponibles', { p_evento_id: e.id });
+      if (libres != null && libres <= 0) continue;
+    }
+    pend.push({ tipo: 'eventos', href: 'eventos.html', titulo: e.titulo, accion: 'Apuntarse',
+      detalle: `${cierre} Es el ${fechaCorta(e.fecha)}.` });
+  }
   tarjeta('tEventos', misEventos.length
     ? `Apuntados a ${misEventos[0].titulo} (${fechaCorta(misEventos[0].fecha)})${misEventos.length > 1 ? ` y ${misEventos.length - 1} más` : ''}.`
     : `Próximo: ${eventos[0].titulo}, el ${fechaCorta(eventos[0].fecha)}.`);
@@ -381,11 +375,11 @@ document.getElementById('comentarioBtn').addEventListener('click', async () => {
     sb.from('socios').select('estado, reactivacion_solicitada_en').neq('estado', 'activa').then(({ data }) => {
       const n = (data || []).filter(x => x.estado === 'recien_creada' || x.reactivacion_solicitada_en).length;
       const el = document.getElementById('tileSolicitudes');
-      if (n) { el.textContent = n + ' pendiente' + (n > 1 ? 's' : ''); el.hidden = false; }
+      if (n) { el.textContent = n + (n > 1 ? ' solicitudes de socio' : ' solicitud de socio'); el.hidden = false; }
     });
   }
 
-  const { data: alumnos } = await sb.from('alumnos').select('id, nombre, etapa, curso').eq('socio_id', socioId).order('nombre');
+  const { data: alumnos } = await sb.from('alumnos').select('id, nombre, etapa, curso, fecha_nacimiento').eq('socio_id', socioId).order('nombre');
   const hijos = (alumnos || []).map(a => a.nombre + (a.curso ? ` en ${a.curso} de ${a.etapa}` : ''));
   const numero = ctx.socio.numero_socio_completo ? `Socio nº ${ctx.socio.numero_socio_completo}` : 'Socio';
   document.getElementById('familia').textContent = numero + (hijos.length ? `, con ${nombres(hijos)}.` : '.');
@@ -393,7 +387,7 @@ document.getElementById('comentarioBtn').addEventListener('click', async () => {
   const resultados = await Promise.all([
     estadoLibros(socioId, alumnos || []).catch(() => []),
     estadoUniformes(socioId).catch(() => []),
-    estadoEventos(socioId).catch(() => []),
+    estadoEventos(socioId, alumnos || []).catch(() => []),
     estadoEncuestas(socioId).catch(() => []),
     cargarMochila().catch(() => {})
   ]);

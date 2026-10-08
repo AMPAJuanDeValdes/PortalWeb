@@ -60,6 +60,8 @@ test.describe('Seguridad', () => {
     await expect(page).toHaveURL(/dashboard\.html/);
     await expect(page.locator('#adminSection')).toBeHidden();
     await page.goto('/admin-socios.html');
-    await expect(page).toHaveURL(/dashboard\.html/);
+    await expect(page).toHaveURL(/dashboard(\.html)?$/);
+    await page.goto('/admin.html');
+    await expect(page).toHaveURL(/dashboard(\.html)?$/);
   });
 });

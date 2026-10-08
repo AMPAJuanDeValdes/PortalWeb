@@ -33,8 +33,12 @@ test.describe.serial('Administración de socios', () => {
     return page.locator('td.detalle');
   }
 
-  test('Inicio del admin muestra el tile de Socios', async ({ page }) => {
-    await expect(page.locator('a.tile', { has: page.locator('h2', { hasText: /^Socios/ }) })).toBeVisible();
+  test('Inicio del admin lleva al Panel de la Junta, con su menú y pendientes', async ({ page }) => {
+    await page.click('#adminSection');
+    await expect(page.locator('.admin-menu')).toBeVisible();
+    await expect(page.locator('.admin-menu').getByRole('link', { name: 'Socios', exact: true })).toBeVisible();
+    await expect(page.locator('#tareas')).not.toContainText('Revisando');
+    await expect(page.locator('#tareas')).toContainText(/solicitud/i);   // hay una familia pendiente de prueba
   });
 
   test('Solicitudes: se ven todos los datos de la familia', async ({ page }) => {
