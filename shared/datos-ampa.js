@@ -3,8 +3,15 @@
 // Cámbialos SOLO aquí y se actualizan en todas.
 
 var AMPA_IBAN = 'ES41 0049 4078 5026 1410 8578';
-var AMPA_TITULAR_CUENTA = 'AMPA Colegio Juan de Valdés';
+var AMPA_TITULAR_CUENTA = 'APA del Colegio Evangélico Juan de Valdés';
 var AMPA_CUOTA_ANUAL = '25 €';
+
+// Año escolar: del 1 de agosto al 31 de julio. Ej.: 9/10/2026 -> '2026-2027'.
+function anioEscolar(fecha) {
+  const d = fecha || new Date();
+  const inicio = d.getMonth() >= 7 ? d.getFullYear() : d.getFullYear() - 1;
+  return inicio + '-' + (inicio + 1);
+}
 
 // Bloque HTML con los datos de pago, listo para insertar en una página.
 function htmlDatosTransferencia(concepto) {
@@ -13,7 +20,7 @@ function htmlDatosTransferencia(concepto) {
       '<div><span>Cuota anual</span><b>' + AMPA_CUOTA_ANUAL + ' por familia</b></div>' +
       '<div><span>IBAN</span><b class="iban">' + AMPA_IBAN + '</b></div>' +
       '<div><span>Titular</span><b>' + AMPA_TITULAR_CUENTA + '</b></div>' +
-      '<div><span>Concepto</span><b>' + (concepto || 'Cuota AMPA + nombre y apellidos') + '</b></div>' +
+      '<div><span>Concepto</span><b class="concepto-pago">' + (concepto || 'Cuota AMPA ' + anioEscolar() + ' + nombre y apellidos') + '</b></div>' +
     '</div>'
   );
 }

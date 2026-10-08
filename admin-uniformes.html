@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Uniformes · Admin AMPA</title>
+<title>Banco de Uniformes · Admin AMPA</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="shared/styles.css">
@@ -45,7 +45,7 @@
 <body>
 <div class="wrap">
   <div class="eyebrow">Administración</div>
-  <h1>Uniformes</h1>
+  <h1>Banco de Uniformes</h1>
   <p class="lede">Stock por movimientos (lo que entra y lo que sale), convocatorias y reparto por prioridades.</p>
 
   <div class="tabs">
@@ -423,7 +423,7 @@ async function cargarPedidos() {
     });
   });
   wrap.querySelectorAll('[data-borrar]').forEach(b => b.addEventListener('click', async () => {
-    if (!confirm('¿Borrar el pedido completo de esta familia (todos sus hijos/as)? Si tenían prenda asignada, vuelve al stock. No se puede deshacer.')) return;
+    if (!confirm('¿Borrar el pedido completo de esta familia (todos sus alumnos/as)? Si tenían prenda asignada, vuelve al stock. No se puede deshacer.')) return;
     const { error } = await sb.rpc('uniformes_admin_borrar_pedido', { p_socio_id: b.dataset.borrar, p_convocatoria_id: convocatoria.id });
     if (error) { aviso('pedMsg', false, error.message); return; }
     await refrescarTodo();

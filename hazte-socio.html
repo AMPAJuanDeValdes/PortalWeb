@@ -152,7 +152,14 @@ function renderAlumnos() {
 document.getElementById('addAlumnoBtn').addEventListener('click', () => { alumnos.push({ id: 'al' + (alumnoCounter++) }); renderAlumnos(); });
 renderAlumnos();
 
-document.getElementById('datosPago').innerHTML = htmlDatosTransferencia('Cuota AMPA + nombre y apellidos del adulto principal');
+document.getElementById('datosPago').innerHTML = htmlDatosTransferencia();
+// Concepto: Cuota AMPA <año escolar> + nombre y apellidos del adulto principal, al momento.
+function actualizarConcepto() {
+  const nombre = [document.getElementById('a1Nombre').value.trim(), document.getElementById('a1Apellidos').value.trim()].filter(Boolean).join(' ');
+  document.querySelector('#datosPago .concepto-pago').textContent = 'Cuota AMPA ' + anioEscolar() + ' ' + (nombre || '+ nombre y apellidos del adulto principal');
+}
+['a1Nombre', 'a1Apellidos'].forEach(id => document.getElementById(id).addEventListener('input', actualizarConcepto));
+actualizarConcepto();
 
 const $ = (id) => document.getElementById(id);
 const val = (id) => ($(id) ? $(id).value.trim() : '');

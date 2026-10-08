@@ -19,7 +19,7 @@ async function crearEvento(campos) {
 
 test.describe('Eventos', () => {
   test.beforeAll(async () => {
-    fam = await crearFamilia({ etiqueta: 'eventos', alumnos: 2, conNumero: true });
+    fam = await crearFamilia({ etiqueta: 'eventos', adultos: 2, alumnos: 2, conNumero: true });
     cli = (await clienteComo(fam.adultos[0].email)).cliente;
     choco = await crearEvento({ titulo: 'Chocolatada', tipo_elegibilidad: 'toda_familia', pide_alergias: true,
       alumnos_requieren_adulto: true, voluntariado_modo: 'adultos_y_ninos', permite_invitados: true, precio_invitado: 3 });
@@ -66,10 +66,31 @@ test.describe('Eventos', () => {
   test('Chocolatada: un alumno solo puede ser voluntario con un adulto de su familia', async () => {
     let r = await cli.from('evento_inscripciones').insert({ ...base(), tipo_miembro: 'alumno', alumno_id: fam.alumnos[1].id, es_voluntario: true });
     expect(r.error).not.toBeNull();
-    r = await cli.from('evento_inscripciones').insert({ ...base(), tipo_miembro: 'adulto', adulto_id: fam.adultos[0].id, es_voluntario: true });
+    r = await cli.from('evento_inscripciones').insert({ ...base(), tipo_miembro: 'adulto', adulto_id: fam.adultos[1].id, es_voluntario: true });
     expect(r.error).toBeNull();
     r = await cli.from('evento_inscripciones').insert({ ...base(), tipo_miembro: 'alumno', alumno_id: fam.alumnos[1].id, es_voluntario: true });
     expect(r.error).toBeNull();
+  });
+
+  test('Quien está apuntado no puede ser voluntario, y al revés', async () => {
+    // adultos[0] ya está apuntado a la Chocolatada
+    let r = await cli.from('evento_inscripciones').insert({ ...base(), tipo_miembro: 'adulto', adulto_id: fam.adultos[0].id, es_voluntario: true });
+    expect(r.error?.message).toContain('voluntario');
+    // adultos[1] es voluntario: no puede apuntarse como asistente
+    r = await cli.from('evento_inscripciones').insert({ ...base(), tipo_miembro: 'adulto', adulto_id: fam.adultos[1].id, tiene_alergias: false });
+    expect(r.error?.message).toContain('voluntario');
+  });
+
+  test('Visita al comedor: como mucho un adulto por familia', async () => {
+    const comedor = await crearEvento({ titulo: 'Comedor', plantilla: 'comedor', aforo_total: 2 });
+    try {
+      let r = await cli.from('evento_inscripciones').insert({ evento_id: comedor.id, socio_id: fam.socio.id, tipo_miembro: 'adulto', adulto_id: fam.adultos[0].id });
+      expect(r.error).toBeNull();
+      r = await cli.from('evento_inscripciones').insert({ evento_id: comedor.id, socio_id: fam.socio.id, tipo_miembro: 'adulto', adulto_id: fam.adultos[1].id });
+      expect(r.error?.message).toContain('uno por familia');
+    } finally {
+      await admin.from('eventos').delete().eq('id', comedor.id);
+    }
   });
 
   test('Taller: aforo, curso de los externos y voluntarios solo adultos', async () => {

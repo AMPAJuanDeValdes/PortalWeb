@@ -2391,22 +2391,31 @@ begin
     if new.tipo_miembro = 'alumno' and ev.voluntariado_modo <> 'adultos_y_ninos' then
       raise exception 'En este evento solo pueden ser voluntarios los adultos.';
     end if;
-    if ev.voluntariado_excluye_asistencia and exists (
+    -- Quien está apuntado al evento no puede ser voluntario (y al revés)
+    if exists (
       select 1 from evento_inscripciones i where i.evento_id = new.evento_id and not i.es_voluntario
         and ((new.tipo_miembro = 'adulto' and i.adulto_id = new.adulto_id)
           or (new.tipo_miembro = 'alumno' and i.alumno_id = new.alumno_id))
     ) then
-      raise exception 'Quien va como voluntario/a no puede apuntarse también como asistente.';
+      raise exception 'Ya está apuntado/a al evento: no puede ser también voluntario/a.';
     end if;
     return new;   -- los voluntarios no ocupan plaza
   end if;
 
-  if ev.voluntariado_excluye_asistencia and new.tipo_miembro in ('adulto', 'alumno') and exists (
+  if new.tipo_miembro in ('adulto', 'alumno') and exists (
     select 1 from evento_inscripciones i where i.evento_id = new.evento_id and i.es_voluntario
       and ((new.tipo_miembro = 'adulto' and i.adulto_id = new.adulto_id)
         or (new.tipo_miembro = 'alumno' and i.alumno_id = new.alumno_id))
   ) then
-    raise exception 'Quien va como voluntario/a no puede apuntarse también como asistente.';
+    raise exception 'Está apuntado/a como voluntario/a: no puede apuntarse también al evento.';
+  end if;
+
+  -- Visita al comedor: como mucho un adulto por familia
+  if ev.plantilla = 'comedor' and new.actividad_id is null and new.socio_id is not null and exists (
+    select 1 from evento_inscripciones i
+    where i.evento_id = new.evento_id and i.socio_id = new.socio_id and i.actividad_id is null and not i.es_voluntario
+  ) then
+    raise exception 'Ya hay un adulto de vuestra familia apuntado: solo puede ir uno por familia.';
   end if;
 
   if new.actividad_id is not null then

@@ -155,6 +155,9 @@ async function cargarEventos() {
   cont.innerHTML = '';
   for (const ev of visibles) cont.appendChild(await renderEvento(ev));
   activarFiltros();
+  // Desde el calendario de Inicio se llega con #ev-<id>
+  const destino = location.hash && document.getElementById(location.hash.slice(1));
+  if (destino) destino.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function activarFiltros() {
@@ -163,18 +166,39 @@ function activarFiltros() {
   if (tarjetas().length < 2) { caja.hidden = true; return; }
   caja.hidden = false;
   caja.querySelectorAll('button').forEach(b => {
-    const n = b.dataset.f === 'todos' ? tarjetas().length : tarjetas().filter(t => t.dataset[b.dataset.f]).length;
-    b.textContent = b.textContent.replace(/ \(\d+\)$/, '') + ` (${n})`;
     b.onclick = () => {
       caja.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
-      tarjetas().forEach(t => { t.hidden = b.dataset.f !== 'todos' && !t.dataset[b.dataset.f]; });
+      aplicarFiltro();
     };
+  });
+  contarFiltros();
+}
+
+// Los números de cada filtro se recalculan cada vez que cambia una tarjeta.
+function contarFiltros() {
+  const caja = document.getElementById('filtros');
+  const tarjetas = [...document.querySelectorAll('#eventosContainer .evento-card')];
+  caja.querySelectorAll('button').forEach(b => {
+    const n = b.dataset.f === 'todos' ? tarjetas.length : tarjetas.filter(t => t.dataset[b.dataset.f]).length;
+    b.textContent = b.textContent.replace(/ \(\d+\)$/, '') + ` (${n})`;
+  });
+}
+
+function aplicarFiltro(salvo) {
+  const activo = document.querySelector('#filtros button[aria-pressed="true"]');
+  const f = activo ? activo.dataset.f : 'todos';
+  document.querySelectorAll('#eventosContainer .evento-card').forEach(t => {
+    // La tarjeta en la que se acaba de actuar no desaparece de golpe
+    t.hidden = t !== salvo && f !== 'todos' && !t.dataset[f];
   });
 }
 
 async function repintar(card, evento) {
   const { data } = await sb.from('eventos').select('*').eq('id', evento.id).single();
-  card.replaceWith(await renderEvento(data || evento));
+  const nueva = await renderEvento(data || evento);
+  card.replaceWith(nueva);
+  contarFiltros();
+  aplicarFiltro(nueva);
 }
 
 /* ==================== Router según el tipo de evento ==================== */
@@ -234,6 +258,7 @@ function cabeceraEvento(evento) {
   const hash = [...String(evento.id)].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7);
   const [color, icono] = TIPOS_VISUAL[evento.plantilla] || [PALETA[hash % PALETA.length], ICONO_EVENTO];
   card.className = 'card evento-card t-' + color;
+  card.id = 'ev-' + evento.id;
   const precios = textoPrecios(evento);
   const f = evento.fecha ? new Date(evento.fecha) : null;
   card.innerHTML = `
@@ -464,8 +489,10 @@ async function renderEventoNormal(evento) {
       accion.innerHTML = '<span class="estado-gris">No apuntado/a</span>';
     } else if (plazasLibres != null && plazasLibres <= 0) {
       accion.innerHTML = '<span class="estado-no">Completo</span>';
-    } else if (evento.voluntariado_excluye_asistencia && inscripcionDe(m.tipo, m.id, null, true)) {
+    } else if (inscripcionDe(m.tipo, m.id, null, true)) {
       accion.innerHTML = '<span class="estado-gris">Va como voluntario/a</span>';
+    } else if (evento.plantilla === 'comedor' && m.tipo === 'adulto' && principales.some(x => x.tipo_miembro === 'adulto')) {
+      accion.innerHTML = '<span class="estado-gris">Ya va otro adulto de la familia</span>';
     } else if (m.tipo === 'alumno' && evento.alumnos_requieren_adulto && !hayAdultoFamilia()) {
       // Sin ningún adulto de la familia apuntado: solo puede ir con un adulto socio de otra familia
       const t = document.createElement('label');
@@ -670,6 +697,8 @@ function bloqueVoluntarios(evento, ins, gate, card) {
       }
     } else if (!gate.abierta) {
       accion.innerHTML = '';
+    } else if (ins.some(x => !x.es_voluntario && x.tipo_miembro === tipo && (tipo === 'adulto' ? x.adulto_id : x.alumno_id) === p.id)) {
+      accion.innerHTML = '<span class="estado-gris">Ya está apuntado/a al evento</span>';
     } else if (tipo === 'alumno' && !adultosVol.length) {
       accion.innerHTML = '<span class="estado-gris">Primero un adulto de la familia</span>';
     } else {

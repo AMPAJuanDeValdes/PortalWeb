@@ -42,7 +42,7 @@ test.describe('Hazte socio y reactivación', () => {
     // (por texto, no por dirección: Netlify reescribe los enlaces "x.html" como "/x")
     await expect(page.locator('header').getByRole('link', { name: 'Entrar como socio' })).toBeVisible();
     await expect(page.locator('header').getByRole('link', { name: 'Eventos', exact: true })).toBeVisible();
-    await expect(page.getByRole('link', { name: /^Hazte socio por/ })).toBeVisible();
+    await expect(page.locator('#ctaHero')).toHaveText('Hazte socio');
     await expect(page.getByRole('link', { name: 'Reactivad vuestra cuenta' })).toBeVisible();
     await page.goto('/publico.html');
     await expect(page.getByRole('link', { name: /reactivar mi cuenta/i })).toBeVisible();

@@ -10,8 +10,8 @@ const AREAS_JUNTA = [
     ['admin-socios', 'Socios'], ['admin-importar', 'Alta de socios'],
     ['admin-sepa', 'Domiciliación SEPA'], ['admin-comprobantes', 'Comprobantes'] ] },
   { titulo: 'Actividades', color: 'eventos', enlaces: [
-    ['admin-eventos', 'Eventos'], ['admin-libros', 'Préstamo de libros'],
-    ['admin-uniformes', 'Uniformes'], ['admin-encuestas', 'Encuestas'] ] },
+    ['admin-eventos', 'Eventos'], ['admin-libros', 'Banco de Libros'],
+    ['admin-uniformes', 'Banco de Uniformes'], ['admin-encuestas', 'Encuestas'] ] },
   { titulo: 'Comunicación', color: 'comunicacion', enlaces: [
     ['admin-email', 'Enviar email'], ['admin-documentos', 'Documentos'],
     ['admin-carrusel', 'Fotos y vídeos de portada'], ['admin-respuestas', 'Listados'] ] }

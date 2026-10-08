@@ -128,8 +128,10 @@ después `migracion-libros-uniformes.sql`, `migracion-fusionar-libros-repetidos.
 (deja un solo registro por título con todos sus cursos) `migracion-portada.sql`
 (pie de foto del carrusel y vídeos de portada) `migracion-eventos-v2.sql`
 (reglas de inscripción de los eventos) y `migracion-panel-junta.sql`
-(mensajes de familias marcables como atendidos). Todas se pueden
-ejecutar dos veces sin problema.
+(mensajes de familias marcables como atendidos), `migracion-eventos-reglas.sql`
+(apuntado o voluntario, nunca las dos cosas; un adulto por familia en la
+visita al comedor) y `cron-reseteo-anual.sql` (reseteo del 31 de julio).
+Todas se pueden ejecutar dos veces sin problema.
 
 ## Variables de entorno en Netlify
 
@@ -193,8 +195,11 @@ netlify dev                  # arranca todo en local (normalmente en :8888)
 
 ## Reseteo anual automático
 
-Cada 31 de julio a las 00:00 UTC, `pg_cron` pone todas las cuentas
-`activa` en `falta_pago` y todos los alumnos en `verificado = false`.
+Cada 31 de julio a las 00:00 UTC (02:00 en Madrid), `pg_cron` pone las
+cuentas `activa` en `falta_pago` y sus alumnos en `verificado = false`.
+Las cuentas de la Junta (con algún adulto admin) no se desactivan.
+El job está en `supabase/cron-reseteo-anual.sql` (al principio del
+archivo están las dos consultas para comprobar que sigue programado).
 
 ## Notas de redes sociales
 

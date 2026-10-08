@@ -44,7 +44,7 @@
 
   <div class="cta-socio">
     <h2>¿Aún no sois socios?</h2>
-    <p>Por 25 € al año por familia, los talleres son gratis y tenéis préstamo de libros, uniformes y todos los eventos del AMPA.</p>
+    <p>Por 25 € al año por familia, los talleres son gratis y tenéis el Banco de Libros, el Banco de Uniformes y todos los eventos del AMPA.</p>
     <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
       <a href="hazte-socio.html" class="btn btn-cta">Hazte socio</a>
       <a href="reactivar-cuenta.html">Ya fui socio: reactivar mi cuenta</a>
@@ -64,7 +64,7 @@ const fechaLarga = (f) => f ? new Date(f).toLocaleString('es-ES', { dateStyle: '
 const textoError = (e) => ((e && e.message) || String(e)).replace(/^.*?ERROR:\s*/, '');
 
 if (typeof AMPA_CUOTA_ANUAL !== 'undefined') {
-  document.querySelector('.cta-socio p').textContent = `Por ${AMPA_CUOTA_ANUAL} al año por familia, los talleres son gratis y tenéis préstamo de libros, uniformes y todos los eventos del AMPA.`;
+  document.querySelector('.cta-socio p').textContent = `Por ${AMPA_CUOTA_ANUAL} al año por familia, los talleres son gratis y tenéis el Banco de Libros, el Banco de Uniformes y todos los eventos del AMPA.`;
 }
 
 async function cargarEventos() {

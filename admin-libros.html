@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Préstamo de libros · Admin AMPA</title>
+<title>Banco de Libros · Admin AMPA</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="shared/styles.css">
@@ -43,7 +43,7 @@
 <body>
 <div class="wrap">
   <div class="eyebrow">Administración</div>
-  <h1>Préstamo de libros</h1>
+  <h1>Banco de Libros</h1>
   <p class="lede">Catálogo, ejemplares, convocatoria y reparto, compras y seguimiento de entregas y devoluciones.</p>
 
   <div class="tabs">
@@ -136,7 +136,7 @@
     </details>
 
     <details class="card">
-      <summary class="section-label" style="margin:0;">Hijos/as por curso y detalle por familia</summary>
+      <summary class="section-label" style="margin:0;">Alumnos/as por curso y detalle por familia</summary>
       <div id="dCursosWrap" style="margin-top:14px;"></div>
       <div id="dFamiliasWrap" style="margin-top:16px;"></div>
     </details>
@@ -574,7 +574,7 @@ async function pintarCursosYFamilias(items) {
   items.forEach(i => { if (alumnosVistos.has(i.alumno_id)) return; alumnosVistos.add(i.alumno_id);
     const k = `${i.alumnos?.curso || '?'} ${i.alumnos?.etapa || ''}`; porCurso[k] = (porCurso[k] || 0) + 1; });
   document.getElementById('dCursosWrap').innerHTML = Object.keys(porCurso).length
-    ? '<table class="t" style="max-width:360px;"><thead><tr><th>Curso</th><th class="n">Hijos/as</th></tr></thead><tbody>' +
+    ? '<table class="t" style="max-width:360px;"><thead><tr><th>Curso</th><th class="n">Alumnos/as</th></tr></thead><tbody>' +
       Object.entries(porCurso).sort().map(([k, n]) => `<tr><td>${esc(k)}</td><td class="n">${n}</td></tr>`).join('') + '</tbody></table>'
     : '<p class="empty-hint">No hay peticiones en esta convocatoria.</p>';
   const socios = await getResumenSocios(items.map(i => i.socio_id));
