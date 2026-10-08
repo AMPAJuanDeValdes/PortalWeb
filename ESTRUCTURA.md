@@ -288,33 +288,20 @@ Confirmado leyendo el archivo real — no asumir nada distinto a esto:
 - **`concurso_envios`** / **`concurso_identidades`** — mecanismo de
   envío anónimo para el Concurso Literario (ver §1.6 y §5.6).
 
-### 2.3 Mochila Jugona Exploradora (nueva en esta sesión)
-- **`mochila_cola`** — la cola activa. `posicion`: `0` = la tiene ahora
-  mismo, `1,2,3...` = en espera (siempre calculada por un trigger en
-  el servidor, nunca por el cliente). `tipo`: `socio`/`no_socio`
-  (no_socio preparado en la tabla pero sin frontend construido
-  todavía). `notificado_en` marca cuándo se avisó a quien está en
-  posición 1 (tiene 24h para responder).
-- **`mochila_historial`** — registro permanente al devolver, con
-  `numero_socio_completo` como "foto" del momento (para estadísticas
-  de fin de año aunque cambien datos después).
-- **`mochila_config`** — importes de depósito/alquiler para no socios,
-  editable por admin.
-- Funciones RPC: `mochila_cola_length()` (pública, cuenta total),
-  `mochila_posponer`, `mochila_salir` (sirve tanto para
-  "Desapuntarme" del socio como "Eliminar" del admin — la única
-  diferencia es el permiso, comprobado dentro de la función),
-  `mochila_admin_entregar`, `mochila_admin_devuelto`,
-  `mochila_admin_pasar_semana`.
-- Funciones de Netlify (mandan el email de "te toca"):
-  `mochila-apuntarse`, `mochila-posponer`, `mochila-desapuntarse`,
-  `mochila-admin-entregar`, `mochila-admin-devuelto`,
-  `mochila-admin-eliminar`, `mochila-admin-pasar-semana`.
-- **Regla de negocio clave**: el email de "te toca la mochila" se
-  manda SIEMPRE que alguien pasa a ser el nuevo `posicion = 1`, sea
-  por entrega, por renuncia de quien iba delante, por eliminación del
-  admin, o por apuntarse a una cola vacía.
-- Frontend: sección en `dashboard.html` (Inicio), no en `mis-datos.html`.
+### 2.3 Mochila Jugona Exploradora (v2: `migracion-mochila-v2.sql`)
+- **`mochila_cola`** — lista de espera, `posicion` 1, 2, 3… sin huecos
+  (un trigger la compacta tras cada borrado). `estado`: `espera`,
+  `asignada` (la Junta le dio el turno; 24 h para «La queremos» o
+  «Esperar una semana más») o `la_tiene` (en casa hasta «Mochila
+  devuelta»). Solo una familia `asignada`/`la_tiene`, siempre la 1.
+- **`mochila_juegos`** — juegos con foto (bucket `mochila-juegos`),
+  explicación y edad; los gestiona la Junta en `admin-mochila.html`.
+- **`mochila_historial`** — cada préstamo devuelto.
+- RPC: `mochila_mi_estado`, `mochila_confirmar`, `mochila_esperar_semana`,
+  `mochila_desapuntarse`, `mochila_admin_entregar`, `mochila_admin_devuelto`,
+  `mochila_admin_guardar_lista`, `mochila_caducar_turno` (solo cron).
+- El email de turno solo se manda al recibir el turno (entregar, pasar
+  turno, desapuntarse con turno o caducar), nunca al apuntarse.
 
 ### 2.4 Préstamo de libros (ampliado con lo de la web aparte ampa-libros-web)
 - **`libros_catalogo`** — título, editorial, ISBN (varios separados por " / "),
@@ -423,13 +410,10 @@ Confirmado leyendo el archivo real — no asumir nada distinto a esto:
 | `invitar-adulto.js` | Añadir 2º adulto desde "Mis datos" | Socio |
 | `autoservicio-alta.js` | Alta completa self-service | Público |
 | `enviar-email-masivo.js` | Email a lista de destinatarios | Admin |
-| `mochila-apuntarse.js` | Apuntarse a la cola de la Mochila | Socio |
-| `mochila-posponer.js` | "Prefiero esperar una semana más" | Socio |
-| `mochila-desapuntarse.js` | Salir de la cola (si no tiene la mochila) | Socio |
-| `mochila-admin-entregar.js` | Entregar a quien está en posición 1 | Admin |
-| `mochila-admin-devuelto.js` | Registrar devolución + historial | Admin |
-| `mochila-admin-eliminar.js` | Quitar a cualquiera de la cola | Admin |
-| `mochila-admin-pasar-semana.js` | Posponer a quien está en posición 1 | Admin |
+| `mochila-posponer.js` | «Esperar una semana más»: pasa el turno a la familia de detrás (email) | Socio |
+| `mochila-desapuntarse.js` | Salir de la lista; si tenía el turno, pasa a la siguiente (email) | Socio |
+| `mochila-admin-entregar.js` | «Entregar mochila»: turno al puesto 1 (email, 24 h para aceptar) | Admin |
+| `mochila-caducar.js` | Programada cada 15 min: a las 24 h sin aceptar, sale de la lista y el turno pasa (email) | Cron |
 | `prestamo-repartir.js` | Algoritmo de reparto de libros | Admin |
 | `uniformes-repartir.js` | Algoritmo de reparto de uniformes | Admin |
 | `evento-sortear.js` | Sorteo de un evento (3 variantes) | Admin |

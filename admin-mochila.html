@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mochila Jugona Exploradora · Admin AMPA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared/styles.css">
+<style>
+  .ahora{ background:var(--mochila-bg); border-radius:var(--radius-card); padding:22px 24px; margin-bottom:22px; }
+  .ahora h2{ margin:0 0 4px; font-size:24px; }
+  .ahora p{ margin:0; }
+  .acciones{ display:flex; gap:12px; flex-wrap:wrap; margin-top:16px; align-items:center; }
+  .acciones .nota{ color:var(--ink-soft); font-size:15px; }
+  .fila{ display:flex; align-items:center; gap:14px; padding:12px 0; border-bottom:1px solid var(--line); flex-wrap:wrap; }
+  .fila:last-child{ border-bottom:none; }
+  .fila .num{ flex:0 0 40px; height:40px; border-radius:50%; background:#EEF1F5; font-family:var(--font-title); font-weight:800; display:flex; align-items:center; justify-content:center; }
+  .fila.tiene .num, .fila.turno .num{ background:var(--mochila); color:#fff; }
+  .fila .quien{ flex:1 1 220px; min-width:0; }
+  .fila .quien small{ display:block; color:var(--ink-soft); font-size:14px; }
+  .pill{ border-radius:999px; padding:3px 12px; font-size:14px; font-weight:700; }
+  .pill.tiene{ background:#E6F2D8; color:#3F6E12; }
+  .pill.turno{ background:#FFF3C4; color:#7A5800; }
+  .mover{ display:flex; gap:6px; }
+  .mover button{ width:40px; height:40px; border-radius:50%; border:1.5px solid #C9D3DF; background:#fff; cursor:pointer; font-size:18px; }
+  .mover button:disabled{ opacity:.35; cursor:default; }
+  .fila.quitada .quien{ text-decoration:line-through; color:var(--ink-soft); }
+  .juego{ display:flex; gap:14px; align-items:flex-start; padding:14px 0; border-bottom:1px solid var(--line); flex-wrap:wrap; }
+  .juego:last-child{ border-bottom:none; }
+  .juego .foto{ width:160px; flex-shrink:0; display:grid; gap:8px; }
+  .juego .foto img, .juego .foto .sinfoto{ width:160px; height:120px; object-fit:cover; border-radius:12px; background:#EEF1F5; display:flex; align-items:center; justify-content:center; color:var(--ink-soft); font-size:14px; text-align:center; }
+  .juego .foto label{ cursor:pointer; text-align:center; font-size:14px; font-weight:700; color:var(--navy); border:1.5px solid #C9D3DF; border-radius:999px; padding:6px 10px; background:#fff; }
+  .juego .foto input{ position:absolute; width:1px; height:1px; opacity:0; }
+  .juego .foto .linklike{ font-size:14px; }
+  .juego .datos{ flex:1 1 260px; display:grid; gap:8px; }
+  .dos{ display:grid; grid-template-columns:2fr 1fr 90px; gap:10px; }
+  @media (max-width:600px){ .dos{ grid-template-columns:1fr; } }
+  table.h{ width:100%; border-collapse:collapse; font-size:15px; }
+  table.h th, table.h td{ text-align:left; padding:8px 6px; border-bottom:1px solid var(--line); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Mochila Jugona Exploradora</h1>
+  <p class="lede">La lista de espera, quién la tiene y los juegos que lleva.</p>
+
+  <section class="ahora" id="ahora"><p class="loading">Cargando...</p></section>
+
+  <div class="card">
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
+      <p class="section-label" style="margin:0;">Lista de espera</p>
+      <button type="button" class="btn btn-outline" id="editarBtn">Editar lista</button>
+    </div>
+    <div id="lista" style="margin-top:8px;"></div>
+    <div class="acciones" id="edicionBotones" hidden>
+      <button type="button" class="btn btn-primary" id="guardarListaBtn">Guardar cambios</button>
+      <button type="button" class="linklike" id="cancelarEdicionBtn">Cancelar</button>
+    </div>
+    <p id="listaMsg" hidden></p>
+  </div>
+
+  <div class="card">
+    <p class="section-label">Juegos de la Mochila Jugona Exploradora</p>
+    <p style="color:var(--ink-soft); margin:-6px 0 12px;">Lo que ven las familias en la página de la Mochila Jugona Exploradora: foto, explicación y edad recomendada. Cambia lo que quieras y pulsa «Guardar».</p>
+    <div id="juegos"></div>
+    <details style="margin-top:14px;">
+      <summary class="btn btn-outline" style="display:inline-flex;">Añadir un juego</summary>
+      <div style="display:grid; gap:12px; margin-top:14px;">
+        <div class="dos">
+          <div class="field"><label for="jNombre">Nombre</label><input type="text" id="jNombre"></div>
+          <div class="field"><label for="jEdad">Edad recomendada</label><input type="text" id="jEdad" placeholder="Desde 6 años"></div>
+          <div class="field"><label for="jOrden">Orden</label><input type="number" id="jOrden" value="0"></div>
+        </div>
+        <div class="field"><label for="jDesc">Explicación corta</label><textarea id="jDesc" rows="3"></textarea></div>
+        <div class="field"><label for="jFoto">Foto (opcional)</label><input type="file" id="jFoto" accept="image/*"></div>
+        <div><button type="button" class="btn btn-primary" id="jGuardar">Añadir juego</button></div>
+        <p id="jMsg" hidden></p>
+      </div>
+    </details>
+  </div>
+
+  <div class="card" id="historialCard" hidden>
+    <p class="section-label">Historial</p>
+    <div style="overflow-x:auto;"><table class="h"><thead><tr><th>Familia</th><th>Nº socio</th><th>Se la llevó</th><th>La devolvió</th></tr></thead><tbody id="historial"></tbody></table></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="shared/supabaseClient.js"></script>
+<script src="shared/nav.js"></script>
+<script src="shared/mochila.js"></script>
+<script>
+const esc = (t) => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const fecha = (f) => f ? new Date(String(f).length === 10 ? f + 'T12:00:00' : f).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' }) : '';
+const fechaHora = (f) => new Date(f).toLocaleString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
+let cola = [], edicion = null;
+
+function nombreFamilia(x) {
+  if (x.tipo === 'no_socio') return x.nombre_contacto || 'Familia no socia';
+  const ads = (x.socios?.adultos || []).map(a => a.nombre + ' ' + a.apellidos);
+  return ads.length ? ads.join(' y ') : 'Familia sin adultos';
+}
+
+async function cargar() {
+  const { data, error } = await sb.from('mochila_cola')
+    .select('id, tipo, estado, posicion, nombre_contacto, notificado_en, fecha_entrega, fecha_devolucion_prevista, created_at, socios(numero_socio_completo, adultos(nombre, apellidos))')
+    .order('posicion');
+  if (error) { document.getElementById('ahora').innerHTML = '<p class="msg-error">No se pudo cargar la lista: ' + esc(error.message) + '</p>'; return; }
+  cola = data || [];
+  edicion = null;
+  pintarAhora();
+  pintarLista();
+}
+
+function pintarAhora() {
+  const caja = document.getElementById('ahora');
+  const tiene = cola.find(x => x.estado === 'la_tiene');
+  const turno = cola.find(x => x.estado === 'asignada');
+  const primera = cola.find(x => x.estado === 'espera' && x.posicion === 1);
+  let html;
+  if (tiene) {
+    const tarde = tiene.fecha_devolucion_prevista && new Date(tiene.fecha_devolucion_prevista + 'T23:59:59') < new Date();
+    html = `<h2>La tiene ${esc(nombreFamilia(tiene))}</h2>
+      <p>La aceptó el ${fecha(tiene.fecha_entrega)}. ${tarde ? '<b style="color:#B3261E;">Tenía que devolverla el ' + fecha(tiene.fecha_devolucion_prevista) + '.</b>' : 'Tiene que devolverla el ' + fecha(tiene.fecha_devolucion_prevista) + '.'}</p>
+      <div class="acciones">
+        <button type="button" class="btn btn-primary" id="devueltaBtn">Mochila devuelta</button>
+        <span class="nota">Al marcarla, sale de la lista y todas las familias suben un puesto.</span>
+      </div>`;
+  } else if (turno) {
+    const fin = new Date(new Date(turno.notificado_en).getTime() + 24 * 3600 * 1000);
+    html = `<h2>Turno de ${esc(nombreFamilia(turno))}</h2>
+      <p>Le llegó el email el ${fechaHora(turno.notificado_en)}. Tiene hasta el ${fechaHora(fin)} para aceptarla en la web; si no, sale de la lista y el turno pasa a la siguiente familia.</p>`;
+  } else if (primera) {
+    html = `<h2>La Mochila Jugona Exploradora está en el AMPA</h2>
+      <p>La siguiente es ${esc(nombreFamilia(primera))}. Al entregarla le llega un email y tiene 24 h para aceptarla.</p>
+      <div class="acciones"><button type="button" class="btn btn-cta" id="entregarBtn">Entregar mochila</button></div>`;
+  } else {
+    html = '<h2>La Mochila Jugona Exploradora está en el AMPA</h2><p>No hay ninguna familia en la lista de espera.</p>';
+  }
+  caja.innerHTML = html + '<p class="msg-error" id="ahoraMsg" hidden style="margin-top:10px;"></p>';
+  const err = (e) => { const m = document.getElementById('ahoraMsg'); m.textContent = e.message || e; m.hidden = false; };
+  const dev = document.getElementById('devueltaBtn');
+  if (dev) dev.addEventListener('click', async () => {
+    if (!confirm('¿Confirmas que ' + nombreFamilia(tiene) + ' ha devuelto la mochila?')) return;
+    dev.disabled = true;
+    const { error } = await sb.rpc('mochila_admin_devuelto', {});
+    if (error) { err(error); dev.disabled = false; return; }
+    await Promise.all([cargar(), cargarHistorial()]);
+  });
+  const ent = document.getElementById('entregarBtn');
+  if (ent) ent.addEventListener('click', async () => {
+    if (!confirm('Se le dará el turno a ' + nombreFamilia(primera) + ' y le llegará un email. ¿Seguimos?')) return;
+    ent.disabled = true;
+    try { await mochilaNetlify('mochila-admin-entregar'); await cargar(); }
+    catch (e) { err(e); ent.disabled = false; }
+  });
+}
+
+function pintarLista() {
+  const wrap = document.getElementById('lista');
+  const filas = edicion || cola.map(x => ({ ...x, quitada: false }));
+  document.getElementById('editarBtn').hidden = !!edicion || !cola.length;
+  document.getElementById('edicionBotones').hidden = !edicion;
+  if (!filas.length) { wrap.innerHTML = '<p class="empty-hint">No hay ninguna familia apuntada.</p>'; return; }
+  let n = 0;
+  wrap.innerHTML = filas.map((x, i) => {
+    const fija = x.estado === 'la_tiene';
+    const puesto = x.quitada ? '–' : String(++n);
+    const pill = x.estado === 'la_tiene' ? '<span class="pill tiene">La tiene</span>' : x.estado === 'asignada' ? '<span class="pill turno">Tiene el turno</span>' : '';
+    const controles = !edicion ? '' : fija ? '<span class="nota" style="font-size:14px; color:var(--ink-soft);">No se mueve</span>' : `
+      <span class="mover">
+        <button type="button" data-i="${i}" data-m="-1" aria-label="Subir" ${i === 0 || filas[i - 1].estado === 'la_tiene' ? 'disabled' : ''}>↑</button>
+        <button type="button" data-i="${i}" data-m="1" aria-label="Bajar" ${i === filas.length - 1 ? 'disabled' : ''}>↓</button>
+      </span>
+      <button type="button" class="${x.quitada ? 'linklike' : 'btn-danger-link'}" data-q="${i}">${x.quitada ? 'Deshacer' : 'Quitar'}</button>`;
+    return `<div class="fila ${x.estado === 'la_tiene' ? 'tiene' : x.estado === 'asignada' ? 'turno' : ''} ${x.quitada ? 'quitada' : ''}">
+      <span class="num">${puesto}</span>
+      <span class="quien"><b>${esc(nombreFamilia(x))}</b><small>${x.socios?.numero_socio_completo ? 'Socio nº ' + esc(x.socios.numero_socio_completo) + ' · ' : ''}apuntada el ${fecha(x.created_at)}</small></span>
+      ${pill}${controles}
+    </div>`;
+  }).join('');
+  wrap.querySelectorAll('[data-m]').forEach(b => b.addEventListener('click', () => {
+    const i = Number(b.dataset.i), j = i + Number(b.dataset.m);
+    [edicion[i], edicion[j]] = [edicion[j], edicion[i]];
+    pintarLista();
+  }));
+  wrap.querySelectorAll('[data-q]').forEach(b => b.addEventListener('click', () => {
+    const x = edicion[Number(b.dataset.q)]; x.quitada = !x.quitada; pintarLista();
+  }));
+}
+
+document.getElementById('editarBtn').addEventListener('click', () => { edicion = cola.map(x => ({ ...x, quitada: false })); pintarLista(); });
+document.getElementById('cancelarEdicionBtn').addEventListener('click', () => { edicion = null; pintarLista(); });
+document.getElementById('guardarListaBtn').addEventListener('click', async () => {
+  const msg = document.getElementById('listaMsg');
+  const quitadas = edicion.filter(x => x.quitada);
+  if (quitadas.length && !confirm('Se quitará de la lista a: ' + quitadas.map(nombreFamilia).join(', ') + '. ¿Seguimos?')) return;
+  const ids = edicion.filter(x => !x.quitada).map(x => x.id);
+  const { error } = await sb.rpc('mochila_admin_guardar_lista', { p_ids: ids });
+  if (error) { msg.className = 'msg-error'; msg.textContent = error.message; msg.hidden = false; return; }
+  msg.hidden = true;
+  await cargar();
+});
+
+/* ---------- Juegos ---------- */
+let fotoDe = {};
+async function subirFoto(file) {
+  const path = Date.now() + '-' + file.name.replace(/[^\w.-]/g, '_');
+  const { error } = await sb.storage.from('mochila-juegos').upload(path, file, { contentType: file.type });
+  if (error) throw error;
+  return sb.storage.from('mochila-juegos').getPublicUrl(path).data.publicUrl;
+}
+async function borrarFoto(url) {
+  const m = url && url.match(/\/mochila-juegos\/(.+)$/);
+  if (m) await sb.storage.from('mochila-juegos').remove([decodeURIComponent(m[1])]);
+}
+async function cargarJuegos() {
+  const wrap = document.getElementById('juegos');
+  const { data } = await sb.from('mochila_juegos').select('*').order('orden').order('created_at');
+  if (!data || !data.length) { wrap.innerHTML = '<p class="empty-hint">Todavía no hay juegos. Mientras no haya, las familias no ven esta parte.</p>'; return; }
+  fotoDe = Object.fromEntries(data.map(j => [j.id, j.foto_url]));
+  wrap.innerHTML = data.map(j => `
+    <div class="juego" data-id="${j.id}">
+      <div class="foto">
+        ${j.foto_url ? `<img src="${esc(j.foto_url)}" alt="Foto de ${esc(j.nombre)}">` : '<span class="sinfoto">Sin foto</span>'}
+        <label>${j.foto_url ? 'Cambiar foto' : 'Subir foto'}<input type="file" accept="image/*" class="f"></label>
+        ${j.foto_url ? '<button type="button" class="linklike quitarFoto">Quitar foto</button>' : ''}
+      </div>
+      <div class="datos">
+        <div class="dos">
+          <div class="field"><label>Nombre</label><input type="text" class="n" value="${esc(j.nombre)}"></div>
+          <div class="field"><label>Edad recomendada</label><input type="text" class="e" value="${esc(j.edad)}"></div>
+          <div class="field"><label>Orden</label><input type="number" class="o" value="${j.orden}"></div>
+        </div>
+        <div class="field"><label>Explicación corta</label><textarea class="d" rows="2">${esc(j.descripcion)}</textarea></div>
+        <div style="display:flex; gap:14px; align-items:center; flex-wrap:wrap;">
+          <button type="button" class="btn btn-outline guardar">Guardar</button>
+          <button type="button" class="btn-danger-link borrar">Borrar</button>
+          <span class="ok" hidden style="color:#1E7A46;">Guardado ✓</span>
+        </div>
+      </div>
+    </div>`).join('');
+  wrap.querySelectorAll('.juego').forEach(el => {
+    const id = el.dataset.id;
+    el.querySelector('.guardar').addEventListener('click', async () => {
+      const { error } = await sb.from('mochila_juegos').update({
+        nombre: el.querySelector('.n').value.trim(), edad: el.querySelector('.e').value.trim() || null,
+        orden: Number(el.querySelector('.o').value) || 0, descripcion: el.querySelector('.d').value.trim() || null
+      }).eq('id', id);
+      if (error) { alert(error.message); return; }
+      const ok = el.querySelector('.ok'); ok.hidden = false; setTimeout(() => ok.hidden = true, 1500);
+    });
+    el.querySelector('.f').addEventListener('change', async (ev) => {
+      const file = ev.target.files[0];
+      if (!file) return;
+      const lbl = el.querySelector('.foto label'); lbl.firstChild.textContent = 'Subiendo...';
+      try {
+        const url = await subirFoto(file);
+        const { error } = await sb.from('mochila_juegos').update({ foto_url: url }).eq('id', id);
+        if (error) throw error;
+        await borrarFoto(fotoDe[id]);
+        cargarJuegos();
+      } catch (e) { alert('No se pudo subir la foto: ' + e.message); cargarJuegos(); }
+    });
+    const qf = el.querySelector('.quitarFoto');
+    if (qf) qf.addEventListener('click', async () => {
+      if (!confirm('¿Quitar la foto de este juego?')) return;
+      const { error } = await sb.from('mochila_juegos').update({ foto_url: null }).eq('id', id);
+      if (error) { alert(error.message); return; }
+      await borrarFoto(fotoDe[id]);
+      cargarJuegos();
+    });
+    el.querySelector('.borrar').addEventListener('click', async () => {
+      if (!confirm('¿Borrar este juego de la lista?')) return;
+      const { error } = await sb.from('mochila_juegos').delete().eq('id', id);
+      if (error) { alert(error.message); return; }
+      cargarJuegos();
+    });
+  });
+}
+
+document.getElementById('jGuardar').addEventListener('click', async () => {
+  const msg = document.getElementById('jMsg');
+  const nombre = document.getElementById('jNombre').value.trim();
+  if (!nombre) { msg.className = 'msg-error'; msg.textContent = 'Escribe el nombre del juego.'; msg.hidden = false; return; }
+  let foto_url = null;
+  const file = document.getElementById('jFoto').files[0];
+  if (file) {
+    try { foto_url = await subirFoto(file); }
+    catch (e) { msg.className = 'msg-error'; msg.textContent = 'No se pudo subir la foto: ' + e.message; msg.hidden = false; return; }
+  }
+  const { error } = await sb.from('mochila_juegos').insert({
+    nombre, edad: document.getElementById('jEdad').value.trim() || null,
+    orden: Number(document.getElementById('jOrden').value) || 0,
+    descripcion: document.getElementById('jDesc').value.trim() || null, foto_url
+  });
+  if (error) { msg.className = 'msg-error'; msg.textContent = error.message; msg.hidden = false; return; }
+  ['jNombre', 'jEdad', 'jDesc', 'jFoto'].forEach(id => document.getElementById(id).value = '');
+  msg.className = 'msg-ok'; msg.textContent = 'Juego añadido ✓'; msg.hidden = false;
+  cargarJuegos();
+});
+
+async function cargarHistorial() {
+  const { data } = await sb.from('mochila_historial').select('*').order('fecha_devolucion', { ascending: false }).limit(50);
+  if (!data || !data.length) return;
+  document.getElementById('historial').innerHTML = data.map(h => `<tr><td>${esc(h.nombre_familia)}</td><td>${esc(h.numero_socio_completo || '')}</td><td>${fecha(h.fecha_entrega)}</td><td>${fecha(h.fecha_devolucion)}</td></tr>`).join('');
+  document.getElementById('historialCard').hidden = false;
+}
+
+(async () => {
+  const ctx = await requireAdmin();
+  if (!ctx) return;
+  renderNav('admin-mochila', ctx);
+  await Promise.all([cargar(), cargarJuegos(), cargarHistorial()]);
+})();
+</script>
+</body>
+</html>

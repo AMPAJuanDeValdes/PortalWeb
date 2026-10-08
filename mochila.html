@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mochila Jugona Exploradora · AMPA Juan de Valdés</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared/styles.css">
+<style>
+  .wrap{ max-width:960px; }
+  .cabecera{ background:var(--mochila-bg); border-radius:var(--radius-card); padding:28px; margin-bottom:34px; display:flex; gap:22px; align-items:flex-start; flex-wrap:wrap; }
+  .cabecera svg{ flex:0 0 auto; stroke:var(--mochila); }
+  .cabecera div{ flex:1 1 320px; }
+  .cabecera h1{ margin:0 0 8px; }
+  .cabecera p{ margin:0; font-size:18px; max-width:60ch; }
+
+  h2.sec{ font-family:var(--font-title); font-weight:800; font-size:28px; margin:0 0 16px; }
+  .pasos{ list-style:none; padding:0; margin:0 0 40px; display:grid; gap:14px; counter-reset:paso; }
+  .pasos li{ display:flex; gap:16px; align-items:flex-start; background:#fff; border:1px solid var(--line); border-radius:var(--radius-card); padding:16px 18px; }
+  .pasos li::before{ counter-increment:paso; content:counter(paso); flex:0 0 40px; height:40px; border-radius:50%; background:var(--mochila); color:#fff; font-family:var(--font-title); font-weight:800; font-size:19px; display:flex; align-items:center; justify-content:center; }
+  .pasos b{ display:block; font-size:18px; margin-bottom:2px; }
+  .pasos span{ color:#3B4A60; }
+
+  .juegos{ display:grid; grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); gap:14px; margin-bottom:40px; }
+  .juego{ background:#fff; border:1px solid var(--line); border-radius:var(--radius-card); overflow:hidden; display:flex; flex-direction:column; }
+  .juego img{ width:100%; aspect-ratio:4/3; object-fit:cover; background:#F2F4F8; display:block; }
+  .juego .cuerpo{ padding:16px 18px 18px; display:flex; flex-direction:column; gap:6px; flex:1; }
+  .juego h3{ margin:0; font-size:20px; }
+  .juego p{ margin:0; color:#3B4A60; }
+  .edad{ align-self:flex-start; background:var(--mochila-bg); color:var(--mochila); font-weight:700; font-size:14px; border-radius:999px; padding:4px 12px; }
+
+  .lista{ background:#fff; border:2px solid var(--mochila); border-radius:var(--radius-card); padding:26px; }
+  .lista-fila{ display:flex; align-items:center; justify-content:space-between; gap:16px 28px; flex-wrap:wrap; }
+  .dato{ display:flex; align-items:center; gap:16px; margin:0; }
+  .dato b{ font-family:var(--font-title); font-weight:800; font-size:64px; line-height:1; color:var(--mochila); }
+  .dato span{ font-size:19px; font-weight:700; max-width:24ch; line-height:1.25; }
+  .lista .nota{ margin:14px 0 0; color:var(--ink-soft); }
+  .titulo-grande{ font-family:var(--font-title); font-weight:800; font-size:26px; margin:0 0 6px; }
+  .mochila-acciones{ display:flex; gap:12px; flex-wrap:wrap; margin-top:16px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="cabecera">
+    <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9a6 6 0 0 1 12 0v11H6z"/><path d="M9 5V3h6v2M9 14h6"/></svg>
+    <div>
+      <h1>Mochila Jugona Exploradora</h1>
+      <p>Una mochila llena de juegos que va pasando por las casas de las familias socias. Cada familia la tiene una semana para jugar en casa y después la devuelve para que le llegue a la siguiente.</p>
+    </div>
+  </header>
+
+  <h2 class="sec">Cómo funciona</h2>
+  <ol class="pasos">
+    <li><div><b>Apuntaos a la lista de espera</b><span>Entráis al final de la lista. En Inicio veréis siempre vuestro puesto.</span></div></li>
+    <li><div><b>Cuando os toque, os llega un email</b><span>La Junta os da el turno cuando la mochila está libre y sois los primeros de la lista.</span></div></li>
+    <li><div><b>Tenéis 24 horas para aceptarla</b><span>Entrad en esta página y pulsad «La queremos». Si esa semana no os viene bien, pulsad «Esperar una semana más»: la siguiente familia pasa delante y vosotros quedáis segundos. Si en 24 horas no contestáis, salís de la lista y el turno pasa a la siguiente familia.</span></div></li>
+    <li><div><b>Disfrutadla una semana y devolvedla</b><span>Devolvedla a la Junta con todos los juegos completos. Cuando la Junta la recibe, la lista avanza y todas las familias suben un puesto.</span></div></li>
+  </ol>
+
+  <!-- Solo aparece si la Junta ha añadido juegos -->
+  <section id="bloqueJuegos" hidden>
+    <h2 class="sec">Qué juegos lleva</h2>
+    <div class="juegos" id="juegos"></div>
+  </section>
+
+  <section class="lista" id="lista" aria-live="polite"><p class="loading">Cargando...</p></section>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="shared/supabaseClient.js"></script>
+<script src="shared/nav.js"></script>
+<script src="shared/mochila.js"></script>
+<script>
+let ctxGlobal = null;
+const esc = (t) => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+async function cargarJuegos() {
+  const { data } = await sb.from('mochila_juegos').select('*').order('orden').order('created_at');
+  if (!data || !data.length) return;
+  document.getElementById('juegos').innerHTML = data.map(j => `
+    <article class="juego">
+      ${j.foto_url ? `<img src="${esc(j.foto_url)}" alt="" loading="lazy">` : ''}
+      <div class="cuerpo">
+        <h3>${esc(j.nombre)}</h3>
+        ${j.edad ? `<span class="edad">${esc(j.edad)}</span>` : ''}
+        ${j.descripcion ? `<p>${esc(j.descripcion)}</p>` : ''}
+      </div>
+    </article>`).join('');
+  document.getElementById('bloqueJuegos').hidden = false;
+}
+
+async function pintarLista() {
+  const caja = document.getElementById('lista');
+  let est;
+  try { est = await mochilaEstado(); }
+  catch (e) { caja.innerHTML = '<p class="msg-error">No se pudo cargar la lista. Recarga la página.</p>'; return; }
+
+  if (!est.apuntada) {
+    caja.innerHTML = `
+      <div class="lista-fila">
+        <p class="dato"><b>${est.esperan}</b><span>${mochilaFamilias(est.esperan)} en la lista de espera</span></p>
+        <button type="button" class="btn btn-cta btn-grande" id="apuntarBtn">Agregarnos a la lista de espera</button>
+      </div>
+      <p class="nota">${est.esperan ? `Entraréis en el puesto ${est.esperan + 1}.` : 'No hay nadie esperando: seréis los primeros.'}</p>
+      <p class="msg-error" id="listaMsg" hidden></p>`;
+    document.getElementById('apuntarBtn').addEventListener('click', async (ev) => {
+      ev.target.disabled = true;
+      try { await mochilaApuntarse(); await pintarLista(); }
+      catch (e) { const m = document.getElementById('listaMsg'); m.textContent = e.message; m.hidden = false; ev.target.disabled = false; }
+    });
+    return;
+  }
+  if (est.estado === 'la_tiene') {
+    caja.innerHTML = `<p class="titulo-grande">La tenéis en casa</p>
+      <p>Devolvedla a la Junta el <b>${mochilaFecha(est.fecha_devolucion_prevista)}</b>. ¡Que la disfrutéis!</p>`;
+    return;
+  }
+  if (est.estado === 'asignada') {
+    caja.innerHTML = `<p class="titulo-grande">¡Os toca la Mochila Jugona Exploradora!</p>
+      <p>Tenéis hasta el <b>${mochilaLimite(est)}</b> para aceptarla. Si no contestáis, saldréis de la lista.</p>
+      <div id="turno"></div>`;
+    mochilaBotonesTurno(document.getElementById('turno'), est, pintarLista);
+    return;
+  }
+  caja.innerHTML = `
+    <p class="dato"><b>${est.puesto}º</b><span>Vuestro puesto en la lista de espera${est.esperan > 1 ? ` (de ${est.esperan} ${mochilaFamilias(est.esperan)})` : ''}</span></p>
+    <p class="nota">${est.puesto === 1 ? 'Sois los siguientes: os llegará un email cuando la Junta os dé el turno.' : 'Os llegará un email cuando os toque.'}
+      <button type="button" class="linklike" id="salirBtn">Desapuntarnos de la Mochila Jugona Exploradora</button></p>
+    <p class="msg-error" id="listaMsg" hidden></p>`;
+  document.getElementById('salirBtn').addEventListener('click', async () => {
+    try { if (await mochilaDesapuntarse()) await pintarLista(); }
+    catch (e) { const m = document.getElementById('listaMsg'); m.textContent = e.message; m.hidden = false; }
+  });
+}
+
+(async () => {
+  const ctx = await requireAuth();
+  if (!ctx) return;
+  ctxGlobal = ctx;
+  renderNav('mochila', ctx);
+  await Promise.all([cargarJuegos(), pintarLista()]);
+})();
+</script>
+</body>
+</html>

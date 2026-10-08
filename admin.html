@@ -71,7 +71,7 @@
     <section class="area area-eventos" id="aEventos"><div class="area-cab"><h3>Próximos eventos</h3><a href="admin-eventos.html">Gestionar</a></div><div class="area-cuerpo"><p class="loading">Cargando...</p></div></section>
     <section class="area area-libros" id="aLibros"><div class="area-cab"><h3>Banco de Libros</h3><a href="admin-libros.html">Gestionar</a></div><div class="area-cuerpo"><p class="loading">Cargando...</p></div></section>
     <section class="area area-uniformes" id="aUniformes"><div class="area-cab"><h3>Banco de Uniformes</h3><a href="admin-uniformes.html">Gestionar</a></div><div class="area-cuerpo"><p class="loading">Cargando...</p></div></section>
-    <section class="area area-socios" id="mochila"><div class="area-cab"><h3>Mochila Jugona</h3></div><div class="area-cuerpo"><p class="loading">Cargando...</p></div></section>
+    <section class="area area-socios" id="mochila"><div class="area-cab"><h3>Mochila Jugona Exploradora</h3><a href="admin-mochila.html">Gestionar</a></div><div class="area-cuerpo"><p class="loading">Cargando...</p></div></section>
     <section class="area area-comunicacion" id="aEncuestas"><div class="area-cab"><h3>Encuestas</h3><a href="admin-encuestas.html">Gestionar</a></div><div class="area-cuerpo"><p class="loading">Cargando...</p></div></section>
   </div>
 
@@ -183,16 +183,20 @@ async function uniformes() {
 
 async function mochila() {
   const c = cuerpo('mochila');
-  const { data } = await sb.from('mochila_cola').select('posicion, tipo, nombre_contacto, fecha_devolucion_prevista, socios(numero_socio_completo)').order('posicion');
+  const { data } = await sb.from('mochila_cola').select('posicion, tipo, estado, nombre_contacto, notificado_en, fecha_devolucion_prevista, socios(numero_socio_completo)').order('posicion');
   const cola = data || [];
-  const tiene = cola.find(x => x.posicion === 0);
+  const tiene = cola.find(x => x.estado === 'la_tiene');
+  const turno = cola.find(x => x.estado === 'asignada');
   const nombre = (x) => x.tipo === 'no_socio' ? (x.nombre_contacto || 'Familia no socia') : 'Socio nº ' + (x.socios?.numero_socio_completo || '?');
   let html = tiene
     ? `<p class="estado-conv">La tiene: ${esc(nombre(tiene))}</p>${tiene.fecha_devolucion_prevista ? `<div class="linea"><span>Debe devolverla</span><b>${fCorta(tiene.fecha_devolucion_prevista)}</b></div>` : ''}`
+    : turno ? `<p class="estado-conv">Turno de ${esc(nombre(turno))}, esperando que la acepte</p>`
     : '<p class="estado-conv">Está en el AMPA</p>';
   if (tiene && tiene.fecha_devolucion_prevista && new Date(tiene.fecha_devolucion_prevista) < new Date(ahora.toDateString()))
-    tarea('socios', '!', 'La Mochila Jugona no ha vuelto', `${nombre(tiene)} tenía que devolverla el ${fCorta(tiene.fecha_devolucion_prevista)}.`, '#mochila', 'Ver');
-  html += `<div class="linea"><span>Familias esperando</span><b>${cola.filter(x => x.posicion > 0).length}</b></div>`;
+    tarea('socios', '!', 'La Mochila Jugona Exploradora no ha vuelto', `${nombre(tiene)} tenía que devolverla el ${fCorta(tiene.fecha_devolucion_prevista)}.`, 'admin-mochila.html', 'Ver');
+  if (!tiene && !turno && cola.length)
+    tarea('socios', '!', 'Entregar la Mochila Jugona Exploradora', `Está en el AMPA y hay ${cola.length} ${cola.length > 1 ? 'familias esperando' : 'familia esperando'}.`, 'admin-mochila.html', 'Entregar');
+  html += `<div class="linea"><span>Familias en la lista de espera</span><b>${cola.filter(x => x.estado !== 'la_tiene').length}</b></div>`;
   c.innerHTML = html;
 }
 

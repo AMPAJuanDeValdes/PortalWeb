@@ -49,17 +49,23 @@ test.describe('Mis datos y Mochila', () => {
     await expect(email).toHaveAttribute('readonly', '');
   });
 
-  test('Mochila: apuntarse y desapuntarse funcionan', async ({ page }) => {
+  test('Mochila: apuntarse desde su página y desapuntarse desde Inicio', async ({ page }) => {
     const wrap = page.locator('#mochilaWrap');
-    await expect(page.locator('#mochilaApuntarseBtn')).toBeVisible();
-    await page.click('#mochilaApuntarseBtn');
-    await expect(wrap).toContainText('Estáis en el puesto', { timeout: 30_000 });
-    const { data } = await admin.from('mochila_cola').select('posicion').eq('socio_id', fam.socio.id);
+    await expect(wrap).toContainText('en la lista de espera');
+    await wrap.getByRole('link', { name: 'Quiero la mochila' }).click();
+    await expect(page.getByRole('heading', { name: 'Cómo funciona' })).toBeVisible();
+    await page.getByRole('button', { name: 'Agregarnos a la lista de espera' }).click();
+    await expect(page.locator('#lista')).toContainText('Vuestro puesto en la lista de espera', { timeout: 30_000 });
+    const { data } = await admin.from('mochila_cola').select('posicion, estado').eq('socio_id', fam.socio.id);
     expect(data.length).toBe(1);
+    expect(data[0].estado).toBe('espera');
 
-    await page.click('#mochilaDesapuntarseBtn');
-    await expect(page.locator('#mochilaApuntarseBtn')).toBeVisible({ timeout: 30_000 });
+    await page.goto('/dashboard.html');
+    await expect(wrap).toContainText('Vuestro puesto en la lista de espera');
+    await wrap.getByRole('button', { name: 'Desapuntarnos de la Mochila Jugona Exploradora' }).click();
+    await expect(wrap.getByRole('link', { name: 'Quiero la mochila' })).toBeVisible({ timeout: 30_000 });
     const { data: d2 } = await admin.from('mochila_cola').select('id').eq('socio_id', fam.socio.id);
     expect(d2.length).toBe(0);
   });
+
 });

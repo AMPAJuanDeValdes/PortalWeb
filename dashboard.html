@@ -42,6 +42,13 @@
   .mochila .cuerpo{ flex:1 1 300px; min-width:0; }
   .mochila h2{ margin:0 0 4px; }
   .mochila p{ margin:0; }
+  .mochila-fila{ display:flex; align-items:center; justify-content:space-between; gap:14px 24px; flex-wrap:wrap; margin-top:14px; }
+  .mochila-dato{ display:flex; align-items:center; gap:14px; }
+  .mochila-dato b{ font-family:var(--font-title); font-weight:800; font-size:52px; line-height:1; color:var(--mochila); }
+  .mochila-dato span{ font-size:18px; font-weight:700; max-width:22ch; line-height:1.25; }
+  .mochila-grande{ font-family:var(--font-title); font-weight:800; font-size:24px; margin-bottom:6px !important; }
+  .mochila-links{ display:flex; gap:8px 22px; flex-wrap:wrap; margin-top:14px !important; font-size:15px; }
+  .mochila-acciones{ display:flex; gap:12px; flex-wrap:wrap; margin-top:14px; }
 
   /* Acceso al panel de la Junta */
   .junta{ display:flex; align-items:center; gap:16px; flex-wrap:wrap; background:#fff; border:2px solid var(--ink); border-radius:var(--radius-card); padding:18px 22px; margin-bottom:34px; text-decoration:none; color:var(--ink); }
@@ -154,7 +161,7 @@
   </section>
 
   <a class="junta" id="adminSection" href="admin.html" hidden>
-    <span><b>Panel de la Junta</b><span>Socios, eventos, préstamo, uniformes, comunicación y lo que está pendiente.</span></span>
+    <span><b>Panel de la Junta</b><span>Socios, eventos, Banco de Libros, Banco de Uniformes, Mochila Jugona Exploradora, comunicación y lo que está pendiente.</span></span>
     <span class="junta-pend" id="tileSolicitudes" hidden></span>
     <span class="junta-ir">Abrir</span>
   </a>
@@ -184,6 +191,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="shared/supabaseClient.js"></script>
 <script src="shared/nav.js"></script>
+<script src="shared/mochila.js"></script>
 <script>
 let ctxGlobal = null;
 const esc = (t) => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -409,70 +417,45 @@ let pendienteMochila = null;
 async function cargarMochila() {
   const wrap = document.getElementById('mochilaWrap');
   pendienteMochila = null;
-  const { data: propia, error } = await sb
-    .from('mochila_cola')
-    .select('posicion, fecha_devolucion_prevista, notificado_en')
-    .eq('socio_id', ctxGlobal.socio.id)
-    .maybeSingle();
+  let est;
+  try { est = await mochilaEstado(); }
+  catch (e) { wrap.innerHTML = '<p class="msg-error">No se pudo cargar la Mochila Jugona Exploradora. Recarga la página.</p>'; return; }
 
-  if (error) { wrap.innerHTML = '<p class="msg-error">No se pudo cargar la Mochila. Recarga la página.</p>'; return; }
-
-  if (!propia) {
-    const { data: total } = await sb.rpc('mochila_cola_length');
+  if (!est.apuntada) {
     wrap.innerHTML = `
-      <p>Una mochila llena de juegos que pasa una semana en cada casa. ${total ? `Hay ${total} familia${total > 1 ? 's' : ''} en la lista.` : 'Ahora mismo no hay nadie en la lista.'}</p>
-      <button type="button" class="btn btn-primary" id="mochilaApuntarseBtn" style="margin-top:12px;">Apuntarnos a la Mochila</button>
-      <p id="mochilaMsg" style="display:none;"></p>
-    `;
-    document.getElementById('mochilaApuntarseBtn').addEventListener('click', () => mochilaLlamar('mochila-apuntarse'));
+      <p>Una mochila llena de juegos que pasa una semana en cada casa.</p>
+      <div class="mochila-fila">
+        <p class="mochila-dato"><b>${est.esperan}</b><span>${mochilaFamilias(est.esperan)} en la lista de espera</span></p>
+        <a class="btn btn-cta" href="mochila.html">Quiero la mochila</a>
+      </div>`;
     return;
   }
-
-  if (propia.posicion === 0) {
-    const fecha = propia.fecha_devolucion_prevista
-      ? new Date(propia.fecha_devolucion_prevista).toLocaleDateString('es-ES', { dateStyle: 'long' })
-      : 'próximamente';
-    wrap.innerHTML = `<p>La tenéis vosotros. Hay que devolverla el <b>${fecha}</b>.</p>`;
+  if (est.estado === 'la_tiene') {
+    wrap.innerHTML = `<p class="mochila-grande">La tenéis en casa.</p>
+      <p>Devolvedla a la Junta el <b>${mochilaFecha(est.fecha_devolucion_prevista)}</b>. ¡Que la disfrutéis!</p>`;
     return;
   }
-
-  let avisoHtml = '';
-  if (propia.posicion === 1 && propia.notificado_en) {
-    const horas = Math.max(0, Math.floor((Date.now() - new Date(propia.notificado_en).getTime()) / 3600000));
-    avisoHtml = `<p style="margin-top:6px;">Os avisamos hace ${horas} h. Tenéis 24 h para confirmarnos si la queréis esta semana.</p>`;
-    pendienteMochila = { tipo: 'mochila', href: '#mochilaTitulo', titulo: 'Os toca la Mochila Jugona', accion: 'Ver',
-      detalle: 'Confirmadnos en 24 h si la queréis esta semana.' };
+  if (est.estado === 'asignada') {
+    pendienteMochila = { tipo: 'mochila', href: '#mochilaTitulo', titulo: '¡Os toca la Mochila Jugona Exploradora!', accion: 'Aceptarla',
+      detalle: 'Tenéis hasta el ' + mochilaLimite(est) + ' para aceptarla.' };
+    wrap.innerHTML = `<p class="mochila-grande">¡Os toca la Mochila Jugona Exploradora!</p>
+      <p>Tenéis hasta el <b>${mochilaLimite(est)}</b> para aceptarla. Si no, saldréis de la lista.</p>
+      <div id="mochilaTurno"></div>
+      <p class="mochila-links"><a href="mochila.html">Ver los juegos y cómo funciona</a></p>`;
+    mochilaBotonesTurno(document.getElementById('mochilaTurno'), est, () => location.reload());
+    return;
   }
-
   wrap.innerHTML = `
-    <p>Estáis en el puesto <b>${propia.posicion}</b> de la lista.</p>
-    ${avisoHtml}
-    <div style="display:flex; gap:14px; flex-wrap:wrap; align-items:center; margin-top:12px;">
-      <button type="button" class="btn btn-outline" id="mochilaPosponerBtn">Preferimos esperar una semana más</button>
-      <button type="button" class="btn-danger-link" id="mochilaDesapuntarseBtn">Desapuntarnos</button>
+    <div class="mochila-fila">
+      <p class="mochila-dato"><b>${est.puesto}º</b><span>Vuestro puesto en la lista de espera${est.esperan > 1 ? ` (de ${est.esperan} ${mochilaFamilias(est.esperan)})` : ''}</span></p>
     </div>
-    <p id="mochilaMsg" style="display:none;"></p>
-  `;
-  document.getElementById('mochilaPosponerBtn').addEventListener('click', () => mochilaLlamar('mochila-posponer'));
-  document.getElementById('mochilaDesapuntarseBtn').addEventListener('click', () => mochilaLlamar('mochila-desapuntarse'));
-}
-
-async function mochilaLlamar(endpoint) {
-  const msg = document.getElementById('mochilaMsg');
-  const session = await getSession();
-  try {
-    const resp = await fetch('/.netlify/functions/' + endpoint, {
-      method: 'POST',
-      headers: { 'Authorization': 'Bearer ' + session.access_token, 'x-supabase-anon-key': SUPABASE_ANON_KEY }
-    });
-    let data = {};
-    try { data = await resp.json(); } catch (e) { /* respuesta no JSON (error del servidor) */ }
-    if (!resp.ok) throw new Error(data.error || 'No se pudo completar la acción (error ' + resp.status + '). Inténtalo de nuevo en unos minutos.');
-    await cargarMochila();
-  } catch (err) {
-    if (msg) { msg.style.display = 'block'; msg.className = 'msg-error'; msg.textContent = err.message; }
-    else alert(err.message);
-  }
+    <p class="mochila-links"><a href="mochila.html">Ver los juegos y cómo funciona</a>
+      <button type="button" class="linklike" id="mochilaSalir">Desapuntarnos de la Mochila Jugona Exploradora</button></p>
+    <p class="msg-error" id="mochilaMsg" hidden></p>`;
+  document.getElementById('mochilaSalir').addEventListener('click', async () => {
+    try { if (await mochilaDesapuntarse()) location.reload(); }
+    catch (e) { const m = document.getElementById('mochilaMsg'); m.textContent = e.message; m.hidden = false; }
+  });
 }
 
 /* ---------------- Comentarios ---------------- */

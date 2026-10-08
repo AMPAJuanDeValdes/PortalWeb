@@ -43,21 +43,22 @@ function plantillaCredenciales({ nombre, email, password, urlPortal }) {
   };
 }
 
-// Aviso de que es tu turno en la Mochila Jugona Exploradora: se dispara
-// cada vez que alguien pasa a ocupar la posición 1 de la cola (por
-// entrega, por renuncia de quien iba delante, o por apuntarse a una
-// cola vacía). Tiene 24 horas para responder antes de que el admin
-// pueda pasar el turno a la siguiente familia.
+// Aviso de que le toca la Mochila Jugona Exploradora a una familia (la Junta le da el
+// turno, o le llega porque otra familia lo pasa, se desapunta o no
+// contesta). Tiene 24 horas para aceptarla en la web.
 function plantillaMochilaTurno({ nombre, urlPortal }) {
   const url = urlPortal || (process.env.SITE_URL || '');
   return {
-    subject: '¡Te toca la Mochila Jugona Exploradora!',
+    subject: 'Os toca la Mochila Jugona Exploradora: tenéis 24 horas para aceptarla',
     text:
       `Hola ${nombre},\n\n` +
-      `Ya eres la siguiente familia en la lista de la Mochila Jugona Exploradora. ` +
-      `Tienes 24 horas para confirmarnos si la quieres recibir este viernes.\n\n` +
-      `Si no te viene bien esta semana, entra en ${url}/login.html y pulsa ` +
-      `"Prefiero esperar una semana más" para pasar tu turno a la siguiente familia.\n\n` +
+      `¡Os toca la Mochila Jugona Exploradora!\n\n` +
+      `Para quedárosla tenéis que entrar en la web del AMPA y pulsar "La queremos" ` +
+      `en las próximas 24 horas:\n${url}/mochila.html\n\n` +
+      `Si esta semana no os viene bien, en la misma página podéis pulsar ` +
+      `"Esperar una semana más" y el turno pasará a la siguiente familia.\n\n` +
+      `Si en 24 horas no la aceptáis, saldréis de la lista y el turno pasará ` +
+      `a la siguiente familia.\n\n` +
       `AMPA Colegio Juan de Valdés`
   };
 }

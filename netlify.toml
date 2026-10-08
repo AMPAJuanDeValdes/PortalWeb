@@ -14,3 +14,8 @@
   from = "/*"
   to = "/index.html"
   status = 404
+
+# Mochila Jugona: cada 15 minutos quita de la lista a la familia que lleva
+# más de 24 h sin aceptar su turno y se lo pasa a la siguiente
+[functions."mochila-caducar"]
+  schedule = "*/15 * * * *"
