@@ -29,6 +29,7 @@ function renderNav(activePage, ctx) {
       <a href="${esAdminPage ? 'admin.html' : 'dashboard.html'}" class="topbar-brand"><img src="assets/logo-ampa.png" alt="AMPA"><span>${esAdminPage ? 'Panel de la Junta' : 'Portal de socios'}</span></a>
       <div class="topbar-right">
         ${esAdminPage ? '<a href="dashboard.html" class="topbar-inicio">Portal de socios</a>' : (activePage !== 'dashboard' ? '<a href="dashboard.html" class="topbar-inicio">Inicio</a>' : '')}
+        ${esAdminPage ? '' : '<a href="index.html" class="topbar-inicio">Página principal</a>'}
         <span class="topbar-user">${adulto ? esc(adulto.nombre + ' ' + adulto.apellidos) : ''}</span>
         <button class="linklike" id="navSignOut">Cerrar sesión</button>
       </div>

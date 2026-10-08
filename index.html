@@ -21,6 +21,8 @@
   .menu a:hover{ color:var(--navy); text-decoration:underline; }
   .menu a.entrar{ color:var(--navy); font-weight:700; border:2px solid var(--navy); border-radius:999px; padding:8px 20px; text-decoration:none; }
   .menu a.entrar:hover{ background:#EEF4FB; }
+  .menu button.salir{ background:none; border:0; padding:0; font:inherit; color:var(--ink); cursor:pointer; text-decoration:underline; }
+  .menu button.salir:hover{ color:var(--navy); }
 
   .hero{ display:flex; flex-wrap:wrap; align-items:center; gap:40px; padding-top:36px; padding-bottom:64px; }
   .hero-texto{ flex:1 1 480px; min-width:0; }
@@ -127,6 +129,9 @@
   .pie-final{ display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:14px; padding-top:20px; padding-bottom:28px; border-top:1px solid #2C3F60; font-size:14px; }
   .pie-colegio{ display:inline-flex; background:#fff; border-radius:12px; padding:6px 10px; }
   .pie-colegio img{ height:34px; width:auto; }
+  /* Socio con la sesión iniciada: sin lo que es para captar socios */
+  body.es-socio .solo-publico{ display:none !important; }
+  body:not(.es-socio) .solo-socio{ display:none !important; }
 </style>
 </head>
 <body>
@@ -138,9 +143,12 @@
   </a>
   <nav class="menu" aria-label="Principal">
     <a href="#que-hacemos">Qué hacemos</a>
-    <a href="publico.html">Eventos</a>
+    <a href="publico.html" class="solo-publico">Eventos</a>
+    <a href="eventos.html" class="solo-socio">Eventos</a>
     <a href="#junta">La Junta</a>
-    <a href="login.html" class="entrar">Entrar como socio</a>
+    <a href="login.html" class="entrar solo-publico">Entrar como socio</a>
+    <a href="dashboard.html" class="entrar solo-socio">Mi perfil</a>
+    <button type="button" class="salir solo-socio" id="salirBtn">Cerrar sesión</button>
   </nav>
 </header>
 
@@ -149,7 +157,10 @@
     <div class="hero-texto">
       <h1>Asociación de Familias del Colegio Juan de Valdés</h1>
       <p>Trabajamos para que la vida escolar de nuestros alumnos y alumnas sea más rica: Banco de Libros, Banco de Uniformes, actividades, eventos y apoyo a las familias del colegio.</p>
-      <div class="hero-acciones">
+      <div class="hero-acciones solo-socio">
+        <a href="dashboard.html" class="btn btn-cta btn-grande">Mi perfil</a>
+      </div>
+      <div class="hero-acciones solo-publico">
         <a href="hazte-socio.html" class="btn btn-cta btn-grande" id="ctaHero">Hazte socio</a>
         <a href="login.html" class="secundario">Ya soy socio, entrar</a>
       </div>
@@ -203,7 +214,7 @@
     </div>
   </section>
 
-  <section class="bloque contenedor" id="hazte-socio">
+  <section class="bloque contenedor solo-publico" id="hazte-socio">
     <h2 style="margin-bottom:12px;">Cómo hacerse socio</h2>
     <p class="cuota-familia">Una familia socia paga <b>25 € al año</b>, sea cual sea el tamaño de la familia.</p>
     <ol class="pasos">
@@ -220,8 +231,10 @@
     <div class="contenedor dos-columnas">
       <div style="flex:1 1 300px;">
         <h2>Próximos eventos</h2>
-        <p style="margin:0 0 20px; color:#D6E6F7;">Los que están abiertos a familias no socias se pueden reservar sin cuenta.</p>
-        <a href="publico.html" style="color:#fff; font-weight:700;">Ver los eventos abiertos</a>
+        <p class="solo-publico" style="margin:0 0 20px; color:#D6E6F7;">Los que están abiertos a familias no socias se pueden reservar sin cuenta.</p>
+        <a class="solo-publico" href="publico.html" style="color:#fff; font-weight:700;">Ver los eventos abiertos</a>
+        <p class="solo-socio" style="margin:0 0 20px; color:#D6E6F7;">Apuntaos desde vuestro portal.</p>
+        <a class="solo-socio" href="eventos.html" style="color:#fff; font-weight:700;">Ver todos los eventos</a>
       </div>
       <div style="flex:2 1 520px;"><div class="eventos-lista" id="eventosLista"></div></div>
     </div>
@@ -290,10 +303,14 @@
     <div>
       <h2 class="pie-titulo">En la web</h2>
       <ul class="pie-enlaces">
-        <li><a href="hazte-socio.html">Hazte socio</a></li>
-        <li><a href="login.html">Entrar como socio</a></li>
-        <li><a href="publico.html">Eventos abiertos</a></li>
-        <li><a href="reactivar-cuenta.html">Reactivar mi cuenta</a></li>
+        <li class="solo-publico"><a href="hazte-socio.html">Hazte socio</a></li>
+        <li class="solo-publico"><a href="login.html">Entrar como socio</a></li>
+        <li class="solo-publico"><a href="publico.html">Eventos abiertos</a></li>
+        <li class="solo-publico"><a href="reactivar-cuenta.html">Reactivar mi cuenta</a></li>
+        <li class="solo-socio"><a href="dashboard.html">Mi perfil</a></li>
+        <li class="solo-socio"><a href="eventos.html">Eventos</a></li>
+        <li class="solo-socio"><a href="mochila.html">Mochila Jugona Exploradora</a></li>
+        <li class="solo-socio"><a href="mis-datos.html">Mi familia</a></li>
       </ul>
     </div>
   </div>
@@ -357,9 +374,10 @@ async function cargarEventos() {
     const f = new Date(ev.fecha);
     const mes = f.toLocaleDateString('es-ES', { month: 'short' }).replace('.', '');
     const hora = f.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-    return `<a class="evento" href="${ev.abierto_no_socios ? 'publico.html' : 'login.html'}">
+    const socio = document.body.classList.contains('es-socio');
+    return `<a class="evento" href="${socio ? 'eventos.html#ev-' + ev.id : ev.abierto_no_socios ? 'publico.html' : 'login.html'}">
       <span class="dia"><b>${f.getDate()}</b><span>${mes}</span></span>
-      <span class="txt"><b>${esc(ev.titulo)}</b><span>${ev.abierto_no_socios ? 'Abierto también a familias no socias' : 'Para familias socias'}, a las ${hora}</span></span>
+      <span class="txt"><b>${esc(ev.titulo)}</b><span>${socio ? 'A las ' + hora : (ev.abierto_no_socios ? 'Abierto también a familias no socias' : 'Para familias socias') + ', a las ' + hora}</span></span>
     </a>`;
   }).join('');
   document.getElementById('bloqueEventos').hidden = false;
@@ -396,7 +414,28 @@ async function cargarDocumentos() {
   document.getElementById('bloqueDocs').hidden = false;
 }
 
-cargarFotos(); cargarEventos(); cargarVideos(); cargarDocumentos();
+// ¿Socio con la sesión iniciada? Se marca ya (sin esperar a la red) si hay
+// sesión guardada, para que no parpadeen los botones de «Hazte socio»,
+// y luego se confirma que la cuenta está activa.
+try {
+  if (Object.keys(localStorage).some(k => /^sb-.*-auth-token$/.test(k))) document.body.classList.add('es-socio');
+} catch (e) { /* sin almacenamiento: se decide abajo */ }
+async function comprobarSocio() {
+  let activo = false;
+  try {
+    const adulto = await getAdulto();
+    const socio = adulto ? await getSocio(adulto.socio_id) : null;
+    activo = !!socio && socio.estado === 'activa';
+  } catch (e) { activo = false; }
+  document.body.classList.toggle('es-socio', activo);
+}
+comprobarSocio().then(() => { cargarEventos(); });
+// Cerrar sesión: se queda en la portada, ya como visitante
+document.getElementById('salirBtn').addEventListener('click', async () => {
+  try { await sb.auth.signOut(); } catch (e) { /* aunque falle la red, se recarga */ }
+  location.reload();
+});
+cargarFotos(); cargarVideos(); cargarDocumentos();
 
 document.getElementById('contactoBtn').addEventListener('click', async () => {
   const nombre = document.getElementById('contactoNombre').value.trim();

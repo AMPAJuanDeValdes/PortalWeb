@@ -105,7 +105,7 @@ test.describe('Acceso y contraseñas', () => {
     await page.goto(enlace);                        // segunda vez
     await expect(page.locator('h1')).toHaveText('Enlace no válido o caducado');
     await expect(page.locator('#avisoBotones').getByRole('link', { name: 'Ir al acceso' })).toBeVisible();
-    await expect(page.locator('#avisoBotones').getByRole('link', { name: 'Web del AMPA' })).toBeVisible();
+    await expect(page.locator('#avisoBotones').getByRole('link', { name: 'Página principal' })).toBeVisible();
 
     // Deja la contraseña como estaba para el resto de pruebas
     await admin.auth.admin.updateUserById(activa.adultos[0].id, { password: PASSWORD });
@@ -123,9 +123,9 @@ test.describe('Acceso y contraseñas', () => {
 
   test('Navegación: login y cambiar-clave enlazan a la web pública', async ({ page }) => {
     await page.goto('/login.html');
-    await expect(page.getByRole('link', { name: '‹ Web del AMPA' })).toBeVisible();
+    await expect(page.getByRole('link', { name: '‹ Página principal' })).toBeVisible();
     await page.goto('/cambiar-clave.html#error=access_denied&error_code=otp_expired');
     await expect(page.locator('h1')).toHaveText('Enlace no válido o caducado');
-    await expect(page.locator('.pub-links').getByRole('link', { name: '‹ Web del AMPA' })).toBeVisible();
+    await expect(page.locator('.pub-links').getByRole('link', { name: '‹ Página principal' })).toBeVisible();
   });
 });

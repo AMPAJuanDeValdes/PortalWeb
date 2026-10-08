@@ -24,7 +24,7 @@
     <img class="logo-colegio" src="assets/logo-colegio.png" alt="Colegio Juan de Valdés">
   </div>
   <nav class="pub-links" id="navLinks">
-    <a href="index.html">‹ Web del AMPA</a>
+    <a href="index.html">‹ Página principal</a>
     <a href="login.html">Acceso socios</a>
   </nav>
 </header>
@@ -85,7 +85,7 @@
 
   const BOTONES_PUBLICOS = [
     { href: 'login.html', texto: 'Ir al acceso', primario: true },
-    { href: 'index.html', texto: 'Web del AMPA' }
+    { href: 'index.html', texto: 'Página principal' }
   ];
 
   function mostrarFormulario() {
@@ -124,7 +124,7 @@
             (socio.estado === 'baja' ? '<b>dada de baja</b>' : '<b>pendiente del pago de la cuota</b>') +
             '. Puedes reactivarla enviándonos el comprobante de pago.',
             [{ href: 'reactivar-cuenta.html?motivo=' + socio.estado + '&email=' + encodeURIComponent(adulto.email || ''), texto: 'Reactivar mi cuenta', primario: true },
-             { href: 'index.html', texto: 'Web del AMPA' }]);
+             { href: 'index.html', texto: 'Página principal' }]);
         } else {
           mostrarAviso('No se puede cambiar la contraseña',
             'Tu cuenta todavía no está activa. En cuanto el AMPA la active recibirás un correo.', BOTONES_PUBLICOS);
@@ -145,7 +145,7 @@
       // 4. Primer acceso (contraseña provisional del email)
       modo = 'forzado';
       textos('Elige una nueva contraseña', 'Es tu primer acceso: por seguridad, cambia la contraseña provisional que te enviamos por email.');
-      document.getElementById('navLinks').innerHTML = '<a href="index.html">‹ Web del AMPA</a><a href="#" id="salirLink">Cerrar sesión</a>';
+      document.getElementById('navLinks').innerHTML = '<a href="index.html">‹ Página principal</a><a href="#" id="salirLink">Cerrar sesión</a>';
       document.getElementById('salirLink').addEventListener('click', (e) => { e.preventDefault(); signOut(); });
     } else {
       // 5. Cambio voluntario desde "Mis datos"
