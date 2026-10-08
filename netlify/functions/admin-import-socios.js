@@ -42,6 +42,16 @@ function normalizarAdulto(fila, prefijo) {
   };
 }
 
+// Acepta AAAA-MM-DD (lo que manda el formulario) o DD/MM/AAAA (típico de
+// un CSV hecho en Excel). Cualquier otra cosa se ignora (queda vacía).
+function normalizarFecha(v) {
+  const t = String(v || '').trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(t)) return t;
+  const m = t.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})$/);
+  if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+  return null;
+}
+
 function normalizarAlumno(fila, prefijo) {
   const g = (campo) => fila[`${prefijo}_${campo}`];
   const nombre = String(g('nombre') || '').trim();
@@ -49,7 +59,7 @@ function normalizarAlumno(fila, prefijo) {
   return {
     nombre,
     apellidos: String(g('apellidos') || '').trim(),
-    fecha_nacimiento: String(g('fecha_nacimiento') || '').trim() || null,
+    fecha_nacimiento: normalizarFecha(g('fecha_nacimiento')),
     sexo: ['Masculino', 'Femenino', 'Otro'].includes(String(g('sexo') || '').trim()) ? String(g('sexo')).trim() : null,
     etapa: ETAPAS_VALIDAS.includes(String(g('etapa') || '').trim()) ? String(g('etapa')).trim() : null,
     curso: String(g('curso') || '').trim() || null,
@@ -92,6 +102,10 @@ exports.handler = async (event) => {
       if (al) alumnosFila.push(al);
     }
 
+    if (numeroDado && !/^[0-9]{4}$/.test(numeroDado)) {
+      resultados.push({ ok: false, error: 'El número secuencial debe tener exactamente 4 cifras (ej. 0042)', nombre_titular: adulto1?.nombre || '' });
+      continue;
+    }
     if (!Number.isFinite(anio_ultima_cuota) || !adulto1 || !adulto1.email || !adulto1.dni_nie) {
       resultados.push({ ok: false, error: 'Faltan anio_ultima_cuota o los datos obligatorios del adulto 1', nombre_titular: adulto1?.nombre || '' });
       continue;
@@ -101,45 +115,75 @@ exports.handler = async (event) => {
       continue;
     }
 
+    // Si algo falla a mitad, se deshace todo lo creado para esta fila
+    // (antes quedaba una cuenta sin adultos, o un usuario de acceso suelto).
+    let socioId = null;
+    const usuariosCreados = [];
+    async function deshacer() {
+      if (socioId) await supabaseAdmin.from('socios').delete().eq('id', socioId);
+      for (const uid of usuariosCreados) await supabaseAdmin.auth.admin.deleteUser(uid);
+    }
+
     try {
+      for (const adulto of [adulto1, adulto2].filter(Boolean)) {
+        const { data: existe } = await supabaseAdmin.from('adultos').select('id').ilike('email', adulto.email).limit(1);
+        if (existe && existe.length) throw new Error('Ya existe una cuenta con el email ' + adulto.email);
+      }
+
       const numero_secuencial = numeroDado || (await supabaseAdmin.rpc('siguiente_numero_secuencial')).data;
 
       const { data: socio, error: socioError } = await supabaseAdmin.from('socios').insert({
         anio_ultima_cuota, numero_secuencial, forma_pago, iban, estado: 'activa'
       }).select('id').single();
-      if (socioError) throw socioError;
+      if (socioError) {
+        if (socioError.code === '23505') throw new Error('El número de socio ' + numero_secuencial + ' ya está en uso para ese año.');
+        throw socioError;
+      }
+      socioId = socio.id;
 
-      const credencialesEnviadas = [];
+      const pendientesEmail = [];
       for (const adulto of [adulto1, adulto2].filter(Boolean)) {
         const password = generarPassword();
         const { data: created, error: createError } = await supabaseAdmin.auth.admin.createUser({
           email: adulto.email, password, email_confirm: true
         });
         if (createError) throw createError;
+        usuariosCreados.push(created.user.id);
 
         const { error: insAdultoError } = await supabaseAdmin.from('adultos').insert({
           id: created.user.id, socio_id: socio.id, role: 'socio', force_password_change: true, ...adulto
         });
         if (insAdultoError) throw insAdultoError;
+        pendientesEmail.push({ adulto, password });
+      }
 
+      // Alumno: basta con nombre, apellidos y etapa (curso, fecha de
+      // nacimiento, sexo y aula son opcionales en el alta del admin)
+      const alumnosValidos = alumnosFila.filter(a => a.nombre && a.apellidos && a.etapa);
+      if (alumnosValidos.length) {
+        const { error: alError } = await supabaseAdmin.from('alumnos').insert(alumnosValidos.map(a => ({ socio_id: socio.id, ...a })));
+        if (alError) throw alError;
+      }
+
+      // Los emails, solo cuando todo lo demás ha ido bien
+      const credencialesEnviadas = [];
+      for (const { adulto, password } of pendientesEmail) {
         const { subject, text } = plantillaCredenciales({ nombre: adulto.nombre, email: adulto.email, password });
-        try { await enviarEmail({ to: adulto.email, subject, text }); } catch (e) { /* seguimos aunque falle el envío */ }
-        credencialesEnviadas.push(adulto.email);
+        try { await enviarEmail({ to: adulto.email, subject, text }); credencialesEnviadas.push(adulto.email); }
+        catch (e) { credencialesEnviadas.push(adulto.email + ' (¡el email NO se pudo enviar!)'); }
       }
 
-      for (const alumno of alumnosFila) {
-        if (!alumno.etapa || !alumno.curso) continue;
-        await supabaseAdmin.from('alumnos').insert({ socio_id: socio.id, ...alumno });
-      }
-
+      const descartados = alumnosFila.length - alumnosValidos.length;
       resultados.push({
         ok: true,
         nombre_titular: adulto1.nombre + ' ' + adulto1.apellidos,
         numero_secuencial,
         emails: credencialesEnviadas.join(', '),
-        alumnos_creados: alumnosFila.filter(a => a.etapa && a.curso).length
+        alumnos_creados: alumnosValidos.length,
+        aviso: descartados ? descartados + ' alumno(s) sin nombre, apellidos o etapa válida no se han creado' : ''
       });
     } catch (err) {
+      await deshacer();
       resultados.push({ ok: false, error: err.message || 'Error desconocido', nombre_titular: adulto1.nombre + ' ' + adulto1.apellidos });
     }
   }

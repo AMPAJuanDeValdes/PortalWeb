@@ -5,19 +5,19 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Eventos · AMPA Juan de Valdés</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="shared/styles.css">
 <style>
   .evento-card{ margin-bottom:20px; }
-  .evento-fecha{ font-family:'IBM Plex Mono',monospace; font-size:12.5px; color:var(--ink-soft); margin-bottom:4px; }
-  .aforo-tag{ font-family:'IBM Plex Mono',monospace; font-size:11.5px; color:var(--gold); margin-top:6px; display:inline-block; }
-  .miembro-row{ display:flex; justify-content:space-between; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid #EDF3F9; }
+  .evento-fecha{ font-family:'Inter', sans-serif; font-size:12.5px; color:var(--ink-soft); margin-bottom:4px; }
+  .aforo-tag{ font-family:'Inter', sans-serif; font-size:11.5px; color:var(--gold); margin-top:6px; display:inline-block; }
+  .miembro-row{ display:flex; justify-content:space-between; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid #F1EFE8; }
   .miembro-row:last-child{ border-bottom:none; }
   .actividad-block{ border:1px solid var(--line); border-radius:var(--radius); padding:14px; margin-top:14px; }
-  .actividad-block h3{ font-family:'Lora',serif; font-size:15px; margin:0 0 4px; color:var(--navy-deep); }
-  .voluntariado-block{ margin-top:16px; padding-top:14px; border-top:1px dashed var(--line); }
-  .invitados-block{ margin-top:16px; padding-top:14px; border-top:1px dashed var(--line); }
-  .completo-tag{ font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--red); }
+  .actividad-block h3{ font-family:'Space Grotesk', sans-serif; font-size:15px; margin:0 0 4px; color:var(--navy-deep); }
+  .voluntariado-block{ margin-top:16px; padding-top:14px; border-top:1px solid var(--line); }
+  .invitados-block{ margin-top:16px; padding-top:14px; border-top:1px solid var(--line); }
+  .completo-tag{ font-family:'Inter', sans-serif; font-size:11px; color:var(--red); }
 </style>
 </head>
 <body>
@@ -35,6 +35,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="shared/supabaseClient.js"></script>
 <script src="shared/carrusel.js"></script>
+<script src="shared/documentoRellenable.js"></script>
 <script src="shared/nav.js"></script>
 <script>
 let ctxGlobal = null;
@@ -72,6 +73,20 @@ function miembrosElegiblesActividad(actividad, elegiblesEvento) {
 
 function claveMiembro(tipo, id) { return tipo + ':' + id; }
 
+// Fechas de apertura/cierre para el SOCIO (las de no socio las gestiona
+// publico.html). Devuelve { abierta: bool, mensaje } — mensaje solo
+// relevante cuando abierta es false.
+function estadoInscripcionSocio(evento) {
+  const ahora = new Date();
+  if (evento.fecha_apertura_socios && ahora < new Date(evento.fecha_apertura_socios)) {
+    return { abierta: false, mensaje: 'Se abrirá para socios el ' + new Date(evento.fecha_apertura_socios).toLocaleString('es-ES', { dateStyle: 'long', timeStyle: 'short' }) + '.' };
+  }
+  if (evento.fecha_cierre_inscripcion && ahora >= new Date(evento.fecha_cierre_inscripcion)) {
+    return { abierta: false, mensaje: 'El plazo de inscripción está cerrado.' };
+  }
+  return { abierta: true, mensaje: '' };
+}
+
 async function cargarEventos() {
   const cont = document.getElementById('eventosContainer');
   const { data: eventos, error } = await sb.from('eventos').select('*').eq('activo', true).order('fecha', { ascending: true });
@@ -92,8 +107,284 @@ async function cargarEventos() {
   }
 }
 
+/* ==================== Router según el tipo de evento ==================== */
+
 async function renderEvento(evento) {
+  if (evento.sin_inscripcion) return renderEventoInformativo(evento);
+  if (evento.usa_concurso_texto) return renderEventoConcurso(evento);
+  if (evento.requiere_pareja_adulto_alumno) return renderEventoPareja(evento);
+  return renderEventoNormal(evento);
+}
+
+function cabeceraEvento(evento) {
+  const card = document.createElement('div');
+  card.className = 'card evento-card';
+  card.innerHTML = `
+    <p class="evento-fecha">${evento.fecha ? new Date(evento.fecha).toLocaleString('es-ES', { dateStyle: 'full', timeStyle: 'short' }) : 'Fecha por confirmar'}</p>
+    <h2>${evento.titulo}</h2>
+    <div class="eventoCarrusel" style="max-width:340px; margin-bottom:12px;"></div>
+    <p style="color:var(--ink-soft); font-size:14px;">${evento.descripcion || ''}</p>
+  `;
+  sb.from('fotos_carrusel').select('url').eq('evento_id', evento.id).order('orden').then(({ data: fotos }) => {
+    renderCarrusel(card.querySelector('.eventoCarrusel'), (fotos || []).map(f => f.url));
+  });
+  return card;
+}
+
+/* ==================== Evento sin inscripción (ej. Concurso de Christmas) ==================== */
+
+function renderEventoInformativo(evento) {
+  return cabeceraEvento(evento);
+}
+
+/* ==================== Concurso literario (envío anónimo) ==================== */
+
+async function renderEventoConcurso(evento) {
+  const card = cabeceraEvento(evento);
   const elegibles = miembrosElegiblesEvento(evento);
+
+  const { data: misEnvios } = await sb
+    .from('concurso_identidades')
+    .select('alumno_id, concurso_envios(evento_id, es_ganador)')
+    .eq('socio_id', ctxGlobal.socio.id);
+  const enviosDeEsteEvento = (misEnvios || []).filter(i => i.concurso_envios && i.concurso_envios.evento_id === evento.id);
+
+  const gate = estadoInscripcionSocio(evento);
+
+  const bloque = document.createElement('div');
+  bloque.style.marginTop = '14px';
+  bloque.innerHTML = `
+    <p class="section-label">Envío por alumno/a</p>
+    <p style="font-size:12.5px; color:var(--ink-soft); margin-top:-6px;">Cada alumno/a puede enviar un texto. Se mantiene anónimo para el jurado hasta que se decida el ganador.</p>
+  `;
+
+  if (elegibles.alumnos.length === 0) {
+    bloque.innerHTML += '<p class="empty-hint">Ningún alumno/a de tu familia es elegible para este concurso.</p>';
+    card.appendChild(bloque);
+    return card;
+  }
+
+  elegibles.alumnos.forEach(alumno => {
+    const envio = enviosDeEsteEvento.find(i => i.alumno_id === alumno.id);
+    const fila = document.createElement('div');
+    fila.className = 'miembro-row';
+    fila.innerHTML = `<span>${alumno.nombre} ${alumno.apellidos}</span>`;
+
+    if (envio) {
+      const tag = document.createElement('span');
+      tag.className = 'msg-ok'; tag.style.margin = '0';
+      tag.textContent = 'Enviado ✓' + (envio.concurso_envios.es_ganador ? ' — ¡ha ganado! 🎉' : '');
+      fila.appendChild(tag);
+    } else if (!gate.abierta) {
+      const tag = document.createElement('span');
+      tag.className = 'completo-tag';
+      tag.textContent = 'Plazo cerrado';
+      fila.appendChild(tag);
+    } else {
+      const btn = document.createElement('button');
+      btn.className = 'btn btn-outline';
+      btn.textContent = 'Escribir texto';
+      btn.addEventListener('click', () => mostrarFormularioConcurso(alumno, evento, card));
+      fila.appendChild(btn);
+    }
+    bloque.appendChild(fila);
+  });
+
+  const zona = document.createElement('div');
+  zona.className = 'concursoFormZona';
+  bloque.appendChild(zona);
+
+  card.appendChild(bloque);
+  return card;
+}
+
+function mostrarFormularioConcurso(alumno, evento, card) {
+  const zona = card.querySelector('.concursoFormZona');
+  zona.innerHTML = `
+    <p class="section-label" style="margin-top:14px;">Texto de ${alumno.nombre}</p>
+    <textarea class="concursoTexto" rows="8" style="width:100%;"></textarea>
+    <button type="button" class="btn btn-primary enviarConcursoBtn" style="margin-top:10px;">Enviar</button>
+    <p class="concursoMsg" style="display:none; margin-top:10px;"></p>
+  `;
+  zona.querySelector('.enviarConcursoBtn').addEventListener('click', async () => {
+    const texto = zona.querySelector('.concursoTexto').value.trim();
+    const msg = zona.querySelector('.concursoMsg');
+    if (!texto) {
+      msg.style.display = 'block'; msg.className = 'msg-error';
+      msg.textContent = 'Escribe el texto antes de enviar.';
+      return;
+    }
+    if (!confirm('Una vez enviado no podrás editarlo. ¿Confirmas el envío?')) return;
+    const { error } = await sb.rpc('concurso_enviar_texto', { p_evento_id: evento.id, p_texto: texto, p_alumno_id: alumno.id });
+    if (error) {
+      msg.style.display = 'block'; msg.className = 'msg-error'; msg.textContent = error.message;
+      return;
+    }
+    card.replaceWith(await renderEvento(evento));
+  });
+}
+
+/* ==================== Evento con pareja obligatoria adulto+alumno (ej. Cabalgata) ==================== */
+
+async function renderEventoPareja(evento) {
+  const card = cabeceraEvento(evento);
+  const elegibles = miembrosElegiblesEvento(evento);
+
+  const { data: misInscripciones } = await sb
+    .from('evento_inscripciones')
+    .select('*')
+    .eq('evento_id', evento.id)
+    .eq('socio_id', ctxGlobal.socio.id);
+
+  const parejas = {};
+  (misInscripciones || []).forEach(i => {
+    if (!i.grupo_id) return;
+    parejas[i.grupo_id] = parejas[i.grupo_id] || {};
+    if (i.tipo_miembro === 'alumno') parejas[i.grupo_id].alumno = i;
+    else parejas[i.grupo_id].adulto = i;
+  });
+
+  const bloque = document.createElement('div');
+  bloque.style.marginTop = '14px';
+
+  function nombreAdultoDe(par) {
+    if (!par.adulto) return '(sin adulto)';
+    if (par.adulto.tipo_miembro === 'adulto') {
+      const a = misAdultos.find(x => x.id === par.adulto.adulto_id);
+      return a ? a.nombre + ' ' + a.apellidos : '';
+    }
+    return par.adulto.nombre_invitado || '';
+  }
+  function nombreAlumnoDe(par) {
+    if (!par.alumno) return '(sin alumno)';
+    const a = misAlumnos.find(x => x.id === par.alumno.alumno_id);
+    return a ? a.nombre + ' ' + a.apellidos : '';
+  }
+
+  if (evento.sorteo_realizado) {
+    bloque.innerHTML = '<p class="section-label">Resultado del sorteo</p>';
+    if (Object.keys(parejas).length === 0) {
+      bloque.innerHTML += '<p class="empty-hint">No apuntasteis ninguna pareja.</p>';
+    }
+    Object.values(parejas).forEach(par => {
+      const estado = (par.alumno && par.alumno.estado) || (par.adulto && par.adulto.estado) || 'pendiente';
+      const p = document.createElement('p');
+      p.style.fontSize = '14px';
+      p.innerHTML = `${nombreAdultoDe(par)} + ${nombreAlumnoDe(par)} — ` +
+        (estado === 'ganador' ? '<b class="msg-ok" style="margin:0;">Ganadores 🎉</b>'
+          : estado === 'no_ganador' ? '<span class="completo-tag">No salieron en el sorteo</span>'
+          : 'Pendiente');
+      bloque.appendChild(p);
+    });
+    card.appendChild(bloque);
+    return card;
+  }
+
+  bloque.innerHTML = '<p class="section-label">Parejas apuntadas (1 adulto + 1 alumno)</p>';
+  if (Object.keys(parejas).length === 0) {
+    bloque.innerHTML += '<p class="empty-hint" style="margin-bottom:8px;">Todavía no habéis apuntado ninguna pareja.</p>';
+  }
+
+  const gate = estadoInscripcionSocio(evento);
+
+  Object.entries(parejas).forEach(([grupoId, par]) => {
+    const fila = document.createElement('div');
+    fila.className = 'miembro-row';
+    fila.innerHTML = `<span>${nombreAdultoDe(par)} + ${nombreAlumnoDe(par)}</span>`;
+    if (gate.abierta) {
+      const quitarBtn = document.createElement('button');
+      quitarBtn.className = 'btn-danger-link';
+      quitarBtn.textContent = 'Quitar pareja';
+      quitarBtn.addEventListener('click', async () => {
+        await sb.from('evento_inscripciones').delete().eq('grupo_id', grupoId);
+        card.replaceWith(await renderEvento(evento));
+      });
+      fila.appendChild(quitarBtn);
+    }
+    bloque.appendChild(fila);
+  });
+
+  if (!gate.abierta) {
+    const p = document.createElement('p');
+    p.className = 'empty-hint';
+    p.textContent = gate.mensaje;
+    bloque.appendChild(p);
+    card.appendChild(bloque);
+    return card;
+  }
+
+  const alumnosYaEmparejados = new Set(Object.values(parejas).filter(p => p.alumno).map(p => p.alumno.alumno_id));
+  const alumnosDisponibles = elegibles.alumnos.filter(a => !alumnosYaEmparejados.has(a.id));
+
+  if (alumnosDisponibles.length > 0 && misAdultos.length > 0) {
+    const form = document.createElement('div');
+    form.style.marginTop = '10px';
+
+    const selectAlumno = document.createElement('select');
+    selectAlumno.innerHTML = alumnosDisponibles.map(a => `<option value="${a.id}">${a.nombre} ${a.apellidos}</option>`).join('');
+
+    const tipoAdultoSelect = document.createElement('select');
+    tipoAdultoSelect.style.marginTop = '8px';
+    tipoAdultoSelect.innerHTML = '<option value="socio">Un adulto de mi familia (socio)</option><option value="otro">Otro adulto (no socio)</option>';
+
+    const socioAdultoSelect = document.createElement('select');
+    socioAdultoSelect.style.marginTop = '8px';
+    socioAdultoSelect.innerHTML = misAdultos.map(a => `<option value="${a.id}">${a.nombre} ${a.apellidos}</option>`).join('');
+
+    const otroNombreInput = document.createElement('input');
+    otroNombreInput.type = 'text';
+    otroNombreInput.placeholder = 'Nombre completo del adulto';
+    otroNombreInput.style.cssText = 'margin-top:8px; display:none;';
+
+    tipoAdultoSelect.addEventListener('change', () => {
+      socioAdultoSelect.style.display = tipoAdultoSelect.value === 'socio' ? 'block' : 'none';
+      otroNombreInput.style.display = tipoAdultoSelect.value === 'otro' ? 'block' : 'none';
+    });
+
+    const btnAnadir = document.createElement('button');
+    btnAnadir.className = 'btn btn-primary';
+    btnAnadir.style.marginTop = '10px';
+    btnAnadir.textContent = '+ Añadir pareja';
+    const msgPar = document.createElement('p');
+    msgPar.style.cssText = 'display:none; margin-top:8px;';
+
+    btnAnadir.addEventListener('click', async () => {
+      const grupoId = crypto.randomUUID();
+      const payloadAlumno = { evento_id: evento.id, tipo_miembro: 'alumno', alumno_id: selectAlumno.value, socio_id: ctxGlobal.socio.id, grupo_id: grupoId };
+      let payloadAdulto;
+      if (tipoAdultoSelect.value === 'socio') {
+        payloadAdulto = { evento_id: evento.id, tipo_miembro: 'adulto', adulto_id: socioAdultoSelect.value, socio_id: ctxGlobal.socio.id, grupo_id: grupoId };
+      } else {
+        const nombre = otroNombreInput.value.trim();
+        if (!nombre) { msgPar.style.display = 'block'; msgPar.className = 'msg-error'; msgPar.textContent = 'Escribe el nombre del adulto.'; return; }
+        payloadAdulto = { evento_id: evento.id, tipo_miembro: 'invitado', nombre_invitado: nombre, socio_id: ctxGlobal.socio.id, grupo_id: grupoId };
+      }
+      const { error: e1 } = await sb.from('evento_inscripciones').insert(payloadAlumno);
+      if (e1) { msgPar.style.display = 'block'; msgPar.className = 'msg-error'; msgPar.textContent = e1.message; return; }
+      const { error: e2 } = await sb.from('evento_inscripciones').insert(payloadAdulto);
+      if (e2) { msgPar.style.display = 'block'; msgPar.className = 'msg-error'; msgPar.textContent = e2.message; return; }
+      card.replaceWith(await renderEvento(evento));
+    });
+
+    form.appendChild(selectAlumno);
+    form.appendChild(tipoAdultoSelect);
+    form.appendChild(socioAdultoSelect);
+    form.appendChild(otroNombreInput);
+    form.appendChild(btnAnadir);
+    form.appendChild(msgPar);
+    bloque.appendChild(form);
+  }
+
+  card.appendChild(bloque);
+  return card;
+}
+
+/* ==================== Evento normal (aforo o sorteo simple, ej. Talleres, Comedor, Barbacoa) ==================== */
+
+async function renderEventoNormal(evento) {
+  const elegibles = miembrosElegiblesEvento(evento);
+  const gate = estadoInscripcionSocio(evento);
+  const contexto = { permiteEditar: gate.abierta && !evento.sorteo_realizado, sorteoRealizado: evento.sorteo_realizado };
 
   const { data: actividades } = await sb.from('evento_actividades').select('*').eq('evento_id', evento.id).order('created_at');
   const { data: exclusiones } = await sb.from('actividad_exclusiones').select('*');
@@ -103,22 +394,32 @@ async function renderEvento(evento) {
     .eq('evento_id', evento.id)
     .eq('socio_id', ctxGlobal.socio.id);
 
-  const card = document.createElement('div');
-  card.className = 'card evento-card';
+  const card = cabeceraEvento(evento);
 
-  const plazasEvento = evento.aforo_total != null ? await sb.rpc('evento_plazas_disponibles', { p_evento_id: evento.id }) : null;
+  const esSorteo = evento.metodo_asignacion === 'sorteo';
+  const plazasEvento = (!esSorteo && evento.aforo_total != null) ? await sb.rpc('evento_plazas_disponibles', { p_evento_id: evento.id }) : null;
 
-  card.innerHTML = `
-    <p class="evento-fecha">${evento.fecha ? new Date(evento.fecha).toLocaleString('es-ES', { dateStyle: 'full', timeStyle: 'short' }) : 'Fecha por confirmar'}</p>
-    <h2>${evento.titulo}</h2>
-    <div class="eventoCarrusel" style="max-width:340px; margin-bottom:12px;"></div>
-    <p style="color:var(--ink-soft); font-size:14px;">${evento.descripcion || ''}</p>
-    ${plazasEvento && plazasEvento.data != null ? `<span class="aforo-tag">${plazasEvento.data > 0 ? plazasEvento.data + ' plazas libres en total' : 'Aforo del evento completo'}</span>` : ''}
-  `;
+  const infoWrap = document.createElement('div');
+  if (esSorteo) {
+    const tag = document.createElement('span');
+    tag.className = 'aforo-tag';
+    tag.textContent = evento.sorteo_realizado ? 'Sorteo ya realizado' : 'Se resolverá por sorteo' + (evento.aforo_total ? ` (${evento.aforo_total} plaza/s)` : '');
+    infoWrap.appendChild(tag);
+  } else if (plazasEvento && plazasEvento.data != null) {
+    const tag = document.createElement('span');
+    tag.className = 'aforo-tag';
+    tag.textContent = plazasEvento.data > 0 ? plazasEvento.data + ' plazas libres en total' : 'Aforo del evento completo';
+    infoWrap.appendChild(tag);
+  }
+  card.appendChild(infoWrap);
 
-  sb.from('fotos_carrusel').select('url').eq('evento_id', evento.id).order('orden').then(({ data: fotos }) => {
-    renderCarrusel(card.querySelector('.eventoCarrusel'), (fotos || []).map(f => f.url));
-  });
+  if (!gate.abierta && !evento.sorteo_realizado) {
+    const p = document.createElement('p');
+    p.className = 'empty-hint';
+    p.style.marginTop = '10px';
+    p.textContent = gate.mensaje;
+    card.appendChild(p);
+  }
 
   const inscritosPorClave = {};
   (misInscripciones || []).forEach(i => {
@@ -165,7 +466,8 @@ async function renderEvento(evento) {
     ];
     todos.forEach(m => {
       const clave = claveMiembro(m.tipo, m.id);
-      const yaInscrito = (inscritosPorClave[clave] || []).some(i => (i.actividad_id || null) === (actividadId || null));
+      const inscripcion = (inscritosPorClave[clave] || []).find(i => (i.actividad_id || null) === (actividadId || null));
+      const yaInscrito = !!inscripcion;
       const excluido = actividadId && !yaInscrito && miembroTieneExcluyente(clave, actividadId);
       const completo = !yaInscrito && aforoDisponible !== null && aforoDisponible <= 0;
 
@@ -175,7 +477,20 @@ async function renderEvento(evento) {
       label.textContent = m.nombre;
       row.appendChild(label);
 
-      if (excluido) {
+      if (contexto.sorteoRealizado) {
+        const tag = document.createElement('span');
+        if (!yaInscrito) { tag.className = 'completo-tag'; tag.textContent = 'No participó'; }
+        else if (inscripcion.estado === 'ganador') { tag.className = 'msg-ok'; tag.style.margin = '0'; tag.textContent = 'Ganador/a 🎉'; }
+        else if (inscripcion.estado === 'no_ganador') { tag.className = 'completo-tag'; tag.textContent = 'No salió en el sorteo'; }
+        else { tag.className = 'completo-tag'; tag.textContent = 'Pendiente de sorteo'; }
+        row.appendChild(tag);
+      } else if (!contexto.permiteEditar) {
+        const tag = document.createElement('span');
+        tag.className = yaInscrito ? 'msg-ok' : 'completo-tag';
+        tag.style.margin = '0';
+        tag.textContent = yaInscrito ? 'Apuntado/a' : 'Inscripción cerrada';
+        row.appendChild(tag);
+      } else if (excluido) {
         const tag = document.createElement('span');
         tag.className = 'completo-tag';
         tag.textContent = 'No compatible con otra actividad ya elegida';
@@ -219,29 +534,49 @@ async function renderEvento(evento) {
     }
   }
 
-  if (evento.voluntariado_habilitado && misAdultos.length > 0) {
+  /* ---- Voluntariado: adultos siempre; un alumno solo si ya hay un
+     adulto de la familia voluntario en este mismo evento (la base de
+     datos lo exige igualmente, esto es solo para guiar al usuario) ---- */
+  if (evento.voluntariado_habilitado && gate.abierta) {
     const vBlock = document.createElement('div');
     vBlock.className = 'voluntariado-block';
-    const yaVoluntario = (misInscripciones || []).find(i => i.tipo_miembro === 'adulto' && i.es_voluntario && !i.actividad_id);
     vBlock.innerHTML = `<p class="section-label" style="margin:0 0 8px;">Voluntariado en este evento</p>`;
-    if (yaVoluntario) {
-      const adultoNombre = misAdultos.find(a => a.id === yaVoluntario.adulto_id);
-      vBlock.innerHTML += `<p style="font-size:14px;">Voluntario/a: <b>${adultoNombre ? adultoNombre.nombre : ''}</b></p>`;
+
+    const voluntariosAdulto = (misInscripciones || []).filter(i => i.tipo_miembro === 'adulto' && i.es_voluntario && !i.actividad_id);
+    const voluntariosAlumno = (misInscripciones || []).filter(i => i.tipo_miembro === 'alumno' && i.es_voluntario && !i.actividad_id);
+
+    function filaVoluntario(nombre, id) {
+      const fila = document.createElement('div');
+      fila.className = 'miembro-row';
+      fila.innerHTML = `<span>${nombre}</span>`;
       const quitarBtn = document.createElement('button');
       quitarBtn.className = 'btn-danger-link';
-      quitarBtn.textContent = 'Quitar voluntariado';
+      quitarBtn.textContent = 'Quitar';
       quitarBtn.addEventListener('click', async () => {
-        await sb.from('evento_inscripciones').delete().eq('id', yaVoluntario.id);
+        await sb.from('evento_inscripciones').delete().eq('id', id);
         card.replaceWith(await renderEvento(evento));
       });
-      vBlock.appendChild(quitarBtn);
-    } else {
+      fila.appendChild(quitarBtn);
+      return fila;
+    }
+
+    voluntariosAdulto.forEach(v => {
+      const a = misAdultos.find(x => x.id === v.adulto_id);
+      vBlock.appendChild(filaVoluntario(a ? a.nombre + ' ' + a.apellidos : '', v.id));
+    });
+    voluntariosAlumno.forEach(v => {
+      const a = misAlumnos.find(x => x.id === v.alumno_id);
+      vBlock.appendChild(filaVoluntario((a ? a.nombre + ' ' + a.apellidos : '') + ' (acompañando)', v.id));
+    });
+
+    const adultosDisponibles = misAdultos.filter(a => !voluntariosAdulto.some(v => v.adulto_id === a.id));
+    if (adultosDisponibles.length > 0) {
       const select = document.createElement('select');
-      select.innerHTML = misAdultos.map(a => `<option value="${a.id}">${a.nombre} ${a.apellidos}</option>`).join('');
+      select.innerHTML = adultosDisponibles.map(a => `<option value="${a.id}">${a.nombre} ${a.apellidos}</option>`).join('');
       const btn = document.createElement('button');
       btn.className = 'btn btn-outline';
-      btn.textContent = 'Quiero ser voluntario/a';
       btn.style.marginLeft = '8px';
+      btn.textContent = 'Quiero ser voluntario/a';
       btn.addEventListener('click', async () => {
         const { error } = await sb.from('evento_inscripciones').insert({
           evento_id: evento.id, tipo_miembro: 'adulto', adulto_id: select.value,
@@ -250,9 +585,37 @@ async function renderEvento(evento) {
         if (error) { alert('No se pudo registrar: ' + error.message); return; }
         card.replaceWith(await renderEvento(evento));
       });
+      vBlock.appendChild(document.createElement('br'));
       vBlock.appendChild(select);
       vBlock.appendChild(btn);
     }
+
+    if (voluntariosAdulto.length > 0) {
+      const alumnosDisponibles = misAlumnos.filter(a => !voluntariosAlumno.some(v => v.alumno_id === a.id));
+      if (alumnosDisponibles.length > 0) {
+        const nota = document.createElement('p');
+        nota.style.cssText = 'font-size:12.5px; color:var(--ink-soft); margin:10px 0 4px;';
+        nota.textContent = 'Un alumno/a solo puede colaborar acompañado de un adulto de la familia:';
+        const selectAl = document.createElement('select');
+        selectAl.innerHTML = alumnosDisponibles.map(a => `<option value="${a.id}">${a.nombre} ${a.apellidos}</option>`).join('');
+        const btnAl = document.createElement('button');
+        btnAl.className = 'btn btn-outline';
+        btnAl.style.marginLeft = '8px';
+        btnAl.textContent = 'Apuntar como voluntario/a';
+        btnAl.addEventListener('click', async () => {
+          const { error } = await sb.from('evento_inscripciones').insert({
+            evento_id: evento.id, tipo_miembro: 'alumno', alumno_id: selectAl.value,
+            socio_id: ctxGlobal.socio.id, es_voluntario: true
+          });
+          if (error) { alert('No se pudo registrar: ' + error.message); return; }
+          card.replaceWith(await renderEvento(evento));
+        });
+        vBlock.appendChild(nota);
+        vBlock.appendChild(selectAl);
+        vBlock.appendChild(btnAl);
+      }
+    }
+
     card.appendChild(vBlock);
   }
 
@@ -271,45 +634,127 @@ async function renderEvento(evento) {
       iBlock.appendChild(p);
     });
 
-    const nombreInput = document.createElement('input');
-    nombreInput.type = 'text'; nombreInput.placeholder = 'Nombre del invitado/a';
-    nombreInput.style.marginBottom = '8px';
-    const fileInput = document.createElement('input');
-    fileInput.type = 'file'; fileInput.accept = 'image/*,.pdf';
-    fileInput.style.marginBottom = '8px'; fileInput.style.display = 'block';
-    const btnInvitar = document.createElement('button');
-    btnInvitar.className = 'btn btn-primary';
-    btnInvitar.textContent = 'Añadir invitado';
-    const msgInv = document.createElement('p');
+    if (gate.abierta) {
+      const nombreInput = document.createElement('input');
+      nombreInput.type = 'text'; nombreInput.placeholder = 'Nombre del invitado/a';
+      nombreInput.style.marginBottom = '8px';
+      const fileInput = document.createElement('input');
+      fileInput.type = 'file'; fileInput.accept = 'image/*,.pdf';
+      fileInput.style.marginBottom = '8px'; fileInput.style.display = 'block';
+      const btnInvitar = document.createElement('button');
+      btnInvitar.className = 'btn btn-primary';
+      btnInvitar.textContent = 'Añadir invitado';
+      const msgInv = document.createElement('p');
 
-    btnInvitar.addEventListener('click', async () => {
-      const nombre = nombreInput.value.trim();
-      const file = fileInput.files[0];
-      if (!nombre || !file) { msgInv.className = 'msg-error'; msgInv.textContent = 'Pon el nombre y sube el comprobante.'; return; }
+      btnInvitar.addEventListener('click', async () => {
+        const nombre = nombreInput.value.trim();
+        const file = fileInput.files[0];
+        if (!nombre || !file) { msgInv.className = 'msg-error'; msgInv.textContent = 'Pon el nombre y sube el comprobante.'; return; }
 
-      const { data: inscripcion, error } = await sb.from('evento_inscripciones').insert({
-        evento_id: evento.id, tipo_miembro: 'invitado', nombre_invitado: nombre, socio_id: ctxGlobal.socio.id
-      }).select('id').single();
-      if (error) { msgInv.className = 'msg-error'; msgInv.textContent = error.message; return; }
+        const { data: inscripcion, error } = await sb.from('evento_inscripciones').insert({
+          evento_id: evento.id, tipo_miembro: 'invitado', nombre_invitado: nombre, socio_id: ctxGlobal.socio.id
+        }).select('id').single();
+        if (error) { msgInv.className = 'msg-error'; msgInv.textContent = error.message; return; }
 
-      const path = `${ctxGlobal.socio.id}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_')}`;
-      await sb.storage.from('comprobantes').upload(path, file);
-      await sb.from('comprobantes_pago').insert({
-        tipo: 'invitado_evento', evento_inscripcion_id: inscripcion.id, archivo_url: path
+        const path = `${ctxGlobal.socio.id}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_')}`;
+        await sb.storage.from('comprobantes').upload(path, file);
+        await sb.from('comprobantes_pago').insert({
+          tipo: 'invitado_evento', evento_inscripcion_id: inscripcion.id, archivo_url: path
+        });
+
+        card.replaceWith(await renderEvento(evento));
       });
 
-      card.replaceWith(await renderEvento(evento));
-    });
-
-    iBlock.appendChild(document.createElement('br'));
-    iBlock.appendChild(nombreInput);
-    iBlock.appendChild(fileInput);
-    iBlock.appendChild(btnInvitar);
-    iBlock.appendChild(msgInv);
+      iBlock.appendChild(document.createElement('br'));
+      iBlock.appendChild(nombreInput);
+      iBlock.appendChild(fileInput);
+      iBlock.appendChild(btnInvitar);
+      iBlock.appendChild(msgInv);
+    }
     card.appendChild(iBlock);
   }
 
+  // Documentos a rellenar y firmar (autorizaciones, etc.)
+  const { data: documentos } = await sb.from('documentos_evento').select('*').eq('evento_id', evento.id);
+  if (documentos && documentos.length > 0) {
+    const { data: misRespuestas } = await sb.from('documentos_evento_respuestas').select('*').eq('socio_id', ctxGlobal.socio.id);
+
+    for (const doc of documentos) {
+      const elegiblesDoc = doc.aplica_a === 'adulto'
+        ? misAdultos
+        : misAlumnos.filter(a => cumpleElegibilidad(a, doc.elegibilidad_modo, doc.cursos_permitidos, doc.edad_min, doc.edad_max));
+      if (elegiblesDoc.length === 0) continue;
+
+      const docBlock = document.createElement('div');
+      docBlock.className = 'voluntariado-block';
+      docBlock.innerHTML = `<p class="section-label" style="margin:0 0 8px;">${doc.titulo}</p>`;
+
+      elegiblesDoc.forEach(persona => {
+        const yaRespondido = (misRespuestas || []).find(r =>
+          r.documento_evento_id === doc.id &&
+          (doc.aplica_a === 'adulto' ? r.adulto_id === persona.id : r.alumno_id === persona.id)
+        );
+
+        const fila = document.createElement('div');
+        fila.className = 'miembro-row';
+        const nombre = document.createElement('span');
+        nombre.textContent = persona.nombre + ' ' + persona.apellidos;
+        fila.appendChild(nombre);
+
+        if (yaRespondido) {
+          const tag = document.createElement('span');
+          tag.className = 'msg-ok';
+          tag.style.margin = '0';
+          tag.textContent = 'Completado ✓' + (yaRespondido.aviso_diferencias ? ' (con datos editados)' : '');
+          fila.appendChild(tag);
+        } else {
+          const btn = document.createElement('button');
+          btn.className = 'btn btn-outline';
+          btn.textContent = 'Rellenar y firmar';
+          btn.addEventListener('click', () => abrirRellenoDocumento(doc, persona, docBlock));
+          fila.appendChild(btn);
+        }
+        docBlock.appendChild(fila);
+      });
+
+      const zonaRelleno = document.createElement('div');
+      zonaRelleno.className = 'docRellenoZona';
+      zonaRelleno.style.marginTop = '12px';
+      docBlock.appendChild(zonaRelleno);
+
+      card.appendChild(docBlock);
+    }
+  }
+
   return card;
+}
+
+async function abrirRellenoDocumento(doc, persona, docBlock) {
+  const zona = docBlock.querySelector('.docRellenoZona');
+  zona.innerHTML = '<p class="loading">Cargando documento...</p>';
+  try {
+    const { dataUrl } = await renderizarPaginaPDF(doc.archivo_base_url, doc.pagina_rellenable);
+    abrirFormularioRelleno(zona, dataUrl, doc.campos || [], persona, async (blob, datosFinales, avisoDiferencias) => {
+      const path = `${ctxGlobal.socio.id}/${doc.id}/${Date.now()}.png`;
+      const { error: upErr } = await sb.storage.from('documentos-evento').upload(path, blob);
+      if (upErr) { alert('Error al subir el documento: ' + upErr.message); return; }
+      const { data: urlData } = sb.storage.from('documentos-evento').getPublicUrl(path);
+
+      const payload = {
+        documento_evento_id: doc.id, socio_id: ctxGlobal.socio.id,
+        archivo_final_url: urlData.publicUrl, datos_finales: datosFinales, aviso_diferencias: avisoDiferencias
+      };
+      if (doc.aplica_a === 'adulto') payload.adulto_id = persona.id; else payload.alumno_id = persona.id;
+
+      const { error: insErr } = await sb.from('documentos_evento_respuestas').insert(payload);
+      if (insErr) { alert('Error al guardar: ' + insErr.message); return; }
+
+      zona.innerHTML = '<p class="msg-ok">Documento guardado y firmado ✓</p>';
+      setTimeout(() => cargarEventos(), 800);
+    });
+  } catch (err) {
+    zona.innerHTML = '<p class="msg-error">No se pudo cargar el documento: ' + err.message + '</p>';
+  }
 }
 
 (async () => {

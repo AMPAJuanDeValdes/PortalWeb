@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Inicio · AMPA Juan de Valdés</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="shared/styles.css">
 <style>
   .grid{ display:grid; grid-template-columns:1fr 1fr; gap:16px; }
@@ -15,7 +15,7 @@
   .tile p{ color:var(--ink-soft); font-size:13.5px; margin:0; }
   .evento-mini{ padding:10px 0; border-bottom:1px solid var(--line); font-size:14px; }
   .evento-mini:last-child{ border-bottom:none; }
-  .evento-mini .f{ font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--ink-soft); }
+  .evento-mini .f{ font-family:'Inter', sans-serif; font-size:12px; color:var(--ink-soft); }
 </style>
 </head>
 <body>
@@ -24,20 +24,63 @@
   <h1 id="saludo">Hola</h1>
   <p class="lede">Desde aquí puedes gestionar los datos de tu familia, el préstamo de libros y apuntarte a los eventos del AMPA.</p>
 
+  <div class="card">
+    <p class="section-label">Mochila Jugona Exploradora</p>
+    <div id="mochilaWrap"><p class="loading">Cargando...</p></div>
+  </div>
+
   <div class="grid">
     <a class="tile" href="mis-datos.html">
-      <h2>👪 Mis datos</h2>
+      <h2>Mis datos</h2>
       <p>Adultos, alumnos, forma de pago y domiciliación.</p>
     </a>
     <a class="tile" href="eventos.html">
-      <h2>🎉 Eventos</h2>
+      <h2>Eventos</h2>
       <p>Consulta y apúntate a los próximos eventos del AMPA.</p>
+    </a>
+    <a class="tile" href="prestamo.html">
+      <h2>Préstamo de libros</h2>
+      <p>Pide libros de lectura y consulta los que tenéis prestados.</p>
+    </a>
+    <a class="tile" href="uniformes.html">
+      <h2>Uniformes</h2>
+      <p>Reclama prendas de uniforme para tus hijos/as.</p>
+    </a>
+    <a class="tile" href="encuestas.html">
+      <h2>Encuestas</h2>
+      <p>Consulta y responde a las encuestas abiertas del AMPA.</p>
     </a>
   </div>
 
   <div class="card" style="margin-top:20px;">
     <p class="section-label">Próximos eventos</p>
     <div id="proximosWrap"><p class="loading">Cargando...</p></div>
+  </div>
+
+  <div id="adminSection" style="display:none;">
+    <p class="section-label" style="margin-top:28px;">Administración</p>
+    <div class="grid">
+      <a class="tile" href="admin-socios.html"><h2>Socios <span id="tileSolicitudes" class="estado-badge estado-baja" style="display:none;"></span></h2><p>Lista completa, edición, altas y reactivaciones pendientes.</p></a>
+      <a class="tile" href="admin-importar.html"><h2>Alta de socios</h2><p>CSV o manual.</p></a>
+      <a class="tile" href="admin-comprobantes.html"><h2>Comprobantes de invitados</h2><p>Pagos de invitados a eventos.</p></a>
+      <a class="tile" href="admin-eventos.html"><h2>Eventos</h2><p>Crear, sortear y gestionar eventos.</p></a>
+      <a class="tile" href="admin-libros.html"><h2>Préstamo de libros</h2><p>Catálogo, ejemplares y reparto.</p></a>
+      <a class="tile" href="admin-uniformes.html"><h2>Uniformes</h2><p>Catálogo y reparto.</p></a>
+      <a class="tile" href="admin-encuestas.html"><h2>Encuestas</h2><p>Crear y ver resultados.</p></a>
+      <a class="tile" href="admin-carrusel.html"><h2>Carrusel de portada</h2><p>Fotos de la web pública.</p></a>
+      <a class="tile" href="admin-documentos.html"><h2>Documentos</h2><p>Newsletters y archivos.</p></a>
+      <a class="tile" href="admin-email.html"><h2>Enviar email</h2><p>Comunicaciones masivas.</p></a>
+      <a class="tile" href="admin-respuestas.html"><h2>Respuestas</h2><p>Listados exportables.</p></a>
+      <a class="tile" href="admin-sepa.html"><h2>Domiciliación SEPA</h2><p>Plantilla del mandato y mandatos firmados.</p></a>
+    </div>
+  </div>
+
+  <div class="card">
+    <p class="section-label">¿Algo que decirle al AMPA?</p>
+    <p style="font-size:13px; color:var(--ink-soft); margin-top:-8px;">Te contestaremos por email.</p>
+    <textarea id="comentarioTexto" rows="3" placeholder="Escribe aquí tu comentario o duda..."></textarea>
+    <button type="button" class="btn btn-primary" id="comentarioBtn" style="margin-top:12px;">Enviar</button>
+    <p id="comentarioMsg" style="display:none; margin-top:10px;"></p>
   </div>
 
   <footer class="note"><b>AMPA Colegio Juan de Valdés</b></footer>
@@ -47,31 +90,147 @@
 <script src="shared/supabaseClient.js"></script>
 <script src="shared/nav.js"></script>
 <script>
-  (async () => {
-    const ctx = await requireAuth();
-    if (!ctx) return;
-    renderNav('dashboard', ctx);
-    document.getElementById('saludo').textContent = 'Hola, ' + ctx.adulto.nombre + ' 👋';
+let ctxGlobal = null;
 
-    const { data: eventos } = await sb
-      .from('eventos')
-      .select('*')
-      .eq('activo', true)
-      .order('fecha', { ascending: true })
-      .limit(5);
+/* ---------------- Mochila Jugona Exploradora ---------------- */
 
-    const wrap = document.getElementById('proximosWrap');
-    if (!eventos || eventos.length === 0) {
-      wrap.innerHTML = '<p class="empty-hint">No hay eventos próximos.</p>';
-      return;
-    }
-    wrap.innerHTML = eventos.map(ev => `
-      <div class="evento-mini">
-        <div class="f">${ev.fecha ? new Date(ev.fecha).toLocaleDateString('es-ES', { dateStyle: 'long' }) : 'Fecha por confirmar'}</div>
-        <div>${ev.titulo}</div>
-      </div>
-    `).join('');
-  })();
+async function cargarMochila() {
+  const wrap = document.getElementById('mochilaWrap');
+  const { data: propia, error } = await sb
+    .from('mochila_cola')
+    .select('posicion, fecha_devolucion_prevista, notificado_en')
+    .eq('socio_id', ctxGlobal.socio.id)
+    .maybeSingle();
+
+  if (error) { wrap.innerHTML = '<p class="msg-error">No se pudo cargar.</p>'; return; }
+
+  if (!propia) {
+    const { data: total } = await sb.rpc('mochila_cola_length');
+    wrap.innerHTML = `
+      <p style="font-size:14.5px;">Hay <b>${total ?? 0}</b> familia(s) apuntadas en la lista.</p>
+      <button type="button" class="btn btn-primary" id="mochilaApuntarseBtn" style="margin-top:8px;">Apuntarme a la Mochila</button>
+      <p id="mochilaMsg" style="display:none; margin-top:10px;"></p>
+    `;
+    document.getElementById('mochilaApuntarseBtn').addEventListener('click', mochilaApuntarse);
+    return;
+  }
+
+  if (propia.posicion === 0) {
+    const fecha = propia.fecha_devolucion_prevista
+      ? new Date(propia.fecha_devolucion_prevista).toLocaleDateString('es-ES', { dateStyle: 'long' })
+      : 'próximamente';
+    wrap.innerHTML = `<p style="font-size:14.5px;">🎒 Tienes la Mochila Jugona Exploradora. Debes devolverla el <b>${fecha}</b>.</p>`;
+    return;
+  }
+
+  let avisoHtml = '';
+  if (propia.posicion === 1 && propia.notificado_en) {
+    const horas = Math.max(0, Math.floor((Date.now() - new Date(propia.notificado_en).getTime()) / 3600000));
+    avisoHtml = `<p style="font-size:13px; color:var(--ink-soft); margin-top:6px;">Te avisamos hace ${horas} h. Tienes 24 h para confirmarnos si la quieres esta semana.</p>`;
+  }
+
+  wrap.innerHTML = `
+    <p style="font-size:14.5px;">Estás en la posición <b>${propia.posicion}</b> de la lista.</p>
+    ${avisoHtml}
+    <div style="display:flex; gap:14px; flex-wrap:wrap; align-items:center; margin-top:12px;">
+      <button type="button" class="btn btn-outline" id="mochilaPosponerBtn">Prefiero esperar una semana más</button>
+      <button type="button" class="btn-danger-link" id="mochilaDesapuntarseBtn">Desapuntarme de la Mochila</button>
+    </div>
+    <p id="mochilaMsg" style="display:none; margin-top:10px;"></p>
+  `;
+  document.getElementById('mochilaPosponerBtn').addEventListener('click', () => mochilaAccion('mochila-posponer'));
+  document.getElementById('mochilaDesapuntarseBtn').addEventListener('click', () => mochilaAccion('mochila-desapuntarse'));
+}
+
+async function mochilaApuntarse() {
+  await mochilaLlamar('mochila-apuntarse');
+}
+
+async function mochilaAccion(endpoint) {
+  await mochilaLlamar(endpoint);
+}
+
+async function mochilaLlamar(endpoint) {
+  const msg = document.getElementById('mochilaMsg');
+  const session = await getSession();
+  try {
+    const resp = await fetch('/.netlify/functions/' + endpoint, {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + session.access_token, 'x-supabase-anon-key': SUPABASE_ANON_KEY }
+    });
+    let data = {};
+    try { data = await resp.json(); } catch (e) { /* respuesta no JSON (error del servidor) */ }
+    if (!resp.ok) throw new Error(data.error || 'No se pudo completar la acción (error ' + resp.status + '). Inténtalo de nuevo en unos minutos.');
+    await cargarMochila();
+  } catch (err) {
+    if (msg) { msg.style.display = 'block'; msg.className = 'msg-error'; msg.textContent = err.message; }
+    else alert(err.message);
+  }
+}
+
+document.getElementById('comentarioBtn').addEventListener('click', async () => {
+  const texto = document.getElementById('comentarioTexto');
+  const msg = document.getElementById('comentarioMsg');
+  const mensaje = texto.value.trim();
+  if (!mensaje) {
+    msg.style.display = 'block'; msg.className = 'msg-error'; msg.textContent = 'Escribe algo antes de enviar.';
+    return;
+  }
+  const session = await getSession();
+  try {
+    const resp = await fetch('/.netlify/functions/comentario-socio', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
+      body: JSON.stringify({ mensaje })
+    });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.error || 'No se pudo enviar');
+    msg.style.display = 'block'; msg.className = 'msg-ok'; msg.textContent = 'Enviado ✓';
+    texto.value = '';
+  } catch (err) {
+    msg.style.display = 'block'; msg.className = 'msg-error'; msg.textContent = err.message;
+  }
+});
+
+/* ---------------- Resto del inicio ---------------- */
+
+(async () => {
+  const ctx = await requireAuth();
+  if (!ctx) return;
+  ctxGlobal = ctx;
+  renderNav('dashboard', ctx);
+  document.getElementById('saludo').textContent = 'Hola, ' + ctx.adulto.nombre;
+  if (ctx.adulto.role === 'admin') {
+    document.getElementById('adminSection').style.display = 'block';
+    // Aviso de solicitudes de alta / reactivación pendientes
+    sb.from('socios').select('estado, reactivacion_solicitada_en').neq('estado', 'activa').then(({ data }) => {
+      const n = (data || []).filter(x => x.estado === 'recien_creada' || x.reactivacion_solicitada_en).length;
+      const el = document.getElementById('tileSolicitudes');
+      if (n) { el.textContent = n + ' pendiente' + (n > 1 ? 's' : ''); el.style.display = 'inline-block'; }
+    });
+  }
+
+  await cargarMochila();
+
+  const { data: eventos } = await sb
+    .from('eventos')
+    .select('*')
+    .eq('activo', true)
+    .order('fecha', { ascending: true })
+    .limit(5);
+
+  const wrap = document.getElementById('proximosWrap');
+  if (!eventos || eventos.length === 0) {
+    wrap.innerHTML = '<p class="empty-hint">No hay eventos próximos.</p>';
+    return;
+  }
+  wrap.innerHTML = eventos.map(ev => `
+    <div class="evento-mini">
+      <div class="f">${ev.fecha ? new Date(ev.fecha).toLocaleDateString('es-ES', { dateStyle: 'long' }) : 'Fecha por confirmar'}</div>
+      <div>${ev.titulo}</div>
+    </div>
+  `).join('');
+})();
 </script>
 </body>
 </html>

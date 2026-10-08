@@ -5,12 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Alta de socios · Admin AMPA</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="shared/styles.css">
 <style>
   .two-col{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
   @media (max-width:560px){ .two-col{ grid-template-columns:1fr; } }
-  code{ background:#F0F6FC; padding:1px 6px; border-radius:3px; font-size:12px; }
+  code{ background:#F5F3EC; padding:1px 6px; border-radius:3px; font-size:12px; }
   .cols-hint{ font-size:12.5px; color:var(--ink-soft); line-height:1.7; }
 </style>
 </head>
@@ -26,7 +26,8 @@
       Obligatorias: <code>anio_ultima_cuota, adulto1_nombre, adulto1_apellidos, adulto1_dni_nie, adulto1_email, adulto1_direccion, adulto1_ciudad, adulto1_provincia, adulto1_codigo_postal</code><br>
       Opcionales de cuenta: <code>numero_secuencial</code> (si se deja vacío, se autogenera), <code>forma_pago, iban</code><br>
       Segundo adulto (opcional): mismas columnas con prefijo <code>adulto2_</code><br>
-      Alumnos (opcional, hasta 6): <code>alumno1_nombre, alumno1_apellidos, alumno1_etapa, alumno1_curso, alumno1_aula, alumno1_fecha_nacimiento, alumno1_sexo</code>, luego <code>alumno2_...</code>, etc.
+      Alumnos (opcional, hasta 6): <code>alumno1_nombre, alumno1_apellidos, alumno1_etapa, alumno1_curso, alumno1_aula, alumno1_fecha_nacimiento, alumno1_sexo</code>, luego <code>alumno2_...</code>, etc.<br>
+      Un alumno se crea con solo <b>nombre, apellidos y etapa</b> (el resto es opcional). Fecha de nacimiento en formato <code>AAAA-MM-DD</code> o <code>DD/MM/AAAA</code>.
     </p>
     <input type="file" id="csvFile" accept=".csv" style="margin-top:14px;">
     <div style="margin-top:16px;"><button type="button" class="btn btn-primary" id="importBtn" disabled>Importar socios</button></div>
@@ -78,6 +79,7 @@
 <script src="shared/nav.js"></script>
 <script src="shared/catalogo.js"></script>
 <script src="shared/csv.js"></script>
+<script src="shared/datos-ampa.js"></script>
 <script>
 function campoTexto(id, label, tipo) {
   tipo = tipo || 'text';
@@ -94,7 +96,7 @@ function renderAdultoForm(prefijo) {
     '<div class="two-col" style="margin-top:14px;">' + campoTexto(prefijo + 'Provincia', 'Provincia *') + campoTexto(prefijo + 'Cp', 'Código postal *') + '</div>' +
     '<div class="two-col" style="margin-top:14px;"><div class="field"><label>Sexo</label><select id="' + prefijo + 'Sexo"><option value="">Sin especificar</option><option>Masculino</option><option>Femenino</option><option>Otro</option></select></div>' +
       campoTexto(prefijo + 'TelefonoFijo', 'Teléfono fijo') + '</div>' +
-    '<div class="two-col" style="margin-top:14px;">' + campoTexto(prefijo + 'Movil', 'Móvil') + campoTexto(prefijo + 'Relacion', 'Relación con alumnos') + '</div>'
+    '<div class="two-col" style="margin-top:14px;">' + campoTexto(prefijo + 'Movil', 'Móvil *') + campoTexto(prefijo + 'Relacion', 'Relación con alumnos') + '</div>'
   );
 }
 document.getElementById('adulto1Wrap').innerHTML = renderAdultoForm('a1');
@@ -116,12 +118,16 @@ function renderAlumnos() {
       '<button class="btn-danger-link" data-id="' + al.id + '">Quitar</button></div>';
     const body = document.createElement('div'); body.className = 'hijo-body';
     body.innerHTML =
-      '<div class="two-col">' + campoTexto('al_nombre_' + al.id, 'Nombre') + campoTexto('al_apellidos_' + al.id, 'Apellidos') + '</div>' +
+      '<div class="two-col">' + campoTexto('al_nombre_' + al.id, 'Nombre *') + campoTexto('al_apellidos_' + al.id, 'Apellidos *') + '</div>' +
       '<div class="two-col" style="margin-top:14px;">' +
-      '<div class="field"><label>Etapa</label><select id="al_etapa_' + al.id + '"><option value="">Selecciona...</option>' +
+      '<div class="field"><label>Etapa *</label><select id="al_etapa_' + al.id + '"><option value="">Selecciona...</option>' +
       Object.keys(CURSOS_POR_ETAPA).map(e => '<option>' + e + '</option>').join('') + '</select></div>' +
-      '<div class="field"><label>Curso</label><select id="al_curso_' + al.id + '"><option value="">Elige etapa antes</option></select></div>' +
-      '</div>';
+      '<div class="field"><label>Curso</label><select id="al_curso_' + al.id + '"><option value="">Sin especificar</option></select></div>' +
+      '</div>' +
+      '<div class="two-col" style="margin-top:14px;">' + campoTexto('al_fecha_' + al.id, 'Fecha de nacimiento', 'date') +
+      '<div class="field"><label>Sexo</label><select id="al_sexo_' + al.id + '"><option value="">Sin especificar</option><option>Masculino</option><option>Femenino</option><option>Otro</option></select></div>' +
+      '</div>' +
+      '<div class="field" style="margin-top:14px; max-width:160px;"><label>Aula</label><select id="al_aula_' + al.id + '"><option value="">Sin especificar</option><option>A</option><option>B</option><option>C</option><option>D</option></select></div>';
     div.appendChild(body);
     wrap.appendChild(div);
     div.querySelector('.btn-danger-link').addEventListener('click', () => {
@@ -130,7 +136,7 @@ function renderAlumnos() {
     document.getElementById('al_etapa_' + al.id).addEventListener('change', (e) => {
       const cursoSelect = document.getElementById('al_curso_' + al.id);
       const opciones = CURSOS_POR_ETAPA[e.target.value] || [];
-      cursoSelect.innerHTML = opciones.map(c => '<option>' + c + '</option>').join('');
+      cursoSelect.innerHTML = '<option value="">Sin especificar</option>' + opciones.map(c => '<option>' + c + '</option>').join('');
     });
   });
 }
@@ -173,7 +179,7 @@ function mostrarResultados(resultados) {
       '<td>' + r.nombre_titular + '</td>' +
       '<td>' + (r.numero_secuencial || '') + '</td>' +
       '<td>' + (r.ok
-        ? '<span class="badge badge-socio">Creado</span> (' + r.alumnos_creados + ' alumno/s, email a ' + r.emails + ')'
+        ? '<span class="badge badge-socio">Creado</span> (' + r.alumnos_creados + ' alumno/s, email a ' + r.emails + ')' + (r.aviso ? '<br><small>' + r.aviso + '</small>' : '')
         : '<span class="msg-error" style="margin:0;">' + r.error + '</span>') + '</td>' +
     '</tr>').join('') +
   '</tbody></table>';
@@ -194,18 +200,50 @@ document.getElementById('csvFile').addEventListener('change', (e) => {
   reader.readAsText(file, 'UTF-8');
 });
 
+// Se manda en lotes pequeños (no las filas de golpe): cada fila puede
+// implicar hasta 2 altas de usuario + 2 emails por SMTP, y una función
+// de Netlify se corta sola a los ~10 segundos. Con lotes grandes, a
+// partir de la fila ~10 la función moría a mitad de proceso sin avisar
+// bien — los socios de esas primeras filas sí quedaban creados (no hay
+// nada que deshacer), pero el resto de filas nunca se procesaban.
+const TAMANO_LOTE_IMPORT = 2;
+
 document.getElementById('importBtn').addEventListener('click', async () => {
   const btn = document.getElementById('importBtn');
-  btn.disabled = true; btn.textContent = 'Importando...';
-  try {
-    const resultados = await llamarFuncionAlta(window._filasCsv);
-    mostrarResultados(resultados);
-    document.getElementById('statusMsg').style.display = 'block';
-    document.getElementById('statusMsg').textContent = 'Importación completada.';
-  } catch (err) {
-    document.getElementById('errorMsg').style.display = 'block';
-    document.getElementById('errorMsg').textContent = err.message;
+  const errorMsg = document.getElementById('errorMsg');
+  const statusMsg = document.getElementById('statusMsg');
+  errorMsg.style.display = 'none';
+  btn.disabled = true;
+
+  const filas = window._filasCsv || [];
+  const resultadosTotales = [];
+  mostrarResultados(resultadosTotales);
+
+  for (let i = 0; i < filas.length; i += TAMANO_LOTE_IMPORT) {
+    const lote = filas.slice(i, i + TAMANO_LOTE_IMPORT);
+    btn.textContent = `Importando... ${Math.min(i + TAMANO_LOTE_IMPORT, filas.length)}/${filas.length}`;
+    try {
+      const resultadosLote = await llamarFuncionAlta(lote);
+      resultadosTotales.push(...resultadosLote);
+    } catch (err) {
+      // Todo el lote falló (timeout, red...). Lo marcamos y seguimos
+      // con el siguiente lote en vez de abortar el resto de la importación.
+      lote.forEach(fila => resultadosTotales.push({
+        ok: false,
+        error: 'No se pudo completar este lote: ' + err.message,
+        nombre_titular: (fila.adulto1_nombre || '') + ' ' + (fila.adulto1_apellidos || '')
+      }));
+    }
+    mostrarResultados(resultadosTotales);
   }
+
+  const fallidos = resultadosTotales.filter(r => !r.ok).length;
+  statusMsg.style.display = 'block';
+  statusMsg.className = fallidos ? 'msg-error' : 'msg-ok';
+  statusMsg.textContent = fallidos
+    ? `Importación terminada con ${fallidos} fila(s) fallida(s) de ${resultadosTotales.length}. Revisa la tabla — si el motivo es "ya existe", esa fila ya se había creado en un intento anterior y no hace falta repetirla.`
+    : `Importación completada: ${resultadosTotales.length} fila(s) ✓.`;
+
   btn.disabled = false; btn.textContent = 'Importar socios';
 });
 
@@ -213,9 +251,13 @@ document.getElementById('manualBtn').addEventListener('click', async () => {
   const btn = document.getElementById('manualBtn');
   const msg = document.getElementById('manualMsg');
   const adulto1 = leerAdultoDelForm('a1');
-  if (!adulto1 || !adulto1.email || !adulto1.dni_nie) {
+  const obligatorios = ['mAnio', ...['Nombre', 'Apellidos', 'Email', 'Dni', 'Direccion', 'Ciudad', 'Provincia', 'Cp', 'Movil'].map(c => 'a1' + c)];
+  if (document.getElementById('tieneAdulto2').checked) {
+    obligatorios.push(...['Nombre', 'Apellidos', 'Email', 'Dni', 'Direccion', 'Ciudad', 'Provincia', 'Cp'].map(c => 'a2' + c));
+  }
+  if (!marcarCamposVacios(obligatorios.map(id => document.getElementById(id)))) {
     msg.style.display = 'block'; msg.className = 'msg-error';
-    msg.textContent = 'Completa los datos obligatorios del adulto 1.';
+    msg.textContent = 'Completa los campos obligatorios marcados en rojo.';
     return;
   }
   const fila = {
@@ -243,13 +285,30 @@ document.getElementById('manualBtn').addEventListener('click', async () => {
       });
     }
   }
-  alumnosManual.forEach((al, idx) => {
-    const n = idx + 1;
-    fila['alumno' + n + '_nombre'] = document.getElementById('al_nombre_' + al.id) ? document.getElementById('al_nombre_' + al.id).value.trim() : '';
-    fila['alumno' + n + '_apellidos'] = document.getElementById('al_apellidos_' + al.id) ? document.getElementById('al_apellidos_' + al.id).value.trim() : '';
-    fila['alumno' + n + '_etapa'] = document.getElementById('al_etapa_' + al.id) ? document.getElementById('al_etapa_' + al.id).value : '';
-    fila['alumno' + n + '_curso'] = document.getElementById('al_curso_' + al.id) ? document.getElementById('al_curso_' + al.id).value : '';
+  // Alumno: basta con nombre, apellidos y etapa. Los que estén
+  // completamente vacíos se ignoran; los que estén a medias se marcan.
+  const v = (id) => (document.getElementById(id) ? document.getElementById(id).value.trim() : '');
+  let alumnoIncompleto = false;
+  let n = 0;
+  alumnosManual.forEach((al) => {
+    const ids = ['al_nombre_', 'al_apellidos_', 'al_etapa_'].map(p => p + al.id);
+    const algo = ['al_nombre_', 'al_apellidos_', 'al_etapa_', 'al_fecha_'].some(p => v(p + al.id));
+    if (!algo) return;
+    if (!marcarCamposVacios(ids.map(id => document.getElementById(id)))) { alumnoIncompleto = true; return; }
+    n++;
+    fila['alumno' + n + '_nombre'] = v('al_nombre_' + al.id);
+    fila['alumno' + n + '_apellidos'] = v('al_apellidos_' + al.id);
+    fila['alumno' + n + '_etapa'] = v('al_etapa_' + al.id);
+    fila['alumno' + n + '_curso'] = v('al_curso_' + al.id);
+    fila['alumno' + n + '_fecha_nacimiento'] = v('al_fecha_' + al.id);
+    fila['alumno' + n + '_sexo'] = v('al_sexo_' + al.id);
+    fila['alumno' + n + '_aula'] = v('al_aula_' + al.id);
   });
+  if (alumnoIncompleto) {
+    msg.style.display = 'block'; msg.className = 'msg-error';
+    msg.textContent = 'Cada alumno necesita al menos nombre, apellidos y etapa (marcados en rojo).';
+    return;
+  }
 
   btn.disabled = true; btn.textContent = 'Dando de alta...';
   try {
@@ -257,7 +316,7 @@ document.getElementById('manualBtn').addEventListener('click', async () => {
     const r = resultados[0];
     if (!r.ok) throw new Error(r.error);
     msg.style.display = 'block'; msg.className = 'msg-ok';
-    msg.textContent = 'Alta completada ✓ (Nº socio ' + r.numero_secuencial + '). Emails enviados a: ' + r.emails;
+    msg.textContent = 'Alta completada ✓ (Nº socio ' + r.numero_secuencial + ', ' + r.alumnos_creados + ' alumno/s). Emails enviados a: ' + r.emails + (r.aviso ? '. Aviso: ' + r.aviso : '');
   } catch (err) {
     msg.style.display = 'block'; msg.className = 'msg-error';
     msg.textContent = err.message;

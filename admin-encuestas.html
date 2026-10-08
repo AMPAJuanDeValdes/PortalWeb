@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Encuestas · Admin AMPA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared/styles.css">
+<style>
+  .tabs{ display:flex; gap:6px; margin-bottom:20px; flex-wrap:wrap; }
+  .tabs button{ font-family:'Inter', sans-serif; font-size:12.5px; text-transform:uppercase; padding:9px 14px; border-radius:var(--radius); border:1px solid var(--line); background:#fff; color:var(--ink-soft); cursor:pointer; }
+  .tabs button.active{ background:var(--navy); color:#fff; border-color:var(--navy); }
+  .panel{ display:none; } .panel.active{ display:block; }
+  .pregunta-staged{ border:1px solid var(--line); border-radius:var(--radius); padding:12px; margin-bottom:10px; font-size:13.5px; }
+  .encuesta-fila{ padding:14px 0; border-bottom:1px solid var(--line); }
+  .encuesta-fila:last-child{ border-bottom:none; }
+  .resultado-opcion{ display:flex; justify-content:space-between; padding:4px 0; font-size:13.5px; border-bottom:1px solid #F1EFE8; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">AMPA · Administración</div>
+  <h1>Encuestas</h1>
+  <p class="lede">Crea encuestas, revisa resultados y cruza respuestas entre preguntas.</p>
+
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="crear">Crear encuesta</button>
+    <button class="tab-btn" data-tab="lista">Encuestas y resultados</button>
+  </div>
+
+  <!-- ============ CREAR ============ -->
+  <div class="panel active" id="panel-crear">
+    <div class="card">
+      <p class="section-label">Datos generales</p>
+      <div class="field"><label>Título</label><input type="text" id="eTitulo"></div>
+      <div class="field" style="margin-top:14px;"><label>Descripción (opcional)</label><textarea id="eDescripcion" rows="2"></textarea></div>
+      <div class="two-col" style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:14px;">
+        <div class="field">
+          <label>Fecha de cierre (opcional)</label>
+          <input type="datetime-local" id="eFechaCierre">
+        </div>
+        <div class="field">
+          <label style="display:flex; align-items:center; gap:8px; margin-top:26px;">
+            <input type="checkbox" id="eAnonima" style="width:auto;"> Encuesta anónima
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <p class="section-label">Añadir pregunta</p>
+      <div class="field"><label>Texto de la pregunta</label><input type="text" id="pTexto"></div>
+      <div class="field" style="margin-top:14px; max-width:260px;">
+        <label>Tipo</label>
+        <select id="pTipo">
+          <option value="opcion_unica">Opción única (elegir 1)</option>
+          <option value="opcion_multiple">Opción múltiple (elegir varias)</option>
+          <option value="texto_libre">Texto libre</option>
+        </select>
+      </div>
+      <div class="field" id="pOpcionesWrap" style="margin-top:14px;">
+        <label>Opciones (una por línea)</label>
+        <textarea id="pOpciones" rows="4" placeholder="Sí&#10;No&#10;No sabe / no contesta"></textarea>
+      </div>
+      <button type="button" class="btn btn-outline" id="agregarPreguntaBtn" style="margin-top:14px;">+ Añadir pregunta a la encuesta</button>
+
+      <div id="preguntasStagedWrap" style="margin-top:18px;"></div>
+
+      <button type="button" class="btn btn-primary" id="crearEncuestaBtn" style="margin-top:18px;">Crear encuesta</button>
+      <p id="crearMsg" style="display:none; margin-top:14px;"></p>
+    </div>
+  </div>
+
+  <!-- ============ LISTA Y RESULTADOS ============ -->
+  <div class="panel" id="panel-lista">
+    <div class="card" id="listaWrap"><p class="loading">Cargando...</p></div>
+  </div>
+
+  <footer class="note"><b>AMPA Colegio Juan de Valdés</b> — panel de administración</footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="shared/supabaseClient.js"></script>
+<script src="shared/nav.js"></script>
+<script>
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
+    if (btn.dataset.tab === 'lista') cargarEncuestas();
+  });
+});
+
+/* ================= CREAR ================= */
+
+let preguntasStaged = []; // { texto, tipo, opciones: [texto,...] }
+
+document.getElementById('pTipo').addEventListener('change', () => {
+  document.getElementById('pOpcionesWrap').style.display =
+    document.getElementById('pTipo').value === 'texto_libre' ? 'none' : 'block';
+});
+
+document.getElementById('agregarPreguntaBtn').addEventListener('click', () => {
+  const texto = document.getElementById('pTexto').value.trim();
+  const tipo = document.getElementById('pTipo').value;
+  if (!texto) { alert('Escribe el texto de la pregunta.'); return; }
+
+  let opciones = [];
+  if (tipo !== 'texto_libre') {
+    opciones = document.getElementById('pOpciones').value.split('\n').map(s => s.trim()).filter(Boolean);
+    if (opciones.length < 2) { alert('Añade al menos 2 opciones.'); return; }
+  }
+
+  preguntasStaged.push({ texto, tipo, opciones });
+  document.getElementById('pTexto').value = '';
+  document.getElementById('pOpciones').value = '';
+  renderPreguntasStaged();
+});
+
+function renderPreguntasStaged() {
+  const wrap = document.getElementById('preguntasStagedWrap');
+  if (preguntasStaged.length === 0) { wrap.innerHTML = ''; return; }
+  wrap.innerHTML = preguntasStaged.map((p, i) => `
+    <div class="pregunta-staged">
+      <b>${i + 1}. ${p.texto}</b> — ${({opcion_unica:'opción única', opcion_multiple:'opción múltiple', texto_libre:'texto libre'})[p.tipo]}
+      ${p.opciones.length ? '<br><span style="color:var(--ink-soft);">' + p.opciones.join(' · ') + '</span>' : ''}
+      <br><button type="button" class="btn-danger-link quitarPreguntaBtn" data-i="${i}" style="margin-top:4px;">Quitar</button>
+    </div>
+  `).join('');
+  wrap.querySelectorAll('.quitarPreguntaBtn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      preguntasStaged.splice(parseInt(btn.dataset.i, 10), 1);
+      renderPreguntasStaged();
+    });
+  });
+}
+
+document.getElementById('crearEncuestaBtn').addEventListener('click', async () => {
+  const msg = document.getElementById('crearMsg');
+  const titulo = document.getElementById('eTitulo').value.trim();
+  if (!titulo) { msg.style.display = 'block'; msg.className = 'msg-error'; msg.textContent = 'Pon un título.'; return; }
+  if (preguntasStaged.length === 0) { msg.style.display = 'block'; msg.className = 'msg-error'; msg.textContent = 'Añade al menos una pregunta.'; return; }
+
+  const descripcion = document.getElementById('eDescripcion').value.trim() || null;
+  const fechaCierreValor = document.getElementById('eFechaCierre').value;
+  const anonima = document.getElementById('eAnonima').checked;
+
+  const { data: encuesta, error: encuestaError } = await sb.from('encuestas').insert({
+    titulo, descripcion, anonima,
+    fecha_cierre: fechaCierreValor ? new Date(fechaCierreValor).toISOString() : null
+  }).select('id').single();
+
+  if (encuestaError) {
+    msg.style.display = 'block'; msg.className = 'msg-error'; msg.textContent = 'Error: ' + encuestaError.message;
+    return;
+  }
+
+  for (let i = 0; i < preguntasStaged.length; i++) {
+    const p = preguntasStaged[i];
+    const { data: pregunta, error: pError } = await sb.from('encuesta_preguntas').insert({
+      encuesta_id: encuesta.id, texto: p.texto, tipo: p.tipo, orden: i
+    }).select('id').single();
+    if (pError) continue;
+
+    if (p.opciones.length) {
+      const filas = p.opciones.map((texto, orden) => ({ pregunta_id: pregunta.id, texto, orden }));
+      await sb.from('encuesta_opciones').insert(filas);
+    }
+  }
+
+  msg.style.display = 'block'; msg.className = 'msg-ok'; msg.textContent = 'Encuesta creada ✓';
+  document.getElementById('eTitulo').value = '';
+  document.getElementById('eDescripcion').value = '';
+  document.getElementById('eFechaCierre').value = '';
+  document.getElementById('eAnonima').checked = false;
+  preguntasStaged = [];
+  renderPreguntasStaged();
+});
+
+/* ================= LISTA Y RESULTADOS ================= */
+
+async function cargarEncuestas() {
+  const wrap = document.getElementById('listaWrap');
+  const { data: encuestas, error } = await sb.from('encuestas').select('*').order('created_at', { ascending: false });
+  if (error) { wrap.innerHTML = '<p class="msg-error">No se pudo cargar.</p>'; return; }
+  if (!encuestas || encuestas.length === 0) { wrap.innerHTML = '<p class="empty-hint">Todavía no has creado ninguna encuesta.</p>'; return; }
+
+  wrap.innerHTML = '';
+  for (const enc of encuestas) {
+    const { count: totalRespuestas } = await sb.from('encuesta_envios').select('id', { count: 'exact', head: true }).eq('encuesta_id', enc.id);
+
+    const div = document.createElement('div');
+    div.className = 'encuesta-fila';
+    const cerrada = enc.estado === 'cerrada' || (enc.fecha_cierre && new Date(enc.fecha_cierre) <= new Date());
+    div.innerHTML = `
+      <b>${enc.titulo}</b> ${enc.anonima ? '<span class="badge badge-socio">Anónima</span>' : ''}
+      — ${cerrada ? 'Cerrada' : 'Abierta'} — ${totalRespuestas || 0} respuesta(s)
+      <div style="margin-top:8px; display:flex; gap:10px; flex-wrap:wrap;">
+        ${enc.estado === 'abierta' ? '<button class="btn-danger-link cerrarBtn">Cerrar encuesta</button>' : ''}
+        <button class="btn btn-outline verBtn">Ver resultados</button>
+      </div>
+      <div class="resultadosWrap" style="display:none; margin-top:14px;"></div>
+    `;
+
+    const cerrarBtn = div.querySelector('.cerrarBtn');
+    if (cerrarBtn) {
+      cerrarBtn.addEventListener('click', async () => {
+        await sb.from('encuestas').update({ estado: 'cerrada' }).eq('id', enc.id);
+        cargarEncuestas();
+      });
+    }
+    div.querySelector('.verBtn').addEventListener('click', async () => {
+      const resWrap = div.querySelector('.resultadosWrap');
+      const visible = resWrap.style.display === 'block';
+      resWrap.style.display = visible ? 'none' : 'block';
+      if (!visible) await cargarResultados(enc.id, resWrap);
+    });
+
+    wrap.appendChild(div);
+  }
+}
+
+async function cargarResultados(encuestaId, wrap) {
+  wrap.innerHTML = '<p class="loading">Cargando resultados...</p>';
+  const { data: preguntas } = await sb.from('encuesta_preguntas').select('*').eq('encuesta_id', encuestaId).order('orden');
+  if (!preguntas || preguntas.length === 0) { wrap.innerHTML = '<p class="empty-hint">Esta encuesta no tiene preguntas.</p>'; return; }
+
+  let html = '';
+  for (const p of preguntas) {
+    html += `<p class="section-label" style="margin-top:16px;">${p.texto}</p>`;
+    if (p.tipo === 'texto_libre') {
+      const { data: respuestas } = await sb.from('encuesta_respuestas').select('texto_libre').eq('pregunta_id', p.id).not('texto_libre', 'is', null);
+      html += (respuestas || []).length === 0
+        ? '<p class="empty-hint">Sin respuestas todavía.</p>'
+        : (respuestas || []).map(r => `<div class="resultado-opcion">${r.texto_libre}</div>`).join('');
+    } else {
+      const { data: opciones } = await sb.from('encuesta_opciones').select('id, texto').eq('pregunta_id', p.id).order('orden');
+      const { data: respuestas } = await sb.from('encuesta_respuestas').select('opcion_id').eq('pregunta_id', p.id).not('opcion_id', 'is', null);
+      const conteo = {};
+      (respuestas || []).forEach(r => { conteo[r.opcion_id] = (conteo[r.opcion_id] || 0) + 1; });
+      html += (opciones || []).map(o => `<div class="resultado-opcion"><span>${o.texto}</span><b>${conteo[o.id] || 0}</b></div>`).join('');
+    }
+  }
+
+  // Consulta cruzada (solo preguntas de opción)
+  const preguntasOpcion = preguntas.filter(p => p.tipo !== 'texto_libre');
+  if (preguntasOpcion.length >= 2) {
+    html += `
+      <p class="section-label" style="margin-top:22px;">Consulta cruzada</p>
+      <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+        <select class="cruzarA">${preguntasOpcion.map(p => `<option value="${p.id}">${p.texto}</option>`).join('')}</select>
+        <span style="color:var(--ink-soft); font-size:13px;">vs.</span>
+        <select class="cruzarB">${preguntasOpcion.map((p, i) => `<option value="${p.id}" ${i === 1 ? 'selected' : ''}>${p.texto}</option>`).join('')}</select>
+        <button type="button" class="btn btn-outline cruzarBtn">Cruzar</button>
+      </div>
+      <div class="cruceResultado" style="margin-top:12px;"></div>
+    `;
+  }
+
+  wrap.innerHTML = html;
+
+  const cruzarBtn = wrap.querySelector('.cruzarBtn');
+  if (cruzarBtn) {
+    cruzarBtn.addEventListener('click', async () => {
+      const preguntaAId = wrap.querySelector('.cruzarA').value;
+      const preguntaBId = wrap.querySelector('.cruzarB').value;
+      await cruzarPreguntas(preguntaAId, preguntaBId, wrap.querySelector('.cruceResultado'));
+    });
+  }
+}
+
+async function cruzarPreguntas(preguntaAId, preguntaBId, wrap) {
+  wrap.innerHTML = '<p class="loading">Calculando...</p>';
+  if (preguntaAId === preguntaBId) { wrap.innerHTML = '<p class="msg-error">Elige dos preguntas distintas.</p>'; return; }
+
+  const { data: opcionesA } = await sb.from('encuesta_opciones').select('id, texto').eq('pregunta_id', preguntaAId).order('orden');
+  const { data: opcionesB } = await sb.from('encuesta_opciones').select('id, texto').eq('pregunta_id', preguntaBId).order('orden');
+  const { data: respA } = await sb.from('encuesta_respuestas').select('envio_id, opcion_id').eq('pregunta_id', preguntaAId).not('opcion_id', 'is', null);
+  const { data: respB } = await sb.from('encuesta_respuestas').select('envio_id, opcion_id').eq('pregunta_id', preguntaBId).not('opcion_id', 'is', null);
+
+  const bPorEnvio = {};
+  (respB || []).forEach(r => (bPorEnvio[r.envio_id] = bPorEnvio[r.envio_id] || []).push(r.opcion_id));
+
+  const conteo = {}; // `${opcionAId}|${opcionBId}` -> n
+  (respA || []).forEach(ra => {
+    (bPorEnvio[ra.envio_id] || []).forEach(opcionBId => {
+      const key = ra.opcion_id + '|' + opcionBId;
+      conteo[key] = (conteo[key] || 0) + 1;
+    });
+  });
+
+  let html = '<table><thead><tr><th></th>' + (opcionesB || []).map(b => `<th>${b.texto}</th>`).join('') + '</tr></thead><tbody>';
+  (opcionesA || []).forEach(a => {
+    html += `<tr><th>${a.texto}</th>` + (opcionesB || []).map(b => `<td>${conteo[a.id + '|' + b.id] || 0}</td>`).join('') + '</tr>';
+  });
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+}
+
+(async () => {
+  const ctx = await requireAdmin();
+  if (!ctx) return;
+  renderNav('admin-encuestas', ctx);
+  document.getElementById('pTipo').dispatchEvent(new Event('change'));
+})();
+</script>
+</body>
+</html>

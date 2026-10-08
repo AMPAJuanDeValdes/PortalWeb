@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reactivar mi cuenta · AMPA Juan de Valdés</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared/styles.css">
+<style>
+  .two-col{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:560px){ .two-col{ grid-template-columns:1fr; } }
+  .paso{ font-family:'Inter', sans-serif; font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--gold); margin-bottom:6px; }
+</style>
+</head>
+<body>
+<header class="pub-head">
+  <div class="brand-row">
+    <img class="logo-ampa" src="assets/logo-ampa.png" alt="AMPA">
+    <img class="logo-colegio" src="assets/logo-colegio.png" alt="Colegio Juan de Valdés">
+  </div>
+  <nav class="pub-links">
+    <a href="index.html">‹ Web del AMPA</a>
+    <a href="login.html">Acceso socios</a>
+    <a href="publico.html">Eventos</a>
+  </nav>
+</header>
+
+<div class="wrap">
+  <div class="eyebrow" style="margin-top:24px;">AMPA · Antiguos socios</div>
+  <h1>Reactivar mi cuenta</h1>
+  <p class="lede" id="intro">
+    Si ya fuiste socio/a y tu cuenta está dada de baja o pendiente de pago,
+    no hace falta que vuelvas a rellenar todos los datos: ya los tenemos.
+    Solo tienes que pagar la cuota y enviarnos el comprobante.
+  </p>
+
+  <div id="formWrap">
+    <div class="card">
+      <p class="paso">1 · Identifícate</p>
+      <p style="font-size:13.5px; color:var(--ink-soft); margin-top:-4px;">Con el email y el DNI/NIE de cualquiera de los adultos de la familia.</p>
+      <div class="two-col">
+        <div class="field"><label for="email">Email *</label><input type="email" id="email" autocomplete="username"></div>
+        <div class="field"><label for="dni">DNI / NIE / Pasaporte *</label><input type="text" id="dni"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <p class="paso">2 · Paga la cuota por transferencia</p>
+      <p style="font-size:14px; margin-top:-2px;">Haz la transferencia <b>antes</b> de enviar este formulario:</p>
+      <div id="datosPago"></div>
+    </div>
+
+    <div class="card">
+      <p class="paso">3 · Adjunta el comprobante</p>
+      <div class="field"><label for="comprobanteFile">Comprobante de la transferencia (imagen o PDF) *</label><input type="file" id="comprobanteFile" accept="image/*,.pdf"></div>
+    </div>
+
+    <button type="button" class="btn btn-primary btn-block" id="enviarBtn" style="margin:8px 0 12px;">Enviar solicitud de reactivación</button>
+    <div id="msg" style="display:none; margin-bottom:20px;"></div>
+  </div>
+
+  <div class="card" id="okCard" style="display:none;">
+    <p class="section-label">Solicitud enviada ✓</p>
+    <p style="font-size:14.5px;">Hemos recibido tu comprobante. En cuanto la Junta lo revise, tu cuenta volverá a estar activa y te avisaremos por email. Después podrás entrar con tu email y tu contraseña de siempre.</p>
+    <a href="index.html" class="btn btn-outline">Volver a la web del AMPA</a>
+  </div>
+
+  <p style="font-size:13px; color:var(--ink-soft); text-align:center;">¿No has sido nunca socio? <a href="hazte-socio.html" style="color:var(--navy);">Hazte socio</a></p>
+  <footer class="note"><b>AMPA Colegio Juan de Valdés</b></footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="shared/supabaseClient.js"></script>
+<script src="shared/datos-ampa.js"></script>
+<script>
+  const params = new URLSearchParams(window.location.search);
+  document.getElementById('email').value = params.get('email') || '';
+  document.getElementById('datosPago').innerHTML = htmlDatosTransferencia('Reactivación + nombre y apellidos');
+
+  const motivo = params.get('motivo');
+  if (params.get('desde') === 'alta') {
+    document.getElementById('intro').innerHTML = '<b>Ya existe una cuenta con ese email</b>, pero está dada de baja o inactiva. No hace falta crear otra: reactívala aquí enviando el comprobante de pago. El resto de tus datos ya los tenemos.';
+  }
+  if (motivo === 'baja' && params.get('desde') !== 'alta') {
+    document.getElementById('intro').innerHTML = 'Tu cuenta está <b>dada de baja</b>. Para volver a ser socio/a no hace falta que rellenes de nuevo todos los datos: solo paga la cuota y envíanos el comprobante.';
+  } else if (motivo === 'falta_pago' && params.get('desde') !== 'alta') {
+    document.getElementById('intro').innerHTML = 'Tu cuenta está <b>inactiva por falta de pago</b> de la cuota de este curso. Paga la cuota y envíanos el comprobante para reactivarla.';
+  }
+
+  const msg = document.getElementById('msg');
+  function error(html) { msg.style.display = 'block'; msg.className = 'aviso-error'; msg.innerHTML = html; }
+
+  document.getElementById('enviarBtn').addEventListener('click', async () => {
+    const btn = document.getElementById('enviarBtn');
+    const emailEl = document.getElementById('email');
+    const dniEl = document.getElementById('dni');
+    const fileEl = document.getElementById('comprobanteFile');
+    msg.style.display = 'none';
+
+    if (!marcarCamposVacios([emailEl, dniEl, fileEl])) {
+      error('Completa los campos marcados en rojo: email, DNI/NIE y comprobante.');
+      return;
+    }
+
+    btn.disabled = true; btn.textContent = 'Enviando...';
+    try {
+      const file = fileEl.files[0];
+      const path = `publico/reactivaciones/${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_')}`;
+      const { error: upErr } = await sb.storage.from('comprobantes').upload(path, file);
+      if (upErr) throw new Error('No se pudo subir el comprobante: ' + upErr.message);
+
+      const resp = await fetch('/.netlify/functions/reactivar-cuenta-solicitar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: emailEl.value.trim(), dni: dniEl.value.trim(), archivo_path: path })
+      });
+      let data = {};
+      try { data = await resp.json(); } catch (e) {}
+      if (!resp.ok) {
+        if (resp.status === 409 && /activa/.test(data.error || '')) {
+          throw new Error(data.error + ' <a href="login.html">Ir al acceso</a>');
+        }
+        throw new Error(data.error || 'No se pudo enviar la solicitud.');
+      }
+      document.getElementById('formWrap').style.display = 'none';
+      document.getElementById('okCard').style.display = 'block';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (err) {
+      error(err.message);
+      btn.disabled = false; btn.textContent = 'Enviar solicitud de reactivación';
+    }
+  });
+</script>
+</body>
+</html>

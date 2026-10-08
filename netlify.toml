@@ -3,6 +3,13 @@
   functions = "netlify/functions"
   command = "npm install"
 
+# La carpeta "pruebas" es solo para ejecutar en tu ordenador: no se sirve en la web
+[[redirects]]
+  from = "/pruebas/*"
+  to = "/index.html"
+  status = 404
+  force = true
+
 [[redirects]]
   from = "/*"
   to = "/index.html"

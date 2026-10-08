@@ -1,0 +1,13 @@
+{
+  "name": "ampa-portal-pruebas",
+  "private": true,
+  "description": "Pruebas automáticas del portal AMPA (no se despliegan, solo se ejecutan en tu ordenador)",
+  "scripts": {
+    "pruebas": "playwright test",
+    "informe": "playwright show-report informe"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.48.2",
+    "@supabase/supabase-js": "2.45.4"
+  }
+}

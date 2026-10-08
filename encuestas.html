@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Encuestas · AMPA Juan de Valdés</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared/styles.css">
+<style>
+  .opcion-fila{ display:flex; align-items:flex-start; gap:8px; padding:6px 0; font-size:14px; }
+  .opcion-fila input{ margin-top:3px; width:auto; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">AMPA · Encuestas</div>
+  <h1>Encuestas</h1>
+  <p class="lede">Tu opinión ayuda a la Junta a tomar decisiones.</p>
+
+  <div id="encuestasWrap"><p class="loading">Cargando...</p></div>
+
+  <footer class="note"><b>AMPA Colegio Juan de Valdés</b></footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="shared/supabaseClient.js"></script>
+<script src="shared/nav.js"></script>
+<script>
+let ctxGlobal = null;
+
+async function cargarEncuestas() {
+  const wrap = document.getElementById('encuestasWrap');
+  const { data: encuestas } = await sb.from('encuestas').select('*').eq('estado', 'abierta').order('created_at', { ascending: false });
+  const abiertas = (encuestas || []).filter(e => !e.fecha_cierre || new Date(e.fecha_cierre) > new Date());
+
+  if (abiertas.length === 0) { wrap.innerHTML = '<p class="empty-hint">No hay ninguna encuesta abierta ahora mismo.</p>'; return; }
+
+  const { data: respondidas } = await sb.from('encuesta_control_respondidos').select('encuesta_id').eq('socio_id', ctxGlobal.socio.id);
+  const idsRespondidas = new Set((respondidas || []).map(r => r.encuesta_id));
+
+  wrap.innerHTML = '';
+  for (const enc of abiertas) {
+    const card = document.createElement('div');
+    card.className = 'card';
+    if (idsRespondidas.has(enc.id)) {
+      card.innerHTML = `<p class="section-label">${enc.titulo}</p><p class="empty-hint">Ya has respondido a esta encuesta. ¡Gracias!</p>`;
+      wrap.appendChild(card);
+      continue;
+    }
+
+    const { data: preguntas } = await sb.from('encuesta_preguntas').select('*').eq('encuesta_id', enc.id).order('orden');
+    const preguntasConOpciones = [];
+    for (const p of preguntas || []) {
+      let opciones = [];
+      if (p.tipo !== 'texto_libre') {
+        const { data } = await sb.from('encuesta_opciones').select('*').eq('pregunta_id', p.id).order('orden');
+        opciones = data || [];
+      }
+      preguntasConOpciones.push({ ...p, opciones });
+    }
+
+    card.appendChild(renderEncuestaForm(enc, preguntasConOpciones));
+    wrap.appendChild(card);
+  }
+}
+
+function renderEncuestaForm(encuesta, preguntas) {
+  const wrap = document.createElement('div');
+  wrap.innerHTML = `
+    <p class="section-label">${encuesta.titulo}</p>
+    ${encuesta.descripcion ? `<p style="font-size:13.5px; color:var(--ink-soft); margin-top:-8px;">${encuesta.descripcion}</p>` : ''}
+    ${encuesta.anonima ? '<p style="font-size:12.5px; color:var(--ink-soft);">Esta encuesta es anónima: tus respuestas no quedarán ligadas a tu cuenta.</p>' : ''}
+  `;
+
+  const respuestasEstado = {}; // pregunta_id -> valor(es)
+
+  preguntas.forEach(p => {
+    const field = document.createElement('div');
+    field.className = 'field';
+    field.style.marginTop = '16px';
+    field.innerHTML = `<label>${p.texto}</label>`;
+
+    if (p.tipo === 'texto_libre') {
+      const textarea = document.createElement('textarea');
+      textarea.rows = 3;
+      textarea.addEventListener('input', () => { respuestasEstado[p.id] = { texto_libre: textarea.value }; });
+      field.appendChild(textarea);
+    } else if (p.tipo === 'opcion_unica') {
+      respuestasEstado[p.id] = { opcion_ids: [] };
+      p.opciones.forEach(o => {
+        const fila = document.createElement('label');
+        fila.className = 'opcion-fila';
+        fila.innerHTML = `<input type="radio" name="p-${p.id}" value="${o.id}"> <span>${o.texto}</span>`;
+        fila.querySelector('input').addEventListener('change', () => { respuestasEstado[p.id] = { opcion_ids: [o.id] }; });
+        field.appendChild(fila);
+      });
+    } else {
+      respuestasEstado[p.id] = { opcion_ids: [] };
+      p.opciones.forEach(o => {
+        const fila = document.createElement('label');
+        fila.className = 'opcion-fila';
+        fila.innerHTML = `<input type="checkbox" value="${o.id}"> <span>${o.texto}</span>`;
+        fila.querySelector('input').addEventListener('change', e => {
+          const actual = respuestasEstado[p.id].opcion_ids;
+          if (e.target.checked) actual.push(o.id);
+          else respuestasEstado[p.id].opcion_ids = actual.filter(id => id !== o.id);
+        });
+        field.appendChild(fila);
+      });
+    }
+
+    wrap.appendChild(field);
+  });
+
+  const msg = document.createElement('p');
+  msg.style.display = 'none'; msg.style.marginTop = '10px';
+
+  const enviarBtn = document.createElement('button');
+  enviarBtn.className = 'btn btn-primary';
+  enviarBtn.style.marginTop = '16px';
+  enviarBtn.textContent = 'Enviar respuestas';
+  enviarBtn.addEventListener('click', async () => {
+    const payload = preguntas.map(p => ({ pregunta_id: p.id, ...respuestasEstado[p.id] }));
+    const faltante = preguntas.some(p => {
+      const r = respuestasEstado[p.id];
+      if (p.tipo === 'texto_libre') return !r || !r.texto_libre || !r.texto_libre.trim();
+      return !r || r.opcion_ids.length === 0;
+    });
+    if (faltante) {
+      msg.style.display = 'block'; msg.className = 'msg-error';
+      msg.textContent = 'Responde a todas las preguntas antes de enviar.';
+      return;
+    }
+
+    const { error } = await sb.rpc('encuesta_responder', { p_encuesta_id: encuesta.id, p_respuestas: payload });
+    msg.style.display = 'block';
+    msg.className = error ? 'msg-error' : 'msg-ok';
+    msg.textContent = error ? 'Error: ' + error.message : 'Gracias por responder ✓';
+    if (!error) { enviarBtn.disabled = true; }
+  });
+
+  wrap.appendChild(enviarBtn);
+  wrap.appendChild(msg);
+  return wrap;
+}
+
+(async () => {
+  const ctx = await requireAuth();
+  if (!ctx) return;
+  ctxGlobal = ctx;
+  renderNav('encuestas', ctx);
+  await cargarEncuestas();
+})();
+</script>
+</body>
+</html>

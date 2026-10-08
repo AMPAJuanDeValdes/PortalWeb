@@ -3,19 +3,38 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Cambiar contraseña · AMPA Juan de Valdés</title>
+<title>Contraseña · AMPA Juan de Valdés</title>
+<!-- Se guarda la URL tal y como llega ANTES de cargar Supabase, porque la
+     librería borra el "#..." del enlace del correo al leerlo. Con eso
+     sabemos si venimos de "recuperar contraseña" o de un enlace caducado. -->
+<script>window.__hashInicial = window.location.hash || ''; window.__queryInicial = window.location.search || '';</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="shared/styles.css">
-<style>.center-wrap{ max-width:420px; margin:0 auto; padding:60px 20px; }</style>
+<style>
+  .center-wrap{ max-width:420px; margin:0 auto; padding:10px 20px 60px; }
+  .card-links{ display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
+  .card-links .btn{ flex:1; text-align:center; }
+</style>
 </head>
 <body>
-<div class="center-wrap">
-  <div class="eyebrow">AMPA · Seguridad</div>
-  <h1>Elige una nueva contraseña</h1>
-  <p class="lede">Por seguridad, la primera vez que entras (o tras recuperar el acceso) debes cambiar la contraseña.</p>
+<header class="pub-head">
+  <div class="brand-row">
+    <img class="logo-ampa" src="assets/logo-ampa.png" alt="AMPA">
+    <img class="logo-colegio" src="assets/logo-colegio.png" alt="Colegio Juan de Valdés">
+  </div>
+  <nav class="pub-links" id="navLinks">
+    <a href="index.html">‹ Web del AMPA</a>
+    <a href="login.html">Acceso socios</a>
+  </nav>
+</header>
 
-  <div class="card">
+<div class="center-wrap">
+  <div class="eyebrow" style="margin-top:22px;">AMPA · Seguridad</div>
+  <h1 id="titulo">Cargando...</h1>
+  <p class="lede" id="lede"></p>
+
+  <div class="card" id="formCard" style="display:none;">
     <form id="pwdForm">
       <div class="field">
         <label for="password">Nueva contraseña (mínimo 6 caracteres)</label>
@@ -28,15 +47,114 @@
       <p id="errorMsg" class="msg-error" hidden></p>
       <button type="submit" class="btn btn-primary btn-block" id="submitBtn">Guardar y continuar</button>
     </form>
+    <p id="cancelarWrap" style="display:none; text-align:center; margin-top:14px; font-size:13px;">
+      <a href="mis-datos.html" style="color:var(--navy);">Cancelar y volver</a>
+    </p>
+  </div>
+
+  <div class="card" id="avisoCard" style="display:none;">
+    <p style="color:var(--ink-soft); font-size:14.5px;" id="avisoTexto"></p>
+    <div class="card-links" id="avisoBotones"></div>
   </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="shared/supabaseClient.js"></script>
 <script>
+  const hashParams = new URLSearchParams((window.__hashInicial || '').replace(/^#/, ''));
+  const queryParams = new URLSearchParams(window.__queryInicial || '');
+  const enlaceConError = !!(hashParams.get('error') || hashParams.get('error_code') ||
+                            queryParams.get('error') || queryParams.get('error_code'));
+  const esRecuperacion = hashParams.get('type') === 'recovery' || queryParams.get('type') === 'recovery';
+
+  let modo = null; // 'recuperacion' | 'forzado' | 'voluntario'
+
+  function textos(titulo, lede) {
+    document.getElementById('titulo').textContent = titulo;
+    document.getElementById('lede').textContent = lede || '';
+  }
+
+  function mostrarAviso(titulo, texto, botones) {
+    textos(titulo, '');
+    document.getElementById('formCard').style.display = 'none';
+    document.getElementById('avisoCard').style.display = 'block';
+    document.getElementById('avisoTexto').innerHTML = texto;
+    document.getElementById('avisoBotones').innerHTML = botones.map(b =>
+      `<a href="${b.href}" class="btn ${b.primario ? 'btn-primary' : 'btn-outline'}">${b.texto}</a>`).join('');
+  }
+
+  const BOTONES_PUBLICOS = [
+    { href: 'login.html', texto: 'Ir al acceso', primario: true },
+    { href: 'index.html', texto: 'Web del AMPA' }
+  ];
+
+  function mostrarFormulario() {
+    document.getElementById('formCard').style.display = 'block';
+  }
+
   (async () => {
+    // 1. Enlace del correo ya usado o caducado (lo que pasaba al pulsar
+    //    el botón del email por segunda vez)
+    if (enlaceConError) {
+      mostrarAviso('Enlace no válido o caducado',
+        'Este enlace para restablecer la contraseña ya no es válido: solo se puede usar <b>una vez</b> y caduca pasado un tiempo. ' +
+        'Si ya cambiaste la contraseña, entra con la nueva. Si no, vuelve a pedir otro enlace desde "¿Has olvidado tu contraseña?".',
+        BOTONES_PUBLICOS);
+      return;
+    }
+
     const session = await getSession();
-    if (!session) window.location.href = 'login.html';
+
+    // 2. Viene del correo de recuperación
+    if (esRecuperacion) {
+      if (!session) {
+        mostrarAviso('Enlace no válido o caducado',
+          'Este enlace ya no es válido. Vuelve a pedir otro desde "¿Has olvidado tu contraseña?" en la pantalla de acceso.',
+          BOTONES_PUBLICOS);
+        return;
+      }
+      // Solo una cuenta activa puede restablecer la contraseña
+      const adulto = await getAdulto();
+      const socio = adulto ? await getSocio(adulto.socio_id) : null;
+      if (!socio || socio.estado !== 'activa') {
+        await sb.auth.signOut();
+        if (socio && (socio.estado === 'baja' || socio.estado === 'falta_pago')) {
+          mostrarAviso('Tu cuenta no está activa',
+            'Solo las cuentas activas pueden cambiar la contraseña. Tu cuenta está ' +
+            (socio.estado === 'baja' ? '<b>dada de baja</b>' : '<b>pendiente del pago de la cuota</b>') +
+            '. Puedes reactivarla enviándonos el comprobante de pago.',
+            [{ href: 'reactivar-cuenta.html?motivo=' + socio.estado + '&email=' + encodeURIComponent(adulto.email || ''), texto: 'Reactivar mi cuenta', primario: true },
+             { href: 'index.html', texto: 'Web del AMPA' }]);
+        } else {
+          mostrarAviso('No se puede cambiar la contraseña',
+            'Tu cuenta todavía no está activa. En cuanto el AMPA la active recibirás un correo.', BOTONES_PUBLICOS);
+        }
+        return;
+      }
+      modo = 'recuperacion';
+      textos('Restablece tu contraseña', 'Escribe tu nueva contraseña para recuperar el acceso a tu cuenta.');
+      mostrarFormulario();
+      return;
+    }
+
+    // 3. Sin sesión y sin enlace: no hay nada que hacer aquí
+    if (!session) { window.location.href = 'login.html'; return; }
+
+    const adulto = await getAdulto();
+    if (adulto && adulto.force_password_change) {
+      // 4. Primer acceso (contraseña provisional del email)
+      modo = 'forzado';
+      textos('Elige una nueva contraseña', 'Es tu primer acceso: por seguridad, cambia la contraseña provisional que te enviamos por email.');
+      document.getElementById('navLinks').innerHTML = '<a href="index.html">‹ Web del AMPA</a><a href="#" id="salirLink">Cerrar sesión</a>';
+      document.getElementById('salirLink').addEventListener('click', (e) => { e.preventDefault(); signOut(); });
+    } else {
+      // 5. Cambio voluntario desde "Mis datos"
+      modo = 'voluntario';
+      textos('Cambiar mi contraseña', 'Escribe la contraseña nueva que quieres usar a partir de ahora.');
+      document.getElementById('navLinks').innerHTML = '<a href="dashboard.html">‹ Inicio</a><a href="mis-datos.html">Mis datos</a>';
+      document.getElementById('cancelarWrap').style.display = 'block';
+    }
+    mostrarFormulario();
   })();
 
   const form = document.getElementById('pwdForm');
@@ -58,7 +176,10 @@
 
     const { error: updError } = await sb.auth.updateUser({ password: p1 });
     if (updError) {
-      errorMsg.textContent = 'No se pudo actualizar la contraseña: ' + updError.message;
+      const mismo = /different|same/i.test(updError.message || '');
+      errorMsg.textContent = mismo
+        ? 'La nueva contraseña tiene que ser distinta de la anterior.'
+        : 'No se pudo actualizar la contraseña: ' + updError.message;
       errorMsg.hidden = false;
       submitBtn.disabled = false;
       submitBtn.textContent = 'Guardar y continuar';
@@ -69,9 +190,15 @@
     await sb.from('adultos').update({ force_password_change: false }).eq('id', session.user.id);
 
     const adulto = await getAdulto();
-    const socio = await getSocio(adulto.socio_id);
+    const socio = adulto ? await getSocio(adulto.socio_id) : null;
     if (socio && socio.estado === 'recien_creada') { window.location.href = 'estado-recien-creada.html'; return; }
-    if (socio && socio.estado === 'falta_pago') { window.location.href = 'estado-falta-pago.html'; return; }
+    if (!socio || socio.estado !== 'activa') { await signOut(); return; }
+
+    if (modo === 'voluntario') {
+      mostrarAviso('Contraseña cambiada ✓', 'A partir de ahora usa la nueva contraseña para entrar.',
+        [{ href: 'dashboard.html', texto: 'Volver a Inicio', primario: true }]);
+      return;
+    }
     window.location.href = 'dashboard.html';
   });
 </script>

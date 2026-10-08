@@ -5,31 +5,33 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Hazte socio · AMPA Juan de Valdés</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="shared/styles.css">
 <style>
-  .top-simple{ max-width:760px; margin:0 auto; padding:32px 20px 0; }
-  .brand-row{ display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:14px; margin-bottom:16px; }
-  .logo-ampa{ height:44px; } .logo-colegio{ height:32px; }
-  .back-link{ font-family:'IBM Plex Mono',monospace; font-size:12.5px; color:var(--navy); text-decoration:none; }
   .two-col{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
   @media (max-width:560px){ .two-col{ grid-template-columns:1fr; } }
-  .paso{ font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--gold); margin-bottom:6px; }
+  .paso{ font-family:'Inter', sans-serif; font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--gold); margin-bottom:6px; }
 </style>
 </head>
 <body>
-<div class="top-simple">
+<header class="pub-head">
   <div class="brand-row">
     <img class="logo-ampa" src="assets/logo-ampa.png" alt="AMPA">
     <img class="logo-colegio" src="assets/logo-colegio.png" alt="Colegio Juan de Valdés">
   </div>
-  <a class="back-link" href="index.html">‹ Volver a la web del AMPA</a>
-</div>
+  <nav class="pub-links">
+    <a href="index.html">‹ Web del AMPA</a>
+    <a href="login.html">Acceso socios</a>
+    <a href="publico.html">Eventos</a>
+  </nav>
+</header>
 
 <div class="wrap">
   <div class="eyebrow" style="margin-top:24px;">AMPA · Nuevas familias</div>
   <h1>Hazte socio</h1>
-  <p class="lede">Rellena los datos de tu familia. Al terminar ya serás socio/a; solo falta que la Junta compruebe tu pago para activar del todo tu número de socio.</p>
+  <p class="lede">Rellena los datos de tu familia, paga la cuota y adjunta el comprobante. La Junta revisará tu solicitud y, en cuanto la active, te llegará un email de bienvenida con tu número de socio.</p>
+  <div class="aviso">¿Ya fuiste socio/a y tu cuenta está de baja? No hace falta que rellenes todo otra vez: <a href="reactivar-cuenta.html" style="color:var(--navy); font-weight:600;">reactiva tu cuenta aquí</a>.</div>
+  <p style="font-size:13px; color:var(--ink-soft);">Los campos con * son obligatorios.</p>
 
   <div class="card">
     <p class="paso">Adulto principal (tú)</p>
@@ -44,7 +46,7 @@
     <div class="two-col" style="margin-top:14px;"><div class="field"><label>Código postal *</label><input type="text" id="a1Cp"></div>
       <div class="field"><label>Sexo</label><select id="a1Sexo"><option value="">Sin especificar</option><option>Masculino</option><option>Femenino</option><option>Otro</option></select></div>
     </div>
-    <div class="two-col" style="margin-top:14px;"><div class="field"><label>Teléfono fijo</label><input type="text" id="a1TelefonoFijo"></div><div class="field"><label>Móvil</label><input type="text" id="a1Movil"></div></div>
+    <div class="two-col" style="margin-top:14px;"><div class="field"><label>Teléfono fijo</label><input type="text" id="a1TelefonoFijo"></div><div class="field"><label>Móvil *</label><input type="text" id="a1Movil"></div></div>
     <div class="field" style="margin-top:14px;"><label>Relación con los alumnos</label><input type="text" id="a1Relacion" placeholder="padre / madre / tutor legal..."></div>
   </div>
 
@@ -64,7 +66,7 @@
       <div class="two-col" style="margin-top:14px;"><div class="field"><label>Código postal *</label><input type="text" id="a2Cp"></div>
         <div class="field"><label>Sexo</label><select id="a2Sexo"><option value="">Sin especificar</option><option>Masculino</option><option>Femenino</option><option>Otro</option></select></div>
       </div>
-      <div class="two-col" style="margin-top:14px;"><div class="field"><label>Teléfono fijo</label><input type="text" id="a2TelefonoFijo"></div><div class="field"><label>Móvil</label><input type="text" id="a2Movil"></div></div>
+      <div class="two-col" style="margin-top:14px;"><div class="field"><label>Teléfono fijo</label><input type="text" id="a2TelefonoFijo"></div><div class="field"><label>Móvil *</label><input type="text" id="a2Movil"></div></div>
       <div class="field" style="margin-top:14px;"><label>Relación con los alumnos</label><input type="text" id="a2Relacion" placeholder="padre / madre / tutor legal..."></div>
     </div>
   </div>
@@ -75,22 +77,34 @@
     <button type="button" class="btn btn-outline" id="addAlumnoBtn">+ Añadir alumno/a</button>
   </div>
 
-  <div class="card">
-    <p class="paso">Forma de pago de la cuota</p>
-    <select id="formaPago">
-      <option value="">Sin especificar (lo aclaramos luego)</option>
-      
-      <option value="Transferencia">Transferencia</option>
-      <option value="Domiciliación Bancaria">Domiciliación Bancaria (se gestiona después, dentro del portal)</option>
-    </select>
-    <p style="font-size:13.5px; color:var(--ink-soft); margin-top:14px;">
-      Si pagas por transferencia: <b>IBAN AMPA:</b> ES00 0000 0000 0000 0000 0000.
-    </p>
-    <div class="field" style="margin-top:10px;"><label>Comprobante de pago *</label><input type="file" id="comprobanteFile" accept="image/*,.pdf"></div>
+  <div class="card" id="pagoCard">
+    <p class="paso">Pago de la cuota y forma de pago</p>
+    <div class="aviso" style="margin-top:4px;">
+      <b>Importante:</b> haz la transferencia de la cuota <b>ANTES</b> de pulsar
+      "Terminar y crear mi cuenta", y adjunta el justificante en el botón de
+      abajo. Sin el comprobante no se puede completar el alta.
+    </div>
+    <ol class="pasos-pago">
+      <li>Haz una transferencia con estos datos:</li>
+    </ol>
+    <div id="datosPago"></div>
+    <ol class="pasos-pago" start="2">
+      <li>Descarga o haz una captura del justificante de la transferencia.</li>
+      <li>Adjúntalo aquí:</li>
+    </ol>
+    <div class="field" style="margin-top:6px;"><label for="comprobanteFile">Comprobante de la transferencia (imagen o PDF) *</label><input type="file" id="comprobanteFile" accept="image/*,.pdf"></div>
+
+    <div class="field" style="margin-top:18px;">
+      <label for="formaPago">¿Cómo queréis pagar las próximas cuotas?</label>
+      <select id="formaPago">
+        <option value="Transferencia">Transferencia (cada año, como ahora)</option>
+        <option value="Domiciliación Bancaria">Domiciliación bancaria (la configuráis después, dentro del portal)</option>
+      </select>
+    </div>
   </div>
 
   <button type="button" class="btn btn-primary btn-block" id="enviarBtn" style="margin:20px 0;">Terminar y crear mi cuenta</button>
-  <p id="msg" style="display:none; margin-bottom:20px;"></p>
+  <div id="msg" style="display:none; margin-bottom:20px;"></div>
 
   <footer class="note"><b>AMPA Colegio Juan de Valdés</b></footer>
 </div>
@@ -98,6 +112,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="shared/supabaseClient.js"></script>
 <script src="shared/catalogo.js"></script>
+<script src="shared/datos-ampa.js"></script>
 <script>
 document.getElementById('tieneAdulto2').addEventListener('change', (e) => {
   document.getElementById('adulto2Wrap').style.display = e.target.checked ? 'block' : 'none';
@@ -118,7 +133,7 @@ function renderAlumnos() {
       '<div class="two-col"><div class="field"><label>Nombre *</label><input type="text" id="alN_' + al.id + '"></div>' +
       '<div class="field"><label>Apellidos *</label><input type="text" id="alA_' + al.id + '"></div></div>' +
       '<div class="two-col" style="margin-top:14px;">' +
-      '<div class="field"><label>Fecha de nacimiento</label><input type="date" id="alF_' + al.id + '"></div>' +
+      '<div class="field"><label>Fecha de nacimiento *</label><input type="date" id="alF_' + al.id + '"></div>' +
       '<div class="field"><label>Sexo</label><select id="alS_' + al.id + '"><option value="">Sin especificar</option><option>Masculino</option><option>Femenino</option><option>Otro</option></select></div>' +
       '</div>' +
       '<div class="two-col" style="margin-top:14px;">' +
@@ -131,130 +146,126 @@ function renderAlumnos() {
     wrap.appendChild(div);
     div.querySelector('.btn-danger-link').addEventListener('click', () => { alumnos = alumnos.filter(x => x.id !== al.id); renderAlumnos(); });
     document.getElementById('alE_' + al.id).addEventListener('change', (e) => {
-      document.getElementById('alC_' + al.id).innerHTML = (CURSOS_POR_ETAPA[e.target.value] || []).map(c => '<option>' + c + '</option>').join('');
+      document.getElementById('alC_' + al.id).innerHTML = '<option value="">Selecciona...</option>' + (CURSOS_POR_ETAPA[e.target.value] || []).map(c => '<option>' + c + '</option>').join('');
     });
   });
 }
 document.getElementById('addAlumnoBtn').addEventListener('click', () => { alumnos.push({ id: 'al' + (alumnoCounter++) }); renderAlumnos(); });
 renderAlumnos();
 
-document.getElementById('enviarBtn').addEventListener('click', async () => {
-  const msg = document.getElementById('msg');
-  const btn = document.getElementById('enviarBtn');
+document.getElementById('datosPago').innerHTML = htmlDatosTransferencia('Cuota AMPA + nombre y apellidos del adulto principal');
 
-  const adulto1 = {
-    nombre: document.getElementById('a1Nombre').value.trim(),
-    apellidos: document.getElementById('a1Apellidos').value.trim(),
-    email: document.getElementById('a1Email').value.trim().toLowerCase(),
-    dni_nie: document.getElementById('a1Dni').value.trim(),
-    es_pasaporte: document.getElementById('a1EsPasaporte').checked,
-    password: document.getElementById('a1Password').value,
-    direccion: document.getElementById('a1Direccion').value.trim(),
-    ciudad: document.getElementById('a1Ciudad').value.trim(),
-    provincia: document.getElementById('a1Provincia').value.trim(),
-    codigo_postal: document.getElementById('a1Cp').value.trim(),
-    sexo: document.getElementById('a1Sexo').value || null,
-    telefono_fijo: document.getElementById('a1TelefonoFijo').value.trim(),
-    movil: document.getElementById('a1Movil').value.trim(),
-    relacion_alumnos: document.getElementById('a1Relacion').value.trim()
+const $ = (id) => document.getElementById(id);
+const val = (id) => ($(id) ? $(id).value.trim() : '');
+
+function mostrarError(html) {
+  const msg = $('msg');
+  msg.style.display = 'block'; msg.className = 'aviso-error'; msg.innerHTML = html;
+}
+
+function leerAdulto(p) {
+  return {
+    nombre: val(p + 'Nombre'), apellidos: val(p + 'Apellidos'),
+    email: val(p + 'Email').toLowerCase(), dni_nie: val(p + 'Dni'),
+    es_pasaporte: $(p + 'EsPasaporte').checked,
+    direccion: val(p + 'Direccion'), ciudad: val(p + 'Ciudad'), provincia: val(p + 'Provincia'),
+    codigo_postal: val(p + 'Cp'), sexo: $(p + 'Sexo').value || null,
+    telefono_fijo: val(p + 'TelefonoFijo'), movil: val(p + 'Movil'), relacion_alumnos: val(p + 'Relacion')
   };
-  const password2 = document.getElementById('a1Password2').value;
+}
+const OBLIGATORIOS_ADULTO = ['Nombre', 'Apellidos', 'Email', 'Dni', 'Direccion', 'Ciudad', 'Provincia', 'Cp', 'Movil'];
 
-  if (!adulto1.nombre || !adulto1.apellidos || !adulto1.email || !adulto1.dni_nie || !adulto1.password ||
-      !adulto1.direccion || !adulto1.ciudad || !adulto1.provincia || !adulto1.codigo_postal) {
-    msg.style.display = 'block'; msg.className = 'msg-error';
-    msg.textContent = 'Completa todos los campos obligatorios (*) del adulto principal.';
+document.getElementById('enviarBtn').addEventListener('click', async () => {
+  const msg = $('msg');
+  const btn = $('enviarBtn');
+  msg.style.display = 'none';
+  document.querySelectorAll('.campo-error').forEach(el => el.classList.remove('campo-error'));
+
+  // 1. Todos los campos obligatorios, de una vez: se marcan en rojo
+  const tieneAdulto2 = $('tieneAdulto2').checked;
+  const obligatorios = [];
+  OBLIGATORIOS_ADULTO.forEach(c => obligatorios.push($('a1' + c)));
+  obligatorios.push($('a1Password'), $('a1Password2'));
+  if (tieneAdulto2) OBLIGATORIOS_ADULTO.forEach(c => obligatorios.push($('a2' + c)));
+  alumnos.forEach(al => ['alN_', 'alA_', 'alF_', 'alE_', 'alC_'].forEach(pre => obligatorios.push($(pre + al.id))));
+  obligatorios.push($('comprobanteFile'));
+
+  if (!marcarCamposVacios(obligatorios)) {
+    const faltaComprobante = !$('comprobanteFile').files.length;
+    mostrarError('Faltan datos obligatorios: revisa los campos marcados en rojo.' +
+      (faltaComprobante ? '<br>Recuerda que tienes que <b>hacer la transferencia antes</b> y adjuntar el comprobante.' : ''));
     return;
   }
-  if (adulto1.password.length < 6) {
-    msg.style.display = 'block'; msg.className = 'msg-error'; msg.textContent = 'La contraseña debe tener al menos 6 caracteres.'; return;
-  }
-  if (adulto1.password !== password2) {
-    msg.style.display = 'block'; msg.className = 'msg-error'; msg.textContent = 'Las dos contraseñas no coinciden.'; return;
+
+  const adulto1 = leerAdulto('a1');
+  adulto1.password = $('a1Password').value;
+  if (!/^\S+@\S+\.\S+$/.test(adulto1.email)) { $('a1Email').classList.add('campo-error'); mostrarError('El email del adulto principal no es válido.'); return; }
+  if (adulto1.password.length < 6) { $('a1Password').classList.add('campo-error'); mostrarError('La contraseña debe tener al menos 6 caracteres.'); return; }
+  if (adulto1.password !== $('a1Password2').value) {
+    $('a1Password').classList.add('campo-error'); $('a1Password2').classList.add('campo-error');
+    mostrarError('Las dos contraseñas no coinciden.'); return;
   }
 
   let adulto2 = null;
-  if (document.getElementById('tieneAdulto2').checked) {
-    adulto2 = {
-      nombre: document.getElementById('a2Nombre').value.trim(),
-      apellidos: document.getElementById('a2Apellidos').value.trim(),
-      email: document.getElementById('a2Email').value.trim().toLowerCase(),
-      dni_nie: document.getElementById('a2Dni').value.trim(),
-      es_pasaporte: document.getElementById('a2EsPasaporte').checked,
-      direccion: document.getElementById('a2Direccion').value.trim(),
-      ciudad: document.getElementById('a2Ciudad').value.trim(),
-      provincia: document.getElementById('a2Provincia').value.trim(),
-      codigo_postal: document.getElementById('a2Cp').value.trim(),
-      sexo: document.getElementById('a2Sexo').value || null,
-      telefono_fijo: document.getElementById('a2TelefonoFijo').value.trim(),
-      movil: document.getElementById('a2Movil').value.trim(),
-      relacion_alumnos: document.getElementById('a2Relacion').value.trim()
-    };
-    if (!adulto2.nombre || !adulto2.apellidos || !adulto2.email || !adulto2.dni_nie ||
-        !adulto2.direccion || !adulto2.ciudad || !adulto2.provincia || !adulto2.codigo_postal) {
-      msg.style.display = 'block'; msg.className = 'msg-error';
-      msg.textContent = 'Completa todos los campos obligatorios (*) del segundo adulto.';
-      return;
-    }
-    if (adulto2.email === adulto1.email) {
-      msg.style.display = 'block'; msg.className = 'msg-error'; msg.textContent = 'El segundo adulto debe tener un email distinto al principal.'; return;
-    }
+  if (tieneAdulto2) {
+    adulto2 = leerAdulto('a2');
+    if (!/^\S+@\S+\.\S+$/.test(adulto2.email)) { $('a2Email').classList.add('campo-error'); mostrarError('El email del segundo adulto no es válido.'); return; }
+    if (adulto2.email === adulto1.email) { $('a2Email').classList.add('campo-error'); mostrarError('El segundo adulto debe tener un email distinto al principal.'); return; }
   }
 
-  const alumnosPayload = alumnos.map(al => ({
-    nombre: document.getElementById('alN_' + al.id).value.trim(),
-    apellidos: document.getElementById('alA_' + al.id).value.trim(),
-    fecha_nacimiento: document.getElementById('alF_' + al.id).value || null,
-    sexo: document.getElementById('alS_' + al.id).value || null,
-    etapa: document.getElementById('alE_' + al.id).value,
-    curso: document.getElementById('alC_' + al.id).value,
-    aula: document.getElementById('alU_' + al.id).value || null
-  })).filter(a => a.nombre);
-
-  for (const a of alumnosPayload) {
-    if (!a.etapa || !a.curso) {
-      msg.style.display = 'block'; msg.className = 'msg-error';
-      msg.textContent = 'Completa la etapa y el curso de todos los alumnos añadidos.';
-      return;
-    }
+  const hoy = new Date().toISOString().slice(0, 10);
+  const alumnosPayload = [];
+  for (const al of alumnos) {
+    const fecha = $('alF_' + al.id).value;
+    if (fecha > hoy) { $('alF_' + al.id).classList.add('campo-error'); mostrarError('La fecha de nacimiento no puede ser futura.'); return; }
+    alumnosPayload.push({
+      nombre: val('alN_' + al.id), apellidos: val('alA_' + al.id), fecha_nacimiento: fecha,
+      sexo: $('alS_' + al.id).value || null, etapa: $('alE_' + al.id).value,
+      curso: $('alC_' + al.id).value, aula: $('alU_' + al.id).value || null
+    });
   }
 
-  const comprobante = document.getElementById('comprobanteFile').files[0];
-  if (!comprobante) {
-    msg.style.display = 'block'; msg.className = 'msg-error';
-    msg.textContent = 'El comprobante de pago es obligatorio para completar el alta.';
-    return;
-  }
-
-  btn.disabled = true; btn.textContent = 'Creando tu cuenta...';
+  btn.disabled = true; btn.textContent = 'Subiendo comprobante...';
 
   try {
+    // 2. Primero el comprobante (así nunca se crea una solicitud sin él)
+    const comprobante = $('comprobanteFile').files[0];
+    const path = `publico/altas/${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${comprobante.name.replace(/[^a-zA-Z0-9.\-_]/g, '_')}`;
+    const { error: upErr } = await sb.storage.from('comprobantes').upload(path, comprobante);
+    if (upErr) throw new Error('No se pudo subir el comprobante: ' + upErr.message);
+
+    // 3. Alta completa en el servidor (todo o nada)
+    btn.textContent = 'Creando tu cuenta...';
     const resp = await fetch('/.netlify/functions/autoservicio-alta', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        adulto1, adulto2, alumnos: alumnosPayload,
-        forma_pago: document.getElementById('formaPago').value || null
-      })
+      body: JSON.stringify({ adulto1, adulto2, alumnos: alumnosPayload, forma_pago: $('formaPago').value || null, archivo_path: path })
     });
-    const data = await resp.json();
-    if (!resp.ok) throw new Error(data.error || 'No se pudo completar el alta');
+    let data = {};
+    try { data = await resp.json(); } catch (e) {}
 
-    // Iniciar sesión con las credenciales que el propio usuario acaba de elegir
-    const { error: loginError } = await sb.auth.signInWithPassword({ email: adulto1.email, password: adulto1.password });
-    if (loginError) throw loginError;
-
-    if (comprobante) {
-      const path = `${data.socio_id}/${Date.now()}-${comprobante.name.replace(/[^a-zA-Z0-9.\-_]/g, '_')}`;
-      await sb.storage.from('comprobantes').upload(path, comprobante);
-      await sb.from('comprobantes_pago').insert({ tipo: 'cuota_socio', socio_id: data.socio_id, archivo_url: path });
+    if (!resp.ok) {
+      if (data.codigo === 'cuenta_inactiva') {
+        // Email de una cuenta de baja / impago: se le lleva a reactivarla
+        window.location.href = 'reactivar-cuenta.html?desde=alta&email=' + encodeURIComponent(adulto1.email);
+        return;
+      }
+      if (data.codigo === 'cuenta_activa') {
+        $('a1Email').classList.add('campo-error');
+        throw new Error('Ya existe una cuenta activa con este email. <a href="login.html">Inicia sesión</a> (o usa "¿Has olvidado tu contraseña?").');
+      }
+      if (data.codigo === 'email_segundo_adulto_existente') $('a2Email').classList.add('campo-error');
+      throw new Error(data.error || 'No se pudo completar el alta');
     }
 
+    // 4. Iniciar sesión con la contraseña que acaba de elegir
+    const { error: loginError } = await sb.auth.signInWithPassword({ email: adulto1.email, password: adulto1.password });
+    if (loginError) throw loginError;
     window.location.href = 'estado-recien-creada.html';
   } catch (err) {
-    msg.style.display = 'block'; msg.className = 'msg-error';
-    msg.textContent = 'Error: ' + err.message;
+    mostrarError(err.message);
     btn.disabled = false; btn.textContent = 'Terminar y crear mi cuenta';
+    msg.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 });
 </script>

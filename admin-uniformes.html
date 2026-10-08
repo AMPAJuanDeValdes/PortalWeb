@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Uniformes · Admin AMPA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared/styles.css">
+<style>
+  .wrap{ max-width:980px; }
+  .tabs{ display:flex; gap:6px; margin-bottom:20px; flex-wrap:wrap; }
+  .tabs button{ font-family:'Inter', sans-serif; font-size:12.5px; text-transform:uppercase; padding:9px 14px; border-radius:var(--radius); border:1px solid var(--line); background:#fff; color:var(--ink-soft); cursor:pointer; }
+  .tabs button.active{ background:var(--navy); color:#fff; border-color:var(--navy); }
+  .panel{ display:none; } .panel.active{ display:block; }
+  .fila{ display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; }
+  .fila .field{ margin:0; }
+  .fila select{ min-width:90px; }
+  .matriz{ border-collapse:collapse; font-size:13.5px; width:100%; }
+  .matriz th, .matriz td{ border:1px solid var(--line); padding:6px 4px; text-align:center; }
+  .matriz th{ background:#FAF8F2; font-size:11.5px; color:var(--ink-soft); font-weight:600; }
+  .matriz th.tipo{ text-align:left; padding-left:10px; color:var(--ink); font-size:13px; white-space:nowrap; }
+  .matriz td.celda{ cursor:pointer; font-weight:600; }
+  .matriz td.celda:hover{ outline:2px solid var(--navy); outline-offset:-2px; }
+  .matriz td.vacia{ color:#C9C4B8; font-weight:400; }
+  .c-rojo{ background:#FBE3E0; color:var(--red); }
+  .c-amarillo{ background:#FFF4D1; color:#8A6A00; }
+  .c-verde{ background:#E5F3EA; color:#1E7A46; }
+  .c-cero{ background:#F2F0EA; color:#9A958A; }
+  .leyenda{ font-size:12.5px; color:var(--ink-soft); margin-top:8px; }
+  .mov{ font-size:13px; padding:6px 0; border-bottom:1px solid var(--line); display:flex; gap:10px; flex-wrap:wrap; }
+  .mov:last-child{ border-bottom:none; }
+  .mov .q-pos{ color:#1E7A46; font-weight:600; } .mov .q-neg{ color:var(--red); font-weight:600; }
+  .resumen{ display:flex; gap:10px; flex-wrap:wrap; margin:12px 0; }
+  .resumen div{ border:1px solid var(--line); padding:8px 12px; font-size:12.5px; color:var(--ink-soft); background:#fff; }
+  .resumen b{ display:block; font-size:18px; color:var(--ink); }
+  .familia{ border:1px solid var(--line); margin-bottom:12px; background:#fff; }
+  .familia-head{ display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:center; padding:10px 12px; background:#FAF8F2; border-bottom:1px solid var(--line); font-size:13.5px; }
+  .alumno{ padding:10px 12px; border-bottom:1px solid var(--line); font-size:13.5px; }
+  .alumno:last-child{ border-bottom:none; }
+  .prios{ color:var(--ink-soft); font-size:12.5px; margin-top:3px; }
+  .prios .ok{ color:#1E7A46; font-weight:600; }
+  .asig{ margin-top:6px; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .asig select{ max-width:260px; }
+  .acciones{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top:12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">AMPA · Administración</div>
+  <h1>Uniformes</h1>
+  <p class="lede">Stock por movimientos (lo que entra y lo que sale), convocatorias y reparto por prioridades.</p>
+
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="catalogo">Catálogo</button>
+    <button class="tab-btn" data-tab="convocatoria">Convocatoria y reparto</button>
+  </div>
+
+  <!-- ============ CATÁLOGO ============ -->
+  <div class="panel active" id="panel-catalogo">
+    <div class="card">
+      <p class="section-label">Stock actual</p>
+      <div style="overflow-x:auto;" id="matrizWrap"><p class="loading">Cargando...</p></div>
+      <p class="leyenda">🔴 ≤ 2 · 🟡 3–5 · 🟢 ≥ 6. Pulsa una casilla para registrar un movimiento de esa prenda.</p>
+    </div>
+
+    <div class="card" id="movCard">
+      <p class="section-label">Registrar movimiento</p>
+      <p style="font-size:13px; color:var(--ink-soft); margin-top:-6px;">Ej.: donan 2 camisetas talla 6 → "Entran 2". Si la combinación no existía, se crea sola.</p>
+      <div class="fila">
+        <div class="field"><label>Tipo</label>
+          <select id="mTipo"></select></div>
+        <div class="field"><label>Talla</label><select id="mTalla"></select></div>
+        <div class="field"><label>Movimiento</label>
+          <select id="mOperacion"><option value="sumar">Entran (+)</option><option value="restar">Salen (−)</option></select></div>
+        <div class="field" style="max-width:100px;"><label>Cantidad</label><input type="number" id="mCantidad" min="1" value="1"></div>
+        <div class="field" style="flex:1; min-width:180px;"><label>Motivo (opcional)</label><input type="text" id="mMotivo" placeholder="donación, recuento, prenda rota..."></div>
+        <button type="button" class="btn btn-primary" id="mBtn">Registrar</button>
+      </div>
+      <p id="mMsg" style="display:none; margin-top:12px;"></p>
+    </div>
+
+    <div class="card">
+      <p class="section-label">Últimos movimientos</p>
+      <div id="movWrap"><p class="loading">Cargando...</p></div>
+    </div>
+
+    <div class="card">
+      <p class="section-label">Eliminar una combinación</p>
+      <p style="font-size:13px; color:var(--ink-soft); margin-top:-6px;">Solo para quitarla del todo de la lista (por ejemplo, una talla que ya no existe). Tiene que estar a 0 y no haber sido pedida nunca.</p>
+      <div class="fila">
+        <div class="field"><select id="delSelect"></select></div>
+        <button type="button" class="btn btn-outline" id="delBtn">Eliminar</button>
+      </div>
+      <p id="delMsg" style="display:none; margin-top:12px;"></p>
+    </div>
+  </div>
+
+  <!-- ============ CONVOCATORIA Y REPARTO ============ -->
+  <div class="panel" id="panel-convocatoria">
+    <div class="card" id="convocatoriaCard"><p class="loading">Cargando...</p></div>
+    <div id="pedidosWrap"></div>
+  </div>
+
+  <footer class="note"><b>AMPA Colegio Juan de Valdés</b> — panel de administración</footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="shared/supabaseClient.js"></script>
+<script src="shared/nav.js"></script>
+<script src="shared/helpers.js"></script>
+<script src="shared/csv.js"></script>
+<script>
+const TIPOS = ['Sudadera', 'Camiseta', 'Pantalón Corto', 'Pantalón Largo', 'Baby'];
+const TALLAS = ['1', '2', '3', '4', '6', '8', '10', '12', '14', '16', '18', '20'];
+const TALLAS_BABY = ['1', '2', '3', '4', '6'];
+const ESTADO_TXT = { abierta: 'Abierta', repartida: 'Repartida', finalizada: 'Cerrada y guardada', cancelada: 'Cancelada' };
+
+let prendas = [];
+let convocatoria = null;
+
+const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const color = (s) => s <= 0 ? 'cero' : s <= 2 ? 'rojo' : s <= 5 ? 'amarillo' : 'verde';
+const emoji = (s) => ({ rojo: '🔴', amarillo: '🟡', verde: '🟢', cero: '⚪' }[color(s)]);
+const fechaHora = (f) => new Date(f).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' });
+function aviso(id, ok, texto) { const p = document.getElementById(id); p.style.display = 'block'; p.className = ok ? 'msg-ok' : 'msg-error'; p.textContent = texto; }
+
+document.querySelectorAll('.tab-btn').forEach(btn => btn.addEventListener('click', () => {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
+}));
+
+/* ======================= CATÁLOGO ======================= */
+async function cargarPrendas() {
+  const { data } = await sb.from('prendas_catalogo').select('*');
+  prendas = data || [];
+}
+
+function pintarMatriz() {
+  const porClave = {};
+  prendas.forEach(p => porClave[p.tipo + '|' + p.talla] = p);
+  const tallasUsadas = TALLAS.filter(t => prendas.some(p => p.talla === t));
+  const total = prendas.reduce((a, p) => a + p.stock, 0);
+  let html = '<table class="matriz"><thead><tr><th class="tipo">Prenda \\ Talla</th>' +
+    tallasUsadas.map(t => `<th>${t}</th>`).join('') + '<th>Total</th></tr></thead><tbody>';
+  TIPOS.forEach(tipo => {
+    let suma = 0;
+    html += `<tr><th class="tipo">${tipo}</th>`;
+    tallasUsadas.forEach(t => {
+      const p = porClave[tipo + '|' + t];
+      const permitida = tipo !== 'Baby' || TALLAS_BABY.includes(t);
+      if (p) { suma += p.stock; html += `<td class="celda c-${color(p.stock)}" data-tipo="${tipo}" data-talla="${t}" title="${tipo} talla ${t}: ${p.stock}">${p.stock}</td>`; }
+      else html += permitida ? `<td class="celda vacia" data-tipo="${tipo}" data-talla="${t}" title="${tipo} talla ${t}: no existe todavía">·</td>` : '<td class="vacia"></td>';
+    });
+    html += `<td><b>${suma}</b></td></tr>`;
+  });
+  html += `</tbody></table><p style="font-size:13px; margin:8px 0 0;">Total: <b>${total}</b> prendas en ${prendas.filter(p => p.stock > 0).length} combinaciones con stock.</p>`;
+  const wrap = document.getElementById('matrizWrap');
+  wrap.innerHTML = html;
+  wrap.querySelectorAll('td.celda').forEach(td => td.addEventListener('click', () => {
+    document.getElementById('mTipo').value = td.dataset.tipo;
+    pintarTallasMovimiento(td.dataset.talla);
+    document.getElementById('movCard').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    document.getElementById('mCantidad').focus();
+  }));
+
+  const sel = document.getElementById('delSelect');
+  const borrables = prendas.filter(p => p.stock === 0).sort((a, b) => a.tipo.localeCompare(b.tipo) || parseInt(a.talla) - parseInt(b.talla));
+  sel.innerHTML = borrables.length ? borrables.map(p => `<option value="${p.id}">${p.tipo} talla ${p.talla}</option>`).join('')
+    : '<option value="">No hay combinaciones a 0</option>';
+}
+
+function pintarTallasMovimiento(seleccion) {
+  const tipo = document.getElementById('mTipo').value;
+  const tallas = tipo === 'Baby' ? TALLAS_BABY : TALLAS;
+  document.getElementById('mTalla').innerHTML = tallas.map(t => `<option ${t === seleccion ? 'selected' : ''}>${t}</option>`).join('');
+}
+document.getElementById('mTipo').innerHTML = TIPOS.map(t => `<option>${t}</option>`).join('');
+document.getElementById('mTipo').addEventListener('change', () => pintarTallasMovimiento());
+pintarTallasMovimiento();
+
+document.getElementById('mBtn').addEventListener('click', async () => {
+  const cantidad = parseInt(document.getElementById('mCantidad').value, 10);
+  if (!cantidad || cantidad < 1) { aviso('mMsg', false, 'La cantidad tiene que ser 1 o más.'); return; }
+  const tipo = document.getElementById('mTipo').value, talla = document.getElementById('mTalla').value;
+  const operacion = document.getElementById('mOperacion').value;
+  const { data, error } = await sb.rpc('uniformes_mover_stock', {
+    p_tipo: tipo, p_talla: talla, p_cantidad: cantidad, p_operacion: operacion,
+    p_motivo: document.getElementById('mMotivo').value
+  });
+  if (error) { aviso('mMsg', false, error.message); return; }
+  aviso('mMsg', true, `${operacion === 'sumar' ? 'Añadidas' : 'Quitadas'} ${cantidad} — ${tipo} talla ${talla}: ahora hay ${data}.`);
+  document.getElementById('mMotivo').value = '';
+  await refrescarCatalogo();
+});
+
+document.getElementById('delBtn').addEventListener('click', async () => {
+  const id = document.getElementById('delSelect').value;
+  if (!id) return;
+  if (!confirm('¿Eliminar esta combinación del catálogo?')) return;
+  const { error } = await sb.from('prendas_catalogo').delete().eq('id', id);
+  if (error) { aviso('delMsg', false, /foreign key|violates/i.test(error.message) ? 'No se puede: alguna familia la ha pedido alguna vez. Déjala a 0.' : error.message); return; }
+  aviso('delMsg', true, 'Eliminada ✓');
+  await refrescarCatalogo();
+});
+
+async function cargarMovimientos() {
+  const { data } = await sb.from('prendas_movimientos').select('*').order('created_at', { ascending: false }).limit(40);
+  const wrap = document.getElementById('movWrap');
+  if (!data || !data.length) { wrap.innerHTML = '<p class="empty-hint">Todavía no hay movimientos registrados.</p>'; return; }
+  wrap.innerHTML = data.map(m => `<div class="mov">
+    <span style="color:var(--ink-soft); min-width:130px;">${fechaHora(m.created_at)}</span>
+    <span class="${m.cantidad > 0 ? 'q-pos' : 'q-neg'}">${m.cantidad > 0 ? '+' : ''}${m.cantidad}</span>
+    <span>${esc(m.tipo)} talla ${esc(m.talla)} → <b>${m.stock_resultante}</b></span>
+    <span style="color:var(--ink-soft);">${esc(m.motivo || '')}${m.creado_por_nombre ? ' · ' + esc(m.creado_por_nombre) : ''}</span>
+  </div>`).join('');
+}
+
+async function refrescarCatalogo() {
+  await cargarPrendas();
+  pintarMatriz();
+  await cargarMovimientos();
+}
+
+/* ======================= CONVOCATORIA ======================= */
+async function cargarConvocatoria() {
+  const card = document.getElementById('convocatoriaCard');
+  const { data, error } = await sb.from('uniformes_convocatorias').select('*').order('created_at', { ascending: false }).limit(1);
+  if (error) { card.innerHTML = '<p class="msg-error">No se pudo cargar.</p>'; return; }
+  convocatoria = data && data[0] ? data[0] : null;
+
+  const c = convocatoria;
+  const plazoCerrado = c && new Date(c.fecha_cierre) <= new Date();
+  const fCierre = c ? fechaHora(c.fecha_cierre) : '';
+  let html = '';
+
+  if (!c) {
+    html = '<p class="section-label">No hay ninguna convocatoria todavía</p>';
+  } else {
+    html = `<p class="section-label">Convocatoria actual · ${ESTADO_TXT[c.estado] || c.estado}</p>`;
+    if (c.estado === 'abierta' && !plazoCerrado) {
+      html += `<p style="font-size:14.5px;">Abierta: las familias pueden pedir hasta el <b>${fCierre}</b>.</p>
+        <div class="acciones">
+          <button class="btn btn-outline" data-accion="cerrar">Cerrar plazo ahora</button>
+          <button class="btn-danger-link" data-accion="cancelar">Cancelar convocatoria</button>
+        </div>`;
+    } else if (c.estado === 'abierta') {
+      html += `<p style="font-size:14.5px;">El plazo se cerró el ${fCierre}. Ya se puede repartir. Lo que hayas asignado a mano se respeta: esos alumnos/as no entran en el sorteo.</p>
+        <div class="acciones">
+          <button class="btn btn-primary" id="repartirBtn">Repartir</button>
+          <button class="btn-danger-link" data-accion="cancelar">Cancelar sin repartir</button>
+        </div>`;
+    } else if (c.estado === 'repartida') {
+      html += resumenHtml(c) + `<p style="font-size:14px;">Puedes seguir asignando, quitando o cambiando prendas a mano. Cuando esté todo revisado, pulsa <b>Cerrar y guardar</b>: a partir de ahí no se puede tocar nada y cada familia verá en el portal qué le ha tocado.</p>
+        <div class="acciones">
+          <button class="btn btn-primary" data-accion="finalizar">Cerrar y guardar</button>
+          <button class="btn-danger-link" id="resetearBtn">Anular todo el reparto y volver a empezar</button>
+        </div>
+        <p style="font-size:12.5px; color:var(--ink-soft); margin-top:10px;">Para abrir una convocatoria nueva, primero cierra y guarda esta.</p>`;
+    } else if (c.estado === 'finalizada') {
+      html += resumenHtml(c) + `<p style="font-size:14px;">Cerrada y guardada el ${fechaHora(c.finalizada_en)}${c.finalizada_por ? ' por ' + esc(c.finalizada_por) : ''}. Solo lectura. Las familias ya ven su resultado.</p>`;
+    } else if (c.estado === 'cancelada') {
+      html += `<p style="font-size:14px;">Cancelada sin repartir. Sus pedidos se pueden consultar o borrar abajo.</p>`;
+    }
+  }
+
+  if (!c || c.estado === 'finalizada' || c.estado === 'cancelada') {
+    html += `<div style="border-top:1px solid var(--line); margin-top:16px; padding-top:16px;">
+      <p class="section-label">Abrir una convocatoria nueva</p>
+      <div class="fila"><div class="field"><label>Las familias pueden pedir hasta</label><input type="datetime-local" id="nuevaFechaCierre"></div>
+      <button type="button" class="btn btn-primary" id="crearBtn">Abrir convocatoria</button></div></div>`;
+  }
+  html += '<p id="convMsg" style="display:none; margin-top:12px;"></p>';
+  card.innerHTML = html;
+
+  card.querySelectorAll('[data-accion]').forEach(b => b.addEventListener('click', () => accionConvocatoria(b.dataset.accion)));
+  const rep = document.getElementById('repartirBtn'); if (rep) rep.addEventListener('click', repartir);
+  const res = document.getElementById('resetearBtn'); if (res) res.addEventListener('click', resetear);
+  const cre = document.getElementById('crearBtn'); if (cre) cre.addEventListener('click', crearConvocatoria);
+
+  await cargarPedidos();
+}
+
+function resumenHtml(c) {
+  const r = c.resumen_reparto;
+  if (!r) return '';
+  return `<div class="resumen">
+    <div><b>${r.total_alumnos}</b>alumnos/as con pedido</div>
+    <div><b>${r.asignados}</b>con prenda</div>
+    <div><b>${r.no_asignados}</b>sin prenda</div>
+  </div><p style="font-size:12.5px; color:var(--ink-soft); margin-top:-4px;">Sorteo del ${fechaHora(r.repartido_en)}${r.repartido_por ? ' por ' + esc(r.repartido_por) : ''}${r.asignados_a_mano_antes ? ' · ' + r.asignados_a_mano_antes + ' asignados a mano antes del sorteo' : ''}.</p>`;
+}
+
+async function accionConvocatoria(accion) {
+  const textos = {
+    cerrar: '¿Cerrar el plazo ahora? Las familias ya no podrán pedir y podrás repartir enseguida.',
+    cancelar: '¿Cancelar esta convocatoria sin repartir? Los pedidos se conservan para consultarlos, pero no se reparte nada.',
+    finalizar: '¿Cerrar y guardar? Ya no se podrá cambiar NADA de este reparto (ni anularlo) y las familias verán su resultado. No hay vuelta atrás.'
+  };
+  if (!confirm(textos[accion])) return;
+  const { error } = await sb.rpc('convocatoria_admin_accion', { p_tipo: 'uniformes', p_convocatoria_id: convocatoria.id, p_accion: accion });
+  if (error) { aviso('convMsg', false, error.message); return; }
+  await cargarConvocatoria();
+}
+
+async function crearConvocatoria() {
+  const v = document.getElementById('nuevaFechaCierre').value;
+  if (!v) { aviso('convMsg', false, 'Elige hasta cuándo pueden pedir las familias.'); return; }
+  const { error } = await sb.from('uniformes_convocatorias').insert({ fecha_cierre: new Date(v).toISOString() });
+  if (error) { aviso('convMsg', false, error.message); return; }
+  await cargarConvocatoria();
+}
+
+async function repartir() {
+  const btn = document.getElementById('repartirBtn');
+  btn.disabled = true; btn.textContent = 'Repartiendo...';
+  const session = await getSession();
+  try {
+    const resp = await fetch('/.netlify/functions/uniformes-repartir', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
+      body: JSON.stringify({ convocatoriaId: convocatoria.id })
+    });
+    let data = {}; try { data = await resp.json(); } catch (e) {}
+    if (!resp.ok) throw new Error(data.error || 'Error al repartir');
+    await cargarConvocatoria();
+    await refrescarCatalogo();
+  } catch (err) {
+    aviso('convMsg', false, err.message);
+    btn.disabled = false; btn.textContent = 'Repartir';
+  }
+}
+
+async function resetear() {
+  if (!confirm('Esto anula TODAS las asignaciones de esta convocatoria (también las hechas a mano), devuelve el stock y la deja abierta. ¿Seguro?')) return;
+  const { error } = await sb.rpc('uniformes_admin_resetear_reparto', { p_convocatoria_id: convocatoria.id });
+  if (error) { aviso('convMsg', false, error.message); return; }
+  await cargarConvocatoria();
+  await refrescarCatalogo();
+}
+
+/* ======================= PEDIDOS ======================= */
+async function cargarPedidos() {
+  const wrap = document.getElementById('pedidosWrap');
+  if (!convocatoria) { wrap.innerHTML = ''; return; }
+  const { data: pedidos, error } = await sb.from('uniformes_pedidos')
+    .select('id, prioridad, estado, alumno_id, socio_id, alumnos(nombre, apellidos, curso, etapa), prendas_catalogo(id, tipo, talla, stock)')
+    .eq('convocatoria_id', convocatoria.id);
+  if (error) { wrap.innerHTML = '<div class="card"><p class="msg-error">No se pudieron cargar los pedidos.</p></div>'; return; }
+  if (!pedidos || !pedidos.length) { wrap.innerHTML = '<div class="card"><p class="empty-hint">Ninguna familia ha pedido uniformes en esta convocatoria.</p></div>'; return; }
+
+  const socios = await getResumenSocios(pedidos.map(p => p.socio_id));
+  const porSocio = {};
+  pedidos.forEach(p => {
+    const s = porSocio[p.socio_id] = porSocio[p.socio_id] || {};
+    (s[p.alumno_id] = s[p.alumno_id] || []).push(p);
+  });
+
+  const puedeAsignar = ['abierta', 'repartida'].includes(convocatoria.estado);
+  const puedeBorrar = convocatoria.estado !== 'finalizada';
+  const conStock = prendas.filter(p => p.stock > 0).sort((a, b) => TIPOS.indexOf(a.tipo) - TIPOS.indexOf(b.tipo) || parseInt(a.talla) - parseInt(b.talla));
+  const opcionesStock = TIPOS.map(t => {
+    const ps = conStock.filter(p => p.tipo === t);
+    return ps.length ? `<optgroup label="${t}">${ps.map(p => `<option value="${p.id}">${t} T${p.talla} (${p.stock}) ${emoji(p.stock)}</option>`).join('')}</optgroup>` : '';
+  }).join('');
+
+  let alumnosTot = 0, asignadosTot = 0;
+  const filasCsv = [];
+  const familias = Object.entries(porSocio).sort((a, b) => String(socios[a[0]]?.numero_socio || 'zz').localeCompare(String(socios[b[0]]?.numero_socio || 'zz')));
+
+  let html = '';
+  familias.forEach(([socioId, alumnos]) => {
+    const s = socios[socioId] || {};
+    html += `<div class="familia"><div class="familia-head"><span><b>Nº ${esc(s.numero_socio || '—')}</b> · ${esc(s.nombre || '')}</span>
+      ${puedeBorrar ? `<button class="btn-danger-link" data-borrar="${socioId}">Borrar el pedido de esta familia</button>` : ''}</div>`;
+    Object.values(alumnos).forEach(lista => {
+      alumnosTot++;
+      const al = lista[0].alumnos || {};
+      const asignado = lista.find(p => p.estado === 'asignado');
+      if (asignado) asignadosTot++;
+      const prios = lista.filter(p => p.prioridad > 0).sort((a, b) => a.prioridad - b.prioridad)
+        .map(p => `<span class="${p.estado === 'asignado' ? 'ok' : ''}">${p.prioridad}ª ${esc(p.prendas_catalogo?.tipo)} T${esc(p.prendas_catalogo?.talla)}${p.estado === 'asignado' ? ' ✓' : ''}</span>`).join(' · ');
+      const resultado = asignado
+        ? `<b style="color:#1E7A46;">✓ ${esc(asignado.prendas_catalogo?.tipo)} talla ${esc(asignado.prendas_catalogo?.talla)}</b>${asignado.prioridad === 0 ? ' <span style="color:var(--ink-soft); font-size:12px;">(a mano)</span>' : ''}`
+        : `<span style="color:var(--ink-soft);">${convocatoria.estado === 'repartida' || convocatoria.estado === 'finalizada' ? 'Sin prenda' : 'Pendiente del sorteo'}</span>`;
+      html += `<div class="alumno" data-alumno="${lista[0].alumno_id}">
+        <b>${esc(al.nombre)} ${esc(al.apellidos)}</b> <span style="color:var(--ink-soft);">· ${esc(al.curso || '')} ${esc(al.etapa || '')}</span> — ${resultado}
+        <div class="prios">${prios || '<i>sin prioridades</i>'}</div>
+        ${puedeAsignar ? `<div class="asig"><select class="asigSel"><option value="">${asignado ? 'Cambiar por...' : 'Asignar a mano...'}</option>${opcionesStock}</select>
+          <button class="btn btn-outline asigBtn" style="padding:6px 12px; font-size:12px;">${asignado ? 'Cambiar' : 'Asignar'}</button>
+          ${asignado ? '<button class="btn-danger-link quitarBtn">Quitar</button>' : ''}</div>` : ''}
+      </div>`;
+      filasCsv.push({
+        numero_socio: s.numero_socio || '', familia: s.nombre || '', alumno: `${al.nombre || ''} ${al.apellidos || ''}`, curso: `${al.curso || ''} ${al.etapa || ''}`,
+        prioridad_1: (lista.find(p => p.prioridad === 1)?.prendas_catalogo ? `${lista.find(p => p.prioridad === 1).prendas_catalogo.tipo} T${lista.find(p => p.prioridad === 1).prendas_catalogo.talla}` : ''),
+        prioridad_2: (lista.find(p => p.prioridad === 2)?.prendas_catalogo ? `${lista.find(p => p.prioridad === 2).prendas_catalogo.tipo} T${lista.find(p => p.prioridad === 2).prendas_catalogo.talla}` : ''),
+        prioridad_3: (lista.find(p => p.prioridad === 3)?.prendas_catalogo ? `${lista.find(p => p.prioridad === 3).prendas_catalogo.tipo} T${lista.find(p => p.prioridad === 3).prendas_catalogo.talla}` : ''),
+        asignado: asignado ? `${asignado.prendas_catalogo?.tipo} T${asignado.prendas_catalogo?.talla}${asignado.prioridad === 0 ? ' (a mano)' : ''}` : ''
+      });
+    });
+    html += '</div>';
+  });
+
+  wrap.innerHTML = `<div class="card"><p class="section-label">Pedidos y asignaciones</p>
+    <div class="resumen"><div><b>${familias.length}</b>familias</div><div><b>${alumnosTot}</b>alumnos/as</div><div><b>${asignadosTot}</b>con prenda</div><div><b>${alumnosTot - asignadosTot}</b>sin prenda</div></div>
+    <button class="btn btn-outline" id="csvBtn" style="margin-bottom:14px;">Descargar listado (CSV)</button>
+    <p id="pedMsg" style="display:none;"></p>${html}</div>`;
+
+  document.getElementById('csvBtn').addEventListener('click', () => descargarCSV(filasCsv, 'uniformes-reparto.csv'));
+  wrap.querySelectorAll('.alumno').forEach(div => {
+    const alumnoId = div.dataset.alumno;
+    const asigBtn = div.querySelector('.asigBtn');
+    if (asigBtn) asigBtn.addEventListener('click', async () => {
+      const prendaId = div.querySelector('.asigSel').value;
+      if (!prendaId) { aviso('pedMsg', false, 'Elige primero una prenda.'); return; }
+      const { error } = await sb.rpc('uniformes_admin_asignar', { p_alumno_id: alumnoId, p_convocatoria_id: convocatoria.id, p_prenda_id: prendaId });
+      if (error) { aviso('pedMsg', false, error.message); return; }
+      await refrescarTodo();
+    });
+    const quitar = div.querySelector('.quitarBtn');
+    if (quitar) quitar.addEventListener('click', async () => {
+      const { error } = await sb.rpc('uniformes_admin_quitar', { p_alumno_id: alumnoId, p_convocatoria_id: convocatoria.id });
+      if (error) { aviso('pedMsg', false, error.message); return; }
+      await refrescarTodo();
+    });
+  });
+  wrap.querySelectorAll('[data-borrar]').forEach(b => b.addEventListener('click', async () => {
+    if (!confirm('¿Borrar el pedido completo de esta familia (todos sus hijos/as)? Si tenían prenda asignada, vuelve al stock. No se puede deshacer.')) return;
+    const { error } = await sb.rpc('uniformes_admin_borrar_pedido', { p_socio_id: b.dataset.borrar, p_convocatoria_id: convocatoria.id });
+    if (error) { aviso('pedMsg', false, error.message); return; }
+    await refrescarTodo();
+  }));
+}
+
+async function refrescarTodo() {
+  await cargarPrendas();
+  pintarMatriz();
+  await cargarMovimientos();
+  await cargarConvocatoria();
+}
+
+(async () => {
+  const ctx = await requireAdmin();
+  if (!ctx) return;
+  renderNav('admin-uniformes', ctx);
+  await refrescarCatalogo();
+  await cargarConvocatoria();
+})();
+</script>
+</body>
+</html>

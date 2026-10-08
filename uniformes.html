@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Uniformes · AMPA Juan de Valdés</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared/styles.css">
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">AMPA · Uniformes</div>
+  <h1>Entrega de uniformes</h1>
+  <p class="lede">Elige, para cada hijo/a, 3 prendas ordenadas por prioridad. 🔴 queda poco stock, 🟡 stock medio, 🟢 stock amplio.</p>
+
+  <details class="card" style="cursor:pointer;">
+    <summary class="section-label" style="margin:0;">Cómo funciona el reparto</summary>
+    <div style="font-size:14px; margin-top:12px; cursor:auto;">
+      <p>Cada hijo o hija se lleva <b>una prenda</b>. Tú eliges <b>3, ordenadas por prioridad</b>: si tu primera opción tiene más peticiones que stock, se hace un sorteo entre todos los que la han pedido en primer lugar. Si no te toca, pasas a competir por tu segunda opción, y si tampoco, por la tercera. Por eso conviene elegir bien las 3: puede tocarte perfectamente la segunda o la tercera.</p>
+      <p>El color indica la disponibilidad <b>en este momento</b>, pero no garantiza nada: depende de cuántas familias pidan lo mismo.</p>
+      <ul style="padding-left:18px;">
+        <li>🔴 <b>Poco stock:</b> si hay varias peticiones, probablemente haga falta sorteo.</li>
+        <li>🟡 <b>Stock medio:</b> disponibilidad razonable, aunque también puede agotarse.</li>
+        <li>🟢 <b>Stock amplio:</b> la opción con más posibilidades. Por eso la 3ª prioridad tiene que ser 🟢 y la 2ª no puede ser 🔴: así os aseguráis una red de seguridad.</li>
+      </ul>
+      <p>Puedes cambiar tu elección todas las veces que quieras mientras el plazo esté abierto. Cuando el AMPA cierre el reparto, verás aquí lo que le ha tocado a cada hijo/a.</p>
+    </div>
+  </details>
+
+  <div class="card" id="conseguidosCard" style="display:none;">
+    <p class="section-label">Uniformes que os han tocado</p>
+    <p style="font-size:13px; color:var(--ink-soft); margin-top:-6px;">El AMPA os indicará cuándo y dónde recogerlos.</p>
+    <div id="conseguidosWrap"></div>
+  </div>
+
+  <div class="card" id="estadoConvocatoriaCard"><p class="loading">Cargando...</p></div>
+
+  <div id="alumnosWrap"></div>
+
+  <footer class="note"><b>AMPA Colegio Juan de Valdés</b> — entrega de uniformes</footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="shared/supabaseClient.js"></script>
+<script src="shared/nav.js"></script>
+<script>
+let ctxGlobal = null;
+let convocatoriaActual = null;
+let prendas = [];
+
+function colorDe(stock) {
+  if (stock <= 2) return 'rojo';
+  if (stock <= 5) return 'amarillo';
+  return 'verde';
+}
+function emojiDe(color) { return { rojo: '🔴', amarillo: '🟡', verde: '🟢' }[color]; }
+
+async function cargarConseguidos() {
+  const card = document.getElementById('conseguidosCard');
+  const wrap = document.getElementById('conseguidosWrap');
+  // Solo se enseña el resultado de convocatorias "cerradas y guardadas" por
+  // el AMPA (mientras está repartida, el admin todavía puede cambiarlo).
+  const { data: todos } = await sb
+    .from('uniformes_pedidos')
+    .select('alumnos(nombre, apellidos), prendas_catalogo(tipo, talla), uniformes_convocatorias(estado, finalizada_en)')
+    .eq('socio_id', ctxGlobal.socio.id)
+    .eq('estado', 'asignado');
+  const data = (todos || []).filter(p => p.uniformes_convocatorias && p.uniformes_convocatorias.estado === 'finalizada');
+
+  if (data.length === 0) { card.style.display = 'none'; return; }
+  card.style.display = 'block';
+  wrap.innerHTML = data.map(p => `
+    <div class="evento-mini">
+      ${p.alumnos?.nombre || ''} ${p.alumnos?.apellidos || ''} — <b>${p.prendas_catalogo?.tipo} talla ${p.prendas_catalogo?.talla}</b>
+    </div>
+  `).join('');
+}
+
+async function cargarConvocatoria() {
+  const estadoCard = document.getElementById('estadoConvocatoriaCard');
+  const alumnosWrap = document.getElementById('alumnosWrap');
+
+  const { data: convocatoria } = await sb
+    .from('uniformes_convocatorias')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const abiertaYVigente = convocatoria && convocatoria.estado === 'abierta' && new Date(convocatoria.fecha_cierre) > new Date();
+
+  if (!convocatoria) {
+    estadoCard.innerHTML = '<p class="empty-hint">No hay ninguna convocatoria de uniformes en marcha ahora mismo.</p>';
+    alumnosWrap.innerHTML = '';
+    return;
+  }
+
+  if (abiertaYVigente) {
+    convocatoriaActual = convocatoria;
+    const fechaFmt = new Date(convocatoria.fecha_cierre).toLocaleString('es-ES', { dateStyle: 'long', timeStyle: 'short' });
+    estadoCard.innerHTML = `<p style="font-size:14.5px;">El plazo para pedir uniformes está abierto hasta el <b>${fechaFmt}</b>.</p>`;
+    await cargarCatalogo();
+    await cargarAlumnos();
+  } else {
+    convocatoriaActual = null;
+    estadoCard.innerHTML = convocatoria.estado === 'finalizada'
+      ? '<p class="empty-hint">El reparto de la última convocatoria ya está cerrado. Si os ha tocado algo, lo veis arriba.</p>'
+      : convocatoria.estado === 'cancelada'
+        ? '<p class="empty-hint">No hay ninguna convocatoria de uniformes en marcha ahora mismo.</p>'
+        : '<p class="empty-hint">El plazo para pedir uniformes está cerrado. El AMPA está haciendo el reparto: cuando termine, veréis aquí el resultado.</p>';
+    alumnosWrap.innerHTML = '';
+  }
+}
+
+async function cargarCatalogo() {
+  const { data } = await sb.from('prendas_catalogo').select('*').gt('stock', 0).order('tipo').order('talla');
+  prendas = data || [];
+}
+
+async function cargarAlumnos() {
+  const wrap = document.getElementById('alumnosWrap');
+  const { data: alumnos } = await sb.from('alumnos').select('*').eq('socio_id', ctxGlobal.socio.id).order('created_at');
+
+  if (!alumnos || alumnos.length === 0) {
+    wrap.innerHTML = '<div class="card"><p class="empty-hint">Todavía no has añadido ningún alumno. Ve a <a href="mis-datos.html">Mis datos</a>.</p></div>';
+    return;
+  }
+
+  wrap.innerHTML = '';
+  for (const alumno of alumnos) {
+    const { data: existentes } = await sb
+      .from('uniformes_pedidos')
+      .select('prioridad, prenda_id')
+      .eq('alumno_id', alumno.id)
+      .eq('convocatoria_id', convocatoriaActual.id)
+      .in('prioridad', [1, 2, 3]);
+
+    const seleccion = { 1: null, 2: null, 3: null };
+    (existentes || []).forEach(e => { seleccion[e.prioridad] = e.prenda_id; });
+
+    wrap.appendChild(renderAlumnoCard(alumno, seleccion));
+  }
+}
+
+function opcionesPara(prioridad, excluidos) {
+  return prendas.filter(p => {
+    if (excluidos.has(p.id)) return false;
+    const color = colorDe(p.stock);
+    if (prioridad === 2 && color === 'rojo') return false;
+    if (prioridad === 3 && color !== 'verde') return false;
+    return true;
+  });
+}
+
+function renderAlumnoCard(alumno, seleccionInicial) {
+  const card = document.createElement('div');
+  card.className = 'hijo-card';
+  card.innerHTML = `<div class="hijo-head"><span class="hijo-tag">${alumno.nombre} ${alumno.apellidos} — ${alumno.curso} ${alumno.etapa}</span></div>`;
+  const body = document.createElement('div');
+  body.className = 'hijo-body';
+
+  const seleccion = { ...seleccionInicial };
+
+  const ORDEN_TIPOS = ['Sudadera', 'Camiseta', 'Pantalón Corto', 'Pantalón Largo', 'Baby'];
+  const tipoSel = {}, tallaSel = {};
+  [1, 2, 3].forEach(prioridad => {
+    const field = document.createElement('div');
+    field.className = 'field';
+    field.style.marginTop = prioridad > 1 ? '14px' : '0';
+    field.innerHTML = `<label>${prioridad}ª prioridad</label>`;
+    const fila = document.createElement('div');
+    fila.style.cssText = 'display:grid; grid-template-columns:1fr 1fr; gap:10px;';
+    const t = document.createElement('select'); t.dataset.prioridad = prioridad; t.className = 'tipoSel';
+    const z = document.createElement('select'); z.dataset.prioridad = prioridad; z.className = 'tallaSel';
+    fila.appendChild(t); fila.appendChild(z); field.appendChild(fila);
+    body.appendChild(field);
+    tipoSel[prioridad] = t; tallaSel[prioridad] = z;
+    // Al abrir la ficha, el tipo se deduce de la prenda ya guardada
+    const guardada = prendas.find(p => p.id === seleccion[prioridad]);
+    t.dataset.actual = guardada ? guardada.tipo : '';
+  });
+  const leyenda = document.createElement('p');
+  leyenda.style.cssText = 'font-size:12.5px; color:var(--ink-soft); margin-top:10px;';
+  leyenda.textContent = 'La 2ª prioridad no puede ser 🔴 y la 3ª tiene que ser 🟢.';
+  body.appendChild(leyenda);
+
+  function renderOpciones() {
+    [1, 2, 3].forEach(prioridad => {
+      const excluidos = new Set([1, 2, 3].filter(p => p !== prioridad).map(p => seleccion[p]).filter(Boolean));
+      const opciones = opcionesPara(prioridad, excluidos);
+      const tipos = ORDEN_TIPOS.filter(t => opciones.some(o => o.tipo === t));
+      const t = tipoSel[prioridad], z = tallaSel[prioridad];
+      let tipoActual = t.dataset.actual || '';
+      if (!tipos.includes(tipoActual)) tipoActual = '';
+      t.innerHTML = '<option value="">Tipo de prenda...</option>' +
+        tipos.map(x => `<option ${x === tipoActual ? 'selected' : ''}>${x}</option>`).join('');
+      const tallas = opciones.filter(o => o.tipo === tipoActual).sort((a, b) => parseInt(a.talla) - parseInt(b.talla));
+      if (!tipoActual) {
+        z.innerHTML = '<option value="">Elige antes el tipo</option>'; z.disabled = true; seleccion[prioridad] = null;
+      } else {
+        z.disabled = false;
+        z.innerHTML = '<option value="">Talla...</option>' +
+          tallas.map(o => `<option value="${o.id}" ${o.id === seleccion[prioridad] ? 'selected' : ''}>Talla ${o.talla} ${emojiDe(colorDe(o.stock))}</option>`).join('');
+        if (!tallas.some(o => o.id === seleccion[prioridad])) { seleccion[prioridad] = null; z.value = ''; }
+      }
+    });
+  }
+
+  [1, 2, 3].forEach(prioridad => {
+    tipoSel[prioridad].addEventListener('change', () => {
+      tipoSel[prioridad].dataset.actual = tipoSel[prioridad].value;
+      seleccion[prioridad] = null;            // cambiar de tipo obliga a elegir talla otra vez
+      renderOpciones();
+    });
+    tallaSel[prioridad].addEventListener('change', () => {
+      seleccion[prioridad] = tallaSel[prioridad].value || null;
+      renderOpciones();
+    });
+  });
+
+  renderOpciones();
+
+  const msg = document.createElement('p');
+  msg.style.display = 'none'; msg.style.marginTop = '10px';
+
+  const guardarBtn = document.createElement('button');
+  guardarBtn.className = 'btn btn-primary';
+  guardarBtn.style.marginTop = '16px';
+  guardarBtn.textContent = 'Guardar selección';
+  guardarBtn.addEventListener('click', async () => {
+    if (!seleccion[1] || !seleccion[2] || !seleccion[3]) {
+      [1, 2, 3].forEach(p => tallaSel[p].classList.toggle('campo-error', !seleccion[p]));
+      msg.style.display = 'block'; msg.className = 'msg-error';
+      msg.textContent = 'Elige tipo y talla para las 3 prioridades.';
+      return;
+    }
+    [1, 2, 3].forEach(p => tallaSel[p].classList.remove('campo-error'));
+    await sb.from('uniformes_pedidos')
+      .delete()
+      .eq('alumno_id', alumno.id)
+      .eq('convocatoria_id', convocatoriaActual.id)
+      .in('prioridad', [1, 2, 3]);
+
+    const filas = [1, 2, 3].map(prioridad => ({
+      convocatoria_id: convocatoriaActual.id,
+      socio_id: ctxGlobal.socio.id,
+      alumno_id: alumno.id,
+      prioridad,
+      prenda_id: seleccion[prioridad]
+    }));
+    const { error } = await sb.from('uniformes_pedidos').insert(filas);
+
+    msg.style.display = 'block';
+    msg.className = error ? 'msg-error' : 'msg-ok';
+    msg.textContent = error ? 'Error: ' + error.message : 'Guardado ✓';
+  });
+
+  body.appendChild(guardarBtn);
+  body.appendChild(msg);
+  card.appendChild(body);
+  return card;
+}
+
+(async () => {
+  const ctx = await requireAuth();
+  if (!ctx) return;
+  ctxGlobal = ctx;
+  renderNav('uniformes', ctx);
+  await cargarConseguidos();
+  await cargarConvocatoria();
+})();
+</script>
+</body>
+</html>

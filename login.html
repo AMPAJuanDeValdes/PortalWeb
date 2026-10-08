@@ -5,10 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Iniciar sesión · AMPA Juan de Valdés</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="shared/styles.css">
 <style>
-  .login-wrap{ max-width:420px; margin:0 auto; padding:60px 20px; }
+  .login-wrap{ max-width:420px; margin:0 auto; padding:40px 20px 60px; }
   .login-logos{ display:flex; align-items:center; justify-content:center; gap:18px; margin-bottom:18px; flex-wrap:wrap; }
   .login-logos .logo-ampa{ height:52px; }
   .login-logos .logo-colegio{ height:38px; }
@@ -16,22 +16,31 @@
   h1{ text-align:center; }
   .lede{ text-align:center; margin:0 auto 26px; }
   .reset-link{ text-align:center; margin-top:14px; }
-  .reset-link a{ color:var(--navy); font-size:13px; }
-  .back-link{ display:block; text-align:center; margin-bottom:18px; font-family:'IBM Plex Mono',monospace; font-size:12.5px; color:var(--ink-soft); text-decoration:none; }
+  .reset-link a, .reset-link button{ color:var(--navy); font-size:13px; }
+  .top-links{ display:flex; justify-content:center; gap:16px; flex-wrap:wrap; margin-bottom:22px; font-size:12.5px; }
+  .top-links a{ color:var(--ink-soft); text-decoration:none; }
+  .top-links a:hover{ color:var(--navy); text-decoration:underline; }
+  .bottom-links{ text-align:center; margin-top:22px; font-size:13px; color:var(--ink-soft); }
+  .bottom-links a{ color:var(--navy); }
 </style>
 </head>
 <body>
 <div class="login-wrap">
-  <a class="back-link" href="index.html">‹ Volver a la web del AMPA</a>
+  <nav class="top-links">
+    <a href="index.html">‹ Web del AMPA</a>
+    <a href="publico.html">Eventos</a>
+    <a href="hazte-socio.html">Hazte socio</a>
+  </nav>
   <div class="login-logos">
     <img class="logo-ampa" src="assets/logo-ampa.png" alt="AMPA">
     <img class="logo-colegio" src="assets/logo-colegio.png" alt="Colegio Juan de Valdés">
   </div>
   <div class="rainbow-rule"></div>
-  <h1>Portal del AMPA</h1>
-  <p class="lede">Accede con tu email y contraseña personal.</p>
+  <h1 id="titulo">Portal del AMPA</h1>
+  <p class="lede" id="lede">Accede con tu email y contraseña personal.</p>
 
-  <div class="card">
+  <!-- 1. Acceso -->
+  <div class="card" id="loginCard">
     <form id="loginForm">
       <div class="field">
         <label for="email">Correo electrónico</label>
@@ -46,6 +55,33 @@
     </form>
     <p class="reset-link"><a href="#" id="resetLink">¿Has olvidado tu contraseña?</a></p>
   </div>
+
+  <!-- 2. Recuperar contraseña -->
+  <div class="card" id="resetCard" style="display:none;">
+    <p class="section-label">Recuperar contraseña</p>
+    <p style="font-size:14px; color:var(--ink-soft); margin-top:-6px;">
+      Te enviaremos un enlace para elegir una contraseña nueva. Solo funciona
+      con cuentas activas, y puedes pedirlo una vez cada 15 minutos.
+    </p>
+    <div class="field">
+      <label for="resetEmail">Correo electrónico</label>
+      <input type="email" id="resetEmail" autocomplete="username">
+    </div>
+    <div id="resetMsg" style="display:none;"></div>
+    <button type="button" class="btn btn-primary btn-block" id="resetBtn">Enviarme el enlace</button>
+    <p class="reset-link"><a href="#" id="volverLoginLink">‹ Volver a iniciar sesión</a></p>
+  </div>
+
+  <!-- 3. Cuenta inactiva -->
+  <div class="card" id="inactivaCard" style="display:none;">
+    <p class="section-label" id="inactivaTitulo">Cuenta inactiva</p>
+    <p style="font-size:14.5px;" id="inactivaTexto"></p>
+    <a class="btn btn-primary btn-block" id="reactivarBtn" href="reactivar-cuenta.html">Sí, quiero reactivar mi cuenta</a>
+    <p class="reset-link"><a href="login.html">‹ Volver a iniciar sesión</a></p>
+  </div>
+
+  <p class="bottom-links">¿Todavía no eres socio? <a href="hazte-socio.html">Hazte socio</a><br>
+  ¿Fuiste socio y tu cuenta está de baja? <a href="reactivar-cuenta.html">Reactívala</a></p>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -57,6 +93,43 @@
 
   const MENSAJE_CREDENCIALES_INVALIDAS = 'Email o contraseña incorrectos.';
 
+  function mostrar(cardId) {
+    ['loginCard', 'resetCard', 'inactivaCard'].forEach(id => {
+      document.getElementById(id).style.display = id === cardId ? 'block' : 'none';
+    });
+  }
+
+  function errorLogin(texto) {
+    errorMsg.className = 'msg-error';
+    errorMsg.textContent = texto;
+    errorMsg.hidden = false;
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Iniciar sesión';
+  }
+
+  // Solo se llega aquí con la contraseña CORRECTA, así que decir que la
+  // cuenta está de baja no revela nada a quien no conozca la contraseña.
+  function mostrarCuentaInactiva(socio, email) {
+    const titulo = document.getElementById('inactivaTitulo');
+    const texto = document.getElementById('inactivaTexto');
+    if (socio.estado === 'baja') {
+      titulo.textContent = 'Usuario dado de baja';
+      texto.innerHTML = 'Tu cuenta del AMPA está <b>dada de baja</b>' +
+        (socio.motivo_rechazo ? ' (motivo: <i>' + socio.motivo_rechazo.replace(/</g, '&lt;') + '</i>)' : '') +
+        '. ¿Quieres <b>reactivarla</b>? Solo tienes que enviarnos el comprobante de pago de la cuota: el resto de tus datos ya los tenemos.';
+    } else {
+      titulo.textContent = 'Cuenta inactiva: falta el pago de la cuota';
+      texto.innerHTML = socio.forma_pago === 'Domiciliación Bancaria'
+        ? 'Tu cuenta está pendiente de renovar la cuota. Como la tienes <b>domiciliada</b>, se reactivará sola en cuanto se cobre el recibo. Si ya no tienes la domiciliación, puedes reactivarla ahora enviando el comprobante de una transferencia.'
+        : 'Tu cuenta está <b>inactiva</b> porque falta el pago de la cuota de este curso. ¿Quieres <b>reactivarla</b>? Solo tienes que enviarnos el comprobante de pago.';
+    }
+    document.getElementById('reactivarBtn').href =
+      'reactivar-cuenta.html?motivo=' + socio.estado + '&email=' + encodeURIComponent(email);
+    document.getElementById('titulo').textContent = 'Tu cuenta no está activa';
+    document.getElementById('lede').textContent = '';
+    mostrar('inactivaCard');
+  }
+
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     errorMsg.hidden = true;
@@ -66,70 +139,119 @@
     const email = document.getElementById('email').value.trim();
     const password = document.getElementById('password').value;
 
-    const { data: signInData, error } = await sb.auth.signInWithPassword({ email, password });
-
-    if (error) {
-      errorMsg.textContent = MENSAJE_CREDENCIALES_INVALIDAS;
-      errorMsg.hidden = false;
-      submitBtn.disabled = false;
-      submitBtn.textContent = 'Iniciar sesión';
-      return;
-    }
+    const { error } = await sb.auth.signInWithPassword({ email, password });
+    if (error) { errorLogin(MENSAJE_CREDENCIALES_INVALIDAS); return; }
 
     const adulto = await getAdulto();
     if (!adulto) {
       await sb.auth.signOut();
-      errorMsg.textContent = MENSAJE_CREDENCIALES_INVALIDAS;
-      errorMsg.hidden = false;
-      submitBtn.disabled = false;
-      submitBtn.textContent = 'Iniciar sesión';
+      errorLogin(MENSAJE_CREDENCIALES_INVALIDAS);
       return;
     }
 
     const socio = await getSocio(adulto.socio_id);
-
-    if (socio && socio.estado === 'baja') {
+    if (!socio) {
       await sb.auth.signOut();
-      errorMsg.textContent = MENSAJE_CREDENCIALES_INVALIDAS;
-      errorMsg.hidden = false;
-      submitBtn.disabled = false;
-      submitBtn.textContent = 'Iniciar sesión';
+      errorLogin(MENSAJE_CREDENCIALES_INVALIDAS);
       return;
     }
 
-    if (adulto.force_password_change) {
-      window.location.href = 'cambiar-clave.html';
+    if (socio.estado === 'baja' || socio.estado === 'falta_pago') {
+      await sb.auth.signOut();
+      mostrarCuentaInactiva(socio, email);
       return;
     }
 
-    if (socio && socio.estado === 'recien_creada') {
-      window.location.href = 'estado-recien-creada.html';
-      return;
-    }
-    if (socio && socio.estado === 'falta_pago') {
-      window.location.href = 'estado-falta-pago.html';
-      return;
-    }
-
+    if (adulto.force_password_change) { window.location.href = 'cambiar-clave.html'; return; }
+    if (socio.estado === 'recien_creada') { window.location.href = 'estado-recien-creada.html'; return; }
     window.location.href = 'dashboard.html';
   });
 
-  document.getElementById('resetLink').addEventListener('click', async (e) => {
+  /* ---------------- Recuperar contraseña ---------------- */
+
+  const resetBtn = document.getElementById('resetBtn');
+  const resetMsg = document.getElementById('resetMsg');
+  const CLAVE_ENVIADO = 'ampa_recuperacion_enviada';
+
+  function bloquearBotonReset() {
+    resetBtn.disabled = true;
+    resetBtn.textContent = 'Enlace enviado';
+  }
+
+  document.getElementById('resetLink').addEventListener('click', (e) => {
     e.preventDefault();
-    const email = document.getElementById('email').value.trim();
+    document.getElementById('resetEmail').value = document.getElementById('email').value.trim();
+    errorMsg.hidden = true;
+    mostrar('resetCard');
+    // Si ya se pidió hace menos de 15 minutos desde este navegador, el
+    // botón sigue bloqueado (también tras recargar la página)
+    try {
+      const t = parseInt(localStorage.getItem(CLAVE_ENVIADO) || '0', 10);
+      if (Date.now() - t < 15 * 60000) {
+        bloquearBotonReset();
+        resetMsg.style.display = 'block';
+        resetMsg.className = 'msg-ok';
+        resetMsg.textContent = 'Ya te hemos enviado un enlace hace poco. Revisa tu correo (también la carpeta de spam).';
+      }
+    } catch (err) { /* sin almacenamiento local: no pasa nada */ }
+  });
+
+  document.getElementById('volverLoginLink').addEventListener('click', (e) => {
+    e.preventDefault();
+    mostrar('loginCard');
+  });
+
+  resetBtn.addEventListener('click', async () => {
+    const email = document.getElementById('resetEmail').value.trim();
+    resetMsg.style.display = 'block';
     if (!email) {
-      errorMsg.textContent = 'Escribe primero tu email arriba y vuelve a pulsar el enlace.';
-      errorMsg.hidden = false;
+      resetMsg.className = 'msg-error';
+      resetMsg.textContent = 'Escribe tu email.';
+      document.getElementById('resetEmail').classList.add('campo-error');
       return;
     }
-    const { error } = await sb.auth.resetPasswordForEmail(email, {
-      redirectTo: window.location.origin + '/cambiar-clave.html'
-    });
-    errorMsg.hidden = false;
-    errorMsg.className = error ? 'msg-error' : 'msg-ok';
-    errorMsg.textContent = error
-      ? 'No se pudo enviar el correo de recuperación.'
-      : 'Te hemos enviado un correo con instrucciones para restablecer tu contraseña.';
+    document.getElementById('resetEmail').classList.remove('campo-error');
+    resetBtn.disabled = true;
+    resetBtn.textContent = 'Enviando...';
+
+    try {
+      const resp = await fetch('/.netlify/functions/recuperar-contrasena', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+      let data = {};
+      try { data = await resp.json(); } catch (e) {}
+
+      if (resp.ok) {
+        resetMsg.className = 'msg-ok';
+        resetMsg.textContent = 'Te hemos enviado un correo con un enlace para elegir una contraseña nueva. Revisa también la carpeta de spam.';
+        try { localStorage.setItem(CLAVE_ENVIADO, String(Date.now())); } catch (e) {}
+        bloquearBotonReset();
+        return;
+      }
+      if (data.codigo === 'demasiado_pronto') {
+        resetMsg.className = 'msg-error';
+        resetMsg.textContent = data.error;
+        bloquearBotonReset();
+        return;
+      }
+      if (data.codigo === 'no_activa') {
+        resetMsg.className = 'aviso-error';
+        resetMsg.innerHTML = data.error +
+          '<br><br>Si tu cuenta está dada de baja o pendiente de pago, <a href="reactivar-cuenta.html?email=' +
+          encodeURIComponent(email) + '">reactívala aquí</a>. Si todavía no eres socio, <a href="hazte-socio.html">hazte socio</a>.';
+        resetBtn.disabled = false;
+        resetBtn.textContent = 'Enviarme el enlace';
+        return;
+      }
+      throw new Error(data.error || 'No se pudo enviar el correo.');
+    } catch (err) {
+      resetMsg.className = 'msg-error';
+      resetMsg.textContent = err.message;
+      resetBtn.disabled = false;
+      resetBtn.textContent = 'Enviarme el enlace';
+    }
   });
 </script>
 </body>

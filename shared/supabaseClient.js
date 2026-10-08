@@ -48,8 +48,8 @@ function redirigirPorEstado(socio) {
   if (!socio) return true;
   const destinos = {
     recien_creada: 'estado-recien-creada.html',
-    falta_pago: 'estado-falta-pago.html',
-    baja: null // se trata como login inválido, ver login.html
+    falta_pago: 'reactivar-cuenta.html?motivo=falta_pago',
+    baja: 'reactivar-cuenta.html?motivo=baja'
   };
   if (socio.estado === 'activa') return true;
   const destino = destinos[socio.estado];
@@ -70,12 +70,23 @@ async function requireAuth() {
     window.location.href = 'login.html';
     return null;
   }
-  if (adulto.force_password_change && !window.location.pathname.endsWith('cambiar-clave.html')) {
+  // (con o sin ".html": Netlify puede servir las páginas como /cambiar-clave)
+  if (adulto.force_password_change && !/\/cambiar-clave(\.html)?$/.test(window.location.pathname)) {
     window.location.href = 'cambiar-clave.html';
     return null;
   }
   const socio = await getSocio(adulto.socio_id);
-  const estadoOk = window.location.pathname.match(/estado-.*\.html$/) || redirigirPorEstado(socio);
+  // Cuenta dada de baja o pendiente de pago: nunca se entra al portal
+  // (antes, quien recuperaba la contraseña de una cuenta de baja llegaba
+  // a un Inicio en blanco). Se cierra la sesión y se le ofrece reactivar.
+  if (!socio || socio.estado === 'baja' || socio.estado === 'falta_pago') {
+    await sb.auth.signOut();
+    window.location.href = socio
+      ? 'reactivar-cuenta.html?motivo=' + socio.estado + '&email=' + encodeURIComponent(adulto.email || '')
+      : 'login.html';
+    return null;
+  }
+  const estadoOk = /\/estado-[^/]+$/.test(window.location.pathname) || redirigirPorEstado(socio);
   if (!estadoOk) return null;
 
   return { session, adulto, socio };

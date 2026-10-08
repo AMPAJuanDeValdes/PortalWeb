@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Socios · Admin AMPA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared/styles.css">
+<style>
+  .wrap{ max-width:980px; }
+  .tabs{ display:flex; gap:6px; margin-bottom:20px; flex-wrap:wrap; }
+  .tabs button{ font-family:'Inter', sans-serif; font-size:12.5px; text-transform:uppercase; padding:9px 14px; border-radius:var(--radius); border:1px solid var(--line); background:#fff; color:var(--ink-soft); cursor:pointer; }
+  .tabs button.active{ background:var(--navy); color:#fff; border-color:var(--navy); }
+  .tabs .num{ display:inline-block; min-width:18px; padding:0 5px; border-radius:9px; background:var(--red); color:#fff; font-size:11px; margin-left:4px; }
+  .panel{ display:none; } .panel.active{ display:block; }
+  .filtros{ display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; margin-bottom:14px; }
+  .filtros .field{ margin:0; flex:1; min-width:180px; }
+  .tabla-socios{ width:100%; border-collapse:collapse; font-size:13.5px; }
+  .tabla-socios th{ text-align:left; font-size:11.5px; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-soft); font-weight:600; padding:8px 6px; border-bottom:1px solid var(--line); }
+  .tabla-socios td{ padding:9px 6px; border-bottom:1px solid var(--line); vertical-align:top; }
+  .tabla-socios tr.fila:hover td{ background:#FAF8F2; cursor:pointer; }
+  .tabla-socios tr.abierta td{ background:#F3F7FC; }
+  .tabla-socios .sub{ color:var(--ink-soft); font-size:12px; }
+  .mono{ font-family:ui-monospace, Menlo, Consolas, monospace; font-size:12.5px; }
+  .detalle{ padding:6px 2px 18px; }
+  .bloque{ border:1px solid var(--line); border-radius:var(--radius); background:#fff; padding:16px; margin-top:14px; }
+  .bloque h3{ font-family:'Space Grotesk', sans-serif; font-size:15px; margin:0 0 12px; display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; }
+  .grid3{ display:grid; grid-template-columns:repeat(3, 1fr); gap:10px 14px; }
+  .grid4{ display:grid; grid-template-columns:repeat(4, 1fr); gap:10px 14px; }
+  @media (max-width:700px){ .grid3, .grid4{ grid-template-columns:1fr 1fr; } }
+  @media (max-width:440px){ .grid3, .grid4{ grid-template-columns:1fr; } }
+  .grid3 .field, .grid4 .field{ margin:0; }
+  .field label{ font-size:12px; }
+  .persona{ border-top:1px dashed var(--line); padding-top:14px; margin-top:14px; }
+  .persona:first-of-type{ border-top:none; padding-top:0; margin-top:0; }
+  .persona-head{ display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:10px; font-weight:600; font-size:14px; }
+  .acciones{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top:12px; }
+  .dato-ro{ font-size:13.5px; } .dato-ro span{ color:var(--ink-soft); font-size:12px; display:block; }
+  .resumen-solicitud dl{ display:grid; grid-template-columns:max-content 1fr; gap:4px 14px; margin:6px 0 0; font-size:13.5px; }
+  .resumen-solicitud dt{ color:var(--ink-soft); }
+  .resumen-solicitud dd{ margin:0; }
+  .falta{ color:var(--red); font-weight:600; }
+  .solicitud{ border:1px solid var(--line); border-left:4px solid var(--navy); padding:16px; margin-bottom:18px; background:#fff; }
+  .solicitud.reactivacion{ border-left-color:var(--gold); }
+  .msg-linea{ font-size:13px; margin:8px 0 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">AMPA · Administración</div>
+  <h1>Socios</h1>
+  <p class="lede">Todas las cuentas (activas, pendientes de pago y de baja) con todos sus datos. Desde aquí se aprueban las solicitudes de alta y de reactivación, se edita cualquier dato (incluido el número de socio) y se da de baja o se reactiva una cuenta.</p>
+
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="solicitudes">Solicitudes pendientes <span class="num" id="numSolicitudes" style="display:none;"></span></button>
+    <button class="tab-btn" data-tab="socios">Lista de socios</button>
+  </div>
+
+  <div class="panel active" id="panel-solicitudes">
+    <div id="wrapSolicitudes"><p class="loading">Cargando...</p></div>
+  </div>
+
+  <div class="panel" id="panel-socios">
+    <div class="card">
+      <div class="filtros">
+        <div class="field">
+          <label for="filtroTexto">Buscar</label>
+          <input type="text" id="filtroTexto" placeholder="Nombre, email, DNI, nº de socio, alumno...">
+        </div>
+        <div class="field" style="max-width:220px;">
+          <label for="filtroEstado">Estado</label>
+          <select id="filtroEstado">
+            <option value="">Todos</option>
+            <option value="activa">Activas</option>
+            <option value="recien_creada">Pendientes de aprobar</option>
+            <option value="falta_pago">Inactivas (falta de pago)</option>
+            <option value="baja">De baja</option>
+          </select>
+        </div>
+        <button type="button" class="btn btn-outline" id="exportBtn">Exportar CSV</button>
+      </div>
+      <p class="sub" id="contador" style="font-size:12.5px; color:var(--ink-soft); margin:0 0 6px;"></p>
+      <div style="overflow-x:auto;">
+        <table class="tabla-socios">
+          <thead><tr><th>Nº socio</th><th>Familia</th><th>Contacto</th><th>Alumnos</th><th>Estado</th></tr></thead>
+          <tbody id="tbodySocios"><tr><td colspan="5" class="loading">Cargando...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <footer class="note"><b>AMPA Colegio Juan de Valdés</b> — panel de administración</footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="shared/supabaseClient.js"></script>
+<script src="shared/nav.js"></script>
+<script src="shared/catalogo.js"></script>
+<script src="shared/csv.js"></script>
+<script>
+let ctxGlobal = null;
+let SOCIOS = [];          // filas de socios, cada una con .adultos y .alumnos
+let abierto = null;       // id del socio desplegado en la lista
+let mensajePendiente = null; // mensaje a mostrar en la ficha tras repintarla
+
+const ESTADOS = {
+  activa: 'Activa', recien_creada: 'Pendiente de aprobar', falta_pago: 'Inactiva (falta de pago)', baja: 'De baja'
+};
+const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const fecha = (f) => f ? new Date(f).toLocaleDateString('es-ES') : '';
+const badge = (estado) => `<span class="estado-badge estado-${estado}">${ESTADOS[estado] || estado}</span>`;
+
+/* ---------------- Pestañas ---------------- */
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
+  });
+});
+function irALista(socioId) {
+  document.querySelector('.tab-btn[data-tab="socios"]').click();
+  document.getElementById('filtroEstado').value = '';
+  document.getElementById('filtroTexto').value = '';
+  abierto = socioId;
+  pintarLista();
+  const fila = document.querySelector(`tr[data-id="${socioId}"]`);
+  if (fila) fila.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+/* ---------------- Datos ---------------- */
+async function cargarDatos() {
+  const [s, a, al] = await Promise.all([
+    sb.from('socios').select('*').order('created_at', { ascending: false }),
+    sb.from('adultos').select('*').order('created_at'),
+    sb.from('alumnos').select('*').order('fecha_nacimiento', { ascending: true, nullsFirst: false })
+  ]);
+  if (s.error || a.error || al.error) throw new Error((s.error || a.error || al.error).message);
+  const porId = {};
+  SOCIOS = s.data.map(x => (porId[x.id] = { ...x, adultos: [], alumnos: [] }));
+  a.data.forEach(x => porId[x.socio_id] && porId[x.socio_id].adultos.push(x));
+  al.data.forEach(x => porId[x.socio_id] && porId[x.socio_id].alumnos.push(x));
+}
+
+async function recargar() {
+  try { await cargarDatos(); }
+  catch (e) { document.getElementById('wrapSolicitudes').innerHTML = '<p class="msg-error">' + esc(e.message) + '</p>'; return; }
+  await pintarSolicitudes();
+  pintarLista();
+}
+
+async function llamarGestion(payload) {
+  const session = await getSession();
+  const resp = await fetch('/.netlify/functions/admin-gestionar-cuenta', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
+    body: JSON.stringify(payload)
+  });
+  let data = {};
+  try { data = await resp.json(); } catch (e) {}
+  if (!resp.ok) throw new Error(data.error || 'Error ' + resp.status);
+  return data;
+}
+
+async function urlComprobante(path) {
+  const { data } = await sb.storage.from('comprobantes').createSignedUrl(path, 600);
+  return data ? data.signedUrl : null;
+}
+
+async function htmlComprobantes(socioId) {
+  const { data } = await sb.from('comprobantes_pago').select('*').eq('socio_id', socioId).eq('tipo', 'cuota_socio').order('created_at', { ascending: false });
+  if (!data || !data.length) return '<p class="falta">⚠ Sin comprobante de pago.</p>';
+  const filas = await Promise.all(data.map(async c => {
+    const url = await urlComprobante(c.archivo_url);
+    return `<div style="font-size:13.5px; padding:3px 0;">📎 ${url ? `<a href="${url}" target="_blank" rel="noopener">Ver comprobante</a>` : 'Archivo no disponible'} · subido el ${fecha(c.created_at)} ${c.verificado ? '<span class="sub">· verificado</span>' : '<b style="color:var(--gold);">· sin revisar</b>'}</div>`;
+  }));
+  return filas.join('');
+}
+
+/* ---------------- Solicitudes pendientes ---------------- */
+function esSolicitud(s) {
+  return s.estado === 'recien_creada' || (s.reactivacion_solicitada_en && s.estado !== 'activa');
+}
+
+function resumenPersona(a) {
+  const filas = [
+    ['Nombre', `${esc(a.nombre)} ${esc(a.apellidos)}`],
+    ['Email', esc(a.email)],
+    [a.es_pasaporte ? 'Pasaporte' : 'DNI/NIE', esc(a.dni_nie)],
+    ['Móvil', a.movil ? esc(a.movil) : '<span class="falta">—</span>'],
+    ['Teléfono fijo', esc(a.telefono_fijo || '—')],
+    ['Dirección', `${esc(a.direccion)}, ${esc(a.codigo_postal)} ${esc(a.ciudad)} (${esc(a.provincia)})`],
+    ['Sexo', esc(a.sexo || '—')],
+    ['Relación', esc(a.relacion_alumnos || '—')]
+  ];
+  return '<dl>' + filas.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('') + '</dl>';
+}
+function resumenAlumno(al) {
+  return `<li>${esc(al.nombre)} ${esc(al.apellidos)} — ${esc(al.etapa)} ${esc(al.curso || '(sin curso)')}${al.aula ? ' ' + esc(al.aula) : ''} · nacido/a el ${al.fecha_nacimiento ? fecha(al.fecha_nacimiento) : '<span class="falta">sin fecha</span>'}${al.sexo ? ' · ' + esc(al.sexo) : ''}</li>`;
+}
+
+async function pintarSolicitudes() {
+  const wrap = document.getElementById('wrapSolicitudes');
+  const lista = SOCIOS.filter(esSolicitud).sort((a, b) =>
+    new Date(a.reactivacion_solicitada_en || a.created_at) - new Date(b.reactivacion_solicitada_en || b.created_at));
+
+  const num = document.getElementById('numSolicitudes');
+  num.textContent = lista.length; num.style.display = lista.length ? 'inline-block' : 'none';
+
+  if (!lista.length) { wrap.innerHTML = '<div class="card"><p class="empty-hint">No hay solicitudes pendientes.</p></div>'; return; }
+
+  wrap.innerHTML = '';
+  for (const s of lista) {
+    const reactivacion = s.estado !== 'recien_creada';
+    const div = document.createElement('div');
+    div.className = 'solicitud resumen-solicitud' + (reactivacion ? ' reactivacion' : '');
+    div.innerHTML = `
+      <div style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:baseline;">
+        <b style="font-size:15.5px;">${reactivacion ? '🔁 Reactivación' : '🆕 Alta nueva'} — ${esc(s.adultos.map(a => a.nombre + ' ' + a.apellidos).join(' / ') || '(sin adultos)')}</b>
+        <span class="sub" style="font-size:12.5px; color:var(--ink-soft);">${reactivacion
+          ? 'Pedida el ' + fecha(s.reactivacion_solicitada_en) + ' · ahora: ' + badge(s.estado) + (s.numero_socio_completo ? ' · nº ' + esc(s.numero_socio_completo) : '')
+          : 'Solicitada el ' + fecha(s.created_at)}</span>
+      </div>
+      <p class="section-label" style="margin:14px 0 4px;">Comprobante de pago</p>
+      <div class="comp"><p class="loading">Cargando...</p></div>
+      <p class="section-label" style="margin:14px 0 4px;">Cuenta</p>
+      <dl><dt>Forma de pago</dt><dd>${esc(s.forma_pago || 'Sin especificar')}</dd>${s.iban ? `<dt>IBAN</dt><dd class="mono">${esc(s.iban)}</dd>` : ''}${s.motivo_rechazo ? `<dt>Rechazo anterior</dt><dd>${esc(s.motivo_rechazo)}</dd>` : ''}</dl>
+      ${s.adultos.map((a, i) => `<p class="section-label" style="margin:14px 0 4px;">${i === 0 ? 'Adulto principal' : 'Segundo adulto'}</p>${resumenPersona(a)}`).join('')}
+      <p class="section-label" style="margin:14px 0 4px;">Alumnos (${s.alumnos.length})</p>
+      ${s.alumnos.length ? '<ul style="margin:4px 0; padding-left:18px; font-size:13.5px;">' + s.alumnos.map(resumenAlumno).join('') + '</ul>' : '<p class="empty-hint">Sin alumnos.</p>'}
+      <div class="acciones">
+        <button class="btn btn-primary activarBtn">Activar cuenta y enviar bienvenida</button>
+        <button class="btn btn-outline rechazarAbrirBtn">Rechazar…</button>
+        <button class="linklike editarBtn" style="font-size:13px;">Editar datos</button>
+      </div>
+      <div class="rechazoZona" style="display:none; margin-top:12px;">
+        <label style="font-size:13px;">Motivo del rechazo (se enviará por email a la familia) *</label>
+        <textarea rows="3" class="motivoTxt" placeholder="Ej.: no hemos recibido la transferencia / el comprobante no se lee bien..."></textarea>
+        <div class="acciones"><button class="btn btn-primary confirmarRechazoBtn" style="background:var(--red);">Rechazar y enviar email</button></div>
+      </div>
+      <p class="msg-linea" style="display:none;"></p>
+    `;
+    wrap.appendChild(div);
+    htmlComprobantes(s.id).then(h => div.querySelector('.comp').innerHTML = h);
+
+    const msg = div.querySelector('.msg-linea');
+    const aviso = (ok, t) => { msg.style.display = 'block'; msg.className = 'msg-linea ' + (ok ? 'msg-ok' : 'msg-error'); msg.textContent = t; };
+
+    div.querySelector('.editarBtn').addEventListener('click', () => irALista(s.id));
+    div.querySelector('.activarBtn').addEventListener('click', async (e) => {
+      if (!confirm('¿Activar esta cuenta? Se enviará el email de bienvenida.')) return;
+      e.target.disabled = true; e.target.textContent = 'Activando...';
+      try {
+        const r = await llamarGestion({ accion: 'activar', socioId: s.id });
+        aviso(true, r.emailEnviado ? 'Cuenta activada ✓ y email de bienvenida enviado.' : 'Cuenta activada ✓ (pero el email NO se pudo enviar).');
+        setTimeout(recargar, 1500);
+      } catch (err) { aviso(false, err.message); e.target.disabled = false; e.target.textContent = 'Activar cuenta y enviar bienvenida'; }
+    });
+    div.querySelector('.rechazarAbrirBtn').addEventListener('click', () => {
+      div.querySelector('.rechazoZona').style.display = 'block';
+      div.querySelector('.motivoTxt').focus();
+    });
+    div.querySelector('.confirmarRechazoBtn').addEventListener('click', async (e) => {
+      const txt = div.querySelector('.motivoTxt');
+      if (!txt.value.trim()) { txt.classList.add('campo-error'); aviso(false, 'Escribe el motivo del rechazo.'); return; }
+      e.target.disabled = true; e.target.textContent = 'Enviando...';
+      try {
+        const r = await llamarGestion({ accion: 'rechazar', socioId: s.id, motivo: txt.value.trim() });
+        aviso(true, r.emailEnviado ? 'Solicitud rechazada. Email con el motivo enviado.' : 'Solicitud rechazada (pero el email NO se pudo enviar).');
+        setTimeout(recargar, 1500);
+      } catch (err) { aviso(false, err.message); e.target.disabled = false; e.target.textContent = 'Rechazar y enviar email'; }
+    });
+  }
+}
+
+/* ---------------- Lista de socios ---------------- */
+function textoBusqueda(s) {
+  return [s.numero_socio_completo, s.numero_secuencial, s.iban,
+    ...s.adultos.flatMap(a => [a.nombre, a.apellidos, a.email, a.dni_nie, a.movil]),
+    ...s.alumnos.flatMap(al => [al.nombre, al.apellidos])
+  ].filter(Boolean).join(' ').toLowerCase();
+}
+
+function sociosFiltrados() {
+  const t = document.getElementById('filtroTexto').value.trim().toLowerCase();
+  const e = document.getElementById('filtroEstado').value;
+  return SOCIOS.filter(s => (!e || s.estado === e) && (!t || textoBusqueda(s).includes(t)))
+    .sort((a, b) => String(a.numero_socio_completo || 'zzz').localeCompare(String(b.numero_socio_completo || 'zzz')));
+}
+
+function pintarLista() {
+  const tbody = document.getElementById('tbodySocios');
+  const lista = sociosFiltrados();
+  document.getElementById('contador').textContent =
+    `${lista.length} cuenta(s) · ${SOCIOS.filter(s => s.estado === 'activa').length} activas en total`;
+  if (!lista.length) { tbody.innerHTML = '<tr><td colspan="5" class="empty-hint">Ninguna cuenta coincide con el filtro.</td></tr>'; return; }
+
+  tbody.innerHTML = '';
+  for (const s of lista) {
+    const tr = document.createElement('tr');
+    tr.className = 'fila' + (abierto === s.id ? ' abierta' : '');
+    tr.dataset.id = s.id;
+    const a1 = s.adultos[0];
+    tr.innerHTML = `
+      <td class="mono">${esc(s.numero_socio_completo || '—')}</td>
+      <td>${s.adultos.map(a => esc(a.nombre + ' ' + a.apellidos)).join('<br>') || '<span class="falta">sin adultos</span>'}</td>
+      <td>${a1 ? esc(a1.email) + (a1.movil ? '<div class="sub">' + esc(a1.movil) + '</div>' : '') : ''}</td>
+      <td>${s.alumnos.length}</td>
+      <td>${badge(s.estado)}${esSolicitud(s) && s.estado !== 'recien_creada' ? '<div class="sub">pide reactivar</div>' : ''}</td>`;
+    tr.addEventListener('click', () => { abierto = abierto === s.id ? null : s.id; pintarLista(); });
+    tbody.appendChild(tr);
+
+    if (abierto === s.id) {
+      const trDet = document.createElement('tr');
+      trDet.innerHTML = '<td colspan="5" class="detalle"></td>';
+      tbody.appendChild(trDet);
+      pintarDetalle(s, trDet.firstElementChild);
+    }
+  }
+}
+
+document.getElementById('filtroTexto').addEventListener('input', pintarLista);
+document.getElementById('filtroEstado').addEventListener('change', pintarLista);
+
+document.getElementById('exportBtn').addEventListener('click', () => {
+  const filas = sociosFiltrados().map(s => {
+    const [a1 = {}, a2 = {}] = s.adultos;
+    return {
+      numero_socio: s.numero_socio_completo || '', estado: ESTADOS[s.estado] || s.estado,
+      anio_ultima_cuota: s.anio_ultima_cuota, forma_pago: s.forma_pago || '', iban: s.iban || '', creada: fecha(s.created_at),
+      adulto1_nombre: a1.nombre || '', adulto1_apellidos: a1.apellidos || '', adulto1_email: a1.email || '',
+      adulto1_dni_nie: a1.dni_nie || '', adulto1_movil: a1.movil || '', adulto1_telefono_fijo: a1.telefono_fijo || '',
+      adulto1_direccion: a1.direccion || '', adulto1_cp: a1.codigo_postal || '', adulto1_ciudad: a1.ciudad || '', adulto1_provincia: a1.provincia || '',
+      adulto2_nombre: a2.nombre || '', adulto2_apellidos: a2.apellidos || '', adulto2_email: a2.email || '',
+      adulto2_dni_nie: a2.dni_nie || '', adulto2_movil: a2.movil || '',
+      alumnos: s.alumnos.map(al => `${al.nombre} ${al.apellidos} (${al.etapa} ${al.curso || ''}${al.aula ? ' ' + al.aula : ''}${al.fecha_nacimiento ? ', ' + fecha(al.fecha_nacimiento) : ''})`).join('; ')
+    };
+  });
+  if (!filas.length) { alert('No hay cuentas que exportar con este filtro.'); return; }
+  descargarCSV(filas, 'socios-ampa.csv');
+});
+
+/* ---------------- Ficha completa y editable ---------------- */
+function campo(label, f, v, tipo) {
+  return `<div class="field"><label>${label}</label><input type="${tipo || 'text'}" data-f="${f}" value="${esc(v)}"></div>`;
+}
+function select(label, f, v, opciones, vacio) {
+  return `<div class="field"><label>${label}</label><select data-f="${f}">${vacio !== undefined ? `<option value="">${vacio}</option>` : ''}${opciones.map(o => `<option${o === v ? ' selected' : ''}>${esc(o)}</option>`).join('')}</select></div>`;
+}
+function leer(cont) {
+  const d = {};
+  cont.querySelectorAll('[data-f]').forEach(el => { d[el.dataset.f] = el.type === 'checkbox' ? el.checked : el.value.trim(); });
+  return d;
+}
+function lineaMsg(cont) {
+  const p = cont.querySelector(':scope > .msg-linea');
+  return (ok, t) => { p.style.display = 'block'; p.className = 'msg-linea ' + (ok ? 'msg-ok' : 'msg-error'); p.textContent = t; };
+}
+
+function pintarDetalle(s, td) {
+  td.innerHTML = `
+    <div class="bloque" data-b="cuenta">
+      <h3>Cuenta <span>${badge(s.estado)}</span></h3>
+      <div class="grid4">
+        ${campo('Año última cuota', 'anio_ultima_cuota', s.anio_ultima_cuota, 'number')}
+        ${campo('Código asociación', 'codigo_asociacion', s.codigo_asociacion)}
+        ${campo('Nº secuencial (4 cifras)', 'numero_secuencial', s.numero_secuencial || '')}
+        <div class="dato-ro"><span>Nº de socio completo</span><b class="mono">${esc(s.numero_socio_completo || '—')}</b></div>
+        ${select('Forma de pago', 'forma_pago', s.forma_pago, ['Transferencia', 'Domiciliación Bancaria'], 'Sin especificar')}
+        <div class="field" style="grid-column: span 2;"><label>IBAN de la familia</label><input type="text" data-f="iban" value="${esc(s.iban || '')}"></div>
+        <div class="dato-ro"><span>Cuenta creada</span>${fecha(s.created_at)}</div>
+      </div>
+      ${s.motivo_rechazo ? `<p style="font-size:13px; margin:10px 0 0;"><b>Motivo de rechazo:</b> ${esc(s.motivo_rechazo)}</p>` : ''}
+      <div class="acciones"><button class="btn btn-primary guardarCuentaBtn">Guardar cuenta</button></div>
+      <p class="msg-linea" style="display:none;"></p>
+    </div>
+
+    <div class="bloque" data-b="estado">
+      <h3>Estado de la cuenta</h3>
+      <div class="acciones" style="margin-top:0;">
+        ${s.estado !== 'activa' ? '<button class="btn btn-primary activarBtn">Activar cuenta y enviar bienvenida</button>' : ''}
+        ${s.estado !== 'baja' ? '<button class="btn btn-outline bajaBtn" style="border-color:var(--red); color:var(--red);">Dar de baja</button>' : ''}
+        ${s.estado !== 'activa' && s.estado !== 'baja' ? '<button class="linklike rechazarAbrirBtn" style="font-size:13px;">Rechazar con motivo…</button>' : ''}
+      </div>
+      <div class="rechazoZona" style="display:none; margin-top:12px;">
+        <label style="font-size:13px;">Motivo (se enviará por email a la familia) *</label>
+        <textarea rows="3" class="motivoTxt"></textarea>
+        <div class="acciones"><button class="btn btn-primary confirmarRechazoBtn" style="background:var(--red);">Rechazar y enviar email</button></div>
+      </div>
+      <p class="msg-linea" style="display:none;"></p>
+    </div>
+
+    <div class="bloque">
+      <h3>Comprobantes de cuota</h3>
+      <div class="comp"><p class="loading">Cargando...</p></div>
+    </div>
+
+    <div class="bloque" data-b="adultos">
+      <h3>Adultos (${s.adultos.length})</h3>
+      <div class="adultosWrap"></div>
+    </div>
+
+    <div class="bloque" data-b="alumnos">
+      <h3>Alumnos (${s.alumnos.length}) <button class="btn btn-outline addAlumnoBtn" style="padding:6px 12px; font-size:12px;">+ Añadir alumno</button></h3>
+      <div class="alumnosWrap"></div>
+    </div>
+  `;
+  td.addEventListener('click', e => e.stopPropagation());
+  if (mensajePendiente) {
+    const b = td.querySelector(`[data-b="${mensajePendiente.bloque}"]`);
+    if (b) lineaMsg(b)(mensajePendiente.ok, mensajePendiente.texto);
+    mensajePendiente = null;
+  }
+  htmlComprobantes(s.id).then(h => td.querySelector('.comp').innerHTML = h);
+
+  /* --- cuenta --- */
+  const bCuenta = td.querySelector('[data-b="cuenta"]');
+  bCuenta.querySelector('.guardarCuentaBtn').addEventListener('click', async () => {
+    const msg = lineaMsg(bCuenta);
+    const d = leer(bCuenta);
+    const anio = parseInt(d.anio_ultima_cuota, 10);
+    if (!Number.isFinite(anio) || anio < 1990 || anio > 2100) { msg(false, 'El año de última cuota no es válido.'); return; }
+    if (d.numero_secuencial && !/^[0-9]{4}$/.test(d.numero_secuencial)) { msg(false, 'El número secuencial debe tener exactamente 4 cifras (ej. 0042).'); return; }
+    if (!d.codigo_asociacion) { msg(false, 'El código de asociación no puede quedar vacío.'); return; }
+    const { error } = await sb.from('socios').update({
+      anio_ultima_cuota: anio, codigo_asociacion: d.codigo_asociacion, numero_secuencial: d.numero_secuencial || null,
+      forma_pago: d.forma_pago || null, iban: d.iban || null
+    }).eq('id', s.id);
+    if (error) { msg(false, error.code === '23505' ? 'Ese número de socio ya lo tiene otra cuenta.' : error.message); return; }
+    // Se repinta la ficha (para ver el nº de socio nuevo) y se muestra el
+    // mensaje en la ficha ya repintada
+    mensajePendiente = { bloque: 'cuenta', ok: true, texto: 'Guardado ✓' };
+    await cargarDatos(); pintarLista();
+  });
+
+  /* --- estado --- */
+  const bEstado = td.querySelector('[data-b="estado"]');
+  const msgEstado = lineaMsg(bEstado);
+  const act = bEstado.querySelector('.activarBtn');
+  if (act) act.addEventListener('click', async () => {
+    if (!confirm('¿Activar esta cuenta? Se enviará el email de bienvenida a la familia.')) return;
+    act.disabled = true;
+    try { const r = await llamarGestion({ accion: 'activar', socioId: s.id }); msgEstado(true, r.emailEnviado ? 'Cuenta activada ✓ y email enviado.' : 'Cuenta activada ✓ (el email NO se pudo enviar).'); setTimeout(recargar, 1200); }
+    catch (err) { msgEstado(false, err.message); act.disabled = false; }
+  });
+  const baja = bEstado.querySelector('.bajaBtn');
+  if (baja) baja.addEventListener('click', async () => {
+    if (!confirm('¿Dar de baja esta cuenta? La familia no podrá entrar al portal (podrá pedir reactivarla más adelante).')) return;
+    baja.disabled = true;
+    try { await llamarGestion({ accion: 'baja', socioId: s.id }); msgEstado(true, 'Cuenta dada de baja.'); setTimeout(recargar, 1200); }
+    catch (err) { msgEstado(false, err.message); baja.disabled = false; }
+  });
+  const rech = bEstado.querySelector('.rechazarAbrirBtn');
+  if (rech) rech.addEventListener('click', () => { bEstado.querySelector('.rechazoZona').style.display = 'block'; });
+  bEstado.querySelector('.confirmarRechazoBtn').addEventListener('click', async (e) => {
+    const txt = bEstado.querySelector('.motivoTxt');
+    if (!txt.value.trim()) { txt.classList.add('campo-error'); msgEstado(false, 'Escribe el motivo.'); return; }
+    e.target.disabled = true;
+    try { const r = await llamarGestion({ accion: 'rechazar', socioId: s.id, motivo: txt.value.trim() }); msgEstado(true, r.emailEnviado ? 'Rechazada. Email enviado.' : 'Rechazada (el email NO se pudo enviar).'); setTimeout(recargar, 1200); }
+    catch (err) { msgEstado(false, err.message); e.target.disabled = false; }
+  });
+
+  /* --- adultos --- */
+  const adWrap = td.querySelector('.adultosWrap');
+  s.adultos.forEach((a, i) => {
+    const div = document.createElement('div');
+    div.className = 'persona';
+    div.innerHTML = `
+      <div class="persona-head"><span>${i === 0 ? 'Adulto principal' : 'Segundo adulto'} ${a.role === 'admin' ? '<span class="badge badge-admin">admin</span>' : ''}</span>
+        ${s.adultos.length > 1 && a.id !== ctxGlobal.adulto.id ? '<button class="btn-danger-link quitarBtn">Quitar este adulto</button>' : ''}</div>
+      <div class="grid3">
+        ${campo('Nombre *', 'nombre', a.nombre)}${campo('Apellidos *', 'apellidos', a.apellidos)}${campo('Email (usuario de acceso) *', 'email', a.email, 'email')}
+        ${campo('DNI / NIE / Pasaporte *', 'dni_nie', a.dni_nie)}
+        <div class="field"><label>&nbsp;</label><label style="display:flex; gap:6px; align-items:center; font-weight:400;"><input type="checkbox" data-f="es_pasaporte" style="width:auto;" ${a.es_pasaporte ? 'checked' : ''}> Es pasaporte</label></div>
+        ${select('Sexo', 'sexo', a.sexo, ['Masculino', 'Femenino', 'Otro'], 'Sin especificar')}
+        ${campo('Móvil', 'movil', a.movil)}${campo('Teléfono fijo', 'telefono_fijo', a.telefono_fijo)}${campo('Relación con alumnos', 'relacion_alumnos', a.relacion_alumnos)}
+        <div class="field" style="grid-column: span 2;"><label>Dirección *</label><input type="text" data-f="direccion" value="${esc(a.direccion)}"></div>
+        ${campo('Código postal *', 'codigo_postal', a.codigo_postal)}
+        ${campo('Ciudad *', 'ciudad', a.ciudad)}${campo('Provincia *', 'provincia', a.provincia)}
+      </div>
+      <div class="acciones"><button class="btn btn-primary guardarBtn">Guardar adulto</button></div>
+      <p class="msg-linea" style="display:none;"></p>`;
+    adWrap.appendChild(div);
+    const msg = lineaMsg(div);
+    div.querySelector('.guardarBtn').addEventListener('click', async (e) => {
+      const d = leer(div);
+      const req = ['nombre', 'apellidos', 'email', 'dni_nie', 'direccion', 'codigo_postal', 'ciudad', 'provincia'];
+      let falta = false;
+      req.forEach(f => { const el = div.querySelector(`[data-f="${f}"]`); const v = !el.value.trim(); el.classList.toggle('campo-error', v); falta = falta || v; });
+      if (falta) { msg(false, 'Completa los campos marcados en rojo.'); return; }
+      e.target.disabled = true;
+      try { await llamarGestion({ accion: 'guardar_adulto', adultoId: a.id, datos: d }); msg(true, d.email.toLowerCase() !== String(a.email).toLowerCase() ? 'Guardado ✓ (el email de acceso también se ha cambiado).' : 'Guardado ✓'); await cargarDatos(); }
+      catch (err) { msg(false, err.message); }
+      e.target.disabled = false;
+    });
+    const q = div.querySelector('.quitarBtn');
+    if (q) q.addEventListener('click', async () => {
+      if (!confirm(`¿Quitar a ${a.nombre} ${a.apellidos} de esta familia? Se borrará su usuario de acceso y sus inscripciones. No se puede deshacer.`)) return;
+      try { await llamarGestion({ accion: 'quitar_adulto', adultoId: a.id }); await recargar(); }
+      catch (err) { msg(false, err.message); }
+    });
+  });
+
+  /* --- alumnos --- */
+  const alWrap = td.querySelector('.alumnosWrap');
+  const pintarAlumno = (al, nuevo) => {
+    const div = document.createElement('div');
+    div.className = 'persona';
+    const cursos = CURSOS_POR_ETAPA[al.etapa] || [];
+    div.innerHTML = `
+      <div class="persona-head"><span>${nuevo ? 'Nuevo alumno/a' : esc(al.nombre + ' ' + al.apellidos)}</span>
+        ${nuevo ? '' : '<button class="btn-danger-link quitarBtn">Quitar este alumno</button>'}</div>
+      <div class="grid4">
+        ${campo('Nombre *', 'nombre', al.nombre)}${campo('Apellidos *', 'apellidos', al.apellidos)}
+        ${campo('Fecha de nacimiento', 'fecha_nacimiento', al.fecha_nacimiento || '', 'date')}
+        ${select('Sexo', 'sexo', al.sexo, ['Masculino', 'Femenino', 'Otro'], 'Sin especificar')}
+        ${select('Etapa *', 'etapa', al.etapa, Object.keys(CURSOS_POR_ETAPA), 'Selecciona...')}
+        <div class="field"><label>Curso</label><select data-f="curso"><option value="">Sin especificar</option>${cursos.map(c => `<option${c === al.curso ? ' selected' : ''}>${esc(c)}</option>`).join('')}</select></div>
+        ${select('Aula', 'aula', al.aula, ['A', 'B', 'C', 'D'], 'Sin especificar')}
+        <div class="field"><label>&nbsp;</label><label style="display:flex; gap:6px; align-items:center; font-weight:400;"><input type="checkbox" data-f="verificado" style="width:auto;" ${al.verificado ? 'checked' : ''}> Matrícula verificada</label></div>
+      </div>
+      <div class="acciones"><button class="btn btn-primary guardarBtn">${nuevo ? 'Añadir alumno' : 'Guardar alumno'}</button>${nuevo ? '<button class="linklike cancelarBtn" style="font-size:13px;">Cancelar</button>' : ''}</div>
+      <p class="msg-linea" style="display:none;"></p>`;
+    const msg = lineaMsg(div);
+    div.querySelector('[data-f="etapa"]').addEventListener('change', (e) => {
+      div.querySelector('[data-f="curso"]').innerHTML = '<option value="">Sin especificar</option>' + (CURSOS_POR_ETAPA[e.target.value] || []).map(c => `<option>${esc(c)}</option>`).join('');
+    });
+    div.querySelector('.guardarBtn').addEventListener('click', async (e) => {
+      const d = leer(div);
+      let falta = false;
+      ['nombre', 'apellidos', 'etapa'].forEach(f => { const el = div.querySelector(`[data-f="${f}"]`); const v = !el.value.trim(); el.classList.toggle('campo-error', v); falta = falta || v; });
+      if (falta) { msg(false, 'Para crear un alumno basta con nombre, apellidos y etapa.'); return; }
+      const fila = { nombre: d.nombre, apellidos: d.apellidos, fecha_nacimiento: d.fecha_nacimiento || null, sexo: d.sexo || null,
+        etapa: d.etapa, curso: d.curso || null, aula: d.aula || null, verificado: d.verificado };
+      e.target.disabled = true;
+      const { error } = nuevo
+        ? await sb.from('alumnos').insert({ ...fila, socio_id: s.id })
+        : await sb.from('alumnos').update(fila).eq('id', al.id);
+      e.target.disabled = false;
+      if (error) { msg(false, error.message); return; }
+      if (nuevo) { await recargar(); return; }
+      msg(true, 'Guardado ✓'); await cargarDatos();
+    });
+    const q = div.querySelector('.quitarBtn');
+    if (q) q.addEventListener('click', async () => {
+      if (!confirm(`¿Quitar a ${al.nombre} ${al.apellidos}? Se borrarán también sus inscripciones y pedidos. No se puede deshacer.`)) return;
+      const { error } = await sb.from('alumnos').delete().eq('id', al.id);
+      if (error) { msg(false, error.message); return; }
+      await recargar();
+    });
+    const c = div.querySelector('.cancelarBtn');
+    if (c) c.addEventListener('click', () => div.remove());
+    return div;
+  };
+  s.alumnos.forEach(al => alWrap.appendChild(pintarAlumno(al, false)));
+  if (!s.alumnos.length) alWrap.innerHTML = '<p class="empty-hint">Sin alumnos.</p>';
+  td.querySelector('.addAlumnoBtn').addEventListener('click', () => {
+    const vacio = alWrap.querySelector('.empty-hint'); if (vacio) vacio.remove();
+    const div = pintarAlumno({}, true);
+    alWrap.appendChild(div);
+    div.querySelector('[data-f="nombre"]').focus();
+  });
+}
+
+(async () => {
+  const ctx = await requireAdmin();
+  if (!ctx) return;
+  ctxGlobal = ctx;
+  renderNav('admin-socios', ctx);
+  await recargar();
+  const pedir = new URLSearchParams(location.search).get('tab');
+  if (pedir === 'socios') document.querySelector('.tab-btn[data-tab="socios"]').click();
+})();
+</script>
+</body>
+</html>

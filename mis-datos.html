@@ -5,12 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Mis datos · AMPA Juan de Valdés</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="shared/styles.css">
 <style>
   .two-col{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
   @media (max-width:560px){ .two-col{ grid-template-columns:1fr; } }
-  .readonly-value{ background:#F0F6FC; border:1px solid var(--line); border-radius:var(--radius); padding:10px 12px; font-family:'IBM Plex Mono',monospace; font-size:14px; color:var(--ink-soft); }
+  .readonly-value{ background:#F5F3EC; border:1px solid var(--line); border-radius:var(--radius); padding:10px 12px; font-family:'Inter', sans-serif; font-size:14px; color:var(--ink-soft); }
 </style>
 </head>
 <body>
@@ -28,28 +28,41 @@
       <div class="field"><label>Forma de pago</label><div class="readonly-value" id="formaPagoValue">—</div></div>
       <div class="field" id="ibanField" style="display:none;"><label>IBAN domiciliado</label><div class="readonly-value" id="ibanValue">—</div></div>
     </div>
+    <div id="mandatoVigente" style="margin-top:14px; display:none;"></div>
     <div style="margin-top:16px; display:flex; gap:10px; flex-wrap:wrap;">
-      <button type="button" class="btn btn-outline" id="cambiarBancoBtn">Domiciliar / cambiar cuenta bancaria</button>
+      <button type="button" class="btn btn-outline" id="cambiarBancoBtn">Domiciliar la cuota</button>
+      <a href="cambiar-clave.html" class="btn btn-outline">Cambiar mi contraseña</a>
       <button type="button" class="btn-danger-link" id="bajaBtn">Dar de baja mi cuenta</button>
     </div>
-    <p style="font-size:12px; color:var(--ink-soft); margin-top:10px;">
-      La domiciliación requiere firmar un mandato SEPA — esta parte del
-      sistema está pendiente de que el AMPA suba la plantilla oficial.
-    </p>
+    <div id="sepaZona" style="margin-top:16px; display:none;"></div>
   </div>
 
   <div class="card">
     <p class="section-label">Adultos de la familia</p>
     <div id="adultosWrap"><p class="loading">Cargando...</p></div>
     <button type="button" class="btn btn-outline" id="addAdultoBtn" style="margin-top:14px; display:none;">+ Añadir segundo adulto</button>
+    <div id="adulto2Form" class="hijo-card" style="display:none; margin-top:14px;">
+      <div class="hijo-head"><span class="hijo-tag">Nuevo adulto (recibirá su contraseña por email)</span></div>
+      <div class="hijo-body">
+        <div class="two-col"><div class="field"><label>Nombre *</label><input type="text" id="n2Nombre"></div><div class="field"><label>Apellidos *</label><input type="text" id="n2Apellidos"></div></div>
+        <div class="two-col" style="margin-top:14px;"><div class="field"><label>Email * (distinto al tuyo)</label><input type="email" id="n2Email"></div><div class="field"><label>Móvil *</label><input type="text" id="n2Movil"></div></div>
+        <div class="two-col" style="margin-top:14px;"><div class="field"><label>DNI / NIE / Pasaporte *</label><input type="text" id="n2Dni"></div><div class="field"><label>Teléfono fijo</label><input type="text" id="n2Fijo"></div></div>
+        <div class="field" style="margin-top:14px;"><label>Dirección *</label><input type="text" id="n2Direccion"></div>
+        <div class="two-col" style="margin-top:14px;"><div class="field"><label>Ciudad *</label><input type="text" id="n2Ciudad"></div><div class="field"><label>Provincia *</label><input type="text" id="n2Provincia"></div></div>
+        <div class="two-col" style="margin-top:14px;"><div class="field"><label>Código postal *</label><input type="text" id="n2Cp"></div><div class="field"><label>Relación con los alumnos</label><input type="text" id="n2Relacion" placeholder="padre / madre / tutor legal..."></div></div>
+        <div style="display:flex; gap:12px; align-items:center; margin-top:16px; flex-wrap:wrap;">
+          <button type="button" class="btn btn-primary" id="n2Guardar">Añadir adulto</button>
+          <button type="button" class="linklike" id="n2Cancelar" style="font-size:13px;">Cancelar</button>
+        </div>
+        <p id="n2Msg" style="display:none; margin-top:10px;"></p>
+      </div>
+    </div>
   </div>
 
   <div class="card">
     <p class="section-label">Alumnos</p>
-    <p style="font-size:13px; color:var(--ink-soft); margin-top:-8px;">
-      Para añadir o editar alumnos, ve a "Préstamo de libros" desde el menú.
-    </p>
-    <div id="alumnosResumenWrap"></div>
+    <div id="alumnosWrap"><p class="loading">Cargando...</p></div>
+    <button type="button" class="btn btn-outline" id="addAlumnoBtn" style="margin-top:14px;">+ Añadir alumno/a</button>
   </div>
 
   <footer class="note"><b>AMPA Colegio Juan de Valdés</b></footer>
@@ -75,6 +88,9 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="shared/supabaseClient.js"></script>
 <script src="shared/nav.js"></script>
+<script src="shared/catalogo.js"></script>
+<script src="shared/documentoRellenable.js"></script>
+<script src="shared/datos-ampa.js"></script>
 <script>
 let ctxGlobal = null;
 
@@ -105,8 +121,13 @@ function renderAdultoCard(adulto, esUnoMismo) {
   const row2 = document.createElement('div');
   row2.className = 'two-col';
   row2.style.marginTop = '14px';
-  row2.appendChild(campoTexto('Email', adulto.email, v => adulto.email = v, true, 'email'));
-  row2.appendChild(campoTexto('Móvil', adulto.movil, v => adulto.movil = v));
+  const emailField = campoTexto('Email (usuario de acceso)', adulto.email, () => {}, false, 'email');
+  const emailInput = emailField.querySelector('input');
+  emailInput.readOnly = true; emailInput.style.background = '#F5F3EC';
+  emailInput.title = 'Para cambiar el email de acceso, pídeselo al AMPA';
+  emailField.insertAdjacentHTML('beforeend', '<small style="color:var(--ink-soft); font-size:11.5px;">Para cambiarlo, pídeselo al AMPA.</small>');
+  row2.appendChild(emailField);
+  row2.appendChild(campoTexto('Móvil', adulto.movil === 'PENDIENTE' ? '' : adulto.movil, v => adulto.movil = v, true));
   body.appendChild(row2);
 
   const row2b = document.createElement('div');
@@ -166,16 +187,27 @@ function renderAdultoCard(adulto, esUnoMismo) {
   saveBtn.style.marginTop = '14px';
   saveBtn.textContent = 'Guardar';
   saveBtn.addEventListener('click', async () => {
-    const { error } = await sb.from('adultos').update({
-      nombre: adulto.nombre, apellidos: adulto.apellidos, email: adulto.email,
+    const t = (v) => String(v == null ? '' : v).trim();
+    if (!t(adulto.nombre) || !t(adulto.apellidos) || !t(adulto.dni_nie) || !t(adulto.email) ||
+        !t(adulto.direccion) || !t(adulto.ciudad) || !t(adulto.provincia) ||
+        !t(adulto.codigo_postal) || !t(adulto.movil)) {
+      msg.style.display = 'block'; msg.className = 'msg-error';
+      msg.textContent = 'Completa los campos obligatorios (*), incluido el móvil.';
+      return;
+    }
+    const { data, error } = await sb.from('adultos').update({
+      nombre: adulto.nombre, apellidos: adulto.apellidos,
       movil: adulto.movil, relacion_alumnos: adulto.relacion_alumnos || null,
       dni_nie: adulto.dni_nie, telefono_fijo: adulto.telefono_fijo || null,
       direccion: adulto.direccion, ciudad: adulto.ciudad,
       provincia: adulto.provincia, codigo_postal: adulto.codigo_postal
-    }).eq('id', adulto.id);
+    }).eq('id', adulto.id).select('id');
+    // Si la base de datos no ha actualizado ninguna fila, NO está guardado
+    const sinCambios = !error && (!data || data.length === 0);
     msg.style.display = 'block';
-    msg.className = error ? 'msg-error' : 'msg-ok';
-    msg.textContent = error ? 'Error: ' + error.message : 'Guardado ✓';
+    msg.className = (error || sinCambios) ? 'msg-error' : 'msg-ok';
+    msg.textContent = error ? 'Error: ' + error.message
+      : sinCambios ? 'No se ha podido guardar (sin permiso). Avisa al AMPA.' : 'Guardado ✓';
   });
 
   body.appendChild(saveBtn);
@@ -194,41 +226,205 @@ async function cargarAdultos() {
 }
 
 document.getElementById('addAdultoBtn').addEventListener('click', () => {
-  const email = prompt('Email del segundo adulto (recibirá un correo con una contraseña provisional):');
-  if (!email) return;
-  const emailNormalizado = email.trim().toLowerCase();
-  if (emailNormalizado === (ctxGlobal.adulto.email || '').trim().toLowerCase()) {
-    alert('El segundo adulto debe tener un email distinto al tuyo.');
-    return;
-  }
-  const nombre = prompt('Nombre:') || '';
-  const apellidos = prompt('Apellidos:') || '';
-  invitarSegundoAdulto(emailNormalizado, nombre.trim(), apellidos.trim());
+  // La dirección suele ser la misma: se rellena con la del adulto actual
+  const yo = ctxGlobal.adulto;
+  const limpio = (v) => (v === 'PENDIENTE' || v === '00000') ? '' : (v || '');
+  document.getElementById('n2Direccion').value = limpio(yo.direccion);
+  document.getElementById('n2Ciudad').value = limpio(yo.ciudad);
+  document.getElementById('n2Provincia').value = limpio(yo.provincia);
+  document.getElementById('n2Cp').value = limpio(yo.codigo_postal);
+  document.getElementById('adulto2Form').style.display = 'block';
+  document.getElementById('addAdultoBtn').style.display = 'none';
+  document.getElementById('n2Nombre').focus();
+});
+document.getElementById('n2Cancelar').addEventListener('click', () => {
+  document.getElementById('adulto2Form').style.display = 'none';
+  document.getElementById('addAdultoBtn').style.display = 'block';
 });
 
-async function invitarSegundoAdulto(email, nombre, apellidos) {
+document.getElementById('n2Guardar').addEventListener('click', async () => {
+  const $ = (id) => document.getElementById(id);
+  const msg = $('n2Msg');
+  const btn = $('n2Guardar');
+  const obligatorios = ['n2Nombre', 'n2Apellidos', 'n2Email', 'n2Movil', 'n2Dni', 'n2Direccion', 'n2Ciudad', 'n2Provincia', 'n2Cp'].map($);
+  if (!marcarCamposVacios(obligatorios)) {
+    msg.style.display = 'block'; msg.className = 'msg-error'; msg.textContent = 'Completa los campos marcados en rojo.';
+    return;
+  }
+  const email = $('n2Email').value.trim().toLowerCase();
+  if (email === (ctxGlobal.adulto.email || '').trim().toLowerCase()) {
+    $('n2Email').classList.add('campo-error');
+    msg.style.display = 'block'; msg.className = 'msg-error'; msg.textContent = 'El segundo adulto debe tener un email distinto al tuyo.';
+    return;
+  }
+  btn.disabled = true; btn.textContent = 'Añadiendo...';
   const session = await getSession();
   try {
     const resp = await fetch('/.netlify/functions/invitar-adulto', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
-      body: JSON.stringify({ email, nombre, apellidos })
+      body: JSON.stringify({
+        email, nombre: $('n2Nombre').value.trim(), apellidos: $('n2Apellidos').value.trim(),
+        movil: $('n2Movil').value.trim(), dni_nie: $('n2Dni').value.trim(), telefono_fijo: $('n2Fijo').value.trim(),
+        direccion: $('n2Direccion').value.trim(), ciudad: $('n2Ciudad').value.trim(),
+        provincia: $('n2Provincia').value.trim(), codigo_postal: $('n2Cp').value.trim(),
+        relacion_alumnos: $('n2Relacion').value.trim()
+      })
     });
-    const data = await resp.json();
-    if (!resp.ok) throw new Error(data.error || 'Error al invitar');
-    alert('Se ha enviado un email a ' + email + ' con su contraseña provisional.');
-    cargarAdultos();
+    let data = {};
+    try { data = await resp.json(); } catch (e) {}
+    if (!resp.ok) throw new Error(data.error || 'Error al añadir el adulto');
+    $('adulto2Form').style.display = 'none';
+    await cargarAdultos();
+    alert(data.emailEnviado === false
+      ? 'Adulto añadido, pero NO se pudo enviar el email con su contraseña. Avisa al AMPA para que se la reenvíe.'
+      : 'Adulto añadido. Le hemos enviado un email a ' + email + ' con su contraseña provisional.');
   } catch (err) {
-    alert('No se pudo invitar: ' + err.message);
+    msg.style.display = 'block'; msg.className = 'msg-error'; msg.textContent = err.message;
+  }
+  btn.disabled = false; btn.textContent = 'Añadir adulto';
+});
+
+/* ---------------- Alumnos: alta y edición ---------------- */
+
+function selectEtapaCurso(alumno, onChangeEtapa, onChangeCurso) {
+  const wrap = document.createElement('div');
+  wrap.className = 'two-col';
+
+  const etapaField = document.createElement('div');
+  etapaField.className = 'field';
+  etapaField.innerHTML = '<label>Etapa *</label>';
+  const etapaSelect = document.createElement('select');
+  etapaSelect.innerHTML = '<option value="">Selecciona...</option>' +
+    Object.keys(CURSOS_POR_ETAPA).map(e =>
+      `<option value="${e}" ${alumno.etapa === e ? 'selected' : ''}>${e}</option>`
+    ).join('');
+  etapaField.appendChild(etapaSelect);
+  wrap.appendChild(etapaField);
+
+  const cursoField = document.createElement('div');
+  cursoField.className = 'field';
+  cursoField.innerHTML = '<label>Curso *</label>';
+  const cursoSelect = document.createElement('select');
+  const cursosDisponibles = CURSOS_POR_ETAPA[alumno.etapa] || [];
+  cursoSelect.innerHTML = '<option value="">Selecciona...</option>' +
+    cursosDisponibles.map(c =>
+      `<option value="${c}" ${alumno.curso === c ? 'selected' : ''}>${c}</option>`
+    ).join('');
+  cursoField.appendChild(cursoSelect);
+  wrap.appendChild(cursoField);
+
+  etapaSelect.addEventListener('change', () => {
+    onChangeEtapa(etapaSelect.value);
+    alumno.curso = '';
+    cursoSelect.innerHTML = '<option value="">Selecciona...</option>' +
+      (CURSOS_POR_ETAPA[etapaSelect.value] || []).map(c => `<option value="${c}">${c}</option>`).join('');
+  });
+  cursoSelect.addEventListener('change', () => onChangeCurso(cursoSelect.value));
+
+  return wrap;
+}
+
+function renderAlumnoCard(alumno, esNuevo = false) {
+  const card = document.createElement('div');
+  card.className = 'hijo-card';
+  card.innerHTML = `<div class="hijo-head"><span class="hijo-tag">${esNuevo ? 'Nuevo alumno/a' : alumno.nombre + ' ' + alumno.apellidos}</span></div>`;
+  const body = document.createElement('div');
+  body.className = 'hijo-body';
+
+  const row1 = document.createElement('div');
+  row1.className = 'two-col';
+  row1.appendChild(campoTexto('Nombre', alumno.nombre, v => alumno.nombre = v, true));
+  row1.appendChild(campoTexto('Apellidos', alumno.apellidos, v => alumno.apellidos = v, true));
+  body.appendChild(row1);
+
+  body.appendChild(selectEtapaCurso(alumno, v => alumno.etapa = v, v => alumno.curso = v));
+
+  const row3 = document.createElement('div');
+  row3.className = 'two-col';
+  row3.style.marginTop = '14px';
+
+  const aulaField = document.createElement('div');
+  aulaField.className = 'field';
+  aulaField.innerHTML = '<label>Aula (opcional)</label>';
+  const aulaSelect = document.createElement('select');
+  aulaSelect.innerHTML = '<option value="">Sin especificar</option>' +
+    ['A', 'B', 'C', 'D'].map(v => `<option value="${v}" ${alumno.aula === v ? 'selected' : ''}>${v}</option>`).join('');
+  aulaSelect.addEventListener('change', () => alumno.aula = aulaSelect.value);
+  aulaField.appendChild(aulaSelect);
+  row3.appendChild(aulaField);
+
+  row3.appendChild(campoTexto('Fecha de nacimiento', alumno.fecha_nacimiento, v => alumno.fecha_nacimiento = v, true, 'date'));
+  body.appendChild(row3);
+
+  const row4 = document.createElement('div');
+  row4.className = 'field';
+  row4.style.marginTop = '14px';
+  row4.innerHTML = '<label>Sexo (opcional)</label>';
+  const sexoSelect = document.createElement('select');
+  sexoSelect.innerHTML = ['', 'Masculino', 'Femenino', 'Otro'].map(v =>
+    `<option value="${v}" ${alumno.sexo === v ? 'selected' : ''}>${v === '' ? 'Sin especificar' : v}</option>`
+  ).join('');
+  sexoSelect.addEventListener('change', () => alumno.sexo = sexoSelect.value);
+  row4.appendChild(sexoSelect);
+  body.appendChild(row4);
+
+  const msg = document.createElement('p');
+  msg.style.display = 'none'; msg.style.marginTop = '10px';
+
+  const saveBtn = document.createElement('button');
+  saveBtn.className = 'btn btn-primary';
+  saveBtn.style.marginTop = '14px';
+  saveBtn.textContent = esNuevo ? 'Añadir alumno/a' : 'Guardar';
+  saveBtn.addEventListener('click', async () => {
+    if (!alumno.nombre.trim() || !alumno.apellidos.trim() || !alumno.etapa || !alumno.curso || !alumno.fecha_nacimiento) {
+      msg.style.display = 'block'; msg.className = 'msg-error';
+      msg.textContent = 'Completa los campos obligatorios (*).';
+      return;
+    }
+    const datos = {
+      nombre: alumno.nombre, apellidos: alumno.apellidos, etapa: alumno.etapa,
+      curso: alumno.curso, aula: alumno.aula || null,
+      fecha_nacimiento: alumno.fecha_nacimiento,
+      sexo: alumno.sexo || null
+    };
+    let error;
+    if (esNuevo) {
+      ({ error } = await sb.from('alumnos').insert({ ...datos, socio_id: ctxGlobal.socio.id }));
+    } else {
+      ({ error } = await sb.from('alumnos').update(datos).eq('id', alumno.id));
+    }
+    msg.style.display = 'block';
+    msg.className = error ? 'msg-error' : 'msg-ok';
+    msg.textContent = error ? 'Error: ' + error.message : 'Guardado ✓';
+    if (!error) await cargarAlumnos();
+  });
+
+  body.appendChild(saveBtn);
+  body.appendChild(msg);
+  card.appendChild(body);
+  return card;
+}
+
+async function cargarAlumnos() {
+  const wrap = document.getElementById('alumnosWrap');
+  const { data, error } = await sb.from('alumnos').select('*').eq('socio_id', ctxGlobal.socio.id).order('created_at');
+  if (error) { wrap.innerHTML = '<p class="msg-error">No se pudo cargar.</p>'; return; }
+  wrap.innerHTML = '';
+  if (data.length === 0) {
+    wrap.innerHTML = '<p class="empty-hint">Todavía no has añadido ningún alumno.</p>';
+  } else {
+    data.forEach(a => wrap.appendChild(renderAlumnoCard(a, false)));
   }
 }
 
-async function cargarAlumnosResumen() {
-  const wrap = document.getElementById('alumnosResumenWrap');
-  const { data } = await sb.from('alumnos').select('nombre, apellidos, etapa, curso').eq('socio_id', ctxGlobal.socio.id);
-  if (!data || data.length === 0) { wrap.innerHTML = '<p class="empty-hint">Todavía no has añadido ningún alumno.</p>'; return; }
-  wrap.innerHTML = data.map(a => `<div class="evento-mini">${a.nombre} ${a.apellidos} — ${a.curso} ${a.etapa}</div>`).join('');
-}
+document.getElementById('addAlumnoBtn').addEventListener('click', () => {
+  const wrap = document.getElementById('alumnosWrap');
+  if (wrap.querySelector('.empty-hint')) wrap.innerHTML = '';
+  wrap.appendChild(renderAlumnoCard({ nombre: '', apellidos: '', etapa: '', curso: '', aula: '', fecha_nacimiento: '', sexo: '' }, true));
+});
+
+/* ---------------- Cuenta / baja ---------------- */
 
 function cargarCuenta() {
   const socio = ctxGlobal.socio;
@@ -239,11 +435,116 @@ function cargarCuenta() {
     document.getElementById('ibanField').style.display = 'block';
     document.getElementById('ibanValue').textContent = socio.iban;
   }
+  cargarMandatoVigente();
 }
 
-document.getElementById('cambiarBancoBtn').addEventListener('click', () => {
-  alert('La domiciliación bancaria (mandato SEPA digital) está pendiente de implementar: falta que el AMPA suba la plantilla PDF oficial del adeudo. Mientras tanto, contacta con la Junta para domiciliar tu cuota.');
-});
+// La domiciliación es de la FAMILIA (socio), no de cada adulto: hay un
+// único mandato vigente por socio y los dos adultos ven el mismo.
+let mandatoVigente = null;
+async function cargarMandatoVigente() {
+  const socio = ctxGlobal.socio;
+  const { data } = await sb.from('mandatos_sepa')
+    .select('id, adulto_id, iban, archivo_final_url, created_at')
+    .eq('socio_id', socio.id).eq('vigente', true)
+    .order('created_at', { ascending: false }).limit(1);
+  mandatoVigente = data && data[0] ? data[0] : null;
+
+  const caja = document.getElementById('mandatoVigente');
+  const btn = document.getElementById('cambiarBancoBtn');
+  if (!mandatoVigente) {
+    caja.style.display = 'none';
+    btn.textContent = 'Domiciliar la cuota';
+    return;
+  }
+  btn.textContent = 'Cambiar la cuenta bancaria';
+
+  let firmante = '';
+  if (mandatoVigente.adulto_id) {
+    const { data: a } = await sb.from('adultos').select('nombre, apellidos').eq('id', mandatoVigente.adulto_id).maybeSingle();
+    if (a) firmante = a.nombre + ' ' + a.apellidos;
+  }
+  let enlace = '';
+  if (mandatoVigente.archivo_final_url) {
+    const { data: u } = await sb.storage.from('mandatos-sepa').createSignedUrl(mandatoVigente.archivo_final_url, 600);
+    if (u && u.signedUrl) enlace = ` · <a href="${u.signedUrl}" target="_blank" rel="noopener" style="color:var(--navy);">Ver mandato firmado</a>`;
+  }
+  caja.style.display = 'block';
+  caja.innerHTML = `<div class="aviso" style="margin:0;">
+    <b>Mandato SEPA de la familia</b> (uno por socio, el mismo para los dos adultos)<br>
+    IBAN <span style="font-family:ui-monospace,Menlo,Consolas,monospace;">${mandatoVigente.iban}</span>
+    · firmado${firmante ? ' por ' + firmante : ''} el ${new Date(mandatoVigente.created_at).toLocaleDateString('es-ES')}${enlace}
+  </div>`;
+}
+
+document.getElementById('cambiarBancoBtn').addEventListener('click', abrirFirmaSepa);
+
+async function abrirFirmaSepa() {
+  const zona = document.getElementById('sepaZona');
+  zona.style.display = 'block';
+  zona.innerHTML = '<p class="loading">Cargando plantilla...</p>';
+
+  const { data: config, error: confError } = await sb.from('mandato_sepa_config').select('*').eq('id', 1).single();
+  if (confError || !config || !config.archivo_base_url || !(config.campos || []).length) {
+    zona.innerHTML = '<p class="msg-error">La domiciliación todavía no está disponible: el AMPA no ha configurado la plantilla. Contacta con la Junta.</p>';
+    return;
+  }
+
+  // Los datos del deudor son los del adulto que está firmando ahora (el
+  // que ha iniciado sesión), leídos en este momento de la base de datos.
+  // El mandato resultante es de la familia y sustituye al que hubiera.
+  const adulto = (await getAdulto()) || ctxGlobal.adulto;
+  const socio = ctxGlobal.socio;
+  const limpio = (v) => (v === 'PENDIENTE' || v === '00000' || v == null) ? '' : String(v).trim();
+
+  // El IBAN es el de la familia (el del mandato vigente, firmara quien lo
+  // firmara): la domiciliación es por socio, no por adulto.
+  const ibanFamilia = (mandatoVigente && mandatoVigente.iban) || socio.iban || '';
+
+  const persona = {
+    nombre: limpio(adulto.nombre), apellidos: limpio(adulto.apellidos), dni_nie: limpio(adulto.dni_nie),
+    direccion: limpio(adulto.direccion),
+    cp_ciudad_provincia: [limpio(adulto.codigo_postal), limpio(adulto.ciudad), limpio(adulto.provincia)].filter(Boolean).join(' - '),
+    localidad: limpio(adulto.ciudad),
+    pais_deudor: 'España',
+    iban: ibanFamilia,
+    swift_bic: '',
+    ref_mandato: socio.numero_socio_completo || '',
+    id_acreedor: config.identificador_acreedor || '',
+    nombre_acreedor: config.nombre_acreedor || '',
+    direccion_acreedor: config.direccion_acreedor || '',
+    cp_acreedor: config.cp_acreedor || '',
+    pais_acreedor: config.pais_acreedor || 'España',
+    tipo_pago_fijo: 'Recurrente'
+  };
+
+  const faltan = ['nombre', 'apellidos', 'direccion', 'cp_ciudad_provincia'].filter(k => !persona[k]);
+  const avisoHtml = `<div class="aviso">La domiciliación es de <b>toda la familia</b>: hay un solo mandato por socio, el mismo para los dos adultos.` +
+    (mandatoVigente ? ' Si firmas uno nuevo, <b>sustituye al actual</b> para toda la familia.' : '') +
+    ` El documento se rellena con tus datos (${persona.nombre} ${persona.apellidos}) como titular que firma.` +
+    (faltan.length ? ' <b>Te faltan datos</b> (dirección, código postal o ciudad): complétalos en tu ficha o escríbelos directamente en el documento.' : '') +
+    `</div>`;
+
+  try {
+    const { dataUrl } = await renderizarPaginaPDF(config.archivo_base_url, config.pagina_rellenable);
+    abrirFormularioRelleno(zona, dataUrl, config.campos, persona, async (blob, datosFinales, avisoDiferencias) => {
+      const path = `${socio.id}/${Date.now()}.png`;
+      const { error: upErr } = await sb.storage.from('mandatos-sepa').upload(path, blob);
+      if (upErr) { alert('Error al subir el documento: ' + upErr.message); return; }
+
+      const ibanFinal = datosFinales.iban || '';
+      const { error: firmarError } = await sb.rpc('mandato_sepa_firmar', {
+        p_iban: ibanFinal, p_archivo_url: path, p_datos_finales: datosFinales, p_aviso_diferencias: avisoDiferencias
+      });
+      if (firmarError) { alert('Error al registrar el mandato: ' + firmarError.message); return; }
+
+      zona.innerHTML = '<p class="msg-ok">Mandato firmado ✓. La cuota de la familia ya está domiciliada en esta cuenta.</p>';
+      setTimeout(() => location.reload(), 1200);
+    });
+    zona.insertAdjacentHTML('afterbegin', avisoHtml);
+  } catch (err) {
+    zona.innerHTML = '<p class="msg-error">No se pudo cargar la plantilla: ' + err.message + '</p>';
+  }
+}
 
 document.getElementById('bajaBtn').addEventListener('click', () => {
   document.getElementById('bajaModal').style.display = 'flex';
@@ -263,7 +564,7 @@ document.getElementById('confirmarBajaBtn').addEventListener('click', async () =
   renderNav('mis-datos', ctx);
   cargarCuenta();
   await cargarAdultos();
-  await cargarAlumnosResumen();
+  await cargarAlumnos();
 })();
 </script>
 </body>

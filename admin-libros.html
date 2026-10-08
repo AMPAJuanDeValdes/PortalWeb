@@ -3,43 +3,173 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Catálogo de libros · Admin AMPA</title>
+<title>Préstamo de libros · Admin AMPA</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="shared/styles.css">
 <style>
+  .wrap{ max-width:1060px; }
+  .tabs{ display:flex; gap:6px; margin-bottom:20px; flex-wrap:wrap; }
+  .tabs button{ font-family:'Inter', sans-serif; font-size:12.5px; text-transform:uppercase; padding:9px 14px; border-radius:var(--radius); border:1px solid var(--line); background:#fff; color:var(--ink-soft); cursor:pointer; }
+  .tabs button.active{ background:var(--navy); color:#fff; border-color:var(--navy); }
+  .panel{ display:none; } .panel.active{ display:block; }
   .two-col{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
-  @media (max-width:560px){ .two-col{ grid-template-columns:1fr; } }
-  input.stockInput{ width:80px; }
+  @media (max-width:600px){ .two-col{ grid-template-columns:1fr; } }
+  .fila{ display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; }
+  .fila .field{ margin:0; }
+  table.t{ width:100%; border-collapse:collapse; font-size:13px; }
+  table.t th{ text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-soft); font-weight:600; padding:7px 6px; border-bottom:1px solid var(--line); background:#FAF8F2; }
+  table.t td{ padding:7px 6px; border-bottom:1px solid var(--line); vertical-align:top; }
+  table.t td.n, table.t th.n{ text-align:right; white-space:nowrap; }
+  .sub{ color:var(--ink-soft); font-size:12px; }
+  .stats{ display:flex; gap:10px; flex-wrap:wrap; margin:6px 0 16px; }
+  .stats div{ border:1px solid var(--line); padding:8px 12px; font-size:12px; color:var(--ink-soft); background:#fff; min-width:110px; }
+  .stats b{ display:block; font-size:19px; color:var(--ink); }
+  .stats div.warn b{ color:var(--red); }
+  .cursos-check{ display:grid; grid-template-columns:repeat(4, 1fr); gap:4px 14px; font-size:13px; }
+  @media (max-width:600px){ .cursos-check{ grid-template-columns:1fr 1fr; } }
+  .cursos-check .etq{ font-weight:600; margin-top:4px; grid-column:1/-1; font-size:12px; color:var(--ink-soft); text-transform:uppercase; }
+  .cursos-check label{ display:flex; gap:6px; align-items:center; font-weight:400; }
+  .cursos-check input{ width:auto; }
+  .ok{ color:#1E7A46; font-weight:600; } .falta{ color:var(--red); font-weight:600; }
+  .mini input, .mini select{ padding:4px 6px; font-size:12px; width:auto; }
+  td.mini{ min-width:330px; }
+  .familia{ border:1px solid var(--line); margin-bottom:10px; background:#fff; }
+  .familia-head{ display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:center; padding:8px 12px; background:#FAF8F2; border-bottom:1px solid var(--line); font-size:13.5px; }
+  .item{ display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:center; padding:7px 12px; border-bottom:1px solid var(--line); font-size:13px; }
+  .item:last-child{ border-bottom:none; }
+  .botones{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .btn-s{ padding:5px 10px; font-size:12px; }
+  details.card > summary{ cursor:pointer; }
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="eyebrow">AMPA · Administración</div>
-  <h1>Catálogo de libros</h1>
-  <p class="lede">Añade los libros de préstamo por curso y gestiona el stock disponible.</p>
+  <h1>Préstamo de libros</h1>
+  <p class="lede">Catálogo, ejemplares, convocatoria y reparto, compras y seguimiento de entregas y devoluciones.</p>
 
-  <div class="card">
-    <p class="section-label">Añadir libro</p>
-    <div class="two-col">
-      <div class="field">
-        <label>Etapa</label>
-        <select id="nEtapa">
-          <option value="Infantil">Infantil</option><option value="Primaria">Primaria</option>
-          <option value="ESO">ESO</option><option value="Bachillerato">Bachillerato</option>
-        </select>
-      </div>
-      <div class="field"><label>Curso</label><select id="nCurso"></select></div>
-    </div>
-    <div class="field" style="margin-top:14px;"><label>Título</label><input type="text" id="nTitulo"></div>
-    <div class="field" style="margin-top:14px; max-width:160px;"><label>Stock inicial</label><input type="number" id="nStock" min="0" value="0"></div>
-    <button type="button" class="btn btn-primary" id="addBtn" style="margin-top:16px;">Añadir al catálogo</button>
-    <p id="msg" style="display:none; margin-top:14px;"></p>
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="catalogo">Catálogo</button>
+    <button class="tab-btn" data-tab="ejemplares">Ejemplares</button>
+    <button class="tab-btn" data-tab="convocatoria">Convocatoria y reparto</button>
+    <button class="tab-btn" data-tab="demanda">Demanda y compras</button>
+    <button class="tab-btn" data-tab="entregas">Entregas y devoluciones</button>
   </div>
 
-  <div class="card">
-    <p class="section-label">Catálogo actual</p>
-    <div id="listaWrap"><p class="loading">Cargando...</p></div>
+  <!-- ============ CATÁLOGO ============ -->
+  <div class="panel active" id="panel-catalogo">
+    <div class="card" id="formTituloCard">
+      <p class="section-label" id="formTituloLabel">Añadir título</p>
+      <div class="field"><label>Título *</label><input type="text" id="nTitulo"></div>
+      <div class="two-col" style="margin-top:12px;">
+        <div class="field"><label>Editorial *</label><input type="text" id="nEditorial"></div>
+        <div class="field"><label>ISBN * (si hay varios, sepáralos con " / ")</label><input type="text" id="nIsbn"></div>
+      </div>
+      <div class="field" style="margin-top:12px; max-width:240px;"><label>Idioma / asignatura *</label>
+        <select id="nAsignatura"><option value="Lengua">Lengua (español)</option><option value="Inglés">Inglés</option><option value="Alemán">Alemán</option></select></div>
+      <div class="field" style="margin-top:12px;"><label>Cursos en los que se usa * (puede ser más de uno)</label>
+        <div class="cursos-check" id="nCursos"></div></div>
+      <div class="botones" style="margin-top:14px;">
+        <button type="button" class="btn btn-primary" id="guardarTituloBtn">Añadir al catálogo</button>
+        <button type="button" class="linklike" id="cancelarEdicionBtn" style="display:none; font-size:13px;">Cancelar edición</button>
+      </div>
+      <p id="tMsg" style="display:none; margin-top:12px;"></p>
+    </div>
+    <div class="card">
+      <p class="section-label">Catálogo actual</p>
+      <p class="sub" style="margin-top:-8px;">"Ejemplares" son las copias físicas dadas de alta (sin contar las de baja o perdidas). Pulsa "Editar" para cambiar un título.</p>
+      <div style="overflow-x:auto;" id="listaWrap"><p class="loading">Cargando...</p></div>
+    </div>
+  </div>
+
+  <!-- ============ EJEMPLARES ============ -->
+  <div class="panel" id="panel-ejemplares">
+    <div class="card">
+      <p class="section-label">Dar de alta ejemplares</p>
+      <div class="field"><label>Título</label><select id="ejLibroSelect"></select></div>
+      <div class="fila" style="margin-top:12px;">
+        <div class="field" style="max-width:150px;"><label>Código (o primero)</label><input type="text" id="ejDesde" placeholder="0041"></div>
+        <div class="field" style="max-width:150px;"><label>Hasta (opcional)</label><input type="text" id="ejHasta" placeholder="0045"></div>
+        <button type="button" class="btn btn-primary" id="ejAddBtn">Dar de alta</button>
+      </div>
+      <p class="sub" style="margin-top:8px;">El código es el número que escribís en el libro. Con "Hasta" se dan de alta varios seguidos (ej. 0041 a 0045 = 5 ejemplares). <span id="sigCodigo"></span></p>
+      <p id="ejMsg" style="display:none; margin-top:12px;"></p>
+    </div>
+    <div class="card">
+      <p class="section-label">Todos los ejemplares</p>
+      <div class="fila" style="margin-bottom:10px;"><div class="field"><input type="text" id="ejFiltro" placeholder="Buscar por código o título..."></div></div>
+      <div style="overflow-x:auto;" id="ejListaWrap"><p class="loading">Cargando...</p></div>
+    </div>
+  </div>
+
+  <!-- ============ CONVOCATORIA ============ -->
+  <div class="panel" id="panel-convocatoria">
+    <div class="card" id="convocatoriaCard"><p class="loading">Cargando...</p></div>
+  </div>
+
+  <!-- ============ DEMANDA Y COMPRAS ============ -->
+  <div class="panel" id="panel-demanda">
+    <div class="card">
+      <div class="fila"><div class="field"><label>Demanda de la convocatoria</label><select id="dConvSelect"></select></div></div>
+      <div class="stats" id="dStats" style="margin-top:14px;"></div>
+      <p class="sub">Necesarios = libros pedidos en esa convocatoria. Ejemplares = copias dadas de alta. <b>Faltan</b> = Necesarios − Ejemplares (u Obtenidos, si todavía no los habéis dado de alta) − Comprados; lo reservado no cuenta porque aún no está asegurado.</p>
+      <div style="overflow-x:auto; margin-top:10px;" id="dTablaWrap"></div>
+      <button class="btn btn-outline" id="dCsvBtn" style="margin-top:12px;">Descargar totales (CSV)</button>
+      <p id="dMsg" style="display:none; margin-top:12px;"></p>
+    </div>
+
+    <div class="card">
+      <p class="section-label">Historial de compras</p>
+      <div class="fila" style="margin-bottom:10px;">
+        <div class="field"><select id="hFiltro"><option value="">Todas</option><option value="reservado">Solo reservados</option><option value="comprado">Solo comprados</option><option value="recibido">Solo obtenidos</option></select></div>
+        <span id="hGasto" style="font-size:13.5px;"></span>
+      </div>
+      <div style="overflow-x:auto;" id="hWrap"></div>
+      <div class="botones" style="margin-top:12px;">
+        <button class="btn btn-outline" id="hCsvBtn">Descargar historial (CSV)</button>
+      </div>
+    </div>
+
+    <details class="card">
+      <summary class="section-label" style="margin:0;">Importar compras de la web antigua de libros (CSV)</summary>
+      <p style="font-size:13.5px; margin-top:12px;">En la web antigua (panel de análisis → "Historial de compras registradas") pulsa <b>Descargar historial (CSV)</b> y sube aquí ese archivo. Verás una vista previa antes de importar; las compras que ya estén importadas no se duplican.</p>
+      <input type="file" id="impFile" accept=".csv,text/csv">
+      <div id="impPreview" style="margin-top:12px;"></div>
+    </details>
+
+    <details class="card">
+      <summary class="section-label" style="margin:0;">Hijos/as por curso y detalle por familia</summary>
+      <div id="dCursosWrap" style="margin-top:14px;"></div>
+      <div id="dFamiliasWrap" style="margin-top:16px;"></div>
+    </details>
+
+    <details class="card">
+      <summary class="section-label" style="margin:0;">Donaciones ofrecidas por las familias</summary>
+      <div id="dDonWrap" style="margin-top:14px;"></div>
+    </details>
+  </div>
+
+  <!-- ============ ENTREGAS Y DEVOLUCIONES ============ -->
+  <div class="panel" id="panel-entregas">
+    <div class="card">
+      <p class="section-label">Pendientes de entregar a la familia</p>
+      <p class="sub" style="margin-top:-8px;">Libros con ejemplar asignado que todavía no se han dado físicamente.</p>
+      <div id="eEntregarWrap"><p class="loading">Cargando...</p></div>
+    </div>
+    <div class="card">
+      <p class="section-label">En préstamo (pendientes de devolver)</p>
+      <div class="botones" style="margin-bottom:12px;">
+        <button class="btn btn-primary" id="eRecordarTodosBtn">Enviar recordatorio de devolución a todas</button>
+        <span class="sub" id="eRecordarInfo"></span>
+      </div>
+      <p id="eMsg" style="display:none;"></p>
+      <div id="eDevolverWrap"><p class="loading">Cargando...</p></div>
+    </div>
+    <details class="card">
+      <summary class="section-label" style="margin:0;">Devueltos y perdidos (últimos 100)</summary>
+      <div id="eHistWrap" style="margin-top:12px;"></div>
+    </details>
   </div>
 
   <footer class="note"><b>AMPA Colegio Juan de Valdés</b> — panel de administración</footer>
@@ -49,67 +179,550 @@
 <script src="shared/supabaseClient.js"></script>
 <script src="shared/nav.js"></script>
 <script src="shared/catalogo.js"></script>
+<script src="shared/helpers.js"></script>
+<script src="shared/csv.js"></script>
+<script src="shared/datos-ampa.js"></script>
 <script>
-function actualizarCursos() {
-  const etapa = document.getElementById('nEtapa').value;
-  document.getElementById('nCurso').innerHTML = CURSOS_POR_ETAPA[etapa].map(c => '<option>' + c + '</option>').join('');
+/* ---------------- utilidades ---------------- */
+const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const fecha = (f) => f ? new Date(f).toLocaleDateString('es-ES') : '';
+const fechaHora = (f) => f ? new Date(f).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' }) : '';
+const euros = (n) => (Number(n) || 0).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' });
+const ETAPAS_LIBROS = ['Primaria', 'ESO', 'Bachillerato', 'Infantil'];
+const ESTADOS_COMPRA = { reservado: 'Reservado', comprado: 'Comprado', recibido: 'Obtenido' };
+const IDIOMA = { Lengua: 'Español', 'Inglés': 'Inglés', 'Alemán': 'Alemán' };
+function aviso(id, ok, t) { const p = document.getElementById(id); p.style.display = 'block'; p.className = ok ? 'msg-ok' : 'msg-error'; p.textContent = t; }
+function cursosDe(l) { return (l.cursos && l.cursos.length) ? l.cursos : [l.etapa + '|' + l.curso]; }
+function cursoTxt(c) { const [e, k] = c.split('|'); return `${k} ${e}`; }
+function cursosTxt(l) { return cursosDe(l).map(cursoTxt).join(', '); }
+
+let ctxGlobal = null;
+let libros = [];          // catálogo
+let ejemplares = [];      // todos
+let editandoId = null;
+
+document.querySelectorAll('.tab-btn').forEach(btn => btn.addEventListener('click', () => {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
+  if (btn.dataset.tab === 'demanda') cargarDemanda();
+  if (btn.dataset.tab === 'entregas') cargarEntregas();
+}));
+
+/* ================= CATÁLOGO ================= */
+document.getElementById('nCursos').innerHTML = ETAPAS_LIBROS.map(e =>
+  `<div class="etq">${e}</div>` + CURSOS_POR_ETAPA[e].map(c => `<label><input type="checkbox" value="${e}|${c}"> ${c}</label>`).join('')).join('');
+
+async function cargarCatalogo() {
+  const [{ data: l }, { data: e }] = await Promise.all([
+    sb.from('libros_catalogo').select('*').order('titulo'),
+    sb.from('libros_ejemplares').select('id, codigo, estado, libro_id, created_at').order('codigo')
+  ]);
+  libros = l || []; ejemplares = e || [];
 }
-document.getElementById('nEtapa').addEventListener('change', actualizarCursos);
-actualizarCursos();
 
-document.getElementById('addBtn').addEventListener('click', async () => {
+function ordenLibro(a, b) {
+  const ca = cursosDe(a)[0], cb = cursosDe(b)[0];
+  const ea = ETAPAS_LIBROS.indexOf(ca.split('|')[0]), eb = ETAPAS_LIBROS.indexOf(cb.split('|')[0]);
+  return ea - eb || ca.localeCompare(cb) || a.titulo.localeCompare(b.titulo);
+}
+
+function pintarCatalogo() {
+  const wrap = document.getElementById('listaWrap');
+  if (!libros.length) { wrap.innerHTML = '<p class="empty-hint">Todavía no hay libros en el catálogo.</p>'; return; }
+  const n = (id) => ejemplares.filter(x => x.libro_id === id && !['baja', 'perdido'].includes(x.estado)).length;
+  wrap.innerHTML = '<table class="t"><thead><tr><th>Título</th><th>Cursos</th><th>Idioma</th><th>Editorial · ISBN</th><th class="n">Ejemplares</th><th></th></tr></thead><tbody>' +
+    [...libros].sort(ordenLibro).map(l => `<tr>
+      <td><b>${esc(l.titulo)}</b></td><td>${esc(cursosTxt(l))}</td><td>${IDIOMA[l.asignatura] || esc(l.asignatura)}</td>
+      <td>${esc(l.editorial)}<div class="sub">${esc(l.isbn)}</div></td><td class="n">${n(l.id)}</td>
+      <td class="botones"><button class="linklike" data-edit="${l.id}" style="font-size:12px;">Editar</button>
+      <button class="btn-danger-link" data-del="${l.id}" style="font-size:12px;">Borrar</button></td></tr>`).join('') + '</tbody></table>';
+  wrap.querySelectorAll('[data-edit]').forEach(b => b.addEventListener('click', () => editarTitulo(b.dataset.edit)));
+  wrap.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', async () => {
+    if (!confirm('¿Borrar este título del catálogo? (Solo se puede si no tiene ejemplares ni peticiones.)')) return;
+    const { error } = await sb.from('libros_catalogo').delete().eq('id', b.dataset.del);
+    if (error) { aviso('tMsg', false, /foreign key|violates/i.test(error.message) ? 'No se puede borrar: tiene peticiones o compras registradas.' : error.message); return; }
+    await refrescarCatalogo();
+  }));
+}
+
+function editarTitulo(id) {
+  const l = libros.find(x => x.id === id); if (!l) return;
+  editandoId = id;
+  document.getElementById('nTitulo').value = l.titulo;
+  document.getElementById('nEditorial').value = l.editorial;
+  document.getElementById('nIsbn').value = l.isbn;
+  document.getElementById('nAsignatura').value = l.asignatura;
+  const cs = cursosDe(l);
+  document.querySelectorAll('#nCursos input').forEach(i => i.checked = cs.includes(i.value));
+  document.getElementById('formTituloLabel').textContent = 'Editar título';
+  document.getElementById('guardarTituloBtn').textContent = 'Guardar cambios';
+  document.getElementById('cancelarEdicionBtn').style.display = 'inline';
+  document.getElementById('formTituloCard').scrollIntoView({ behavior: 'smooth' });
+}
+function limpiarFormTitulo() {
+  editandoId = null;
+  ['nTitulo', 'nEditorial', 'nIsbn'].forEach(id => document.getElementById(id).value = '');
+  document.querySelectorAll('#nCursos input').forEach(i => i.checked = false);
+  document.getElementById('formTituloLabel').textContent = 'Añadir título';
+  document.getElementById('guardarTituloBtn').textContent = 'Añadir al catálogo';
+  document.getElementById('cancelarEdicionBtn').style.display = 'none';
+}
+document.getElementById('cancelarEdicionBtn').addEventListener('click', limpiarFormTitulo);
+
+document.getElementById('guardarTituloBtn').addEventListener('click', async () => {
   const titulo = document.getElementById('nTitulo').value.trim();
-  const msg = document.getElementById('msg');
-  if (!titulo) { msg.style.display = 'block'; msg.className = 'msg-error'; msg.textContent = 'Pon un título.'; return; }
-
-  const { error } = await sb.from('libros_catalogo').insert({
-    etapa: document.getElementById('nEtapa').value,
-    curso: document.getElementById('nCurso').value,
-    titulo,
-    stock: parseInt(document.getElementById('nStock').value, 10) || 0
-  });
-  msg.style.display = 'block';
-  msg.className = error ? 'msg-error' : 'msg-ok';
-  msg.textContent = error ? 'Error: ' + error.message : 'Añadido ✓';
-  if (!error) { document.getElementById('nTitulo').value = ''; document.getElementById('nStock').value = '0'; cargarLista(); }
+  const editorial = document.getElementById('nEditorial').value.trim();
+  const isbn = document.getElementById('nIsbn').value.trim();
+  const asignatura = document.getElementById('nAsignatura').value;
+  const cursos = [...document.querySelectorAll('#nCursos input:checked')].map(i => i.value);
+  const ok = marcarCamposVacios([document.getElementById('nTitulo'), document.getElementById('nEditorial'), document.getElementById('nIsbn')]);
+  if (!ok || !cursos.length) { aviso('tMsg', false, cursos.length ? 'Completa los campos marcados.' : 'Marca al menos un curso.'); return; }
+  const [etapa, curso] = cursos[0].split('|');
+  const fila = { titulo, editorial, isbn, asignatura, cursos, etapa, curso };
+  const { error } = editandoId
+    ? await sb.from('libros_catalogo').update(fila).eq('id', editandoId)
+    : await sb.from('libros_catalogo').insert(fila);
+  if (error) { aviso('tMsg', false, error.message); return; }
+  aviso('tMsg', true, editandoId ? 'Cambios guardados ✓' : 'Añadido ✓');
+  limpiarFormTitulo();
+  await refrescarCatalogo();
 });
 
-async function cargarLista() {
-  const wrap = document.getElementById('listaWrap');
-  const { data, error } = await sb.from('libros_catalogo').select('*').order('etapa').order('curso').order('titulo');
-  if (error) { wrap.innerHTML = '<p class="msg-error">No se pudo cargar.</p>'; return; }
-  if (!data || data.length === 0) { wrap.innerHTML = '<p class="empty-hint">Todavía no hay libros en el catálogo.</p>'; return; }
+/* ================= EJEMPLARES ================= */
+function pintarEjemplares() {
+  const sel = document.getElementById('ejLibroSelect');
+  const previo = sel.value;
+  sel.innerHTML = [...libros].sort(ordenLibro).map(l => `<option value="${l.id}">${esc(l.titulo)} (${esc(cursosTxt(l))})</option>`).join('');
+  if (previo) sel.value = previo;
+  const numeros = ejemplares.map(e => parseInt(e.codigo, 10)).filter(n => !isNaN(n));
+  const sig = numeros.length ? Math.max(...numeros) + 1 : 1;
+  document.getElementById('sigCodigo').textContent = `Siguiente código libre: ${String(sig).padStart(4, '0')}.`;
 
-  wrap.innerHTML = '<table><thead><tr><th>Curso</th><th>Título</th><th>Stock</th><th></th></tr></thead><tbody>' +
-    data.map(l =>
-      '<tr>' +
-        '<td>' + l.curso + ' ' + l.etapa + '</td>' +
-        '<td>' + l.titulo + '</td>' +
-        '<td><input type="number" class="stockInput" data-id="' + l.id + '" value="' + l.stock + '" min="0"></td>' +
-        '<td><button class="btn-danger-link" data-del="' + l.id + '">Borrar</button></td>' +
-      '</tr>'
-    ).join('') +
-  '</tbody></table>';
+  const filtro = document.getElementById('ejFiltro').value.trim().toLowerCase();
+  const tituloDe = {}; libros.forEach(l => tituloDe[l.id] = l.titulo);
+  const lista = ejemplares.filter(e => !filtro || e.codigo.toLowerCase().includes(filtro) || (tituloDe[e.libro_id] || '').toLowerCase().includes(filtro));
+  const wrap = document.getElementById('ejListaWrap');
+  if (!lista.length) { wrap.innerHTML = '<p class="empty-hint">No hay ejemplares' + (filtro ? ' que coincidan.' : ' dados de alta todavía.') + '</p>'; return; }
+  wrap.innerHTML = '<table class="t"><thead><tr><th>Código</th><th>Título</th><th>Estado</th><th></th></tr></thead><tbody>' +
+    lista.map(e => `<tr><td><b>${esc(e.codigo)}</b></td><td>${esc(tituloDe[e.libro_id] || '')}</td>
+      <td>${e.estado === 'prestado' ? 'prestado <span class="sub">(se cambia desde Entregas)</span>' :
+        `<select class="mini" data-id="${e.id}">${['disponible', 'perdido', 'baja'].map(v => `<option ${e.estado === v ? 'selected' : ''}>${v}</option>`).join('')}</select>`}</td>
+      <td>${e.estado === 'disponible' ? `<button class="btn-danger-link" data-del="${e.id}" style="font-size:12px;">Borrar</button>` : ''}</td></tr>`).join('') + '</tbody></table>';
+  wrap.querySelectorAll('select[data-id]').forEach(s => s.addEventListener('change', async () => {
+    const { error } = await sb.from('libros_ejemplares').update({ estado: s.value }).eq('id', s.dataset.id);
+    if (error) alert(error.message);
+    await refrescarCatalogo();
+  }));
+  wrap.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', async () => {
+    if (!confirm('¿Borrar este ejemplar? (Si alguna vez se prestó, mejor márcalo como "baja".)')) return;
+    const { error } = await sb.from('libros_ejemplares').delete().eq('id', b.dataset.del);
+    if (error) alert(/foreign key|violates/i.test(error.message) ? 'No se puede borrar: ya se prestó alguna vez. Márcalo como "baja".' : error.message);
+    await refrescarCatalogo();
+  }));
+}
+document.getElementById('ejFiltro').addEventListener('input', pintarEjemplares);
 
-  wrap.querySelectorAll('.stockInput').forEach(input => {
-    input.addEventListener('change', async () => {
-      await sb.from('libros_catalogo').update({ stock: parseInt(input.value, 10) || 0 }).eq('id', input.dataset.id);
-    });
+document.getElementById('ejAddBtn').addEventListener('click', async () => {
+  const libroId = document.getElementById('ejLibroSelect').value;
+  const desde = document.getElementById('ejDesde').value.trim();
+  const hasta = document.getElementById('ejHasta').value.trim();
+  if (!libroId || !desde) { aviso('ejMsg', false, 'Elige el título y escribe el código.'); return; }
+  let codigos = [desde];
+  if (hasta) {
+    const a = parseInt(desde, 10), b = parseInt(hasta, 10);
+    if (isNaN(a) || isNaN(b) || b < a) { aviso('ejMsg', false, 'Para dar de alta varios, "desde" y "hasta" tienen que ser números y "hasta" mayor.'); return; }
+    if (b - a > 199) { aviso('ejMsg', false, 'Como mucho 200 ejemplares de golpe.'); return; }
+    const ancho = Math.max(desde.length, hasta.length);
+    codigos = []; for (let i = a; i <= b; i++) codigos.push(String(i).padStart(ancho, '0'));
+  }
+  const repetidos = codigos.filter(c => ejemplares.some(e => e.codigo === c));
+  if (repetidos.length) { aviso('ejMsg', false, 'Estos códigos ya existen: ' + repetidos.join(', ')); return; }
+  const { error } = await sb.from('libros_ejemplares').insert(codigos.map(codigo => ({ libro_id: libroId, codigo })));
+  if (error) { aviso('ejMsg', false, error.code === '23505' ? 'Alguno de esos códigos ya existe.' : error.message); return; }
+  aviso('ejMsg', true, `${codigos.length} ejemplar(es) dado(s) de alta ✓`);
+  document.getElementById('ejDesde').value = ''; document.getElementById('ejHasta').value = '';
+  await refrescarCatalogo();
+});
+
+async function refrescarCatalogo() { await cargarCatalogo(); pintarCatalogo(); pintarEjemplares(); }
+
+/* ================= CONVOCATORIA Y REPARTO ================= */
+let convocatoria = null;
+async function cargarConvocatoria() {
+  const card = document.getElementById('convocatoriaCard');
+  const { data } = await sb.from('prestamo_convocatorias').select('*').order('created_at', { ascending: false }).limit(1);
+  convocatoria = data && data[0] ? data[0] : null;
+  const c = convocatoria;
+  const cerrada = c && new Date(c.fecha_cierre) <= new Date();
+  let html = '';
+  if (c && c.estado === 'abierta' && !cerrada) {
+    html = `<p class="section-label">Convocatoria abierta</p><p style="font-size:14.5px;">Las familias pueden pedir hasta el <b>${fechaHora(c.fecha_cierre)}</b>.</p>
+      <div class="botones"><button class="btn btn-outline" data-accion="cerrar">Cerrar plazo ahora</button><button class="btn-danger-link" data-accion="cancelar">Cancelar convocatoria</button></div>`;
+  } else if (c && c.estado === 'abierta') {
+    html = `<p class="section-label">Plazo cerrado, pendiente de repartir</p><p style="font-size:14.5px;">Se cerró el ${fechaHora(c.fecha_cierre)}. Antes de repartir, revisa en "Demanda y compras" que tenéis los ejemplares dados de alta.</p>
+      <div class="botones"><button class="btn btn-primary" id="repartirBtn">Repartir</button><button class="btn-danger-link" data-accion="cancelar">Cancelar sin repartir</button></div>`;
+  } else if (c && c.estado === 'repartida') {
+    html = `<p class="section-label">Convocatoria repartida</p><p style="font-size:14.5px;">Plazo cerrado el ${fechaHora(c.fecha_cierre)}. Puedes ajustar a mano abajo. Las entregas y devoluciones se llevan en la pestaña "Entregas y devoluciones".</p>
+      <div class="botones"><button class="btn-danger-link" id="resetearBtn">Anular todo el reparto y volver a empezar</button></div>`;
+  } else {
+    html = c && c.estado === 'cancelada' ? '<p class="section-label">La última convocatoria se canceló sin repartir</p>' : '<p class="section-label">No hay ninguna convocatoria todavía</p>';
+  }
+  if (!c || c.estado !== 'abierta') {
+    html += `<div style="border-top:1px solid var(--line); margin-top:16px; padding-top:16px;"><p class="section-label">Abrir una convocatoria nueva</p>
+      <div class="fila"><div class="field"><label>Las familias pueden pedir hasta</label><input type="datetime-local" id="nuevaFechaCierre"></div>
+      <button class="btn btn-primary" id="crearConvBtn">Abrir convocatoria</button></div></div>`;
+  }
+  html += '<p id="convMsg" style="display:none; margin-top:12px;"></p><div id="itemsWrap" style="margin-top:20px;"></div>';
+  card.innerHTML = html;
+  card.querySelectorAll('[data-accion]').forEach(b => b.addEventListener('click', async () => {
+    const txt = b.dataset.accion === 'cerrar' ? '¿Cerrar el plazo ahora? Las familias ya no podrán pedir.' : '¿Cancelar esta convocatoria sin repartir? Las peticiones se conservan para consultarlas.';
+    if (!confirm(txt)) return;
+    const { error } = await sb.rpc('convocatoria_admin_accion', { p_tipo: 'prestamo', p_convocatoria_id: c.id, p_accion: b.dataset.accion });
+    if (error) { aviso('convMsg', false, error.message); return; }
+    cargarConvocatoria();
+  }));
+  const rep = document.getElementById('repartirBtn');
+  if (rep) rep.addEventListener('click', async () => {
+    rep.disabled = true; rep.textContent = 'Repartiendo...';
+    const session = await getSession();
+    try {
+      const resp = await fetch('/.netlify/functions/prestamo-repartir', { method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
+        body: JSON.stringify({ convocatoriaId: c.id }) });
+      let d = {}; try { d = await resp.json(); } catch (e) {}
+      if (!resp.ok) throw new Error(d.error || 'Error al repartir');
+      await refrescarCatalogo(); await cargarConvocatoria();
+      aviso('convMsg', true, `Repartido ✓ — ${d.asignados} libros asignados, ${d.noAsignados} sin ejemplar disponible.`);
+    } catch (err) { aviso('convMsg', false, err.message); rep.disabled = false; rep.textContent = 'Repartir'; }
   });
-  wrap.querySelectorAll('[data-del]').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      if (!confirm('¿Borrar este libro del catálogo?')) return;
-      await sb.from('libros_catalogo').delete().eq('id', btn.dataset.del);
-      cargarLista();
+  const res = document.getElementById('resetearBtn');
+  if (res) res.addEventListener('click', async () => {
+    if (!confirm('Esto anula TODAS las asignaciones de esta convocatoria y las devuelve a pendiente. ¿Seguro?')) return;
+    const { error } = await sb.rpc('prestamo_admin_resetear_reparto', { p_convocatoria_id: c.id });
+    if (error) { aviso('convMsg', false, error.message); return; }
+    await refrescarCatalogo(); cargarConvocatoria();
+  });
+  const cre = document.getElementById('crearConvBtn');
+  if (cre) cre.addEventListener('click', async () => {
+    const v = document.getElementById('nuevaFechaCierre').value;
+    if (!v) { aviso('convMsg', false, 'Elige hasta cuándo pueden pedir las familias.'); return; }
+    const { error } = await sb.from('prestamo_convocatorias').insert({ fecha_cierre: new Date(v).toISOString() });
+    if (error) { aviso('convMsg', false, error.message); return; }
+    cargarConvocatoria();
+  });
+  if (c) await cargarItems(c.id);
+}
+
+async function cargarItems(convocatoriaId) {
+  const wrap = document.getElementById('itemsWrap');
+  const { data: items, error } = await sb.from('prestamo_items')
+    .select('id, estado, socio_id, entregado_en, fecha_devolucion, alumnos(nombre, apellidos), libros_catalogo(id, titulo), libros_ejemplares(codigo)')
+    .eq('convocatoria_id', convocatoriaId).eq('tipo', 'solicitud').order('created_at');
+  if (error) { wrap.innerHTML = '<p class="msg-error">No se pudo cargar.</p>'; return; }
+  if (!items || !items.length) { wrap.innerHTML = '<p class="empty-hint">Nadie ha pedido libros en esta convocatoria.</p>'; return; }
+  const socios = await getResumenSocios(items.map(i => i.socio_id));
+  const disponibles = {}; ejemplares.filter(e => e.estado === 'disponible').forEach(e => (disponibles[e.libro_id] = disponibles[e.libro_id] || []).push(e));
+  const porSocio = {}; items.forEach(i => (porSocio[i.socio_id] = porSocio[i.socio_id] || []).push(i));
+  const editable = convocatoria && ['abierta', 'repartida'].includes(convocatoria.estado);
+  const asign = items.filter(i => i.estado === 'asignado').length;
+  wrap.innerHTML = `<p class="section-label">Peticiones (${items.length} libros, ${asign} con ejemplar)</p>` +
+    Object.entries(porSocio).map(([sid, lista]) => `<div class="familia"><div class="familia-head"><span><b>Nº ${esc(socios[sid]?.numero_socio || '—')}</b> · ${esc(socios[sid]?.nombre || '')}</span></div>` +
+      lista.map(it => {
+        const opciones = disponibles[it.libros_catalogo?.id] || [];
+        let der;
+        if (it.estado === 'asignado') {
+          der = `<span class="ok">Ejemplar ${esc(it.libros_ejemplares?.codigo)}</span>` +
+            (it.entregado_en ? ` <span class="sub">· entregado ${fecha(it.entregado_en)}${it.fecha_devolucion ? ' · devuelto' : ''}</span>`
+              : (editable ? ` <button class="btn-danger-link" data-quitar="${it.id}" style="font-size:12px;">Quitar</button>` : ''));
+        } else {
+          der = `<span class="sub">${it.estado === 'no_asignado' ? 'sin ejemplar' : 'pendiente'}</span>` + (editable ? ` <select class="mini" data-sel="${it.id}" ${opciones.length ? '' : 'disabled'}>${opciones.length ? opciones.map(o => `<option value="${o.id}">Ejemplar ${esc(o.codigo)}</option>`).join('') : '<option>Sin ejemplares libres</option>'}</select>
+            <button class="btn btn-outline btn-s" data-asignar="${it.id}" ${opciones.length ? '' : 'disabled'}>Asignar</button>` : '');
+        }
+        return `<div class="item"><span>${esc(it.alumnos?.nombre)} ${esc(it.alumnos?.apellidos)} — <b>${esc(it.libros_catalogo?.titulo)}</b></span><span class="botones">${der}</span></div>`;
+      }).join('') + '</div>').join('');
+  wrap.querySelectorAll('[data-quitar]').forEach(b => b.addEventListener('click', async () => {
+    const { error } = await sb.rpc('prestamo_admin_quitar', { p_item_id: b.dataset.quitar });
+    if (error) { alert(error.message); return; }
+    await refrescarCatalogo(); cargarItems(convocatoriaId);
+  }));
+  wrap.querySelectorAll('[data-asignar]').forEach(b => b.addEventListener('click', async () => {
+    const ej = wrap.querySelector(`[data-sel="${b.dataset.asignar}"]`).value;
+    const { error } = await sb.rpc('prestamo_admin_asignar', { p_item_id: b.dataset.asignar, p_ejemplar_id: ej });
+    if (error) { alert(error.message); return; }
+    await refrescarCatalogo(); cargarItems(convocatoriaId);
+  }));
+}
+
+/* ================= DEMANDA Y COMPRAS ================= */
+let compras = [];
+let ultimaTabla = [];
+
+async function cargarCompras() {
+  const { data } = await sb.from('libros_compras').select('*').order('created_at', { ascending: false });
+  compras = data || [];
+}
+
+async function cargarDemanda() {
+  const sel = document.getElementById('dConvSelect');
+  if (!sel.options.length) {
+    const { data: convs } = await sb.from('prestamo_convocatorias').select('*').order('created_at', { ascending: false });
+    sel.innerHTML = (convs || []).map(c => `<option value="${c.id}">Plazo hasta ${fecha(c.fecha_cierre)} (${c.estado})</option>`).join('') || '<option value="">No hay convocatorias</option>';
+    sel.onchange = cargarDemanda;
+  }
+  await cargarCompras();
+  const convId = sel.value;
+  let items = [];
+  if (convId) {
+    const { data } = await sb.from('prestamo_items').select('id, estado, socio_id, alumno_id, libro_id, alumnos(nombre, apellidos, etapa, curso)')
+      .eq('convocatoria_id', convId).eq('tipo', 'solicitud');
+    items = data || [];
+  }
+  pintarDemanda(items);
+  pintarHistorial();
+  await pintarCursosYFamilias(items);
+  await pintarDonaciones();
+}
+
+function sumaCompras(libroId, estado) { return compras.filter(c => c.libro_id === libroId && c.estado === estado).reduce((a, c) => a + c.cantidad, 0); }
+
+function pintarDemanda(items) {
+  const necesarios = {}; items.forEach(i => necesarios[i.libro_id] = (necesarios[i.libro_id] || 0) + 1);
+  const inventario = (id) => ejemplares.filter(e => e.libro_id === id && !['baja', 'perdido'].includes(e.estado)).length;
+  const libres = (id) => ejemplares.filter(e => e.libro_id === id && e.estado === 'disponible').length;
+  ultimaTabla = [...libros].sort(ordenLibro).map(l => {
+    const nec = necesarios[l.id] || 0, inv = inventario(l.id);
+    const res = sumaCompras(l.id, 'reservado'), com = sumaCompras(l.id, 'comprado'), obt = sumaCompras(l.id, 'recibido');
+    const asegurado = Math.max(inv, obt) + com;
+    return { l, nec, inv, libres: libres(l.id), res, com, obt, sinAlta: Math.max(0, obt - inv), faltan: Math.max(0, nec - asegurado) };
+  });
+  const tot = (k) => ultimaTabla.reduce((a, r) => a + r[k], 0);
+  const familias = new Set(items.map(i => i.socio_id)).size, alumnos = new Set(items.map(i => i.alumno_id)).size;
+  const gasto = compras.reduce((a, c) => a + (Number(c.coste) || 0), 0);
+  document.getElementById('dStats').innerHTML = [
+    [familias, 'familias'], [alumnos, 'alumnos/as'], [tot('nec'), 'libros necesarios'], [tot('inv'), 'ejemplares dados de alta'],
+    [tot('res'), 'reservados'], [tot('com'), 'comprados (por llegar)'], [tot('obt'), 'obtenidos'], [tot('faltan'), 'FALTAN', tot('faltan') > 0], [euros(gasto), 'gastado en total']
+  ].map(([n, t, w]) => `<div class="${w ? 'warn' : ''}"><b>${n}</b>${t}</div>`).join('');
+
+  const wrap = document.getElementById('dTablaWrap');
+  wrap.innerHTML = '<table class="t"><thead><tr><th>Libro</th><th class="n">Necesarios</th><th class="n">Ejemplares</th><th class="n">Reserv.</th><th class="n">Compr.</th><th class="n">Obten.</th><th class="n">Faltan</th><th>Registrar compra</th></tr></thead><tbody>' +
+    ultimaTabla.map(r => `<tr>
+      <td><b>${esc(r.l.titulo)}</b><div class="sub">${esc(cursosTxt(r.l))} · ${IDIOMA[r.l.asignatura] || ''}</div>
+        ${r.sinAlta ? `<div class="sub" style="color:#8A6A00;">⚠ ${r.sinAlta} obtenido(s) sin dar de alta como ejemplar</div>` : ''}</td>
+      <td class="n">${r.nec}</td><td class="n">${r.inv}<div class="sub">${r.libres} libres</div></td><td class="n">${r.res}</td><td class="n">${r.com}</td><td class="n">${r.obt}</td>
+      <td class="n">${r.faltan ? `<span class="falta">${r.faltan}</span>` : (r.nec ? '<span class="ok">✓</span>' : '—')}</td>
+      <td class="mini"><div class="botones" data-libro="${r.l.id}">
+        <input type="number" min="1" value="${r.faltan || 1}" style="width:58px;" class="cCant" aria-label="Cantidad">
+        <select class="cEstado"><option value="reservado">Reservado</option><option value="comprado" selected>Comprado</option><option value="recibido">Obtenido</option></select>
+        <input type="text" placeholder="Dónde" style="width:90px;" class="cTienda">
+        <input type="number" min="0" step="0.01" placeholder="€" style="width:64px;" class="cCoste">
+        <button class="btn btn-outline btn-s cBtn">Añadir</button></div></td></tr>`).join('') + '</tbody></table>';
+  wrap.querySelectorAll('[data-libro]').forEach(div => div.querySelector('.cBtn').addEventListener('click', async () => {
+    const cantidad = parseInt(div.querySelector('.cCant').value, 10);
+    if (!cantidad || cantidad < 1) { aviso('dMsg', false, 'La cantidad tiene que ser 1 o más.'); return; }
+    const coste = div.querySelector('.cCoste').value;
+    const { error } = await sb.from('libros_compras').insert({
+      libro_id: div.dataset.libro, cantidad, estado: div.querySelector('.cEstado').value,
+      tienda: div.querySelector('.cTienda').value.trim() || null, coste: coste === '' ? null : Number(coste),
+      creado_por: ctxGlobal.adulto.id, creado_por_nombre: ctxGlobal.adulto.nombre + ' ' + ctxGlobal.adulto.apellidos
     });
+    if (error) { aviso('dMsg', false, error.message); return; }
+    aviso('dMsg', true, 'Compra registrada ✓' + (div.querySelector('.cEstado').value === 'recibido' ? ' Recuerda dar de alta los ejemplares en la pestaña "Ejemplares".' : ''));
+    cargarDemanda();
+  }));
+}
+
+document.getElementById('dCsvBtn').addEventListener('click', () => descargarCSV(ultimaTabla.map(r => ({
+  libro: r.l.titulo, cursos: cursosTxt(r.l), idioma: IDIOMA[r.l.asignatura] || '', editorial: r.l.editorial, isbn: r.l.isbn,
+  necesarios: r.nec, ejemplares: r.inv, reservados: r.res, comprados: r.com, obtenidos: r.obt, faltan: r.faltan
+})), 'libros-totales.csv'));
+
+function pintarHistorial() {
+  const filtro = document.getElementById('hFiltro').value;
+  const tituloDe = {}; libros.forEach(l => tituloDe[l.id] = l.titulo);
+  const lista = compras.filter(c => !filtro || c.estado === filtro);
+  const gasto = lista.reduce((a, c) => a + (Number(c.coste) || 0), 0);
+  document.getElementById('hGasto').innerHTML = `Gasto ${filtro ? 'de lo filtrado' : 'total'}: <b>${euros(gasto)}</b>`;
+  const wrap = document.getElementById('hWrap');
+  if (!lista.length) { wrap.innerHTML = '<p class="empty-hint">Todavía no hay compras registradas.</p>'; return; }
+  wrap.innerHTML = '<table class="t"><thead><tr><th>Fecha</th><th>Quién</th><th>Libro</th><th class="n">Cant.</th><th>Estado</th><th>Dónde</th><th class="n">Coste</th><th></th></tr></thead><tbody>' +
+    lista.map(c => `<tr><td>${fechaHora(c.created_at)}</td><td>${esc(c.creado_por_nombre || '')}${c.actualizado_por_nombre ? `<div class="sub">cambiado por ${esc(c.actualizado_por_nombre)}</div>` : ''}</td>
+      <td>${esc(tituloDe[c.libro_id] || '')}</td><td class="n">${c.cantidad}</td>
+      <td class="mini"><select data-estado="${c.id}">${Object.entries(ESTADOS_COMPRA).map(([v, t]) => `<option value="${v}" ${c.estado === v ? 'selected' : ''}>${t}</option>`).join('')}</select></td>
+      <td>${esc(c.tienda || '')}</td><td class="n">${c.coste != null ? euros(c.coste) : '—'}</td>
+      <td><button class="btn-danger-link" data-borrar="${c.id}" style="font-size:12px;">Borrar</button></td></tr>`).join('') + '</tbody></table>';
+  wrap.querySelectorAll('[data-estado]').forEach(s => s.addEventListener('change', async () => {
+    const { error } = await sb.from('libros_compras').update({ estado: s.value, actualizado_por_nombre: ctxGlobal.adulto.nombre + ' ' + ctxGlobal.adulto.apellidos, actualizado_en: new Date().toISOString() }).eq('id', s.dataset.estado);
+    if (error) alert(error.message);
+    cargarDemanda();
+  }));
+  wrap.querySelectorAll('[data-borrar]').forEach(b => b.addEventListener('click', async () => {
+    if (!confirm('¿Borrar esta compra del historial?')) return;
+    await sb.from('libros_compras').delete().eq('id', b.dataset.borrar);
+    cargarDemanda();
+  }));
+}
+document.getElementById('hFiltro').addEventListener('change', pintarHistorial);
+document.getElementById('hCsvBtn').addEventListener('click', () => {
+  const tituloDe = {}; libros.forEach(l => tituloDe[l.id] = l.titulo);
+  descargarCSV(compras.map(c => ({ fecha: fechaHora(c.created_at), quien: c.creado_por_nombre || '', libro: tituloDe[c.libro_id] || '', cantidad: c.cantidad,
+    estado: ESTADOS_COMPRA[c.estado], donde: c.tienda || '', coste: c.coste != null ? Number(c.coste).toFixed(2) : '' })), 'historial-compras.csv');
+});
+
+async function pintarCursosYFamilias(items) {
+  const porCurso = {};
+  const alumnosVistos = new Set();
+  items.forEach(i => { if (alumnosVistos.has(i.alumno_id)) return; alumnosVistos.add(i.alumno_id);
+    const k = `${i.alumnos?.curso || '?'} ${i.alumnos?.etapa || ''}`; porCurso[k] = (porCurso[k] || 0) + 1; });
+  document.getElementById('dCursosWrap').innerHTML = Object.keys(porCurso).length
+    ? '<table class="t" style="max-width:360px;"><thead><tr><th>Curso</th><th class="n">Hijos/as</th></tr></thead><tbody>' +
+      Object.entries(porCurso).sort().map(([k, n]) => `<tr><td>${esc(k)}</td><td class="n">${n}</td></tr>`).join('') + '</tbody></table>'
+    : '<p class="empty-hint">No hay peticiones en esta convocatoria.</p>';
+  const socios = await getResumenSocios(items.map(i => i.socio_id));
+  const tituloDe = {}; libros.forEach(l => tituloDe[l.id] = l.titulo);
+  const porSocio = {};
+  items.forEach(i => { const s = porSocio[i.socio_id] = porSocio[i.socio_id] || {}; (s[i.alumno_id] = s[i.alumno_id] || []).push(i); });
+  document.getElementById('dFamiliasWrap').innerHTML = Object.entries(porSocio).map(([sid, al]) =>
+    `<div class="familia"><div class="familia-head"><span><b>Nº ${esc(socios[sid]?.numero_socio || '—')}</b> · ${esc(socios[sid]?.nombre || '')}</span></div>` +
+    Object.values(al).map(lista => `<div class="item"><span>${esc(lista[0].alumnos?.nombre)} ${esc(lista[0].alumnos?.apellidos)} <span class="sub">(${esc(lista[0].alumnos?.curso)} ${esc(lista[0].alumnos?.etapa)})</span></span>
+      <span>${lista.map(i => esc(tituloDe[i.libro_id] || '') + (i.estado === 'asignado' ? ' ✓' : '')).join(' · ')}</span></div>`).join('') + '</div>').join('');
+}
+
+async function pintarDonaciones() {
+  const { data } = await sb.from('prestamo_items').select('id, socio_id, libro_id, created_at').eq('tipo', 'donacion').order('created_at', { ascending: false });
+  const wrap = document.getElementById('dDonWrap');
+  if (!data || !data.length) { wrap.innerHTML = '<p class="empty-hint">Ninguna familia ha ofrecido libros todavía.</p>'; return; }
+  const socios = await getResumenSocios(data.map(d => d.socio_id));
+  const tituloDe = {}; libros.forEach(l => tituloDe[l.id] = l.titulo);
+  wrap.innerHTML = '<p class="sub">Cuando os den el libro, dadlo de alta en "Ejemplares".</p><table class="t"><thead><tr><th>Fecha</th><th>Familia</th><th>Libro</th></tr></thead><tbody>' +
+    data.map(d => `<tr><td>${fecha(d.created_at)}</td><td>Nº ${esc(socios[d.socio_id]?.numero_socio || '—')} · ${esc(socios[d.socio_id]?.nombre || '')}</td><td>${esc(tituloDe[d.libro_id] || '')}</td></tr>`).join('') + '</tbody></table>';
+}
+
+/* --- Importar historial de compras de la web antigua --- */
+const normalizar = (t) => String(t || '').toLowerCase().replace(/\s*\(libro de lectura[^)]*\)\s*/g, '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+function fechaCsv(t) {
+  const m = String(t || '').match(/(\d{1,2})\/(\d{1,2})\/(\d{2,4})(?:,?\s*(\d{1,2}):(\d{2}))?/);
+  if (!m) return null;
+  const anio = m[3].length === 2 ? 2000 + parseInt(m[3], 10) : parseInt(m[3], 10);
+  return new Date(anio, parseInt(m[2], 10) - 1, parseInt(m[1], 10), parseInt(m[4] || '12', 10), parseInt(m[5] || '0', 10));
+}
+document.getElementById('impFile').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => prepararImportacion(csvAObjetos(parsearCSV(String(reader.result).replace(/^﻿/, ''))));
+  reader.readAsText(file, 'UTF-8');
+});
+async function prepararImportacion(filas) {
+  await cargarCompras();
+  const wrap = document.getElementById('impPreview');
+  const porNombre = {}; libros.forEach(l => porNombre[normalizar(l.titulo)] = l);
+  const mapaEstado = { reservado: 'reservado', comprado: 'comprado', obtenido: 'recibido', recibido: 'recibido' };
+  const preparadas = filas.map(f => {
+    const g = (k) => f[k] ?? f[k.toLowerCase()] ?? '';
+    const libro = porNombre[normalizar(g('Libro'))];
+    const cantidad = parseInt(g('Cantidad'), 10);
+    const fechaF = fechaCsv(g('Fecha'));
+    const estado = mapaEstado[normalizar(g('Estado'))] || 'comprado';
+    const costeTxt = String(g('Coste (€)') || g('Coste') || '').replace(',', '.').trim();
+    const fila = { libro, titulo: g('Libro'), cantidad, fecha: fechaF, estado, tienda: g('Dónde') || null, coste: costeTxt === '' ? null : Number(costeTxt), quien: g('Quién') };
+    fila.duplicada = !!libro && compras.some(c => c.libro_id === libro.id && c.cantidad === cantidad && fechaF && Math.abs(new Date(c.created_at) - fechaF) < 60000);
+    fila.valida = !!libro && cantidad > 0 && !!fechaF;
+    return fila;
+  });
+  const aImportar = preparadas.filter(p => p.valida && !p.duplicada);
+  wrap.innerHTML = `<p style="font-size:13.5px;">${preparadas.length} filas: <b>${aImportar.length}</b> para importar, ${preparadas.filter(p => p.duplicada).length} ya importadas, ${preparadas.filter(p => !p.valida).length} con problemas.</p>
+    <table class="t"><thead><tr><th>Fecha</th><th>Quién</th><th>Libro</th><th class="n">Cant.</th><th>Estado</th><th class="n">Coste</th><th></th></tr></thead><tbody>` +
+    preparadas.map(p => `<tr><td>${p.fecha ? fechaHora(p.fecha) : '<span class="falta">?</span>'}</td><td>${esc(p.quien)}</td><td>${esc(p.titulo)}</td><td class="n">${p.cantidad || '?'}</td><td>${ESTADOS_COMPRA[p.estado]}</td><td class="n">${p.coste != null ? euros(p.coste) : '—'}</td>
+      <td>${p.duplicada ? '<span class="sub">ya importada</span>' : !p.libro ? '<span class="falta">libro no encontrado en el catálogo</span>' : !p.valida ? '<span class="falta">fecha o cantidad no válida</span>' : '<span class="ok">OK</span>'}</td></tr>`).join('') +
+    `</tbody></table>${aImportar.length ? `<button class="btn btn-primary" id="impBtn" style="margin-top:12px;">Importar ${aImportar.length} compras</button>` : ''}<p id="impMsg" style="display:none; margin-top:10px;"></p>`;
+  const btn = document.getElementById('impBtn');
+  if (btn) btn.addEventListener('click', async () => {
+    btn.disabled = true;
+    const { error } = await sb.from('libros_compras').insert(aImportar.map(p => ({
+      libro_id: p.libro.id, cantidad: p.cantidad, estado: p.estado, tienda: p.tienda, coste: p.coste,
+      creado_por_nombre: p.quien || null, created_at: p.fecha.toISOString()
+    })));
+    if (error) { aviso('impMsg', false, error.message); btn.disabled = false; return; }
+    aviso('impMsg', true, `${aImportar.length} compras importadas ✓`);
+    cargarDemanda();
   });
 }
 
+/* ================= ENTREGAS Y DEVOLUCIONES ================= */
+async function cargarEntregas() {
+  const { data: items } = await sb.from('prestamo_items')
+    .select('id, socio_id, entregado_en, fecha_devolucion, perdido, alumnos(nombre, apellidos), libros_catalogo(titulo), libros_ejemplares(codigo)')
+    .eq('tipo', 'solicitud').eq('estado', 'asignado');
+  const lista = items || [];
+  const socios = await getResumenSocios(lista.map(i => i.socio_id));
+  const agrupar = (arr) => { const g = {}; arr.forEach(i => (g[i.socio_id] = g[i.socio_id] || []).push(i)); return g; };
+  const cab = (sid, extra) => `<div class="familia-head"><span><b>Nº ${esc(socios[sid]?.numero_socio || '—')}</b> · ${esc(socios[sid]?.nombre || '')}</span><span class="botones">${extra || ''}</span></div>`;
+  const libroTxt = (i) => `${esc(i.alumnos?.nombre)} ${esc(i.alumnos?.apellidos)} — <b>${esc(i.libros_catalogo?.titulo)}</b> <span class="sub">(ejemplar ${esc(i.libros_ejemplares?.codigo)})</span>`;
+
+  const porEntregar = agrupar(lista.filter(i => !i.entregado_en));
+  document.getElementById('eEntregarWrap').innerHTML = Object.keys(porEntregar).length ? Object.entries(porEntregar).map(([sid, its]) =>
+    `<div class="familia">${cab(sid, `<button class="btn btn-outline btn-s" data-entregar-todos="${its.map(i => i.id).join(',')}">Entregados todos (${its.length})</button>`)}` +
+    its.map(i => `<div class="item"><span>${libroTxt(i)}</span><button class="btn btn-outline btn-s" data-acc="entregar" data-id="${i.id}">Entregado</button></div>`).join('') + '</div>').join('')
+    : '<p class="empty-hint">No hay libros pendientes de entregar.</p>';
+
+  const enCasa = agrupar(lista.filter(i => i.entregado_en && !i.fecha_devolucion));
+  document.getElementById('eRecordarInfo').textContent = `${Object.keys(enCasa).length} familia(s) con libros pendientes de devolver.`;
+  document.getElementById('eRecordarTodosBtn').disabled = !Object.keys(enCasa).length;
+  document.getElementById('eDevolverWrap').innerHTML = Object.keys(enCasa).length ? Object.entries(enCasa).map(([sid, its]) =>
+    `<div class="familia">${cab(sid, `<button class="linklike" data-recordar="${sid}" style="font-size:12.5px;">Enviar recordatorio por email</button>`)}` +
+    its.map(i => `<div class="item"><span>${libroTxt(i)} <span class="sub">· entregado ${fecha(i.entregado_en)}</span></span>
+      <span class="botones"><button class="btn btn-outline btn-s" data-acc="devuelto" data-id="${i.id}">Devuelto</button>
+      <button class="btn-danger-link" data-acc="perdido" data-id="${i.id}" style="font-size:12px;">Perdido</button>
+      <button class="linklike" data-acc="deshacer_entrega" data-id="${i.id}" style="font-size:12px;">No se entregó</button></span></div>`).join('') + '</div>').join('')
+    : '<p class="empty-hint">No hay libros en préstamo ahora mismo.</p>';
+
+  const hist = lista.filter(i => i.fecha_devolucion).sort((a, b) => b.fecha_devolucion.localeCompare(a.fecha_devolucion)).slice(0, 100);
+  document.getElementById('eHistWrap').innerHTML = hist.length ? '<table class="t"><thead><tr><th>Fecha</th><th>Familia</th><th>Libro</th><th>Resultado</th><th></th></tr></thead><tbody>' +
+    hist.map(i => `<tr><td>${fecha(i.fecha_devolucion)}</td><td>Nº ${esc(socios[i.socio_id]?.numero_socio || '—')}</td><td>${libroTxt(i)}</td>
+      <td>${i.perdido ? '<span class="falta">Perdido</span>' : '<span class="ok">Devuelto</span>'}</td>
+      <td><button class="linklike" data-acc="deshacer_devolucion" data-id="${i.id}" style="font-size:12px;">Deshacer</button></td></tr>`).join('') + '</tbody></table>'
+    : '<p class="empty-hint">Todavía no hay devoluciones registradas.</p>';
+
+  document.querySelectorAll('#panel-entregas [data-acc]').forEach(b => b.addEventListener('click', async () => {
+    if (b.dataset.acc === 'perdido' && !confirm('¿Marcar este libro como perdido? El ejemplar quedará como "perdido".')) return;
+    const { error } = await sb.rpc('prestamo_admin_entrega', { p_item_id: b.dataset.id, p_accion: b.dataset.acc });
+    if (error) { alert(error.message); return; }
+    await refrescarCatalogo(); cargarEntregas();
+  }));
+  document.querySelectorAll('[data-entregar-todos]').forEach(b => b.addEventListener('click', async () => {
+    for (const id of b.dataset.entregarTodos.split(',')) {
+      const { error } = await sb.rpc('prestamo_admin_entrega', { p_item_id: id, p_accion: 'entregar' });
+      if (error) { alert(error.message); break; }
+    }
+    cargarEntregas();
+  }));
+  document.querySelectorAll('[data-recordar]').forEach(b => b.addEventListener('click', () => enviarRecordatorio([b.dataset.recordar])));
+}
+
+async function enviarRecordatorio(socioIds) {
+  if (!confirm(socioIds ? '¿Enviar el recordatorio de devolución a esta familia?' : '¿Enviar el recordatorio de devolución a TODAS las familias con libros pendientes?')) return;
+  const session = await getSession();
+  try {
+    const resp = await fetch('/.netlify/functions/prestamo-recordatorio', { method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
+      body: JSON.stringify({ socioIds: socioIds || null }) });
+    let d = {}; try { d = await resp.json(); } catch (e) {}
+    if (!resp.ok) throw new Error(d.error || 'No se pudo enviar');
+    aviso('eMsg', true, `Recordatorio enviado a ${d.enviados} familia(s)` + (d.fallidos ? ` (${d.fallidos} no se pudieron enviar)` : '') + '.');
+  } catch (err) { aviso('eMsg', false, err.message); }
+}
+document.getElementById('eRecordarTodosBtn').addEventListener('click', () => enviarRecordatorio(null));
+
+/* ================= arranque ================= */
 (async () => {
   const ctx = await requireAdmin();
   if (!ctx) return;
+  ctxGlobal = ctx;
   renderNav('admin-libros', ctx);
-  await cargarLista();
+  await refrescarCatalogo();
+  await cargarConvocatoria();
 })();
 </script>
 </body>
