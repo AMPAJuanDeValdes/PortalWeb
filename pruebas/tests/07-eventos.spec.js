@@ -97,6 +97,8 @@ test.describe('Eventos', () => {
   test('Página de eventos: la familia ve su Chocolatada con las alergias', async ({ page }) => {
     aceptarDialogos(page);
     await entrar(page, fam.adultos[0].email);
+    // Esperar a que el Inicio termine de cargar antes de cambiar de página
+    await expect(page.locator('#saludo')).toContainText('Hola, ', { timeout: 15_000 });
     await page.goto('/eventos.html');
     const card = page.locator('.evento-card', { hasText: MARCA + 'Chocolatada' });
     await expect(card).toBeVisible();

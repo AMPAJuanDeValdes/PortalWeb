@@ -2545,6 +2545,10 @@ create policy "admins gestionan los premios" on evento_premios for all
 --    El archivo se guarda con un nombre al azar (sin datos de la familia)
 --    para que el jurado no sepa de quién es.
 alter table concurso_envios add column if not exists archivo_path text;
+-- Datos del Word o de cómo se escribió en la web (tiempo de edición,
+-- veces guardado, texto pegado...). Solo orientan al jurado; no incluyen
+-- el autor del archivo para no romper el anonimato.
+alter table concurso_envios add column if not exists metadatos jsonb;
 insert into storage.buckets (id, name, public) values ('concursos', 'concursos', false) on conflict (id) do nothing;
 drop policy if exists "socios suben textos de concurso" on storage.objects;
 create policy "socios suben textos de concurso" on storage.objects for insert
@@ -2554,7 +2558,8 @@ create policy "admins leen textos de concurso" on storage.objects for select
   using (bucket_id = 'concursos' and is_admin());
 
 drop function if exists concurso_enviar_texto(uuid, text, uuid);
-create or replace function concurso_enviar_texto(p_evento_id uuid, p_texto text, p_alumno_id uuid, p_archivo_path text default null)
+drop function if exists concurso_enviar_texto(uuid, text, uuid, text);
+create or replace function concurso_enviar_texto(p_evento_id uuid, p_texto text, p_alumno_id uuid, p_archivo_path text default null, p_metadatos jsonb default null)
 returns uuid
 language plpgsql security definer set search_path = public as $$
 declare
@@ -2587,7 +2592,7 @@ begin
     raise exception 'Este alumno/a ya ha enviado un texto para este concurso.';
   end if;
 
-  insert into concurso_envios (evento_id, texto, archivo_path) values (p_evento_id, coalesce(p_texto, ''), p_archivo_path)
+  insert into concurso_envios (evento_id, texto, archivo_path, metadatos) values (p_evento_id, coalesce(p_texto, ''), p_archivo_path, p_metadatos)
   returning id into v_envio_id;
 
   insert into concurso_identidades (envio_id, socio_id, alumno_id)
@@ -2596,4 +2601,4 @@ begin
   return v_envio_id;
 end;
 $$;
-grant execute on function concurso_enviar_texto(uuid, text, uuid, text) to authenticated;
+grant execute on function concurso_enviar_texto(uuid, text, uuid, text, jsonb) to authenticated;

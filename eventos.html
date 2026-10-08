@@ -768,13 +768,34 @@ async function renderEventoPareja(evento) {
 
 // Lector de Word (solo se descarga si alguien sube un .docx)
 function cargarMammoth() {
-  if (window.mammoth) return Promise.resolve();
+  return cargarScript('https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js', 'mammoth');
+}
+
+function cargarScript(url, global) {
+  if (window[global]) return Promise.resolve();
   return new Promise((ok, ko) => {
     const sc = document.createElement('script');
-    sc.src = 'https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js';
-    sc.onload = ok; sc.onerror = () => ko(new Error('No se pudo leer el Word. Inténtalo de nuevo.'));
+    sc.src = url; sc.onload = ok; sc.onerror = () => ko(new Error('No se pudo leer el Word. Inténtalo de nuevo.'));
     document.head.appendChild(sc);
   });
+}
+// Datos internos del Word (sin el nombre del autor, para no romper el
+// anonimato): fechas, minutos de edición, veces guardado, palabras, programa.
+async function metadatosWord(file) {
+  try {
+    await cargarScript('https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js', 'JSZip');
+    const zip = await JSZip.loadAsync(await file.arrayBuffer());
+    const leer = async (ruta) => { const f = zip.file(ruta); return f ? new DOMParser().parseFromString(await f.async('string'), 'application/xml') : null; };
+    const core = await leer('docProps/core.xml'), app = await leer('docProps/app.xml');
+    const v = (doc, tag) => { if (!doc) return null; const el = doc.getElementsByTagName(tag)[0]; return el ? el.textContent.trim() : null; };
+    const n = (x) => x == null || x === '' || isNaN(Number(x)) ? null : Number(x);
+    return {
+      origen: 'word',
+      creado: v(core, 'dcterms:created'), modificado: v(core, 'dcterms:modified'),
+      revisiones: n(v(core, 'cp:revision')), minutos_edicion: n(v(app, 'TotalTime')),
+      palabras_word: n(v(app, 'Words')), programa: v(app, 'Application')
+    };
+  } catch (e) { return { origen: 'word', error: 'No se pudieron leer los datos del archivo' }; }
 }
 
 /* ==================== Concurso literario (un texto por alumno, anónimo) ==================== */
@@ -807,6 +828,11 @@ async function renderEventoConcurso(evento) {
           <details><summary>O escríbelo aquí</summary><textarea rows="10" style="margin-top:8px;"></textarea></details>
           <div style="display:flex; gap:12px; align-items:center;"><button type="button" class="btn btn-primary">Enviar</button><button type="button" class="linklike">Cancelar</button></div><p class="msg-error" hidden></p>`;
         btn.hidden = true;
+        // Cómo se escribe en la web: tiempo y texto pegado (orientativo para el jurado)
+        const escritura = { inicio: null, ultimo: null, pegado: 0 };
+        const ta = z.querySelector('textarea');
+        ta.addEventListener('input', () => { const t = Date.now(); escritura.inicio = escritura.inicio || t; escritura.ultimo = t; });
+        ta.addEventListener('paste', (e) => { escritura.pegado += ((e.clipboardData && e.clipboardData.getData('text')) || '').length; });
         z.querySelector('.linklike').addEventListener('click', () => { z.remove(); btn.hidden = false; });
         z.querySelector('.btn-primary').addEventListener('click', async () => {
           const msg = z.querySelector('.msg-error');
@@ -814,6 +840,10 @@ async function renderEventoConcurso(evento) {
           const file = z.querySelector('.word').files[0];
           let texto = z.querySelector('textarea').value.trim();
           let ruta = null;
+          let metadatos = file ? null : {
+            origen: 'web', caracteres: texto.length, caracteres_pegados: escritura.pegado,
+            minutos_escribiendo: escritura.inicio ? Math.round((escritura.ultimo - escritura.inicio) / 6000) / 10 : 0
+          };
           if (!file && !texto) { msg.textContent = 'Sube el Word o escribe el texto.'; msg.hidden = false; return; }
           if (file && !/\.docx$/i.test(file.name)) { msg.textContent = 'Tiene que ser un documento de Word (.docx). Si lo tienes en .doc, guárdalo como .docx.'; msg.hidden = false; return; }
           if (!confirm('Una vez enviado no se puede cambiar. ¿Lo enviamos?')) return;
@@ -822,6 +852,7 @@ async function renderEventoConcurso(evento) {
             if (file) {
               await cargarMammoth();
               const r = await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() });
+              metadatos = await metadatosWord(file);
               texto = (r.value || '').trim();
               if (!texto) throw new Error('El documento parece vacío.');
               // Nombre al azar: el archivo no dice de qué familia es
@@ -829,7 +860,7 @@ async function renderEventoConcurso(evento) {
               const { error: upErr } = await sb.storage.from('concursos').upload(ruta, file, { contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
               if (upErr) throw new Error('No se pudo subir el documento: ' + upErr.message);
             }
-            const { error } = await sb.rpc('concurso_enviar_texto', { p_evento_id: evento.id, p_texto: texto, p_alumno_id: alumno.id, p_archivo_path: ruta });
+            const { error } = await sb.rpc('concurso_enviar_texto', { p_evento_id: evento.id, p_texto: texto, p_alumno_id: alumno.id, p_archivo_path: ruta, p_metadatos: metadatos });
             if (error) throw error;
             repintar(card, evento);
           } catch (err) {

@@ -899,11 +899,37 @@ async function renderDocsEvento(panel, evento) {
   });
 }
 
+// Indicios de copia y pega o de texto no escrito por el alumno, a partir de
+// los datos del Word o de cómo se escribió en la web. Son solo orientativos.
+function indiciosTexto(m, texto) {
+  const palabras = (texto || '').split(/\s+/).filter(Boolean).length;
+  const ind = [];
+  if (!m) return { ind, sinDatos: true };
+  if (m.origen === 'web') {
+    if (m.caracteres && m.caracteres_pegados >= m.caracteres * 0.5)
+      ind.push(`Se pegó la mayor parte del texto (${m.caracteres_pegados} de ${m.caracteres} caracteres), no se escribió en la web.`);
+    else if (m.minutos_escribiendo != null && palabras > 80 && palabras / Math.max(m.minutos_escribiendo, 0.5) > 40)
+      ind.push(`Escrito muy deprisa: ${palabras} palabras en ${m.minutos_escribiendo} min.`);
+    return { ind, sinDatos: false };
+  }
+  if (m.error) return { ind, sinDatos: true };
+  const min = m.minutos_edicion;
+  if (min != null && palabras > 80 && palabras / Math.max(min, 1) > 30)
+    ind.push(`${palabras} palabras con solo ${min} min de edición en Word.`);
+  if (m.revisiones != null && m.revisiones <= 2 && palabras > 150)
+    ind.push(`El documento se guardó solo ${m.revisiones} ${m.revisiones === 1 ? 'vez' : 'veces'}.`);
+  if (m.creado && m.modificado) {
+    const dur = (new Date(m.modificado) - new Date(m.creado)) / 60000;
+    if (dur >= 0 && dur < 5 && palabras > 150) ind.push(`Creado y terminado en ${Math.max(1, Math.round(dur))} min.`);
+  }
+  return { ind, sinDatos: min == null && m.revisiones == null && !m.creado, programa: m.programa };
+}
+
 async function renderConcursoEvento(panel, evento) {
   panel.innerHTML = '<p class="loading">Cargando...</p>';
   const { data: envios, error } = await sb
     .from('concurso_envios')
-    .select('id, texto, archivo_path, es_ganador, created_at')
+    .select('id, texto, archivo_path, metadatos, es_ganador, created_at')
     .eq('evento_id', evento.id)
     .order('created_at');
 
@@ -911,6 +937,7 @@ async function renderConcursoEvento(panel, evento) {
   if (!envios || envios.length === 0) { panel.innerHTML = '<p class="empty-hint">Todavía no hay ningún envío.</p>'; return; }
 
   panel.innerHTML = `<p class="section-label">${envios.length} envío${envios.length === 1 ? '' : 's'} (anónimos hasta marcar ganador)</p>
+    <p class="ayuda" style="margin-bottom:10px;">«Revisar» se basa en los datos del Word (tiempo de edición, veces guardado) o en si el texto se pegó en la web. Es solo una pista: no demuestra que un texto lo haya escrito una IA ni que no sea del alumno.</p>
     <button type="button" class="btn btn-outline todosTxt">Descargar todos los textos</button>
     <div class="enviosLista"></div>`;
   const lista = panel.querySelector('.enviosLista');
@@ -943,6 +970,12 @@ async function renderConcursoEvento(panel, evento) {
       <p style="font-weight:700; margin:0 0 6px;">Texto ${k + 1}${envio.archivo_path ? ' (Word)' : ''}</p>
       <details><summary>${esc((envio.texto || '').slice(0, 140))}${(envio.texto || '').length > 140 ? '…' : ''}</summary>
         <p style="white-space:pre-wrap; font-size:15px;">${esc(envio.texto)}</p></details>
+      ${(() => {
+        const r = indiciosTexto(envio.metadatos, envio.texto);
+        if (r.ind.length) return `<div class="aviso" style="margin:8px 0;"><b>Revisar (orientativo):</b><ul style="margin:4px 0 0; padding-left:20px;">${r.ind.map(t => `<li>${esc(t)}</li>`).join('')}</ul></div>`;
+        if (r.sinDatos) return `<p style="color:var(--ink-soft); font-size:14px; margin:8px 0 0;">Sin datos sobre cómo se escribió${r.programa ? ' (' + esc(r.programa) + ' no los guarda)' : ''}.</p>`;
+        return '<p style="color:var(--ink-soft); font-size:14px; margin:8px 0 0;">Sin indicios de copia y pega.</p>';
+      })()}
       ${envio.archivo_path ? '<button type="button" class="btn btn-outline wordBtn" style="margin-top:8px;">Descargar el Word</button>' : ''}
       ${identidadHtml}
       <button type="button" class="btn ${envio.es_ganador ? 'btn-danger-link' : 'btn-outline'} marcarBtn" style="margin-top:8px;">
