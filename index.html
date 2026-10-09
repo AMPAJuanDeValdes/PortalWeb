@@ -15,7 +15,7 @@
   .contenedor{ max-width:1200px; margin:0 auto; padding-left:24px; padding-right:24px; }
   .portada-head{ display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:14px; padding-top:18px; padding-bottom:18px; position:relative; z-index:2; }
   .marca{ display:flex; align-items:center; gap:12px; text-decoration:none; color:var(--ink); }
-  .marca img{ height:56px; width:auto; }
+  .marca img{ height:72px; width:auto; }
   .marca b{ font-family:var(--font-title); font-weight:800; font-size:18px; line-height:1.1; display:block; }
   .marca small{ font-family:var(--font-title); font-weight:600; font-size:14px; color:var(--ink-soft); }
   .menu{ display:flex; flex-wrap:wrap; align-items:center; gap:8px 26px; font-weight:700; font-size:16px; }
@@ -30,7 +30,11 @@
   .polvo{ position:absolute; top:-60px; right:-6%; width:64%; height:calc(100% + 140px); pointer-events:none; filter:blur(42px); opacity:.72; z-index:0; -webkit-mask-image:radial-gradient(farthest-side at 55% 45%,#000 55%,transparent); mask-image:radial-gradient(farthest-side at 55% 45%,#000 55%,transparent); }
   .polvo i{ position:absolute; border-radius:50%; }
   @media (max-width:760px){ .polvo{ width:auto; left:-15%; right:-15%; top:-30px; opacity:.38; } }
-  .hero-texto{ position:relative; z-index:1; max-width:760px; }
+  .hero-in{ position:relative; z-index:1; display:grid; grid-template-columns:minmax(0,1.15fr) minmax(0,1fr); gap:40px; align-items:center; }
+  .hero-texto{ max-width:760px; }
+  .hero-logo{ display:flex; justify-content:center; }
+  .hero-logo img{ width:100%; max-width:520px; height:auto; border-radius:28px; box-shadow:0 18px 50px rgba(22,35,58,.14); transform:rotate(-1.5deg); }
+  @media (max-width:900px){ .hero-in{ grid-template-columns:1fr; gap:10px; } .hero-logo{ order:-1; } .hero-logo img{ max-width:360px; } }
   .hero h1{ font-family:var(--font-title); font-weight:800; font-size:clamp(44px,6.6vw,92px); line-height:.95; letter-spacing:-.03em; margin:0 0 24px; max-width:13ch; }
   .hero p{ font-size:20px; color:#3B4A60; max-width:46ch; margin:0 0 30px; }
   .hero-acciones{ display:flex; flex-wrap:wrap; align-items:center; gap:14px; }
@@ -189,7 +193,7 @@
 <main>
   <section class="hero">
     <div class="polvo" aria-hidden="true"><i style="left:10%;top:8%;width:320px;height:320px;background:#FF4D8D"></i><i style="left:38%;top:0%;width:300px;height:300px;background:#FFC21A"></i><i style="left:58%;top:22%;width:320px;height:320px;background:#3FB54A"></i><i style="left:30%;top:46%;width:280px;height:280px;background:#00A3E0"></i><i style="left:62%;top:56%;width:260px;height:260px;background:#8A5CC2"></i><i style="left:4%;top:50%;width:240px;height:240px;background:#FF7A1A"></i></div>
-    <div class="contenedor">
+    <div class="contenedor hero-in">
       <div class="hero-texto">
         <h1>Asociación de Familias del Colegio Juan de Valdés</h1>
         <p>Trabajamos para que la vida escolar de nuestros alumnos y alumnas sea más rica: Banco de Libros, Banco de Uniformes, actividades, eventos y apoyo a las familias del colegio.</p>
@@ -201,6 +205,7 @@
           <a href="login.html" class="pill pill-linea">Ya soy socio, entrar</a>
         </div>
       </div>
+      <div class="hero-logo"><img src="assets/logo-ampa.png" alt="Logotipo del AMPA Juan de Valdés"></div>
     </div>
   </section>
 

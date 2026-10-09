@@ -123,9 +123,9 @@ test.describe('Acceso y contraseñas', () => {
 
   test('Navegación: login y cambiar-clave enlazan a la web pública', async ({ page }) => {
     await page.goto('/login.html');
-    await expect(page.getByRole('link', { name: '‹ Página principal' })).toBeVisible();
+    await expect(page.locator('.pub-links').getByRole('link', { name: 'Página principal', exact: true })).toBeVisible();
     await page.goto('/cambiar-clave.html#error=access_denied&error_code=otp_expired');
     await expect(page.locator('h1')).toHaveText('Enlace no válido o caducado');
-    await expect(page.locator('.pub-links').getByRole('link', { name: '‹ Página principal' })).toBeVisible();
+    await expect(page.locator('.pub-links').getByRole('link', { name: 'Página principal', exact: true })).toBeVisible();
   });
 });

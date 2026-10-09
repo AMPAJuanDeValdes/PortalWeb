@@ -25,26 +25,23 @@
 </head>
 <body>
 <header class="pub-head">
-  <div class="brand-row">
-    <a href="index.html"><img class="logo-ampa" src="assets/logo-ampa.png" alt="AMPA, ir a la portada"></a>
-  </div>
+  <a href="index.html" class="pub-marca"><img src="assets/logo-ampa.png" alt=""><span><b>AMPA</b><small>Colegio Juan de Valdés</small></span></a>
+  <img class="pub-colegio" src="assets/logo-colegio.png" alt="Colegio Juan de Valdés">
   <nav class="pub-links">
     <a href="index.html">Página principal</a>
-    <a href="login.html">Entrar como socio</a>
+    <a href="login.html" class="pub-pill">Entrar como socio</a>
   </nav>
 </header>
 
 <div class="wrap">
-  <div class="eyebrow">Para todas las familias</div>
-  <h1>Eventos abiertos</h1>
-  <p class="lede">Actividades del AMPA en las que pueden participar también familias que no son socias.</p>
+  <header class="cab-servicio cs-eventos" style="margin-top:28px;"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg><div><nav class="miga" aria-label="Estás en"><a href="index.html">Página principal</a><span aria-hidden="true">›</span><span>Para todas las familias</span></nav><h1>Eventos abiertos</h1><p>Actividades del AMPA en las que pueden participar también familias que no son socias.</p></div></header>
 
   <p id="loadingMsg" class="loading">Cargando eventos...</p>
   <div id="eventosContainer"></div>
 
   <div class="cta-socio">
     <h2>¿Aún no sois socios?</h2>
-    <p>Por 25 € al año por familia, los talleres son gratis y tenéis el Banco de Libros, el Banco de Uniformes y todos los eventos del AMPA.</p>
+    <p>Las familias socias tienen los talleres gratis, el Banco de Libros, el Banco de Uniformes y todos los eventos del AMPA, por 25 € al año por familia.</p>
     <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
       <a href="hazte-socio.html" class="btn btn-cta">Hazte socio</a>
       <a href="reactivar-cuenta.html">Ya fui socio: reactivar mi cuenta</a>
@@ -64,7 +61,7 @@ const fechaLarga = (f) => f ? new Date(f).toLocaleString('es-ES', { dateStyle: '
 const textoError = (e) => ((e && e.message) || String(e)).replace(/^.*?ERROR:\s*/, '');
 
 if (typeof AMPA_CUOTA_ANUAL !== 'undefined') {
-  document.querySelector('.cta-socio p').textContent = `Por ${AMPA_CUOTA_ANUAL} al año por familia, los talleres son gratis y tenéis el Banco de Libros, el Banco de Uniformes y todos los eventos del AMPA.`;
+  document.querySelector('.cta-socio p').textContent = `Las familias socias tienen los talleres gratis, el Banco de Libros, el Banco de Uniformes y todos los eventos del AMPA, por ${AMPA_CUOTA_ANUAL} al año por familia.`;
 }
 
 async function cargarEventos() {

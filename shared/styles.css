@@ -362,3 +362,54 @@ h2{ font-weight:800; letter-spacing:-.015em; }
              radial-gradient(closest-side,#00A3E0 0,transparent 100%) 100% 80%/40% 80% no-repeat;
   filter:blur(26px); opacity:.55; }
 @media (max-width:640px){ .con-polvo::before{ right:-120px; opacity:.35; } }
+
+/* Cabecera pública: la misma que la portada (logo, menú y botón) */
+.pub-head{ position:relative; border-bottom:0; padding:14px max(20px, calc(50% - 580px)); }
+.pub-head::after{ content:""; position:absolute; left:0; right:0; bottom:0; height:4px; background:linear-gradient(90deg,#FF4D8D,#FF7A1A,#FFC21A,#3FB54A,#00A3E0,#8A5CC2); }
+.pub-marca{ display:flex; align-items:center; gap:12px; text-decoration:none; color:var(--ink); }
+.pub-marca img{ height:48px; width:auto; }
+.pub-marca b{ font-family:var(--font-title); font-weight:800; font-size:18px; line-height:1.1; display:block; }
+.pub-marca small{ font-family:var(--font-title); font-weight:600; font-size:14px; color:var(--ink-soft); }
+.pub-links{ gap:8px 24px; font-weight:700; font-size:16px; }
+.pub-links a:hover{ color:var(--ink); text-underline-offset:4px; }
+.pub-links a.pub-pill{ border:2px solid var(--ink); border-radius:999px; padding:9px 20px; }
+.pub-links a.pub-pill:hover{ background:var(--ink); color:#fff; text-decoration:none; }
+
+/* Cabecera de las páginas de cada servicio: bloque del color del servicio */
+.cab-servicio{ border-radius:28px; padding:28px; margin:0 0 30px; display:flex; gap:22px; align-items:flex-start; flex-wrap:wrap; position:relative; overflow:hidden; }
+.cab-servicio > svg{ flex:0 0 auto; width:64px; height:64px; padding:15px; border-radius:20px; background:rgba(255,255,255,.8); }
+.cab-servicio > div{ flex:1 1 300px; min-width:0; position:relative; }
+.cab-servicio h1{ margin:0 0 8px; }
+.cab-servicio p{ margin:0; font-size:18px; max-width:60ch; }
+.cab-servicio::after{ content:""; position:absolute; right:-50px; bottom:-70px; width:200px; height:200px; border-radius:50%; background:currentColor; opacity:.05; pointer-events:none; }
+.cs-libros{ background:var(--libros-bg); color:#6E1038; } .cs-libros > svg{ stroke:var(--libros); } .cs-libros h1{ color:#6E1038; }
+.cs-uniformes{ background:var(--uniformes-bg); color:#5C4300; } .cs-uniformes > svg{ stroke:var(--uniformes); } .cs-uniformes h1{ color:#5C4300; }
+.cs-eventos{ background:var(--eventos-bg); color:#2A4A0C; } .cs-eventos > svg{ stroke:var(--eventos); } .cs-eventos h1{ color:#2A4A0C; }
+.cs-mochila{ background:var(--mochila-bg); color:#00506F; } .cs-mochila > svg{ stroke:var(--mochila); } .cs-mochila h1{ color:#00506F; }
+.cs-encuestas{ background:#EFE7FA; color:#4A2A75; } .cs-encuestas > svg{ stroke:#6B3FA0; } .cs-encuestas h1{ color:#4A2A75; }
+.cs-familia{ background:#fff; border:1px solid var(--line); color:var(--ink); } .cs-familia > svg{ stroke:var(--navy); background:#EEF4FB; }
+@media (max-width:600px){ .cab-servicio{ padding:22px; } .cab-servicio > svg{ width:52px; height:52px; padding:12px; } }
+.cs-hazte{ background:#FDE7F1; color:#6E1038; } .cs-hazte > svg{ stroke:var(--cta); } .cs-hazte h1{ color:#6E1038; }
+
+/* Barra del portal: mismos enlaces que la cabecera pública */
+.topbar-in{ max-width:1180px; padding:12px 20px; }
+.topbar-right{ gap:8px 22px; font-size:16px; }
+.topbar-right a.topbar-inicio{ color:var(--ink); font-weight:700; }
+.topbar-right a.topbar-inicio:hover{ text-decoration:underline; text-underline-offset:4px; }
+.topbar-user{ color:var(--ink-soft); }
+#navSignOut{ border:2px solid var(--ink) !important; border-radius:999px !important; padding:8px 18px !important; color:var(--ink) !important; text-decoration:none !important; font-weight:700; }
+#navSignOut:hover{ background:var(--ink) !important; color:#fff !important; }
+
+/* Miga de pan: dónde estás y cómo volver */
+.miga{ display:flex; flex-wrap:wrap; gap:6px 8px; align-items:center; font-size:15px; font-weight:700; margin:0 0 6px; opacity:.9; }
+.miga a{ color:inherit; text-decoration:underline; text-underline-offset:3px; }
+.miga span[aria-hidden]{ opacity:.6; }
+/* Logo del colegio junto al del AMPA en la cabecera pública */
+.pub-head{ justify-content:flex-start; }
+.pub-colegio{ height:34px; width:auto; margin-right:auto; }
+@media (max-width:600px){ .pub-colegio{ height:26px; } }
+/* El logo del AMPA, bien visible en todas las cabeceras */
+.pub-marca img{ height:68px; }
+.topbar-brand img{ height:58px; }
+.pub-marca img,.topbar-brand img{ border-radius:12px; }
+@media (max-width:600px){ .pub-marca img{ height:56px; } .topbar-brand img{ height:48px; } }

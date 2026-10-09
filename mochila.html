@@ -9,11 +9,6 @@
 <link rel="stylesheet" href="shared/styles.css">
 <style>
   .wrap{ max-width:960px; }
-  .cabecera{ background:var(--mochila-bg); border-radius:var(--radius-card); padding:28px; margin-bottom:34px; display:flex; gap:22px; align-items:flex-start; flex-wrap:wrap; }
-  .cabecera svg{ flex:0 0 auto; stroke:var(--mochila); }
-  .cabecera div{ flex:1 1 320px; }
-  .cabecera h1{ margin:0 0 8px; }
-  .cabecera p{ margin:0; font-size:18px; max-width:60ch; }
 
   h2.sec{ font-family:var(--font-title); font-weight:800; font-size:28px; margin:0 0 16px; }
   .pasos{ list-style:none; padding:0; margin:0 0 40px; display:grid; gap:14px; counter-reset:paso; }
@@ -44,13 +39,7 @@
 </head>
 <body>
 <div class="wrap">
-  <header class="cabecera">
-    <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9a6 6 0 0 1 12 0v11H6z"/><path d="M9 5V3h6v2M9 14h6"/></svg>
-    <div>
-      <h1>Mochila Jugona Exploradora</h1>
-      <p>Una mochila llena de juegos que va pasando por las casas de las familias socias. Cada familia la tiene una semana para jugar en casa y después la devuelve para que le llegue a la siguiente.</p>
-    </div>
-  </header>
+  <header class="cab-servicio cs-mochila"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9a6 6 0 0 1 12 0v11H6z"/><path d="M9 5V3h6v2M9 14h6"/></svg><div><nav class="miga" aria-label="Estás en"><a href="dashboard.html">Inicio</a><span aria-hidden="true">›</span><span>Mochila Jugona Exploradora</span></nav><h1>Mochila Jugona Exploradora</h1><p>Una mochila llena de juegos que va pasando por las casas de las familias socias. Cada familia la tiene una semana para jugar en casa y después la devuelve para que le llegue a la siguiente.</p></div></header>
 
   <h2 class="sec">Cómo funciona</h2>
   <ol class="pasos">
