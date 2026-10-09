@@ -273,7 +273,7 @@ button.linklike{ background:none; border:none; padding:0; color:var(--navy); tex
   .card{ padding:20px 16px; border-radius:16px; }
   .wrap{ padding:20px 16px 80px; }
 }
-@media (prefers-reduced-motion:reduce){ *{ transition:none !important; scroll-behavior:auto !important; } }
+html.quieto *{ transition:none !important; scroll-behavior:auto !important; }
 [hidden]{ display:none !important; }
 img[src*="logo-ampa"]{ mix-blend-mode:multiply; }
 
@@ -398,8 +398,6 @@ h2{ font-weight:800; letter-spacing:-.015em; }
 .topbar-right a.topbar-inicio{ color:var(--ink); font-weight:700; }
 .topbar-right a.topbar-inicio:hover{ text-decoration:underline; text-underline-offset:4px; }
 .topbar-user{ color:var(--ink-soft); }
-#navSignOut{ border:2px solid var(--ink) !important; border-radius:999px !important; padding:8px 18px !important; color:var(--ink) !important; text-decoration:none !important; font-weight:700; }
-#navSignOut:hover{ background:var(--ink) !important; color:#fff !important; }
 
 /* Miga de pan: dónde estás y cómo volver */
 .miga{ display:flex; flex-wrap:wrap; gap:6px 8px; align-items:center; font-size:15px; font-weight:700; margin:0 0 6px; opacity:.9; }
@@ -417,3 +415,285 @@ h2{ font-weight:800; letter-spacing:-.015em; }
 
 /* Nada se sale de lado en el móvil (el polvo de colores de las cabeceras) */
 html, body{ overflow-x:clip; }
+
+/* Botones «Sonido» y «Movimiento» (cabeceras) */
+.sonido{ display:inline-flex; align-items:center; gap:8px; background:#fff; border:2px solid var(--line); border-radius:999px; padding:8px 14px; font:inherit; font-weight:700; font-size:15px; color:var(--ink); cursor:pointer; }
+.sonido svg{ width:20px; height:20px; flex:0 0 auto; }
+.sonido .on{ display:none; }
+.sonido[aria-pressed="true"]{ border-color:var(--ink); background:var(--ink); color:#fff; }
+.sonido[aria-pressed="true"] .on{ display:inline; } .sonido[aria-pressed="true"] .off{ display:none; }
+.topbar-right .sonido{ padding:6px 12px; font-size:14px; }
+
+/* ===== Cabecera del portal: pestañas de secciones (sustituyen a las migas) ===== */
+.topbar-in{ padding:10px 20px; }
+.topbar-right{ gap:10px 18px; }
+.topbar-web{ display:inline-flex; align-items:center; gap:6px; color:var(--ink) !important; font-weight:700; text-decoration:none; font-size:15px; }
+.topbar-web:hover{ text-decoration:underline; text-underline-offset:4px; }
+.topbar-quien{ display:inline-flex; align-items:center; gap:12px; padding-left:18px; border-left:2px solid var(--line); }
+.topbar-quien .topbar-user{ font-size:15px; }
+/* (Cerrar sesión: ahora es el botón redondo de la barra) */
+
+.pestanas{ position:relative; background:#fff; }
+.pestanas-in{ max-width:1180px; margin:0 auto; padding:0 20px 4px; display:flex; gap:4px; overflow-x:auto; scrollbar-width:none; }
+.pestanas-in::-webkit-scrollbar{ display:none; }
+.pestanas a{ flex:0 0 auto; padding:12px 14px 14px; font-weight:700; font-size:16px; color:var(--ink-soft); text-decoration:none; border-bottom:4px solid transparent; position:relative; z-index:1; white-space:nowrap; }
+.pestanas a:hover{ color:var(--ink); background:#F3F6FA; }
+.pestanas a.activa{ color:var(--ink); border-bottom-color:var(--ink); }
+/* Las migas «Inicio › …» ya no hacen falta: las pestañas y la cabecera llevan a todas partes */
+.miga{ display:none; }
+@media (max-width:640px){
+  .topbar-in{ flex-wrap:wrap; gap:8px; }
+  .topbar-right{ width:100%; justify-content:space-between; gap:8px; flex-wrap:nowrap; }
+  .topbar-right .sonido .sonido-txt{ display:none; }
+  .topbar-right .sonido{ padding:6px 9px; }
+  .topbar-web{ font-size:14px; }
+  .topbar-quien{ border-left:0; padding-left:0; }
+  .topbar-quien .topbar-user{ display:none; }
+  .pestanas a{ padding:10px 12px 12px; font-size:15px; }
+}
+.pub-links a[aria-current="page"]:not(.pub-pill){ text-decoration:underline; text-decoration-thickness:3px; text-underline-offset:8px; }
+
+/* =====================================================================
+   NAVEGACIÓN 2026 · sin enlaces de texto arriba
+   Arriba: el logo grande y unos pocos botones redondos (casa, Junta,
+   sonido, salir). Abajo: una barra flotante con botones de cada sección.
+   ===================================================================== */
+.vh{ position:absolute !important; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+.topbar-simple, .pestanas{ display:none !important; }   /* cabecera anterior */
+.barra{ position:sticky; top:0; z-index:30; display:flex; align-items:center; justify-content:space-between; gap:16px;
+  padding:10px max(16px, calc(50% - 600px)); background:#fff; box-shadow:0 6px 18px -12px rgba(22,35,58,.25); }
+.barra-logo{ display:flex; align-items:center; gap:14px; text-decoration:none; color:var(--ink); }
+.barra-logo img{ height:64px; width:auto; display:block; transition:transform .3s cubic-bezier(.3,1.6,.5,1); }
+.barra-logo:hover img{ transform:rotate(-4deg) scale(1.05); }
+.barra-que{ font-family:var(--font-title); font-weight:800; font-size:20px; }
+.barra-botones{ display:flex; align-items:center; gap:10px; }
+.barra-btn, .barra-botones .sonido{ width:48px; height:48px; padding:0; border-radius:50%; display:inline-flex; align-items:center; justify-content:center;
+  background:#fff; border:2px solid var(--line); color:var(--ink); cursor:pointer; text-decoration:none; transition:transform .2s, background .2s, border-color .2s; }
+.barra-btn svg, .barra-botones .sonido svg{ width:22px; height:22px; }
+.barra-btn:hover, .barra-botones .sonido:hover{ transform:translateY(-2px); border-color:var(--ink); }
+.barra-salir{ background:var(--ink); border-color:var(--ink); color:#fff; }
+.barra-salir:hover{ background:var(--cta); border-color:var(--cta); }
+.barra-botones .sonido .sonido-txt{ display:none; }
+.barra-botones .sonido[aria-pressed="true"]{ background:var(--ink); color:#fff; border-color:var(--ink); }
+/* Pista de qué hace cada botón al pasar el ratón */
+.barra-btn[title], .barra-botones .sonido{ position:relative; }
+@media (hover:hover){
+  .barra-btn[title]:hover::after{ content:attr(title); position:absolute; top:calc(100% + 8px); right:0; white-space:nowrap; background:var(--ink); color:#fff;
+    font-size:13px; font-weight:700; padding:6px 10px; border-radius:10px; pointer-events:none; }
+}
+
+/* Barra flotante de secciones */
+.dock{ position:fixed; z-index:40; left:50%; bottom:16px; transform:translateX(-50%); display:flex; gap:6px; padding:8px;
+  background:var(--ink); border-radius:28px; box-shadow:0 18px 40px rgba(22,35,58,.35); max-width:calc(100vw - 24px); overflow-x:auto; scrollbar-width:none; }
+.dock::-webkit-scrollbar{ display:none; }
+.dock-btn{ --c:#fff; flex:0 0 auto; width:96px; min-height:68px; padding:9px 6px 8px; border-radius:20px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px;
+  color:#C9D4E3; text-decoration:none; font-size:12px; font-weight:700; line-height:1.15; text-align:center; transition:background .2s, color .2s, transform .2s; }
+.dock-btn svg{ width:24px; height:24px; transition:transform .3s cubic-bezier(.3,1.8,.5,1); }
+.dock-btn:hover{ color:#fff; background:rgba(255,255,255,.08); }
+.dock-btn:hover svg{ transform:translateY(-3px) rotate(-6deg); }
+.dock-btn.activo{ background:var(--c); color:var(--ink); }
+.d-perfil{ --c:#FFFFFF; } .d-eventos{ --c:#8BD28F; } .d-libros{ --c:#FF9CBF; } .d-uniformes{ --c:#FFD866; } .d-mochila{ --c:#7CCDF0; } .d-familia{ --c:#C9B3E6; }
+body.con-dock{ padding-bottom:120px; }
+@media (max-width:700px){
+  .barra-logo img{ height:52px; }
+  .barra-btn, .barra-botones .sonido{ width:44px; height:44px; }
+  .dock{ left:0; right:0; bottom:0; transform:none; max-width:none; border-radius:22px 22px 0 0; padding:8px 8px calc(8px + env(safe-area-inset-bottom)); justify-content:flex-start; }
+  .dock-btn{ width:82px; min-height:62px; font-size:11px; }
+  body.con-dock{ padding-bottom:100px; }
+  .flotante{ bottom:96px; }
+}
+
+/* Cabeceras públicas: botones en vez de enlaces */
+.pub-head{ position:sticky; top:0; z-index:30; background:#fff; box-shadow:0 6px 18px -12px rgba(22,35,58,.25); }
+.pub-head::after{ display:none; }
+.pub-links{ gap:10px !important; }
+.pub-links a{ display:inline-flex; align-items:center; gap:8px; min-height:46px; padding:0 18px; border-radius:999px; border:2px solid var(--line); background:#fff;
+  color:var(--ink) !important; font-weight:700; text-decoration:none !important; transition:transform .2s, border-color .2s; }
+.pub-links a:hover{ transform:translateY(-2px); border-color:var(--ink); }
+.pub-links a.pub-pill{ background:var(--ink); border-color:var(--ink); color:#fff !important; }
+.pub-links a.pub-pill:hover{ background:var(--cta); border-color:var(--cta); }
+.pub-links a[href="index.html"]::before{ content:""; width:20px; height:20px; background:currentColor;
+  -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z'/%3E%3C/svg%3E") center/contain no-repeat;
+          mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z'/%3E%3C/svg%3E") center/contain no-repeat; }
+.pub-links a[aria-current="page"]:not(.pub-pill){ border-color:var(--ink); text-decoration:none !important; }
+.pub-links .sonido{ width:46px; height:46px; padding:0; justify-content:center; border-radius:50%; }
+.pub-links .sonido .sonido-txt{ display:none; }
+@media (max-width:640px){
+  .pub-links a{ min-height:42px; padding:0 14px; font-size:15px; }
+  .pub-links a[href="index.html"]{ width:42px; padding:0; justify-content:center; font-size:0; }
+  .pub-links a[href="index.html"]::before{ width:20px; height:20px; }
+}
+
+/* Títulos de cada página: grandes, en bloque de color, con el polvo del logo */
+.cab-servicio{ padding:clamp(26px,4vw,48px); border-radius:36px; gap:24px; align-items:center; isolation:isolate; }
+.cab-servicio::after{ display:none; }
+.cab-servicio::before{ content:""; position:absolute; z-index:-1; right:-80px; top:-90px; width:320px; height:320px; border-radius:50%; filter:blur(50px); opacity:.55;
+  background:radial-gradient(circle at 30% 30%, #FF4D8D, transparent 60%), radial-gradient(circle at 70% 40%, #FFC21A, transparent 55%), radial-gradient(circle at 50% 75%, #00A3E0, transparent 60%);
+  animation:polvoCab 14s ease-in-out infinite alternate; }
+@keyframes polvoCab{ to{ transform:translate(-60px,40px) rotate(40deg) scale(1.15); } }
+html.quieto .cab-servicio::before{ animation:none; }
+.cab-servicio > svg{ width:84px; height:84px; padding:20px; border-radius:28px; background:#fff; box-shadow:0 10px 24px rgba(22,35,58,.12); }
+.cab-servicio h1{ font-size:clamp(40px,6vw,72px); line-height:.95; letter-spacing:-.035em; margin:0 0 10px; }
+.cab-servicio p{ font-size:clamp(17px,1.5vw,20px); }
+@media (max-width:600px){ .cab-servicio{ border-radius:28px; } .cab-servicio > svg{ width:64px; height:64px; padding:15px; border-radius:22px; } }
+
+/* ===== Vida en todas las páginas (shared/vida.js) ===== */
+/* Fondo: el polvo de colores del logo, muy suave y moviéndose despacio */
+html.con-vida body{ position:relative; }
+
+/* Título palabra a palabra */
+.vida-pal{ display:inline-block; }
+html.con-vida:not(.quieto) .vida-pal{ animation:vidaPal .7s cubic-bezier(.2,.9,.25,1.25) both; animation-delay:calc(.1s + var(--i) * 70ms); }
+@keyframes vidaPal{ from{ opacity:0; transform:translateY(55%) rotate(6deg); } to{ opacity:1; transform:none; } }
+.cab-servicio > svg{ animation:vidaIcono .9s cubic-bezier(.3,1.6,.5,1) both; }
+html.quieto .cab-servicio > svg{ animation:none; }
+@keyframes vidaIcono{ from{ opacity:0; transform:scale(.4) rotate(-25deg); } }
+
+/* Tarjetas que suben al llegar */
+.vida-entra{ opacity:0; transform:translateY(28px) scale(.98); transition:opacity .55s ease-out, transform .6s cubic-bezier(.2,.9,.25,1.15); transition-delay:var(--d, 0ms); }
+.vida-entra.vida-visto{ opacity:1; transform:none; }
+html.quieto .vida-entra{ opacity:1; transform:none; transition:none; }
+
+/* Botones con un poco de rebote */
+html.con-vida .btn{ transition:transform .2s cubic-bezier(.3,1.6,.5,1), background .2s, box-shadow .2s; }
+html.con-vida .btn:hover{ transform:translateY(-2px); }
+html.con-vida .btn:active{ transform:translateY(1px) scale(.98); }
+html.con-vida .card{ transition:box-shadow .3s, transform .3s; }
+html.con-vida .card:hover{ box-shadow:0 14px 34px rgba(22,35,58,.10); }
+
+#navSignOut.barra-salir{ color:#fff; padding:0; border-radius:50%; }
+#navSignOut.barra-salir:hover{ color:#fff; }
+.dock-btn .corto{ display:none; }
+@media (max-width:700px){
+  .dock{ justify-content:space-around; overflow:visible; gap:2px; padding-left:4px; padding-right:4px; }
+  .dock-btn{ width:auto; flex:1 1 0; min-width:0; min-height:58px; padding:8px 2px 7px; border-radius:16px; font-size:11px; }
+  .dock-btn .largo{ display:none; } .dock-btn .corto{ display:block; }
+}
+
+/* =====================================================================
+   MÁS VIDA, MENOS CAJAS (todas las páginas)
+   ===================================================================== */
+/* Formas redondas y suaves */
+:root{ --radius:16px; --radius-card:32px; }
+.card{ border:0; box-shadow:0 1px 2px rgba(22,35,58,.05), 0 18px 44px -22px rgba(22,35,58,.28); position:relative; }
+.section-label{ display:flex; align-items:center; gap:12px; font-family:var(--font-title); }
+.section-label::before{ content:""; flex:0 0 18px; height:18px; background:var(--punto, #FF4D8D); clip-path:var(--forma, circle(50%)); transform:rotate(var(--giro, 0deg)); }
+.card:nth-of-type(6n+2) .section-label{ --punto:#FFC21A; --forma:var(--triangulo); } .card:nth-of-type(6n+3) .section-label{ --punto:#3FB54A; --forma:var(--pentagono); }
+.card:nth-of-type(6n+4) .section-label{ --punto:#00A3E0; --forma:var(--rombo); } .card:nth-of-type(6n+5) .section-label{ --punto:#8A5CC2; --forma:var(--hexagono); } .card:nth-of-type(6n) .section-label{ --punto:#FF7A1A; --forma:var(--estrella); }
+/* Títulos de sección con un subrayado ondulado de colores */
+.wrap h2:not(.sec):not(.pie-titulo), h2.bloque, h2.sec{ position:relative; padding-bottom:12px; }
+.wrap h2:not(.sec):not(.pie-titulo)::after, h2.bloque::after, h2.sec::after{ content:""; position:absolute; left:0; bottom:0; width:120px; height:10px;
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='10' viewBox='0 0 120 10'%3E%3Cdefs%3E%3ClinearGradient id='g'%3E%3Cstop offset='0' stop-color='%23FF4D8D'/%3E%3Cstop offset='.35' stop-color='%23FFC21A'/%3E%3Cstop offset='.7' stop-color='%233FB54A'/%3E%3Cstop offset='1' stop-color='%2300A3E0'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M2 6 Q 10 0 18 6 T 34 6 T 50 6 T 66 6 T 82 6 T 98 6 T 114 6' fill='none' stroke='url(%23g)' stroke-width='4' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat; }
+html.con-vida:not(.quieto) .wrap h2:not(.sec):not(.pie-titulo)::after, html.con-vida:not(.quieto) h2.bloque::after{ animation:onda 3s ease-in-out infinite alternate; }
+@keyframes onda{ to{ transform:translateX(10px); } }
+
+/* Botones: píldoras con rebote y brillo */
+.btn{ border-radius:999px; min-height:50px; padding:0 26px; font-family:var(--font-title); font-weight:700; letter-spacing:-.005em; position:relative; overflow:hidden; isolation:isolate; }
+.btn-primary{ background:linear-gradient(135deg, #16233A, #2A3E63); box-shadow:0 8px 0 -3px rgba(22,35,58,.25); }
+.btn-cta{ background:linear-gradient(135deg, #E8317D, #C21862); box-shadow:0 8px 0 -3px rgba(176,24,90,.3); }
+.btn-primary::after, .btn-cta::after{ content:""; position:absolute; inset:0; z-index:-1; background:linear-gradient(110deg, transparent 30%, rgba(255,255,255,.28) 50%, transparent 70%); transform:translateX(-120%); transition:transform .6s; }
+.btn-primary:hover::after, .btn-cta:hover::after{ transform:translateX(120%); }
+.btn-outline{ border-width:2px; background:#fff; }
+.btn-outline:hover{ background:#FFF0F6; border-color:var(--cta); color:var(--cta-deep); }
+
+/* Campos más amables */
+input[type=text], input[type=email], input[type=password], input[type=number], input[type=tel],
+input[type=datetime-local], input[type=date], input[type=search], input[type=url], select, textarea{
+  border-radius:16px; border:2px solid #E1E7F0; background:#F8FAFD; min-height:50px; transition:border-color .2s, box-shadow .2s, background .2s; }
+input:focus, select:focus, textarea:focus{ outline:none; background:#fff; border-color:var(--cta); box-shadow:0 0 0 5px rgba(214,36,110,.14); }
+input[type=checkbox], input[type=radio]{ accent-color:var(--cta); }
+.aviso, .aviso-error, .datos-pago{ border-radius:20px; }
+
+/* Tarjetas de cada página con un poco de juego al pasar */
+html.con-vida .evento-card, html.con-vida .hijo-card, html.con-vida .juego, html.con-vida .redes > a, html.con-vida .servicio{ transition:transform .35s cubic-bezier(.3,1.6,.5,1), box-shadow .3s; }
+html.con-vida .evento-card:hover, html.con-vida .hijo-card:hover, html.con-vida .juego:hover, html.con-vida .redes > a:hover{ transform:translateY(-4px) rotate(-.4deg); }
+.evento-card, .hijo-card, .juego{ border-radius:32px !important; }
+
+/* ===== Figuras geométricas (círculos, triángulos, pentágonos...) ===== */
+:root{
+  --triangulo:polygon(50% 4%, 97% 92%, 3% 92%);
+  --pentagono:polygon(50% 2%, 98% 38%, 80% 96%, 20% 96%, 2% 38%);
+  --rombo:polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+  --hexagono:polygon(25% 4%, 75% 4%, 100% 50%, 75% 96%, 25% 96%, 0 50%);
+  --estrella:polygon(50% 0, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+}
+.f-circulo{ border-radius:50%; } .f-triangulo{ clip-path:var(--triangulo); } .f-pentagono{ clip-path:var(--pentagono); }
+.f-rombo{ clip-path:var(--rombo); } .f-hexagono{ clip-path:var(--hexagono); } .f-estrella{ clip-path:var(--estrella); }
+
+/* Cambio de página: nube de polvo de colores, rápida */
+.telon{ position:fixed; inset:0; z-index:10000; pointer-events:none; overflow:hidden; }
+.telon i{ position:absolute; border-radius:50%; background:radial-gradient(circle closest-side, var(--c) 55%, transparent 100%);
+  transform:translate(-50%,-50%) scale(0); opacity:.6; animation:telonEntra .14s ease-out forwards; animation-delay:var(--d); }
+.telon-fuera i{ transform:translate(-50%,-50%) scale(1); opacity:1; animation:telonSale .21s ease-in forwards; animation-delay:var(--d); }
+@keyframes telonEntra{ to{ transform:translate(-50%,-50%) scale(1); opacity:1; } }
+@keyframes telonSale{ to{ transform:translate(-50%,-50%) scale(1.5); opacity:0; } }
+
+/* Al pulsar: polvo y figuras de colores */
+.chispas{ position:fixed; inset:0; z-index:9999; pointer-events:none; }
+.chispas i{ position:absolute; transform:translate(-50%,-50%); opacity:.95; animation:chispa .9s cubic-bezier(.15,.8,.3,1) forwards; }
+.chispas i.polvo{ border-radius:50%; filter:blur(8px); opacity:.55; animation-duration:.8s; }
+@keyframes chispa{ to{ transform:translate(calc(-50% + var(--x)), calc(-50% + var(--y))) rotate(var(--r)) scale(.3); opacity:0; } }
+
+/* El icono de cada página, dentro de un hexágono de color suave */
+.cab-servicio > svg{ border-radius:0; clip-path:var(--hexagono); width:96px; height:96px; padding:26px; box-shadow:none; }
+@media (max-width:600px){ .cab-servicio > svg{ width:72px; height:72px; padding:19px; } }
+
+/* ===== «Todo lo del AMPA»: tarjetas de cada sección (Inicio y final de cada página) ===== */
+.dock{ display:none !important; }
+body.con-dock{ padding-bottom:0; }
+.todo-ampa{ margin:56px 0 30px; }
+.servicios{ display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:16px; margin-bottom:38px; }
+.servicio{ position:relative; overflow:hidden; display:flex; flex-direction:column; min-height:180px; border-radius:30px; padding:24px; text-decoration:none; color:var(--ink); border:2px solid transparent; transition:transform .35s cubic-bezier(.3,1.6,.5,1), box-shadow .3s; isolation:isolate; }
+.servicio:hover{ color:var(--ink); transform:translateY(-5px) rotate(-.6deg); box-shadow:0 18px 34px -16px rgba(22,35,58,.35); }
+.servicio > svg{ width:60px; height:60px; padding:15px; background:rgba(255,255,255,.85); clip-path:var(--hexagono); flex:0 0 auto; stroke:currentColor; transition:transform .5s cubic-bezier(.3,1.8,.5,1); }
+.servicio:hover > svg{ transform:rotate(30deg) scale(1.08); }
+.servicio h3{ font-family:var(--font-title); font-weight:800; font-size:25px; line-height:1.05; letter-spacing:-.02em; margin:14px 0 6px; }
+.servicio p{ margin:0; font-size:16px; position:relative; }
+.servicio.blanco{ background:#fff; border-color:var(--line); }
+.servicio.blanco > svg{ background:#EEF4FB; color:var(--navy); }
+.c-libros{ background:var(--libros-bg); color:#6E1038; } .c-libros > svg{ color:var(--libros); }
+.c-uniformes{ background:var(--uniformes-bg); color:#5C4300; } .c-uniformes > svg{ color:var(--uniformes); }
+.c-eventos{ background:var(--eventos-bg); color:#2A4A0C; } .c-eventos > svg{ color:var(--eventos); }
+.c-mochila{ background:var(--mochila-bg); color:#00506F; } .c-mochila > svg{ color:var(--mochila); }
+
+/* =====================================================================
+   FORMAS: cada elemento con su propia forma geométrica (no todo cuadrado)
+   corner-shape (Chrome/Edge recientes) da esquinas biseladas o en muesca;
+   en otros navegadores quedan redondeadas.
+   ===================================================================== */
+/* Título de cada página: bloque de color con el borde de abajo en diagonal */
+.cab-servicio::before{ display:none; }
+.cab-servicio{ border-radius:0; clip-path:polygon(0 0, 100% 0, 100% calc(100% - 38px), 0 100%); padding-bottom:calc(clamp(26px,4vw,48px) + 34px); }
+@media (max-width:600px){ .cab-servicio{ border-radius:0; clip-path:polygon(0 0, 100% 0, 100% calc(100% - 22px), 0 100%); padding-bottom:48px; } }
+
+/* Tarjetas: se alternan octógono (biselada), hoja y entrada en muesca */
+.card{ border-radius:34px; corner-shape:bevel; }
+.card:nth-of-type(3n+2){ border-radius:72px 18px 72px 18px; corner-shape:round; }
+.card:nth-of-type(3n){ border-radius:28px; corner-shape:bevel round bevel round; }
+.hijo-card{ border-radius:64px 16px 64px 16px; }
+.juego{ border-radius:40px !important; corner-shape:bevel; }
+/* Eventos: tarjeta con forma de entrada (muescas en las esquinas) y fecha en banderín */
+.evento-card{ border-radius:30px !important; corner-shape:scoop !important; }
+.evento-card .ev-fecha{ border-radius:0; clip-path:polygon(0 0, 100% 0, 100% 80%, 50% 100%, 0 80%); padding-bottom:18px; }
+.calendario{ border-radius:40px; corner-shape:bevel; }
+/* Calendario: los días son círculos */
+.cal-dia{ border-radius:50% !important; }
+.cal-dia.con-evento:not(.hoy){ border-radius:50% !important; }
+.cal-ev .chip{ border-radius:0 !important; clip-path:polygon(0 0, 100% 0, 100% 80%, 50% 100%, 0 80%); padding-bottom:8px; height:62px !important; }
+/* Pendientes: icono en hexágono */
+.pendiente .icono{ border-radius:0; clip-path:var(--hexagono); }
+
+/* «Todo lo del AMPA»: cada sección con una forma distinta */
+.servicio{ border-radius:0; border:0; }
+.servicio.blanco{ background:#E9EFF7; box-shadow:none; }
+.servicio.blanco > svg{ background:#fff; }
+.servicio:nth-child(5n+1){ border-radius:110px 24px 110px 24px; }
+.servicio:nth-child(5n+2){ clip-path:polygon(34px 0, 100% 0, 100% calc(100% - 34px), calc(100% - 34px) 100%, 0 100%, 0 34px); }
+.servicio:nth-child(5n+3){ border-radius:999px 999px 30px 30px / 120px 120px 30px 30px; padding-top:34px; }
+.servicio:nth-child(5n+4){ clip-path:polygon(0 18%, 100% 0, 100% 100%, 0 100%); padding-top:44px; }
+.servicio:nth-child(5n){ clip-path:polygon(9% 0, 91% 0, 100% 50%, 91% 100%, 9% 100%, 0 50%); padding-left:12%; padding-right:12%; }
+.servicio:hover{ box-shadow:none; }
+
+/* La cabecera fija siempre por encima del contenido, aunque el navegador o una
+   extensión añadan elementos con su propio z-index (p. ej. subrayar horas) */
+body > .wrap, body > main{ position:relative; z-index:0; isolation:isolate; }

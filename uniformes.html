@@ -36,6 +36,12 @@
 
   <div id="alumnosWrap"></div>
 
+  <div class="card donar-uniformes">
+    <p class="section-label">Donar uniformes</p>
+    <p>¿Tenéis prendas del uniforme que ya no usáis? Las recogemos en cualquier talla para el Banco de Uniformes. Se dejan en la caja de donaciones.</p>
+    <a class="btn btn-outline" href="donar.html#catUniformes">Donar uniformes</a>
+  </div>
+
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -74,6 +80,12 @@ async function cargarConseguidos() {
   `).join('');
 }
 
+// ¿Ha pedido algo esta familia en esa convocatoria? (solo entonces tiene sentido hablar de su reparto)
+async function hayPedidosEn(convocatoriaId) {
+  const { count } = await sb.from('uniformes_pedidos').select('id', { count: 'exact', head: true }).eq('convocatoria_id', convocatoriaId).in('prioridad', [1, 2, 3]);
+  return (count || 0) > 0;
+}
+
 async function cargarConvocatoria() {
   const estadoCard = document.getElementById('estadoConvocatoriaCard');
   const alumnosWrap = document.getElementById('alumnosWrap');
@@ -105,7 +117,9 @@ async function cargarConvocatoria() {
       ? '<p class="empty-hint">El reparto de la última convocatoria ya está cerrado. Si os ha tocado algo, lo veis arriba.</p>'
       : convocatoria.estado === 'cancelada'
         ? '<p class="empty-hint">No hay ninguna convocatoria de uniformes en marcha ahora mismo.</p>'
-        : '<p class="empty-hint">El plazo para pedir uniformes está cerrado. El AMPA está haciendo el reparto: cuando termine, veréis aquí el resultado.</p>';
+        : (await hayPedidosEn(convocatoria.id))
+          ? '<p class="empty-hint">El plazo para pedir uniformes está cerrado. El AMPA está haciendo el reparto: cuando termine, veréis aquí el resultado.</p>'
+          : '<p class="empty-hint">No hay ninguna convocatoria de uniformes en marcha ahora mismo.</p>';
     alumnosWrap.innerHTML = '';
   }
 }
@@ -268,5 +282,7 @@ function renderAlumnoCard(alumno, seleccionInicial) {
   await cargarConvocatoria();
 })();
 </script>
+<script src="shared/sonido.js"></script>
+<script src="shared/vida.js"></script>
 </body>
 </html>

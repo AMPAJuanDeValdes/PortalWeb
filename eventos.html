@@ -17,8 +17,8 @@
   .evento-card{ margin-bottom:26px; padding:0 24px 22px; overflow:hidden; border:0; box-shadow:0 1px 0 var(--line), 0 0 0 1px var(--line); }
   .ev-cab{ margin:0 -24px 16px; padding:22px 24px; background:var(--t-bg); display:flex; gap:18px; align-items:flex-start; position:relative; }
   .ev-fecha{ flex:0 0 74px; background:var(--t-fuerte); color:#fff; border-radius:16px; text-align:center; padding:8px 4px; line-height:1.1; }
-  .ev-fecha b{ display:block; font-family:var(--font-title); font-weight:800; font-size:34px; line-height:1; margin:2px 0; }
-  .ev-fecha span{ font-size:14px; font-weight:700; text-transform:none; }
+  .ev-fecha > b{ display:block; font-family:var(--font-title); font-weight:800; font-size:34px; line-height:1; margin:2px 0; }
+  .ev-fecha > span{ font-size:14px; font-weight:700; text-transform:none; }
   .ev-tit{ flex:1 1 auto; min-width:0; padding-right:56px; }
   .ev-tit h2{ font-size:clamp(22px,3.4vw,28px); font-weight:800; margin:0 0 4px; }
   .ev-hora{ margin:0; color:var(--t); font-weight:700; }
@@ -37,7 +37,7 @@
     .evento-card{ padding:0 16px 18px; }
     .ev-cab{ margin:0 -16px 14px; padding:18px 16px; gap:12px; }
     .ev-fecha{ flex-basis:62px; }
-    .ev-fecha b{ font-size:28px; }
+    .ev-fecha > b{ font-size:28px; }
     .ev-icono{ display:none; }
     .ev-tit{ padding-right:0; }
   }
@@ -1077,5 +1077,7 @@ async function renderEventoConcurso(evento) {
   await cargarEventos();
 })();
 </script>
+<script src="shared/sonido.js"></script>
+<script src="shared/vida.js"></script>
 </body>
 </html>

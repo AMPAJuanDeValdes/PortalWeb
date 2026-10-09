@@ -41,7 +41,13 @@ if not exist "node_modules\@playwright\test" (
   if errorlevel 1 ( echo [!] Fallo al instalar el navegador de pruebas. & pause & exit /b 1 )
 )
 
-echo [3/3] Ejecutando las pruebas contra tu web real...
+if /i "%~1"=="local" (
+  set AMPA_LOCAL=1
+  if not exist "..\node_modules\@supabase\supabase-js" ( pushd .. & call npm install --no-audit --no-fund & popd )
+  echo [3/3] Ejecutando las pruebas contra la web de TU ORDENADOR ^(sin Netlify^)...
+) else (
+  echo [3/3] Ejecutando las pruebas contra tu web real...
+)
 echo       ^(las cuentas de prueba se crean y se borran solas al terminar^)
 echo.
 call npx playwright test

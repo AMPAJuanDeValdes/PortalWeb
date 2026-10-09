@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="shared/styles.css">
-<script>document.documentElement.classList.add('js');</script>
+<script>document.documentElement.classList.add('js');try{if(localStorage.getItem('ampa-movimiento')==='0')document.documentElement.classList.add('quieto');}catch(e){}</script>
 <style>
   /* ===== Portada «Polvo de colores»: el polvo del logo da vida a toda la página ===== */
   :root{
@@ -26,17 +26,20 @@
   .marca img{ height:76px; width:auto; }
   .marca b{ font-family:var(--font-title); font-weight:800; font-size:18px; line-height:1.1; display:block; }
   .marca small{ font-family:var(--font-title); font-weight:600; font-size:14px; color:var(--ink-soft); }
-  .menu{ display:flex; flex-wrap:wrap; align-items:center; gap:8px 24px; font-weight:700; font-size:16px; }
+  .menu{ display:flex; flex-wrap:wrap; align-items:center; gap:10px; font-weight:700; font-size:16px; }
+  /* Solo botones: sonido, movimiento y entrar / mi perfil / salir */
+  .menu .sonido{ width:48px; height:48px; padding:0; justify-content:center; border-radius:50%; font-size:0; gap:0; }
+  .menu .sonido svg{ width:22px; height:22px; }
+  .menu a.entrar{ display:inline-flex; align-items:center; min-height:48px; padding:0 22px; border-radius:999px; text-decoration:none; }
+  .menu button.salir{ width:48px; height:48px; padding:0; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; cursor:pointer; }
+  .menu a.entrar{ background:var(--ink); color:#fff; border:2px solid var(--ink); }
+  .menu a.entrar:hover{ background:var(--cta); border-color:var(--cta); color:#fff; }
+  .menu button.salir{ background:var(--ink); border:2px solid var(--ink); color:#fff; }
+  .menu button.salir:hover{ background:var(--cta); border-color:var(--cta); }
   .menu a{ color:var(--ink); text-decoration:none; }
   .menu a:hover{ text-decoration:underline; text-underline-offset:4px; }
   .menu a.entrar{ border:2px solid var(--ink); border-radius:999px; padding:10px 22px; }
   .menu a.entrar:hover{ background:var(--ink); color:#fff; text-decoration:none; }
-  .menu button.salir{ background:none; border:0; padding:0; font:inherit; font-weight:700; color:var(--ink); cursor:pointer; text-decoration:underline; }
-  .sonido{ display:inline-flex; align-items:center; gap:8px; background:#fff; border:2px solid var(--line); border-radius:999px; padding:8px 14px; font:inherit; font-weight:700; font-size:15px; color:var(--ink); cursor:pointer; }
-  .sonido svg{ width:20px; height:20px; }
-  .sonido .on{ display:none; }
-  .sonido[aria-pressed="true"]{ border-color:var(--ink); background:var(--ink); color:#fff; }
-  .sonido[aria-pressed="true"] .on{ display:inline; } .sonido[aria-pressed="true"] .off{ display:none; }
 
   /* ---------- Inicio: el logo en grande dentro de su polvo ---------- */
   .hero{ position:relative; min-height:calc(100svh - 108px); display:flex; align-items:center; padding:10px 0 70px; cursor:crosshair; }
@@ -111,54 +114,69 @@
   .visor figcaption{ padding:12px 4px 16px; font-style:italic; font-size:18px; }
   .visor-cerrar{ position:absolute; top:-18px; right:-18px; width:48px; height:48px; border-radius:50%; border:0; background:var(--cta); color:#fff; font-size:26px; cursor:pointer; }
 
-  /* ---------- Qué hacemos: los servicios pasan de lado mientras bajas ---------- */
+  /* ---------- Qué hacemos: los servicios pasan de lado mientras bajas (dos a la vez) ---------- */
   .que-intro{ padding-top:110px; padding-bottom:20px; }
-  .carril{ position:relative; height:calc(var(--n, 4) * 80vh); }
+  .carril{ position:relative; height:calc(100vh + (var(--n, 4) - 2) * 55vh); }
   .carril-pin{ position:sticky; top:0; height:100vh; overflow:hidden; display:flex; align-items:center; }
-  .pista{ display:flex; gap:28px; padding-left:max(24px, calc((100vw - 1152px) / 2)); padding-right:10vw; will-change:transform; }
-  .panel{ flex:0 0 auto; width:min(80vw,860px); min-height:min(70vh,560px); border-radius:40px; padding:clamp(28px,4vw,56px); position:relative; overflow:hidden; display:flex; flex-direction:column; justify-content:flex-end; }
-  .panel h3{ font-family:var(--font-title); font-weight:800; font-size:clamp(40px,6.4vw,92px); line-height:.92; letter-spacing:-.035em; margin:0 0 18px; max-width:11ch; position:relative; }
-  .panel p{ margin:0; font-size:clamp(18px,1.6vw,22px); max-width:36ch; position:relative; }
-  .panel .icono{ position:absolute; top:clamp(20px,4vw,48px); right:clamp(20px,4vw,48px); width:clamp(150px,22vw,300px); height:auto; }
+  .pista{ display:flex; gap:24px; padding-left:max(24px, calc((100vw - 1152px) / 2)); padding-right:max(24px, calc((100vw - 1152px) / 2)); will-change:transform; }
+  /* Cada panel: icono junto al título y el texto debajo */
+  .panel{ flex:0 0 auto; width:calc((min(100vw, 1200px) - 48px - 24px) / 2); border-radius:36px; padding:clamp(26px,3vw,40px); position:relative; overflow:hidden;
+    display:grid; grid-template-columns:auto 1fr; gap:16px 22px; align-items:center; align-content:center; min-height:min(46vh,360px); }
+  .panel .icono{ width:clamp(72px,7vw,96px); height:clamp(72px,7vw,96px); padding:clamp(13px,1.3vw,18px); border-radius:26px; background:rgba(255,255,255,.28); }
+  .panel h3{ font-family:var(--font-title); font-weight:800; font-size:clamp(30px,3.4vw,48px); line-height:.96; letter-spacing:-.03em; margin:0; }
+  .panel p{ grid-column:1 / -1; margin:0; font-size:clamp(17px,1.4vw,20px); max-width:44ch; }
   .panel .icono path, .panel .icono rect{ stroke-dasharray:120; stroke-dashoffset:120; transition:stroke-dashoffset 1.6s cubic-bezier(.4,0,.2,1); }
   .panel.activo .icono path, .panel.activo .icono rect{ stroke-dashoffset:0; }
+  .panel:hover .icono{ animation:icoSalta .6s cubic-bezier(.3,1.8,.5,1); }
+  @keyframes icoSalta{ 40%{ transform:translateY(-6px) rotate(-6deg); } }
   .p-libros{ background:var(--rosa); color:#3A0618; } .p-libros .icono{ stroke:#fff; }
   .p-uniformes{ background:var(--amarillo); color:#3D2C00; } .p-uniformes .icono{ stroke:#fff; }
   .p-eventos{ background:var(--verde); color:#082A0C; } .p-eventos .icono{ stroke:#fff; }
   .p-mochila{ background:var(--azul); color:#002536; } .p-mochila .icono{ stroke:#fff; }
   .mas{ color:#3B4A60; max-width:70ch; font-size:19px; padding-top:30px; padding-bottom:90px; margin:0 auto; }
-  /* En el móvil y sin animaciones, uno debajo de otro */
+  /* En el móvil, uno debajo de otro */
   @media (max-width:820px){
     .carril{ height:auto; } .carril-pin{ position:static; height:auto; overflow:visible; display:block; }
     .pista{ flex-direction:column; padding:0 24px; transform:none !important; gap:18px; }
-    .panel{ width:auto; min-height:340px; border-radius:30px; }
-    .panel .icono{ width:120px; }
+    .panel{ width:auto; min-height:0; border-radius:28px; padding:22px; gap:10px 16px; }
+    .panel .icono{ width:64px; height:64px; padding:12px; border-radius:20px; }
+    .panel h3{ font-size:clamp(26px,7vw,32px); }
+    .panel p{ font-size:17px; }
   }
 
   /* ---------- Hazte socio: escena principal a todo el ancho ---------- */
   .escena-socio{ position:relative; background:var(--cta); color:#fff; padding:110px 0 120px; overflow:hidden; border-radius:56px 56px 0 0; }
   .escena-socio canvas{ position:absolute; inset:0; width:100%; height:100%; z-index:0; }
   .escena-socio .contenedor{ position:relative; z-index:1; }
-  .gigante{ color:#fff; font-family:var(--font-title); font-weight:800; font-size:clamp(50px,14.5vw,220px); line-height:.85; letter-spacing:-.045em; margin:0 0 50px; white-space:nowrap; }
+  .gigante{ color:#fff; font-family:var(--font-title); font-weight:800; font-size:clamp(50px,14.5vw,220px); line-height:.85; letter-spacing:-.045em; margin:0 0 50px; }
   .gigante .l{ display:inline-block; }
   .js .gigante .l{ opacity:0; transform:translateY(-120%) rotate(calc(var(--i) * 7deg - 20deg)); }
   .gigante.visto .l{ animation:letraCae .9s cubic-bezier(.25,1.6,.4,1) both; animation-delay:calc(var(--i) * 55ms); }
   .gigante .l:hover{ animation:letraSalta .5s cubic-bezier(.3,1.8,.5,1); }
   @keyframes letraCae{ from{ opacity:0; transform:translateY(-120%) rotate(calc(var(--i) * 7deg - 20deg)); } to{ opacity:1; transform:none; } }
   @keyframes letraSalta{ 40%{ transform:translateY(-18%) rotate(-6deg); } }
-  .socio-fila{ display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.2fr); gap:48px; align-items:start; }
+  .socio-fila{ display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.2fr); gap:48px; align-items:center; }
   @media (max-width:900px){ .socio-fila{ grid-template-columns:1fr; } }
-  .socio-texto p{ font-size:22px; line-height:1.45; margin:0 0 30px; max-width:30ch; }
+  .socio-texto p{ font-size:clamp(20px,1.8vw,24px); line-height:1.4; margin:0 0 30px; max-width:30ch; }
+  /* Aquí sí: el precio bien claro */
+  .socio-texto .precio{ display:flex; flex-direction:column; gap:16px; margin:0 0 34px; max-width:none; }
+  .socio-texto .precio .cifra{ display:block; white-space:nowrap; font-family:var(--font-title); font-weight:800; color:#fff; text-shadow:0 8px 0 rgba(110,16,56,.35); line-height:.8; }
+  .socio-texto .precio .num{ display:inline-block; vertical-align:top; font-size:160px; font-size:clamp(150px,19vw,280px); letter-spacing:-.05em; }
+  .socio-texto .precio .eur{ display:inline-block; vertical-align:top; font-size:64px; font-size:clamp(60px,7.5vw,112px); margin:.08em 0 0 .1em; }
+  .socio-texto .precio .txt{ font-family:var(--font-title); font-weight:700; font-size:24px; font-size:clamp(22px,2.2vw,30px); line-height:1.2; max-width:22ch; }
   .socio-texto .pill-blanco{ background:#fff; color:var(--ink); }
   .socio-texto .pill-blanco:hover{ background:var(--ink); color:#fff; }
-  .socio-texto .reactivar{ font-size:17px; margin:26px 0 0; }
+  .socio-botones{ display:flex; flex-wrap:wrap; align-items:center; gap:14px 18px; }
+  .pill-chico{ min-height:44px; padding:0 18px; font-size:16px; border:2px solid rgba(255,255,255,.75); color:#fff; }
+  .pill-chico:hover{ background:#fff; color:var(--ink); }
+  .socio-texto .reactivar{ font-size:clamp(18px,1.5vw,21px); margin:26px 0 0; }
   .socio-texto .reactivar a{ color:#fff; font-weight:700; }
   .pasos-socio{ list-style:none; margin:0; padding:0; display:grid; gap:16px; counter-reset:paso; }
   .pasos-socio li{ counter-increment:paso; display:grid; grid-template-columns:64px 1fr; gap:18px; align-items:center; background:#fff; color:var(--ink); border-radius:28px; padding:20px 24px; }
   .pasos-socio li::before{ content:counter(paso); width:64px; height:64px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-family:var(--font-title); font-weight:800; font-size:30px; color:#fff; background:var(--c); }
   .pasos-socio li:nth-child(1){ --c:var(--naranja); } .pasos-socio li:nth-child(2){ --c:var(--verde); } .pasos-socio li:nth-child(3){ --c:var(--azul); }
-  .pasos-socio b{ display:block; font-family:var(--font-title); font-size:24px; line-height:1.1; }
-  .pasos-socio span{ color:#3B4A60; font-size:17px; }
+  .pasos-socio b{ display:block; font-family:var(--font-title); font-size:clamp(24px,2.3vw,30px); line-height:1.1; margin-bottom:4px; }
+  .pasos-socio span{ color:#3B4A60; font-size:clamp(18px,1.5vw,21px); line-height:1.4; }
   .js .pasos-socio li{ opacity:0; transform:translateX(60px) rotate(2deg); transition:opacity .6s, transform .7s cubic-bezier(.2,.9,.25,1.2); transition-delay:calc(.5s + var(--i) * 150ms); }
   .js .pasos-socio.visto li{ opacity:1; transform:none; }
 
@@ -176,8 +194,8 @@
   .evento:hover::before, .evento:focus-visible::before{ transform:none; }
   .evento:hover{ color:var(--ink); }
   .ev-fecha{ display:flex; align-items:baseline; gap:8px; font-family:var(--font-title); font-weight:800; }
-  .ev-fecha b{ display:inline-flex; align-items:center; justify-content:center; width:76px; height:76px; border-radius:50%; background:var(--c); color:#fff; font-size:36px; line-height:1; }
-  .ev-fecha span{ font-size:20px; }
+  .ev-fecha > b{ display:inline-flex; align-items:center; justify-content:center; width:76px; height:76px; border-radius:50%; background:var(--c); color:#fff; font-size:36px; line-height:1; }
+  .ev-fecha > span{ font-size:20px; }
   .ev-tit{ font-family:var(--font-title); font-weight:800; font-size:clamp(22px,2.4vw,32px); line-height:1.1; letter-spacing:-.015em; }
   .ev-info{ font-size:16px; color:#3B4A60; }
   .ev-flecha{ width:52px; height:52px; border-radius:50%; border:2px solid var(--ink); display:flex; align-items:center; justify-content:center; transition:transform .3s, background .3s; }
@@ -185,7 +203,7 @@
   @media (max-width:760px){
     .evento{ grid-template-columns:96px minmax(0,1fr); gap:6px 16px; }
     .ev-fecha{ grid-row:span 2; flex-direction:column; align-items:center; gap:2px; }
-    .ev-fecha b{ width:64px; height:64px; font-size:30px; }
+    .ev-fecha > b{ width:64px; height:64px; font-size:30px; }
     .ev-flecha{ display:none; }
   }
 
@@ -255,16 +273,16 @@
     .escena-socio{ border-radius:36px 36px 0 0; padding:80px 0 90px; }
     .flotante{ right:14px; bottom:14px; min-height:54px; font-size:18px; padding:0 22px; }
   }
-  @media (prefers-reduced-motion:reduce){
-    .js .hero-logo, .js .hero h1 .pal, .js .hero p, .js .hero-acciones, .js .polaroid, .flotante::after{ animation:none; }
-    .js .aparece, .js .pasos-socio li, .js .junta li{ opacity:1; transform:none; transition:none; }
-    .js .gigante .l{ opacity:1; transform:none; animation:none !important; }
-    .panel .icono path, .panel .icono rect{ stroke-dashoffset:0; transition:none; }
-    .carril{ height:auto; } .carril-pin{ position:static; height:auto; overflow:visible; display:block; }
-    .pista{ flex-direction:column; padding:0 24px; transform:none !important; max-width:1200px; margin:0 auto; }
-    .panel{ width:auto; }
-    .evento::before, .ev-flecha, .flotante, .magnetico{ transition:none; }
-  }
+  /* Botón «Movimiento» apagado: todo quieto y legible */
+  html.quieto .hero-logo, html.quieto .hero h1 .pal, html.quieto .hero p, html.quieto .hero-acciones, html.quieto .polaroid, html.quieto .flotante::after{ animation:none; }
+  html.quieto .aparece, html.quieto .pasos-socio li, html.quieto .junta li{ opacity:1; transform:none; transition:none; }
+  html.quieto .gigante .l{ opacity:1; transform:none; animation:none !important; }
+  html.quieto .panel .icono path, html.quieto .panel .icono rect{ stroke-dashoffset:0; transition:none; }
+  html.quieto .carril{ height:auto; } html.quieto .carril-pin{ position:static; height:auto; overflow:visible; display:block; }
+  html.quieto .pista{ display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); padding:0 24px; transform:none !important; max-width:1200px; margin:0 auto; }
+  html.quieto .panel{ width:auto; }
+  @media (max-width:820px){ html.quieto .pista{ grid-template-columns:1fr; } }
+  html.quieto .evento::before, html.quieto .ev-flecha, html.quieto .flotante, html.quieto .magnetico{ transition:none; }
 </style>
 </head>
 <body>
@@ -275,17 +293,17 @@
     <span><b>AMPA</b><small>Colegio Juan de Valdés</small></span>
   </a>
   <nav class="menu" aria-label="Principal">
-    <a href="#que-hacemos">Qué hacemos</a>
-    <a href="publico.html" class="solo-publico">Eventos</a>
-    <a href="eventos.html" class="solo-socio">Eventos</a>
-    <a href="#junta">La Junta</a>
-    <button type="button" class="sonido" id="sonidoBtn" aria-pressed="false">
+    <button type="button" class="sonido" id="sonidoBtn" aria-pressed="false" title="Sonido">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5L6 9H2v6h4l5 4z"/><path class="on" d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/><path class="off" d="M22 9l-6 6M16 9l6 6"/></svg>
       Sonido
     </button>
+    <button type="button" class="sonido" id="movBtn" aria-pressed="true" title="Quitar o poner las animaciones">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12c3-6 6 6 9 0s6 6 9 0"/></svg>
+      Movimiento
+    </button>
     <a href="login.html" class="entrar solo-publico">Entrar como socio</a>
     <a href="dashboard.html" class="entrar solo-socio">Mi perfil</a>
-    <button type="button" class="salir solo-socio" id="salirBtn">Cerrar sesión</button>
+    <button type="button" class="salir solo-socio" id="salirBtn" title="Cerrar sesión"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v9"/><path d="M6.6 6.6a8 8 0 1 0 10.8 0"/></svg><span class="vh">Cerrar sesión</span></button>
   </nav>
 </header>
 
@@ -330,10 +348,10 @@
     <div class="carril" id="carril" style="--n:4">
       <div class="carril-pin">
         <div class="pista" id="pista">
-          <article class="panel p-libros"><svg class="icono" viewBox="0 0 24 24" fill="none" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2V5z"/><path d="M4 19a2 2 0 0 1 2-2h13"/><path d="M9 7h6M9 10h4"/></svg><h3>Banco de Libros</h3><p>Préstamo de los libros de lectura del curso de cada alumno o alumna.</p></article>
-          <article class="panel p-uniformes"><svg class="icono" viewBox="0 0 24 24" fill="none" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3L3 6l2 4 3-1v12h8V9l3 1 2-4-5-3a4 4 0 0 1-8 0z"/></svg><h3>Banco de Uniformes</h3><p>Donación e intercambio de uniformes: recogida y reparto para darles una segunda vida.</p></article>
-          <article class="panel p-eventos"><svg class="icono" viewBox="0 0 24 24" fill="none" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg><h3>Eventos y talleres</h3><p>Teatros o cuentacuentos, la chocolatada de Navidad y la barbacoa de fin de curso junto con el colegio. Talleres de juegos de mesa, rol y ciencias.</p></article>
-          <article class="panel p-mochila"><svg class="icono" viewBox="0 0 24 24" fill="none" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9a6 6 0 0 1 12 0v11H6z"/><path d="M9 5V3h6v2M9 14h6"/></svg><h3>Mochila Jugona Exploradora</h3><p>Una mochila llena de juegos que va pasando por las casas de las familias.</p></article>
+          <article class="panel p-libros" style="--i:0"><svg class="icono" viewBox="0 0 24 24" fill="none" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2V5z"/><path d="M4 19a2 2 0 0 1 2-2h13"/><path d="M9 7h6M9 10h4"/></svg><h3>Banco de Libros</h3><p>Préstamo de los libros de lectura del curso de cada alumno o alumna.</p></article>
+          <article class="panel p-uniformes" style="--i:1"><svg class="icono" viewBox="0 0 24 24" fill="none" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3L3 6l2 4 3-1v12h8V9l3 1 2-4-5-3a4 4 0 0 1-8 0z"/></svg><h3>Banco de Uniformes</h3><p>Donación e intercambio de uniformes: recogida y reparto para darles una segunda vida.</p></article>
+          <article class="panel p-eventos" style="--i:0"><svg class="icono" viewBox="0 0 24 24" fill="none" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg><h3>Eventos y talleres</h3><p>Teatros o cuentacuentos, la chocolatada de Navidad y la barbacoa de fin de curso junto con el colegio. Talleres de juegos de mesa, rol y ciencias.</p></article>
+          <article class="panel p-mochila" style="--i:1"><svg class="icono" viewBox="0 0 24 24" fill="none" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9a6 6 0 0 1 12 0v11H6z"/><path d="M9 5V3h6v2M9 14h6"/></svg><h3>Mochila Jugona Exploradora</h3><p>Una mochila llena de juegos que va pasando por las casas de las familias.</p></article>
         </div>
       </div>
     </div>
@@ -346,8 +364,11 @@
       <h2 class="gigante" id="gigante" aria-label="Hazte socio">Hazte socio</h2>
       <div class="socio-fila">
         <div class="socio-texto">
-          <p>Una familia socia paga 25 € al año, sea cual sea el tamaño de la familia.</p>
-          <a href="hazte-socio.html" class="pill pill-blanco pill-xl magnetico">Empezar la solicitud</a>
+          <p class="precio"><span class="cifra" aria-label="25 euros"><span class="num">25</span><span class="eur">€</span></span><span class="txt">al año por familia, sea cual sea el tamaño de la familia</span></p>
+          <div class="socio-botones">
+            <a href="hazte-socio.html" class="pill pill-blanco pill-xl magnetico">Empezar la solicitud</a>
+            <a href="login.html" class="pill pill-chico">Ya soy socio, entrar</a>
+          </div>
           <p class="reactivar">¿Fuisteis socios otros años? <a href="reactivar-cuenta.html">Reactivad vuestra cuenta</a>.</p>
         </div>
         <ol class="pasos-socio" id="pasosSocio">
@@ -452,6 +473,8 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="shared/supabaseClient.js"></script>
 <script src="shared/datos-ampa.js"></script>
+<script src="shared/sonido.js"></script>
+<script src="shared/vida.js"></script>
 <script src="shared/portada-vida.js"></script>
 <script>
 const esc = (t) => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));

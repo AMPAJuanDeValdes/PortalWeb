@@ -2,93 +2,26 @@
 // El polvo de colores del logo cobra vida: partículas que reaccionan al ratón
 // y al dedo, una cinta arcoíris que se dibuja al bajar, fotos que pasan solas
 // y sonidos suaves (solo si la persona activa «Sonido»).
-// Con «reducir movimiento» del sistema todo queda quieto y legible.
+// Con el botón «Movimiento» se puede dejar todo quieto (se recuerda).
 (function () {
-  const calma = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // Quieto solo si la persona lo pide con el botón «Movimiento» (se guarda)
+  const calma = document.documentElement.classList.contains('quieto');
   const COLORES = ['#FF4D8D', '#FF7A1A', '#FFC21A', '#3FB54A', '#00A3E0', '#8A5CC2'];
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
-  /* ================= Sonido (sintetizado, sin archivos) ================= */
-  const sonido = {
-    ctx: null, on: false, salida: null,
-    preparar() {
-      if (this.ctx) return;
-      const AC = window.AudioContext || window.webkitAudioContext;
-      if (!AC) return;
-      this.ctx = new AC();
-      this.salida = this.ctx.createGain(); this.salida.gain.value = 0.5;
-      const comp = this.ctx.createDynamicsCompressor();
-      this.salida.connect(comp); comp.connect(this.ctx.destination);
-    },
-    ruidoBuffer() {
-      if (this._ruido) return this._ruido;
-      const n = this.ctx.sampleRate * 0.6, b = this.ctx.createBuffer(1, n, this.ctx.sampleRate), d = b.getChannelData(0);
-      for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
-      return (this._ruido = b);
-    },
-    // Nota de marimba: seno + armónico corto
-    nota(frec, cuando = 0, vol = 0.22, dur = 0.9) {
-      if (!this.on || !this.ctx) return;
-      const t = this.ctx.currentTime + cuando;
-      [[1, vol], [4, vol * 0.18]].forEach(([m, v]) => {
-        const o = this.ctx.createOscillator(), g = this.ctx.createGain();
-        o.type = 'sine'; o.frequency.value = frec * m;
-        g.gain.setValueAtTime(0.0001, t);
-        g.gain.exponentialRampToValueAtTime(v, t + 0.008);
-        g.gain.exponentialRampToValueAtTime(0.0001, t + (m === 1 ? dur : 0.15));
-        o.connect(g); g.connect(this.salida); o.start(t); o.stop(t + dur + 0.05);
-      });
-    },
-    // Soplido de polvo: ruido filtrado
-    puff(fuerza = 1) {
-      if (!this.on || !this.ctx) return;
-      const t = this.ctx.currentTime, s = this.ctx.createBufferSource(), f = this.ctx.createBiquadFilter(), g = this.ctx.createGain();
-      s.buffer = this.ruidoBuffer();
-      f.type = 'bandpass'; f.Q.value = 0.9;
-      f.frequency.setValueAtTime(500 + Math.random() * 900, t);
-      f.frequency.exponentialRampToValueAtTime(180, t + 0.35);
-      g.gain.setValueAtTime(0.0001, t);
-      g.gain.exponentialRampToValueAtTime(0.5 * fuerza, t + 0.02);
-      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.4);
-      s.connect(f); f.connect(g); g.connect(this.salida); s.start(t); s.stop(t + 0.45);
-      this.nota(PENTA[Math.floor(Math.random() * PENTA.length)] * 2, 0.02, 0.07, 0.5);
-    },
-    papel() {
-      if (!this.on || !this.ctx) return;
-      const t = this.ctx.currentTime, s = this.ctx.createBufferSource(), f = this.ctx.createBiquadFilter(), g = this.ctx.createGain();
-      s.buffer = this.ruidoBuffer(); f.type = 'highpass'; f.frequency.value = 2500;
-      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.18, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.12);
-      s.connect(f); f.connect(g); g.connect(this.salida); s.start(t); s.stop(t + 0.15);
-    },
-    tic() { this.nota(1320, 0, 0.05, 0.12); },
-    acorde() { [0, 2, 4].forEach((k, i) => this.nota(PENTA[k] * 2, i * 0.09, 0.16, 1.2)); },
-    letras(n) { for (let i = 0; i < n; i++) this.nota(PENTA[i % PENTA.length] * (i < 5 ? 2 : 4), i * 0.055, 0.1, 0.6); }
-  };
-  const PENTA = [261.6, 293.7, 329.6, 392, 440, 523.3, 587.3, 659.3];
+  // Sonido: shared/sonido.js (el mismo en todas las páginas)
+  const sonido = window.AmpaSonido || { nota() {}, puff() {}, papel() {}, tic() {}, acorde() {}, letras() {}, PENTA: [] };
+  const PENTA = sonido.PENTA;
 
-  function montarBotonSonido() {
-    const btn = document.getElementById('sonidoBtn');
+  // Botón «Movimiento»: quitar o poner las animaciones (se recuerda)
+  function montarBotonMovimiento() {
+    const btn = document.getElementById('movBtn');
     if (!btn) return;
-    let guardado = false;
-    try { guardado = localStorage.getItem('ampa-sonido') === '1'; } catch (e) { /* sin almacenamiento */ }
-    const poner = (v) => {
-      sonido.on = v; btn.setAttribute('aria-pressed', String(v));
-      try { localStorage.setItem('ampa-sonido', v ? '1' : '0'); } catch (e) { /* sin almacenamiento */ }
-    };
+    btn.setAttribute('aria-pressed', String(!calma));
     btn.addEventListener('click', () => {
-      sonido.preparar();
-      if (sonido.ctx && sonido.ctx.state === 'suspended') sonido.ctx.resume();
-      poner(!sonido.on);
-      if (sonido.on) sonido.acorde();
+      try { localStorage.setItem('ampa-movimiento', calma ? '1' : '0'); } catch (e) { /* sin almacenamiento */ }
+      location.reload();
     });
-    // El navegador no deja sonar hasta que la persona toca la página
-    if (guardado) {
-      btn.setAttribute('aria-pressed', 'true');
-      const despertar = () => { sonido.preparar(); if (sonido.ctx) sonido.ctx.resume(); sonido.on = true; };
-      window.addEventListener('pointerdown', despertar, { once: true, capture: true });
-      window.addEventListener('keydown', despertar, { once: true, capture: true });
-    }
-    document.querySelectorAll('.menu a, .pill, .car-botones button, .evento').forEach(el => el.addEventListener('pointerenter', () => sonido.tic()));
   }
 
   /* ================= Polvo de colores (canvas) ================= */
@@ -333,8 +266,9 @@
     const c = document.getElementById('carril'), pista = document.getElementById('pista');
     if (!c || !pista) return;
     const paneles = [...pista.children];
-    const activar = new IntersectionObserver((es) => es.forEach(e => { if (e.isIntersecting) e.target.classList.add('activo'); }), { threshold: 0.55 });
+    const activar = new IntersectionObserver((es) => es.forEach(e => { if (e.isIntersecting) e.target.classList.add('activo'); }), { threshold: 0.25 });
     paneles.forEach(p => activar.observe(p));
+    if (calma) paneles.forEach(p => p.classList.add('activo'));
     let ultimo = -1;
     const mover = () => {
       if (calma || window.innerWidth <= 820) { pista.style.transform = ''; return; }
@@ -390,7 +324,7 @@
 
   function iniciar() {
     partirTitulo();
-    montarBotonSonido();
+    montarBotonMovimiento();
     polvoInicio();
     window.Vida._socio = polvoSocio();
     observarApariciones();

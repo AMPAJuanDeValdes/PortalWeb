@@ -3,6 +3,10 @@
 const { defineConfig } = require('@playwright/test');
 const { cargarEntorno } = require('./ayudantes/entorno');
 
+// Modo local (ejecutar-pruebas-local.bat): prueba la web de tu ordenador,
+// sin subir nada a Netlify. Arranca el servidor local él solo.
+const LOCAL = process.env.AMPA_LOCAL === '1';
+if (LOCAL) process.env.SITE_URL = 'http://localhost:8888';
 cargarEntorno();
 
 module.exports = defineConfig({
@@ -26,5 +30,6 @@ module.exports = defineConfig({
     actionTimeout: 15_000,
     navigationTimeout: 30_000
   },
-  projects: [{ name: 'chromium', use: { browserName: 'chromium' } }]
+  projects: [{ name: 'chromium', use: { browserName: 'chromium' } }],
+  ...(LOCAL ? { webServer: { command: 'node ../herramientas/servidor-local.js', url: 'http://localhost:8888/login.html', reuseExistingServer: true, timeout: 60_000 } } : {})
 });

@@ -10,6 +10,13 @@
   status = 404
   force = true
 
+# Herramientas para probar en tu ordenador: tampoco se sirven en la web
+[[redirects]]
+  from = "/herramientas/*"
+  to = "/index.html"
+  status = 404
+  force = true
+
 [[redirects]]
   from = "/*"
   to = "/index.html"

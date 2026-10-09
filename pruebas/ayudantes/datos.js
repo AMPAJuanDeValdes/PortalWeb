@@ -22,7 +22,9 @@ function emailPrueba(etiqueta) {
   const [local, dominio] = process.env.EMAIL_PRUEBAS.split('@');
   const sep = local.includes('+') ? '-' : '+';
   contador++;
-  return `${local}${sep}${MARCA}${process.env.RUN_ID}-${etiqueta}${contador}@${dominio}`.toLowerCase();
+  // Sufijo al azar: si una prueba falla, Playwright reinicia y el contador vuelve a 0
+  const azar = Math.random().toString(36).slice(2, 6);
+  return `${local}${sep}${MARCA}${process.env.RUN_ID}-${etiqueta}${contador}${azar}@${dominio}`.toLowerCase();
 }
 
 function dniPrueba() {

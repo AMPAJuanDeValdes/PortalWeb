@@ -129,6 +129,7 @@ const esc = (t) => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<'
 const opciones = (lista) => lista.map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join('');
 const ORDEN_ETAPAS = ['Infantil', 'Primaria', 'ESO', 'Bachillerato'];
 let librosPorId = new Map();
+let catalogosListos = false;
 
 (async () => {
   try {
@@ -165,6 +166,11 @@ let librosPorId = new Map();
     const ponerTallas = () => { document.getElementById('prendaTalla').innerHTML = opciones(document.getElementById('prenda').value === 'Baby' ? DONACIONES.tallasBaby : DONACIONES.tallas); };
     document.getElementById('prenda').addEventListener('change', ponerTallas); ponerTallas();
   } else document.getElementById('catUniformes').innerHTML = '<h2>Uniformes del Banco de Uniformes</h2><p class="ayuda">Ahora mismo no hay prendas en el catálogo.</p>';
+  catalogosListos = true;
+  document.getElementById('formWrap').dataset.listo = '1';
+  // Desde el Banco de Uniformes se llega con #catUniformes: ir directo a esa parte
+  const destino = location.hash && document.getElementById(location.hash.slice(1));
+  if (destino) { destino.style.scrollMarginTop = '120px'; destino.scrollIntoView({ block: 'start' }); }
 })();
 document.getElementById('instrumento').innerHTML = opciones(DONACIONES.instrumentos);
 document.getElementById('extra').innerHTML = opciones(DONACIONES.extraescolares);
@@ -184,12 +190,14 @@ document.getElementById('formWrap').addEventListener('click', (e) => {
   const b = e.target.closest('[data-add]'); if (!b) return;
   const msg = document.getElementById('msg'); msg.hidden = true;
   let it = null, cant = null;
+  if ((b.dataset.add === 'libros' || b.dataset.add === 'uniformes') && !catalogosListos) { msg.textContent = 'Un momento, se está cargando la lista.'; msg.hidden = false; return; }
   if (b.dataset.add === 'libros') {
     const l = librosPorId.get(document.getElementById('libro').value);
     if (!l) { msg.textContent = 'Elige el libro.'; msg.hidden = false; return; }
     it = { categoria: 'libros', libro_id: l.id, titulo: l.titulo, curso: `${l.curso} de ${l.etapa}` }; cant = cantidadDe('libroCant');
   } else if (b.dataset.add === 'uniformes') {
     it = { categoria: 'uniformes', tipo: document.getElementById('prenda').value, talla: document.getElementById('prendaTalla').value }; cant = cantidadDe('prendaCant');
+    if (!it.tipo || !it.talla) { msg.textContent = 'Elige la prenda y la talla.'; msg.hidden = false; return; }
   } else if (b.dataset.add === 'instrumentos') {
     it = { categoria: 'instrumentos', articulo: document.getElementById('instrumento').value }; cant = cantidadDe('instrumentoCant');
   } else {
@@ -234,5 +242,7 @@ document.getElementById('enviarBtn').addEventListener('click', async () => {
   }
 });
 </script>
+<script src="shared/sonido.js"></script>
+<script src="shared/vida.js"></script>
 </body>
 </html>

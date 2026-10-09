@@ -57,7 +57,9 @@ test.describe('Acceso y contraseñas', () => {
     await expect(page).toHaveURL(/dashboard\.html/);
     await page.goto('/cambiar-clave.html');
     await expect(page.locator('h1')).toHaveText('Cambiar mi contraseña');
-    await expect(page.locator('#navLinks a', { hasText: 'Inicio' })).toBeVisible();
+    // Con la sesión iniciada, la cabecera lleva a «Mi perfil» (Inicio del socio) y a «Mis datos»
+    await expect(page.locator('#navLinks a', { hasText: 'Mi perfil' })).toHaveAttribute('href', 'dashboard.html');
+    await expect(page.locator('#navLinks a', { hasText: 'Mis datos' })).toBeVisible();
   });
 
   test('Recuperar contraseña: email inexistente o de baja → no se envía', async () => {

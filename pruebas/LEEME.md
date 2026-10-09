@@ -38,3 +38,14 @@ Los repartos y convocatorias de libros y uniformes (las pruebas no tocan
 vuestras convocatorias reales), encuestas, eventos y la firma del mandato
 SEPA. De libros y uniformes sí se prueba: catálogo, movimientos de stock,
 compras y el filtro de libros por curso.
+
+## Probar sin subir a Netlify (en tu ordenador)
+
+- **Ver la web:** doble clic en **`probar-en-local.bat`** (en la carpeta del
+  proyecto). Se abre `http://localhost:8888` con la web tal como está en tu
+  carpeta, funciones incluidas (altas, donaciones, Mochila...). Para pararla,
+  cierra la ventana negra.
+- **Pruebas automáticas:** doble clic en **`pruebas\ejecutar-pruebas-local.bat`**.
+- Usa los datos **reales** de Supabase, igual que las pruebas normales.
+- Para que salgan los emails, copia los `SMTP_*` de Netlify en tu
+  `ampa-pruebas.env` (ver la plantilla). Si no, todo funciona menos el envío.

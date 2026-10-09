@@ -14,6 +14,7 @@ test.describe('Donaciones', () => {
     const email = emailPrueba('donar');
     await page.goto('/donar.html');
     await expect(page.locator('.es-donacion')).toContainText('Es una donación');
+    await expect(page.locator('#formWrap[data-listo="1"]')).toBeAttached();   // catálogos cargados
     await page.click('[data-add=uniformes]');
     await page.selectOption('#instrumento', 'Flauta');
     await page.fill('#instrumentoCant', '2');
@@ -56,6 +57,7 @@ test.describe('Donaciones', () => {
     await expect(page).toHaveURL(/dashboard\.html/);
     await page.goto('/donar.html');
     await expect(page.locator('#email')).toHaveValue(fam.adultos[0].email);
+    await expect(page.locator('#formWrap[data-listo="1"]')).toBeAttached();
     await page.click('[data-add=instrumentos]');
     await page.check('#acepto');
     await page.click('#enviarBtn');

@@ -30,8 +30,8 @@
   .lista{ background:#fff; border:2px solid var(--mochila); border-radius:var(--radius-card); padding:26px; }
   .lista-fila{ display:flex; align-items:center; justify-content:space-between; gap:16px 28px; flex-wrap:wrap; }
   .dato{ display:flex; align-items:center; gap:16px; margin:0; }
-  .dato b{ font-family:var(--font-title); font-weight:800; font-size:64px; line-height:1; color:var(--mochila); }
-  .dato span{ font-size:19px; font-weight:700; max-width:24ch; line-height:1.25; }
+  .dato > b{ font-family:var(--font-title); font-weight:800; font-size:64px; line-height:1; color:var(--mochila); }
+  .dato > span{ font-size:19px; font-weight:700; max-width:24ch; line-height:1.25; }
   .lista .nota{ margin:14px 0 0; color:var(--ink-soft); }
   .titulo-grande{ font-family:var(--font-title); font-weight:800; font-size:26px; margin:0 0 6px; }
   .mochila-acciones{ display:flex; gap:12px; flex-wrap:wrap; margin-top:16px; }
@@ -133,5 +133,7 @@ async function pintarLista() {
   await Promise.all([cargarJuegos(), pintarLista()]);
 })();
 </script>
+<script src="shared/sonido.js"></script>
+<script src="shared/vida.js"></script>
 </body>
 </html>

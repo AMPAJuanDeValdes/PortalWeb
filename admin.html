@@ -19,7 +19,7 @@
   .tarea .num{ flex:0 0 46px; height:46px; border-radius:12px; background:var(--area-bg); color:var(--area); font-family:var(--font-title); font-weight:800; font-size:22px; display:flex; align-items:center; justify-content:center; }
   .tarea .txt{ flex:1 1 auto; min-width:0; }
   @media (max-width:560px){ .tarea .ir{ display:none; } .tarea .num{ flex-basis:40px; height:40px; font-size:19px; } }
-  .tarea .txt span{ display:block; color:var(--ink-soft); font-size:15px; }
+  .tarea .txt > span{ display:block; color:var(--ink-soft); font-size:15px; }
   .tarea .ir{ color:var(--area); font-weight:700; font-size:15px; }
   .al-dia{ display:flex; align-items:center; gap:12px; padding:16px; color:var(--green); font-weight:700; }
 
@@ -265,5 +265,7 @@ function pintarTareas() {
   pintarTareas();
 })();
 </script>
+<script src="shared/sonido.js"></script>
+<script src="shared/vida.js"></script>
 </body>
 </html>
