@@ -44,6 +44,7 @@
         <option value="comedor">Visita al comedor (adultos, sorteo con prioridad)</option>
         <option value="concurso">Concurso literario (un texto o un Word por alumno)</option>
         <option value="informativo">Concurso sin inscripción (ej. Christmas, Olimpiadas matemáticas)</option>
+        <option value="loteria">Venta de Lotería (día, hora y lugar; nadie se apunta y la ve todo el mundo)</option>
       </select>
       <p class="ayuda" id="plantillaAyuda">Cada tipo trae sus reglas. Las opciones que fija el tipo aparecen bloqueadas.</p>
     </div>
@@ -53,6 +54,13 @@
     <div class="two-col">
       <div class="field"><label for="eFecha">Fecha y hora</label><input type="datetime-local" id="eFecha"></div>
       <div class="field"><label for="eAforo">Aforo total (vacío = sin límite)</label><input type="number" id="eAforo" min="1"></div>
+    </div>
+    <div class="field"><label for="eLugar">Lugar (opcional)</label><input type="text" id="eLugar" placeholder="Por ejemplo: entrada del colegio"></div>
+    <div class="field" id="masFechasWrap" hidden>
+      <p style="font-weight:700; margin:0 0 4px;">Más fechas de venta</p>
+      <p class="ayuda" style="margin:0 0 8px;">Cada fecha se crea como un evento aparte, con el mismo título y descripción, y sale por separado en la web y en el calendario. Si no pones lugar, se usa el de arriba.</p>
+      <div id="masFechas"></div>
+      <button type="button" class="btn btn-outline" id="masFechaBtn">Añadir otra fecha</button>
     </div>
 
     <div class="field">
@@ -188,7 +196,21 @@ function pintarCursosGrid(contenedorId, nombrePrefijo) {
 }
 pintarCursosGrid('eCursosGrid', 'evt');
 
+function filaFecha() {
+  const d = document.createElement('div');
+  d.className = 'two-col mas-fecha';
+  d.style.alignItems = 'end';
+  d.innerHTML = '<div class="field"><label>Fecha y hora</label><input type="datetime-local" class="mf-fecha"></div>' +
+    '<div class="field"><label>Lugar</label><div style="display:flex; gap:8px;"><input type="text" class="mf-lugar" placeholder="El mismo de arriba"><button type="button" class="linklike mf-quitar">Quitar</button></div></div>';
+  d.querySelector('.mf-quitar').addEventListener('click', () => d.remove());
+  return d;
+}
+$('masFechaBtn').addEventListener('click', () => { const f = filaFecha(); $('masFechas').appendChild(f); f.querySelector('input').focus(); });
+
 function actualizarVisibilidad() {
+  // Varias fechas de venta de lotería: solo al crear
+  $('masFechasWrap').hidden = !($('ePlantilla').value === 'loteria' && !editandoId);
+  if ($('masFechasWrap').hidden) $('masFechas').innerHTML = '';
   const tipoEsp = $('eTipoEspecial').value;
   $('inscripcionWrap').hidden = tipoEsp !== 'normal';
   $('fechasWrap').hidden = tipoEsp === 'informativo';
@@ -244,7 +266,8 @@ const PLANTILLAS = {
     usa_prioridad_historial: true },
   concurso: { titulo: 'Concurso literario', tipo_elegibilidad: 'alumnos', elegibilidad_modo: 'curso',
     cursos_permitidos: TODOS_LOS_CURSOS, usa_concurso_texto: true },
-  informativo: { titulo: 'Concurso de Christmas', sin_inscripcion: true }
+  informativo: { titulo: 'Concurso de Christmas', sin_inscripcion: true },
+  loteria: { titulo: 'Venta de Lotería de Navidad', sin_inscripcion: true, abierto_no_socios: true, voluntariado_modo: 'no' }
 };
 
 function rellenarFormulario(ev) {
@@ -253,6 +276,7 @@ function rellenarFormulario(ev) {
   $('eDescripcion').value = e.descripcion || '';
   $('eFecha').value = aLocal(e.fecha);
   $('eAforo').value = e.aforo_total ?? '';
+  $('eLugar').value = e.lugar || '';
   $('eTipoEspecial').value = e.sin_inscripcion ? 'informativo' : e.usa_concurso_texto ? 'concurso' : 'normal';
   $('eTipoElegibilidad').value = e.tipo_elegibilidad;
   $('eModo').value = e.elegibilidad_modo || 'curso';
@@ -296,6 +320,7 @@ function leerFormulario() {
     descripcion: $('eDescripcion').value.trim(),
     fecha: aISO($('eFecha').value),
     aforo_total: num($('eAforo').value, true),
+    lugar: $('eLugar').value.trim() || null,
     sin_inscripcion: tipoEsp === 'informativo',
     usa_concurso_texto: tipoEsp === 'concurso',
     tipo_elegibilidad: tipo,
@@ -336,7 +361,8 @@ const FIJADO = {
   barbacoa: { tipo_elegibilidad: 'alumnos', metodo_asignacion: 'aforo', voluntariado_modo: 'adultos_y_ninos', permite_invitados: false, tipo_especial: 'normal' },
   comedor: { tipo_elegibilidad: 'adultos', metodo_asignacion: 'sorteo', usa_prioridad_historial: true, tipo_especial: 'normal' },
   concurso: { tipo_elegibilidad: 'alumnos', tipo_especial: 'concurso' },
-  informativo: { tipo_especial: 'informativo' }
+  informativo: { tipo_especial: 'informativo' },
+  loteria: { tipo_especial: 'informativo', abierto_no_socios: true, voluntariado_modo: 'no' }
 };
 const CAMPO_ID = { tipo_elegibilidad: 'eTipoElegibilidad', pide_alergias: 'ePideAlergias', alumnos_requieren_adulto: 'eAlumnosRequierenAdulto',
   permite_invitados: 'ePermiteInvitados', abierto_no_socios: 'eAbiertoNoSocios', metodo_asignacion: 'eMetodoAsignacion',
@@ -401,7 +427,8 @@ $('crearEventoBtn').addEventListener('click', async () => {
     aviso('Marca al menos un curso.', false); return;
   }
   if (payload.metodo_asignacion === 'sorteo' && !payload.aforo_total) { aviso('Un sorteo necesita un aforo (número de plazas).', false); return; }
-  if ((payload.permite_invitados || payload.abierto_no_socios) && payload.precio_invitado == null && !payload.publico_solo_actividades) {
+  if (payload.plantilla === 'loteria' && !payload.lugar) { aviso('Pon el lugar de la venta de lotería.', false); return; }
+  if (!payload.sin_inscripcion && (payload.permite_invitados || payload.abierto_no_socios) && payload.precio_invitado == null && !payload.publico_solo_actividades) {
     if (!confirm('No has puesto precio para las personas no socias. ¿Es gratis para ellas?')) return;
   }
 
@@ -419,9 +446,15 @@ $('crearEventoBtn').addEventListener('click', async () => {
     aviso('Cambios guardados. Las inscripciones se mantienen.', true);
     salirDeEdicion();
   } else {
-    const { error } = await sb.from('eventos').insert(payload);
+    // Venta de lotería con varias fechas: un evento por fecha
+    const extras = [...document.querySelectorAll('#masFechas .mas-fecha')].map(f => ({
+      fecha: aISO(f.querySelector('.mf-fecha').value), lugar: f.querySelector('.mf-lugar').value.trim() || payload.lugar
+    }));
+    if (extras.some(x => !x.fecha)) { aviso('Pon el día y la hora de cada fecha de venta, o quita las que sobren.', false); return; }
+    const filas = [payload, ...extras.map(x => ({ ...payload, fecha: x.fecha, lugar: x.lugar }))];
+    const { error } = await sb.from('eventos').insert(filas);
     if (error) { aviso('No se pudo crear: ' + error.message, false); return; }
-    aviso('Evento creado.', true);
+    aviso(filas.length > 1 ? `Creados ${filas.length} eventos, uno por fecha.` : 'Evento creado.', true);
     rellenarFormulario({});
     $('ePlantilla').value = '';
     aplicarBloqueos();

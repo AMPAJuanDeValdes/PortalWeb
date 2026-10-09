@@ -25,6 +25,15 @@ module.exports = async function preparar() {
   const { error: errMochila } = await admin.from('mochila_juegos').select('id', { head: true });
   if (errMochila) throw new Error('Falta ejecutar supabase/migracion-mochila-v2.sql en Supabase (' + errMochila.message + ')');
 
+  const { error: errDon } = await admin.from('donaciones').select('items', { head: true });
+  if (errDon) throw new Error('Falta ejecutar supabase/migracion-donaciones.sql en Supabase (' + errDon.message + ')');
+  const { error: errDonado } = await admin.from('donado_stock').select('id', { head: true });
+  if (errDonado) throw new Error('Falta ejecutar supabase/migracion-donado.sql en Supabase (' + errDonado.message + ')');
+  const { error: errLot } = await admin.from('eventos').select('lugar', { head: true });
+  if (errLot) throw new Error('Falta ejecutar supabase/migracion-loteria.sql en Supabase (' + errLot.message + ')');
+  const { error: errSeg } = await admin.from('mochila_cola').select('aviso_enviado_en', { head: true });
+  if (errSeg) throw new Error('Falta ejecutar supabase/migracion-revision-seguridad.sql en Supabase (' + errSeg.message + ')');
+
   const { data: titulos } = await admin.from('libros_catalogo').select('titulo');
   const vistos = new Set(), repetidos = new Set();
   (titulos || []).forEach(t => { const k = t.titulo.trim().toLowerCase(); (vistos.has(k) ? repetidos : vistos).add(k); });

@@ -8,118 +8,189 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="shared/styles.css">
+<script>document.documentElement.classList.add('js');</script>
 <style>
-  /* ===== Propuesta A · Patio ===== */
+  /* ===== Portada «Polvo de colores»: el polvo del logo da vida a toda la página ===== */
+  :root{
+    --rosa:#FF4D8D; --naranja:#FF7A1A; --amarillo:#FFC21A; --verde:#3FB54A; --azul:#00A3E0; --morado:#8A5CC2;
+    --corcho:#C89B6D;
+  }
   html, body{ overflow-x:clip; }
-  body{ background:#FFFFFF; font-size:18px; }
+  body{ background:#FFFFFF; font-size:18px; position:relative; }
   .contenedor{ max-width:1200px; margin:0 auto; padding-left:24px; padding-right:24px; }
-  .portada-head{ display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:14px; padding-top:18px; padding-bottom:18px; position:relative; z-index:2; }
+  main > section{ position:relative; z-index:1; }
+
+  /* ---------- Cabecera ---------- */
+  .portada-head{ display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:14px; padding-top:16px; padding-bottom:16px; position:relative; z-index:3; }
   .marca{ display:flex; align-items:center; gap:12px; text-decoration:none; color:var(--ink); }
-  .marca img{ height:72px; width:auto; }
+  .marca img{ height:76px; width:auto; }
   .marca b{ font-family:var(--font-title); font-weight:800; font-size:18px; line-height:1.1; display:block; }
   .marca small{ font-family:var(--font-title); font-weight:600; font-size:14px; color:var(--ink-soft); }
-  .menu{ display:flex; flex-wrap:wrap; align-items:center; gap:8px 26px; font-weight:700; font-size:16px; }
+  .menu{ display:flex; flex-wrap:wrap; align-items:center; gap:8px 24px; font-weight:700; font-size:16px; }
   .menu a{ color:var(--ink); text-decoration:none; }
   .menu a:hover{ text-decoration:underline; text-underline-offset:4px; }
   .menu a.entrar{ border:2px solid var(--ink); border-radius:999px; padding:10px 22px; }
   .menu a.entrar:hover{ background:var(--ink); color:#fff; text-decoration:none; }
   .menu button.salir{ background:none; border:0; padding:0; font:inherit; font-weight:700; color:var(--ink); cursor:pointer; text-decoration:underline; }
+  .sonido{ display:inline-flex; align-items:center; gap:8px; background:#fff; border:2px solid var(--line); border-radius:999px; padding:8px 14px; font:inherit; font-weight:700; font-size:15px; color:var(--ink); cursor:pointer; }
+  .sonido svg{ width:20px; height:20px; }
+  .sonido .on{ display:none; }
+  .sonido[aria-pressed="true"]{ border-color:var(--ink); background:var(--ink); color:#fff; }
+  .sonido[aria-pressed="true"] .on{ display:inline; } .sonido[aria-pressed="true"] .off{ display:none; }
 
-  /* Inicio con el polvo de colores del logo */
-  .hero{ position:relative; padding-top:40px; padding-bottom:36px; overflow:hidden; }
-  .polvo{ position:absolute; top:-60px; right:-6%; width:64%; height:calc(100% + 140px); pointer-events:none; filter:blur(42px); opacity:.72; z-index:0; -webkit-mask-image:radial-gradient(farthest-side at 55% 45%,#000 55%,transparent); mask-image:radial-gradient(farthest-side at 55% 45%,#000 55%,transparent); }
-  .polvo i{ position:absolute; border-radius:50%; }
-  @media (max-width:760px){ .polvo{ width:auto; left:-15%; right:-15%; top:-30px; opacity:.38; } }
-  .hero-in{ position:relative; z-index:1; display:grid; grid-template-columns:minmax(0,1.15fr) minmax(0,1fr); gap:40px; align-items:center; }
-  .hero-texto{ max-width:760px; }
-  .hero-logo{ display:flex; justify-content:center; }
-  .hero-logo img{ width:100%; max-width:520px; height:auto; border-radius:28px; box-shadow:0 18px 50px rgba(22,35,58,.14); transform:rotate(-1.5deg); }
-  @media (max-width:900px){ .hero-in{ grid-template-columns:1fr; gap:10px; } .hero-logo{ order:-1; } .hero-logo img{ max-width:360px; } }
-  .hero h1{ font-family:var(--font-title); font-weight:800; font-size:clamp(44px,6.6vw,92px); line-height:.95; letter-spacing:-.03em; margin:0 0 24px; max-width:13ch; }
-  .hero p{ font-size:20px; color:#3B4A60; max-width:46ch; margin:0 0 30px; }
-  .hero-acciones{ display:flex; flex-wrap:wrap; align-items:center; gap:14px; }
+  /* ---------- Inicio: el logo en grande dentro de su polvo ---------- */
+  .hero{ position:relative; min-height:calc(100svh - 108px); display:flex; align-items:center; padding:10px 0 70px; cursor:crosshair; }
+  .hero canvas{ position:absolute; inset:-108px 0 0 0; width:100%; height:calc(100% + 108px); z-index:0; }
+  .hero-in{ position:relative; z-index:1; text-align:center; width:100%; }
+  .hero-logo{ display:block; width:min(580px,86vw,calc(36svh * 1.56)); height:auto; margin:0 auto 8px; }
+  .hero h1{ font-family:var(--font-title); font-weight:800; font-size:clamp(36px,4.8vw,70px); line-height:.98; letter-spacing:-.03em; margin:0 auto 20px; max-width:22ch; }
+  .hero h1 .pal{ display:inline-block; }
+  .hero p{ font-size:20px; color:#3B4A60; max-width:52ch; margin:0 auto 32px; }
+  .hero-acciones{ display:flex; flex-wrap:wrap; justify-content:center; align-items:center; gap:14px; }
+  .hero a, .hero button{ cursor:pointer; }
   .pill{ display:inline-flex; align-items:center; justify-content:center; min-height:52px; padding:0 26px; border-radius:999px; font-weight:700; text-decoration:none; font-size:17px; }
   .pill-cta{ background:var(--cta); color:#fff; } .pill-cta:hover{ background:var(--cta-deep); color:#fff; }
-  .pill-linea{ border:2px solid var(--ink); color:var(--ink); } .pill-linea:hover{ background:var(--ink); color:#fff; }
-  .cuota-chip{ display:inline-flex; align-items:center; gap:14px; margin-top:34px; background:#fff; border:2px solid var(--ink); border-radius:20px; padding:12px 20px 12px 18px; box-shadow:6px 6px 0 #F2B705; }
-  .cuota-chip b{ font-family:var(--font-title); font-weight:800; font-size:36px; line-height:1; white-space:nowrap; }
-  .cuota-chip span{ font-size:16px; line-height:1.35; }
+  .pill-linea{ border:2px solid var(--ink); color:var(--ink); background:#fff; } .pill-linea:hover{ background:var(--ink); color:#fff; }
+  .pill-xl{ min-height:64px; padding:0 38px; font-size:21px; font-family:var(--font-title); font-weight:800; box-shadow:0 10px 0 -2px rgba(22,35,58,.18); }
+  .magnetico{ transition:transform .25s cubic-bezier(.2,.8,.2,1); }
 
-  .bloque{ padding-top:72px; padding-bottom:72px; }
-  .bloque h2, .sec-tit{ font-family:var(--font-title); font-weight:800; font-size:clamp(34px,5vw,60px); line-height:1; letter-spacing:-.025em; margin:0 0 14px; }
-  .bloque .intro{ color:#3B4A60; max-width:62ch; margin:0 0 30px; }
-  .raya{ border-top:2px solid var(--ink); }
-  .cabecera-bloque{ display:flex; flex-wrap:wrap; align-items:flex-end; justify-content:space-between; gap:12px; margin-bottom:24px; }
+  /* Entrada de la página: el logo se forma, el título cae palabra a palabra */
+  .js .hero-logo{ animation:logoEntra 1.1s cubic-bezier(.2,.9,.25,1.15) both, flotar 7s ease-in-out 1.2s infinite; }
+  .js .hero h1 .pal{ animation:palabra .8s cubic-bezier(.2,.9,.25,1.2) both; animation-delay:calc(.35s + var(--i) * 70ms); }
+  .js .hero p, .js .hero-acciones{ animation:sube .8s ease-out both; animation-delay:1s; }
+  @keyframes logoEntra{ from{ opacity:0; transform:scale(.6) rotate(-6deg); } to{ opacity:1; transform:none; } }
+  @keyframes flotar{ 50%{ transform:translateY(-8px) rotate(.6deg); } }
+  @keyframes palabra{ from{ opacity:0; transform:translateY(60%) rotate(8deg); } to{ opacity:1; transform:none; } }
+  @keyframes sube{ from{ opacity:0; transform:translateY(24px); } to{ opacity:1; transform:none; } }
+
+  /* ---------- Cinta arcoíris que recorre la página al bajar ---------- */
+  .cinta{ position:absolute; left:0; top:0; width:100%; pointer-events:none; z-index:0; overflow:visible; }
+  .cinta path{ fill:none; stroke-width:12; stroke-linecap:round; stroke-linejoin:round; }
+  @media (max-width:700px){ .cinta path{ stroke-width:6; } }
+
+  /* Lo que aparece al llegar */
+  .js .aparece{ opacity:0; transform:translateY(36px); transition:opacity .7s ease-out, transform .7s cubic-bezier(.2,.8,.2,1); }
+  .js .aparece.visto{ opacity:1; transform:none; }
+
+  .bloque{ padding-top:96px; padding-bottom:96px; }
+  .bloque h2, .sec-tit{ font-family:var(--font-title); font-weight:800; font-size:clamp(38px,6vw,76px); line-height:.98; letter-spacing:-.03em; margin:0 0 16px; }
+  .bloque .intro{ color:#3B4A60; max-width:62ch; margin:0 0 30px; font-size:19px; }
+  .cabecera-bloque{ display:flex; flex-wrap:wrap; align-items:flex-end; justify-content:space-between; gap:14px; margin-bottom:28px; }
   .cabecera-bloque h2{ margin:0; }
-  .ver-todos{ font-weight:700; color:var(--ink); }
+  .ver-todos{ font-weight:700; color:var(--ink); font-size:18px; }
 
-  /* Fotos como polaroids pegadas en la pared */
-  .fotos-bloque{ padding-top:24px; padding-bottom:64px; }
+  /* ---------- Así lo vivimos: tablón de corcho a todo el ancho, fotos que pasan ---------- */
+  .pared{ position:relative; background-color:var(--corcho); color:var(--ink); padding:80px 0 70px; overflow:hidden; box-shadow:inset 0 12px 24px rgba(0,0,0,.18), inset 0 -12px 24px rgba(0,0,0,.18); }
+  .pared::before{ content:""; position:absolute; inset:0; opacity:.55; mix-blend-mode:multiply; pointer-events:none;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .45 0 0 0 0 .3 0 0 0 0 .15 0 0 0 .9 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+  .pared .contenedor{ position:relative; z-index:1; }
+  .pared .sec-tit{ color:#fff; text-shadow:0 3px 0 rgba(60,35,10,.35); font-size:clamp(46px,8vw,110px); margin:0; }
   .car-botones{ display:flex; gap:10px; }
-  .car-botones button{ width:52px; height:52px; border-radius:50%; border:2px solid var(--ink); background:#fff; color:var(--ink); cursor:pointer; display:flex; align-items:center; justify-content:center; }
-  .car-botones button.sig{ background:var(--ink); color:#fff; }
-  .muro{ display:flex; gap:34px; overflow-x:auto; scroll-snap-type:x mandatory; padding:34px 10px 30px; margin:0 -10px; scrollbar-width:thin; }
-  .polaroid{ flex:0 0 auto; width:min(340px,78vw); margin:0; background:#fff; padding:14px 14px 0; box-shadow:0 14px 30px rgba(22,35,58,.16), 0 2px 4px rgba(22,35,58,.08); scroll-snap-align:center; position:relative; cursor:zoom-in; border:0; font:inherit; text-align:left; color:var(--ink); transition:transform .2s; }
-  .polaroid:nth-child(4n+1){ transform:rotate(-3deg); } .polaroid:nth-child(4n+2){ transform:rotate(2deg) translateY(10px); }
-  .polaroid:nth-child(4n+3){ transform:rotate(-1.5deg) translateY(-6px); } .polaroid:nth-child(4n){ transform:rotate(3deg) translateY(6px); }
-  .polaroid:hover, .polaroid:focus-visible{ transform:rotate(0) scale(1.03); z-index:2; }
-  .polaroid::before{ content:""; position:absolute; top:-14px; left:50%; width:96px; height:28px; margin-left:-48px; background:rgba(242,183,5,.7); transform:rotate(-4deg); }
-  .polaroid:nth-child(3n+2)::before{ background:rgba(0,152,216,.45); transform:rotate(5deg); }
-  .polaroid:nth-child(3n)::before{ background:rgba(214,36,110,.4); transform:rotate(-7deg); }
-  .polaroid img{ display:block; width:100%; aspect-ratio:1/1; object-fit:cover; background:#E9EEF4; }
-  .polaroid .pie{ display:block;  min-height:56px; padding:12px 4px 14px; font-size:17px; font-style:italic; line-height:1.3; }
-  @media (prefers-reduced-motion:reduce){ .polaroid{ transition:none; } }
-  .visor{ border:0; padding:0; background:transparent; max-width:min(1000px,94vw); }
-  .visor::backdrop{ background:rgba(16,24,40,.82); }
+  .car-botones button{ width:56px; height:56px; border-radius:50%; border:0; background:#fff; color:var(--ink); cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:0 6px 0 rgba(60,35,10,.35); }
+  .car-botones button:active{ transform:translateY(3px); box-shadow:0 3px 0 rgba(60,35,10,.35); }
+  .car-botones button.pausa{ width:auto; padding:0 18px; border-radius:999px; font:inherit; font-weight:700; font-size:15px; gap:8px; }
+  .muro{ position:relative; z-index:1; display:flex; gap:44px; overflow-x:auto; padding:44px 6vw 40px; scrollbar-width:none; cursor:grab; }
+  .muro::-webkit-scrollbar{ display:none; }
+  .muro.arrastrando{ cursor:grabbing; }
+  .polaroid{ --r:-3deg; flex:0 0 auto; width:min(380px,74vw); margin:0; background:#fff; padding:14px 14px 0; box-shadow:0 18px 34px rgba(50,25,5,.38), 0 2px 4px rgba(50,25,5,.2); position:relative; cursor:zoom-in; border:0; font:inherit; text-align:left; color:var(--ink); transform:rotate(var(--r)); transform-origin:50% 0; transition:transform .3s; }
+  .polaroid:nth-child(4n+2){ --r:2.5deg; margin-top:22px; } .polaroid:nth-child(4n+3){ --r:-1.5deg; margin-top:-8px; } .polaroid:nth-child(4n){ --r:3.5deg; margin-top:14px; }
+  .js .polaroid{ animation:balanceo 5s ease-in-out infinite; animation-delay:calc(var(--k) * -1.3s); }
+  @keyframes balanceo{ 50%{ transform:rotate(calc(var(--r) * -.35)); } }
+  .polaroid:hover, .polaroid:focus-visible{ animation-play-state:paused; transform:rotate(0) scale(1.06); z-index:2; }
+  .polaroid::before{ content:""; position:absolute; top:-15px; left:50%; width:104px; height:30px; margin-left:-52px; background:rgba(255,194,26,.78); transform:rotate(-4deg); box-shadow:0 1px 2px rgba(0,0,0,.15); }
+  .polaroid:nth-child(3n+2)::before{ background:rgba(0,163,224,.6); transform:rotate(5deg); }
+  .polaroid:nth-child(3n)::before{ background:rgba(255,77,141,.6); transform:rotate(-7deg); }
+  .polaroid img{ display:block; width:100%; aspect-ratio:1/1; object-fit:cover; background:#E9EEF4; pointer-events:none; }
+  .polaroid .pie{ display:block; min-height:62px; padding:14px 4px 16px; font-size:18px; font-style:italic; line-height:1.3; }
+  .visor{ border:0; padding:0; background:transparent; max-width:min(1000px,94vw); overflow:visible; }
+  .visor::backdrop{ background:rgba(16,24,40,.85); }
   .visor figure{ margin:0; background:#fff; padding:16px 16px 0; }
+  .visor[open] figure{ animation:visorEntra .35s cubic-bezier(.2,.9,.25,1.2); }
+  @keyframes visorEntra{ from{ transform:scale(.85) rotate(-3deg); opacity:0; } }
   .visor img{ display:block; max-width:100%; max-height:76vh; margin:0 auto; }
   .visor figcaption{ padding:12px 4px 16px; font-style:italic; font-size:18px; }
-  .visor-cerrar{ position:absolute; top:10px; right:10px; width:44px; height:44px; border-radius:50%; border:0; background:var(--ink); color:#fff; font-size:22px; cursor:pointer; }
+  .visor-cerrar{ position:absolute; top:-18px; right:-18px; width:48px; height:48px; border-radius:50%; border:0; background:var(--cta); color:#fff; font-size:26px; cursor:pointer; }
 
-  /* Servicios en bloques de distinto tamaño */
-  .bento{ display:grid; grid-template-columns:repeat(6,1fr); gap:16px; }
-  .tesela{ border-radius:28px; padding:26px; position:relative; overflow:hidden; min-height:180px; }
-  .tesela h3{ font-family:var(--font-title); font-weight:800; font-size:28px; line-height:1.05; letter-spacing:-.02em; margin:16px 0 8px; }
-  .tesela p{ margin:0; font-size:17px; max-width:40ch; }
-  .tesela .ic{ width:56px; height:56px; border-radius:18px; background:rgba(255,255,255,.8); display:flex; align-items:center; justify-content:center; }
-  .tesela .grande{ position:absolute; right:-20px; bottom:-26px; opacity:.16; }
-  .t-libros{ grid-column:span 3; grid-row:span 2; background:var(--libros-bg); color:#6E1038; } .t-libros h3{ font-size:clamp(32px,4vw,46px); } .t-libros svg{ stroke:var(--libros); }
-  .t-uniformes{ grid-column:span 3; background:var(--uniformes-bg); color:#5C4300; } .t-uniformes svg{ stroke:var(--uniformes); }
-  .t-eventos{ grid-column:span 2; background:var(--eventos-bg); color:#2A4A0C; } .t-eventos svg{ stroke:var(--eventos); }
-  .t-mochila{ grid-column:span 1; background:var(--mochila-bg); color:#00506F; text-decoration:none; } .t-mochila svg{ stroke:var(--mochila); } .t-mochila h3{ font-size:21px; }
-  @media (max-width:900px){ .bento{ grid-template-columns:1fr 1fr; } .t-libros,.t-uniformes,.t-eventos,.t-mochila{ grid-column:span 2; grid-row:auto; } }
-  .mas{ margin:26px 0 0; color:#3B4A60; max-width:70ch; }
+  /* ---------- Qué hacemos: los servicios pasan de lado mientras bajas ---------- */
+  .que-intro{ padding-top:110px; padding-bottom:20px; }
+  .carril{ position:relative; height:calc(var(--n, 4) * 80vh); }
+  .carril-pin{ position:sticky; top:0; height:100vh; overflow:hidden; display:flex; align-items:center; }
+  .pista{ display:flex; gap:28px; padding-left:max(24px, calc((100vw - 1152px) / 2)); padding-right:10vw; will-change:transform; }
+  .panel{ flex:0 0 auto; width:min(80vw,860px); min-height:min(70vh,560px); border-radius:40px; padding:clamp(28px,4vw,56px); position:relative; overflow:hidden; display:flex; flex-direction:column; justify-content:flex-end; }
+  .panel h3{ font-family:var(--font-title); font-weight:800; font-size:clamp(40px,6.4vw,92px); line-height:.92; letter-spacing:-.035em; margin:0 0 18px; max-width:11ch; position:relative; }
+  .panel p{ margin:0; font-size:clamp(18px,1.6vw,22px); max-width:36ch; position:relative; }
+  .panel .icono{ position:absolute; top:clamp(20px,4vw,48px); right:clamp(20px,4vw,48px); width:clamp(150px,22vw,300px); height:auto; }
+  .panel .icono path, .panel .icono rect{ stroke-dasharray:120; stroke-dashoffset:120; transition:stroke-dashoffset 1.6s cubic-bezier(.4,0,.2,1); }
+  .panel.activo .icono path, .panel.activo .icono rect{ stroke-dashoffset:0; }
+  .p-libros{ background:var(--rosa); color:#3A0618; } .p-libros .icono{ stroke:#fff; }
+  .p-uniformes{ background:var(--amarillo); color:#3D2C00; } .p-uniformes .icono{ stroke:#fff; }
+  .p-eventos{ background:var(--verde); color:#082A0C; } .p-eventos .icono{ stroke:#fff; }
+  .p-mochila{ background:var(--azul); color:#002536; } .p-mochila .icono{ stroke:#fff; }
+  .mas{ color:#3B4A60; max-width:70ch; font-size:19px; padding-top:30px; padding-bottom:90px; margin:0 auto; }
+  /* En el móvil y sin animaciones, uno debajo de otro */
+  @media (max-width:820px){
+    .carril{ height:auto; } .carril-pin{ position:static; height:auto; overflow:visible; display:block; }
+    .pista{ flex-direction:column; padding:0 24px; transform:none !important; gap:18px; }
+    .panel{ width:auto; min-height:340px; border-radius:30px; }
+    .panel .icono{ width:120px; }
+  }
 
-  /* Hazte socio */
-  .socio-fondo{ background:var(--paper); padding:72px 0; margin-top:24px; }
-  .socio-dos{ display:grid; grid-template-columns:1fr 1.25fr; gap:24px; align-items:start; }
-  @media (max-width:900px){ .socio-dos{ grid-template-columns:1fr; } }
-  .socio-tarjeta{ background:#fff; border:1px solid var(--line); border-radius:28px; padding:36px; }
-  .socio-tarjeta h2{ font-family:var(--font-title); font-weight:800; font-size:clamp(36px,4.6vw,54px); line-height:1; letter-spacing:-.025em; margin:0 0 14px; }
-  .socio-tarjeta p{ margin:0; color:#3B4A60; max-width:42ch; }
-  .socio-tarjeta .precio{ display:block; font-family:var(--font-title); font-weight:800; font-size:clamp(72px,9vw,104px); line-height:.95; letter-spacing:-.03em; color:var(--cta); margin:6px 0 4px; }
-  .socio-tarjeta .pill{ margin-top:26px; }
-  .pill-oscuro{ background:var(--ink); color:#fff; } .pill-oscuro:hover{ background:#000; color:#fff; }
-  .paso{ display:flex; gap:16px; align-items:flex-start; background:#fff; border:1px solid var(--line); border-radius:20px; padding:20px 22px; margin-bottom:12px; }
-  .paso .n{ flex:0 0 40px; height:40px; border-radius:12px; background:var(--ink); color:#fff; font-family:var(--font-title); font-weight:800; display:flex; align-items:center; justify-content:center; }
-  .paso b{ display:block; font-size:19px; }
-  .paso span{ color:#3B4A60; font-size:16px; }
+  /* ---------- Hazte socio: escena principal a todo el ancho ---------- */
+  .escena-socio{ position:relative; background:var(--cta); color:#fff; padding:110px 0 120px; overflow:hidden; border-radius:56px 56px 0 0; }
+  .escena-socio canvas{ position:absolute; inset:0; width:100%; height:100%; z-index:0; }
+  .escena-socio .contenedor{ position:relative; z-index:1; }
+  .gigante{ color:#fff; font-family:var(--font-title); font-weight:800; font-size:clamp(50px,14.5vw,220px); line-height:.85; letter-spacing:-.045em; margin:0 0 50px; white-space:nowrap; }
+  .gigante .l{ display:inline-block; }
+  .js .gigante .l{ opacity:0; transform:translateY(-120%) rotate(calc(var(--i) * 7deg - 20deg)); }
+  .gigante.visto .l{ animation:letraCae .9s cubic-bezier(.25,1.6,.4,1) both; animation-delay:calc(var(--i) * 55ms); }
+  .gigante .l:hover{ animation:letraSalta .5s cubic-bezier(.3,1.8,.5,1); }
+  @keyframes letraCae{ from{ opacity:0; transform:translateY(-120%) rotate(calc(var(--i) * 7deg - 20deg)); } to{ opacity:1; transform:none; } }
+  @keyframes letraSalta{ 40%{ transform:translateY(-18%) rotate(-6deg); } }
+  .socio-fila{ display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.2fr); gap:48px; align-items:start; }
+  @media (max-width:900px){ .socio-fila{ grid-template-columns:1fr; } }
+  .socio-texto p{ font-size:22px; line-height:1.45; margin:0 0 30px; max-width:30ch; }
+  .socio-texto .pill-blanco{ background:#fff; color:var(--ink); }
+  .socio-texto .pill-blanco:hover{ background:var(--ink); color:#fff; }
+  .socio-texto .reactivar{ font-size:17px; margin:26px 0 0; }
+  .socio-texto .reactivar a{ color:#fff; font-weight:700; }
+  .pasos-socio{ list-style:none; margin:0; padding:0; display:grid; gap:16px; counter-reset:paso; }
+  .pasos-socio li{ counter-increment:paso; display:grid; grid-template-columns:64px 1fr; gap:18px; align-items:center; background:#fff; color:var(--ink); border-radius:28px; padding:20px 24px; }
+  .pasos-socio li::before{ content:counter(paso); width:64px; height:64px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-family:var(--font-title); font-weight:800; font-size:30px; color:#fff; background:var(--c); }
+  .pasos-socio li:nth-child(1){ --c:var(--naranja); } .pasos-socio li:nth-child(2){ --c:var(--verde); } .pasos-socio li:nth-child(3){ --c:var(--azul); }
+  .pasos-socio b{ display:block; font-family:var(--font-title); font-size:24px; line-height:1.1; }
+  .pasos-socio span{ color:#3B4A60; font-size:17px; }
+  .js .pasos-socio li{ opacity:0; transform:translateX(60px) rotate(2deg); transition:opacity .6s, transform .7s cubic-bezier(.2,.9,.25,1.2); transition-delay:calc(.5s + var(--i) * 150ms); }
+  .js .pasos-socio.visto li{ opacity:1; transform:none; }
 
-  /* Eventos en tarjetas */
-  .eventos-lista{ display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
-  @media (max-width:900px){ .eventos-lista{ grid-template-columns:1fr; } }
-  .evento{ display:flex; flex-direction:column; gap:14px; min-height:210px; border:2px solid var(--ink); border-radius:26px; padding:22px; color:var(--ink); text-decoration:none; background:#fff; transition:transform .15s, box-shadow .15s; }
-  .evento:hover{ color:var(--ink); transform:translate(-3px,-3px); box-shadow:6px 6px 0 var(--ink); }
-  .evento .dia{ display:flex; align-items:baseline; gap:8px; font-family:var(--font-title); font-weight:800; }
-  .evento .dia b{ font-size:64px; line-height:.8; }
-  .evento .dia span{ font-size:18px; }
-  .evento .txt{ margin-top:auto; }
-  .evento .txt b{ display:block; font-family:var(--font-title); font-size:24px; line-height:1.1; }
-  .evento .txt span{ display:block; font-size:15px; color:var(--ink-soft); margin-top:4px; }
-  @media (prefers-reduced-motion:reduce){ .evento{ transition:none; } .evento:hover{ transform:none; } }
+  /* Botón «Hazte socio» que acompaña mientras bajas */
+  .flotante{ position:fixed; right:22px; bottom:22px; z-index:20; display:inline-flex; align-items:center; gap:10px; min-height:60px; padding:0 28px; border-radius:999px; background:var(--cta); color:#fff; font-family:var(--font-title); font-weight:800; font-size:20px; text-decoration:none; box-shadow:0 12px 30px rgba(214,36,110,.45); transform:translateY(140%); transition:transform .45s cubic-bezier(.2,.9,.25,1.2); }
+  .flotante.ver{ transform:none; }
+  .flotante:hover{ color:#fff; background:var(--cta-deep); }
+  .flotante::after{ content:""; position:absolute; inset:0; border-radius:inherit; box-shadow:0 0 0 0 rgba(214,36,110,.55); animation:latido 2.4s ease-out infinite; }
+  @keyframes latido{ 70%,100%{ box-shadow:0 0 0 18px rgba(214,36,110,0); } }
 
-  /* Vídeos */
-  .video-principal{ border-radius:28px; overflow:hidden; aspect-ratio:16/9; background:var(--ink); }
+  /* ---------- Próximos eventos: filas iguales, como entradas ---------- */
+  .eventos-lista{ border-top:3px solid var(--ink); }
+  .evento{ position:relative; display:grid; grid-template-columns:132px minmax(0,1fr) minmax(0,280px) 56px; align-items:center; gap:20px; min-height:116px; padding:16px 8px; border-bottom:3px solid var(--ink); color:var(--ink); text-decoration:none; overflow:hidden; isolation:isolate; }
+  .evento::before{ content:""; position:absolute; inset:0; background:var(--t); transform:scaleX(0); transform-origin:left; transition:transform .45s cubic-bezier(.2,.8,.2,1); z-index:-1; }
+  .evento:hover::before, .evento:focus-visible::before{ transform:none; }
+  .evento:hover{ color:var(--ink); }
+  .ev-fecha{ display:flex; align-items:baseline; gap:8px; font-family:var(--font-title); font-weight:800; }
+  .ev-fecha b{ display:inline-flex; align-items:center; justify-content:center; width:76px; height:76px; border-radius:50%; background:var(--c); color:#fff; font-size:36px; line-height:1; }
+  .ev-fecha span{ font-size:20px; }
+  .ev-tit{ font-family:var(--font-title); font-weight:800; font-size:clamp(22px,2.4vw,32px); line-height:1.1; letter-spacing:-.015em; }
+  .ev-info{ font-size:16px; color:#3B4A60; }
+  .ev-flecha{ width:52px; height:52px; border-radius:50%; border:2px solid var(--ink); display:flex; align-items:center; justify-content:center; transition:transform .3s, background .3s; }
+  .evento:hover .ev-flecha{ transform:translateX(6px); background:var(--ink); color:#fff; }
+  @media (max-width:760px){
+    .evento{ grid-template-columns:96px minmax(0,1fr); gap:6px 16px; }
+    .ev-fecha{ grid-row:span 2; flex-direction:column; align-items:center; gap:2px; }
+    .ev-fecha b{ width:64px; height:64px; font-size:30px; }
+    .ev-flecha{ display:none; }
+  }
+
+  /* ---------- Vídeos ---------- */
+  .video-principal{ border-radius:32px; overflow:hidden; aspect-ratio:16/9; background:var(--ink); }
   .video-principal iframe{ width:100%; height:100%; border:0; display:block; }
   .video-titulo{ font-weight:700; margin:10px 0 0; }
   .videos-otros{ display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:12px; margin-top:16px; }
@@ -128,30 +199,34 @@
   .videos-otros button[aria-current="true"] img{ border-color:var(--ink); }
   .videos-otros span{ font-size:15px; }
 
-  /* La Junta */
-  .junta{ list-style:none; padding:0; margin:0; display:grid; grid-template-columns:repeat(2,1fr); gap:0 56px; border-top:2px solid var(--ink); }
+  /* ---------- La Junta ---------- */
+  .junta{ list-style:none; padding:0; margin:0; display:grid; grid-template-columns:repeat(2,1fr); gap:0 56px; border-top:3px solid var(--ink); }
   @media (max-width:760px){ .junta{ grid-template-columns:1fr; } }
-  .junta li{ padding:22px 0; border-bottom:1px solid #C9D3E3; font-size:16px; display:flex; flex-direction:column; gap:2px; }
+  .junta li{ padding:26px 0; border-bottom:1px solid #C9D3E3; font-size:16px; display:flex; flex-direction:column; gap:2px; }
   .junta small{ font-weight:700; color:var(--cta); font-size:15px; }
-  .junta b{ display:block; font-family:var(--font-title); font-weight:700; font-size:clamp(24px,2.6vw,30px); line-height:1.1; letter-spacing:-.01em; }
+  .junta b{ display:block; font-family:var(--font-title); font-weight:700; font-size:clamp(26px,2.8vw,34px); line-height:1.1; letter-spacing:-.01em; }
   .junta span{ color:#3B4A60; }
   .junta em{ color:#3B4A60; margin-top:8px; }
-  .junta-intro{ color:#3B4A60; max-width:62ch; margin:0 0 26px; }
+  .junta-intro{ color:#3B4A60; max-width:62ch; margin:0 0 26px; font-size:19px; }
+  .js .junta li{ opacity:0; transform:translateY(30px); transition:opacity .6s, transform .6s; transition-delay:calc(var(--i) * 120ms); }
+  .js .junta.visto li{ opacity:1; transform:none; }
+
   .doc-item{ display:flex; justify-content:space-between; align-items:center; gap:12px; padding:14px 0; border-bottom:1px solid var(--line); }
   .doc-fecha{ font-size:14px; color:var(--ink-soft); }
   .contacto-dos{ display:grid; grid-template-columns:1fr 1fr; gap:48px; }
   .contacto-dos:has(#bloqueDocs[hidden]){ grid-template-columns:minmax(0,680px); }
   @media (max-width:900px){ .contacto-dos{ grid-template-columns:1fr; } }
 
-  .pie-web{ background:var(--ink); color:#C9D4E3; font-size:15px; position:relative; overflow:hidden; }
-  .pie-web::before{ content:""; position:absolute; left:0; right:0; top:0; height:6px; background:linear-gradient(90deg,#FF4D8D,#FF7A1A,#FFC21A,#3FB54A,#00A3E0,#8A5CC2); }
+  /* ---------- Pie ---------- */
+  .pie-web{ background:var(--ink); color:#C9D4E3; font-size:15px; position:relative; overflow:hidden; z-index:1; }
+  .pie-web::before{ content:""; position:absolute; left:0; right:0; top:0; height:8px; background:linear-gradient(90deg,#FF4D8D,#FF7A1A,#FFC21A,#3FB54A,#00A3E0,#8A5CC2); }
   .pie-web a{ color:#fff; text-decoration:none; }
   .pie-cols{ display:flex; flex-wrap:wrap; gap:40px 56px; padding-top:56px; padding-bottom:40px; }
   .pie-cols > div{ flex:1 1 220px; min-width:0; }
   .pie-cols > .pie-marca{ flex:1.2 1 260px; }
   .pie-cols > .pie-siguenos{ flex:1.6 1 340px; }
   .pie-logo{ display:inline-flex; background:#fff; border-radius:18px; padding:8px 12px; margin-bottom:14px; }
-  .pie-logo img{ height:56px; width:auto; }
+  .pie-logo img{ height:72px; width:auto; }
   .pie-marca p{ margin:0; max-width:34ch; line-height:1.5; }
   .pie-titulo{ font-family:var(--font-title); font-weight:700; font-size:18px; color:#fff; margin:0 0 14px; }
   .pie-redes, .pie-enlaces{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:12px; }
@@ -167,16 +242,36 @@
   .pie-final{ display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:14px; padding-top:20px; padding-bottom:28px; border-top:1px solid #2C3F60; font-size:14px; }
   .pie-colegio{ display:inline-flex; background:#fff; border-radius:12px; padding:6px 10px; }
   .pie-colegio img{ height:34px; width:auto; }
+
   /* Socio con la sesión iniciada: sin lo que es para captar socios */
   body.es-socio .solo-publico{ display:none !important; }
   body:not(.es-socio) .solo-socio{ display:none !important; }
+
+  @media (max-width:700px){
+    .marca img{ height:60px; }
+    .hero{ min-height:auto; padding-top:0; }
+    .hero p{ font-size:18px; }
+    .bloque{ padding-top:70px; padding-bottom:70px; }
+    .escena-socio{ border-radius:36px 36px 0 0; padding:80px 0 90px; }
+    .flotante{ right:14px; bottom:14px; min-height:54px; font-size:18px; padding:0 22px; }
+  }
+  @media (prefers-reduced-motion:reduce){
+    .js .hero-logo, .js .hero h1 .pal, .js .hero p, .js .hero-acciones, .js .polaroid, .flotante::after{ animation:none; }
+    .js .aparece, .js .pasos-socio li, .js .junta li{ opacity:1; transform:none; transition:none; }
+    .js .gigante .l{ opacity:1; transform:none; animation:none !important; }
+    .panel .icono path, .panel .icono rect{ stroke-dashoffset:0; transition:none; }
+    .carril{ height:auto; } .carril-pin{ position:static; height:auto; overflow:visible; display:block; }
+    .pista{ flex-direction:column; padding:0 24px; transform:none !important; max-width:1200px; margin:0 auto; }
+    .panel{ width:auto; }
+    .evento::before, .ev-flecha, .flotante, .magnetico{ transition:none; }
+  }
 </style>
 </head>
 <body>
 
 <header class="contenedor portada-head">
   <a href="index.html" class="marca">
-    <img src="assets/logo-ampa.png" alt="">
+    <img src="assets/logo-ampa-transparente.png" alt="">
     <span><b>AMPA</b><small>Colegio Juan de Valdés</small></span>
   </a>
   <nav class="menu" aria-label="Principal">
@@ -184,72 +279,89 @@
     <a href="publico.html" class="solo-publico">Eventos</a>
     <a href="eventos.html" class="solo-socio">Eventos</a>
     <a href="#junta">La Junta</a>
+    <button type="button" class="sonido" id="sonidoBtn" aria-pressed="false">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5L6 9H2v6h4l5 4z"/><path class="on" d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/><path class="off" d="M22 9l-6 6M16 9l6 6"/></svg>
+      Sonido
+    </button>
     <a href="login.html" class="entrar solo-publico">Entrar como socio</a>
     <a href="dashboard.html" class="entrar solo-socio">Mi perfil</a>
     <button type="button" class="salir solo-socio" id="salirBtn">Cerrar sesión</button>
   </nav>
 </header>
 
+<svg class="cinta" id="cinta" aria-hidden="true"><defs><linearGradient id="arco" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="1000"></linearGradient></defs><path id="cintaPath" stroke="url(#arco)"/></svg>
+
 <main>
-  <section class="hero">
-    <div class="polvo" aria-hidden="true"><i style="left:10%;top:8%;width:320px;height:320px;background:#FF4D8D"></i><i style="left:38%;top:0%;width:300px;height:300px;background:#FFC21A"></i><i style="left:58%;top:22%;width:320px;height:320px;background:#3FB54A"></i><i style="left:30%;top:46%;width:280px;height:280px;background:#00A3E0"></i><i style="left:62%;top:56%;width:260px;height:260px;background:#8A5CC2"></i><i style="left:4%;top:50%;width:240px;height:240px;background:#FF7A1A"></i></div>
+  <section class="hero" id="hero">
+    <canvas id="polvoHero" aria-hidden="true"></canvas>
     <div class="contenedor hero-in">
-      <div class="hero-texto">
-        <h1>Asociación de Familias del Colegio Juan de Valdés</h1>
-        <p>Trabajamos para que la vida escolar de nuestros alumnos y alumnas sea más rica: Banco de Libros, Banco de Uniformes, actividades, eventos y apoyo a las familias del colegio.</p>
-        <div class="hero-acciones solo-socio">
-          <a href="dashboard.html" class="pill pill-cta">Mi perfil</a>
-        </div>
-        <div class="hero-acciones solo-publico">
-          <a href="hazte-socio.html" class="pill pill-cta" id="ctaHero">Hazte socio</a>
-          <a href="login.html" class="pill pill-linea">Ya soy socio, entrar</a>
-        </div>
+      <img class="hero-logo" src="assets/logo-ampa-transparente.png" alt="Logotipo del AMPA Juan de Valdés">
+      <h1 id="titulo">Asociación de Familias del Colegio Juan de Valdés</h1>
+      <p>Trabajamos para que la vida escolar de nuestros alumnos y alumnas sea más rica: Banco de Libros, Banco de Uniformes, actividades, eventos y apoyo a las familias del colegio.</p>
+      <div class="hero-acciones solo-socio">
+        <a href="dashboard.html" class="pill pill-cta pill-xl magnetico">Mi perfil</a>
       </div>
-      <div class="hero-logo"><img src="assets/logo-ampa.png" alt="Logotipo del AMPA Juan de Valdés"></div>
+      <div class="hero-acciones solo-publico">
+        <a href="hazte-socio.html" class="pill pill-cta pill-xl magnetico" id="ctaHero">Hazte socio</a>
+        <a href="login.html" class="pill pill-linea">Ya soy socio, entrar</a>
+      </div>
     </div>
   </section>
 
   <!-- Solo aparece si hay fotos -->
-  <section class="contenedor fotos-bloque" id="bloqueFotos" hidden>
-    <div class="cabecera-bloque">
-      <h2 class="sec-tit" style="margin:0;">Así lo vivimos</h2>
+  <section class="pared" id="bloqueFotos" hidden>
+    <div class="contenedor cabecera-bloque">
+      <h2 class="sec-tit">Así lo vivimos</h2>
       <div class="car-botones" id="carBotones">
-        <button type="button" id="carAnt" aria-label="Fotos anteriores"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button>
-        <button type="button" id="carSig" class="sig" aria-label="Fotos siguientes"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
+        <button type="button" class="pausa" id="carPausa" aria-pressed="false">Parar</button>
+        <button type="button" id="carAnt" aria-label="Fotos anteriores"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button>
+        <button type="button" id="carSig" aria-label="Fotos siguientes"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
       </div>
     </div>
     <div class="muro" id="muro"></div>
     <dialog class="visor" id="visor"><figure><img id="visorImg" alt=""><figcaption id="visorPie"></figcaption></figure><button type="button" class="visor-cerrar" id="visorCerrar" aria-label="Cerrar">×</button></dialog>
   </section>
 
-  <section class="bloque contenedor" id="que-hacemos" style="padding-top:48px;">
-    <h2>¿Qué hacemos desde el AMPA?</h2>
-    <p class="intro">El AMPA es una entidad sin ánimo de lucro formada por familias del centro. Complementamos la labor educativa del colegio, representamos los intereses de las familias y organizamos actividades y servicios que enriquecen la vida escolar de nuestros alumnos y alumnas.</p>
-    <div class="bento">
-      <div class="tesela t-libros"><span class="ic"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2V5z"/><path d="M4 19a2 2 0 0 1 2-2h13"/></svg></span><h3>Banco de Libros</h3><p>Préstamo de los libros de lectura del curso de cada alumno o alumna.</p><span class="grande"><svg width="210" height="210" viewBox="0 0 24 24" fill="none" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2V5z"/><path d="M4 19a2 2 0 0 1 2-2h13"/></svg></span></div>
-      <div class="tesela t-uniformes"><span class="ic"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3L3 6l2 4 3-1v12h8V9l3 1 2-4-5-3a4 4 0 0 1-8 0z"/></svg></span><h3>Banco de Uniformes</h3><p>Donación e intercambio de uniformes: recogida y reparto para darles una segunda vida.</p></div>
-      <div class="tesela t-eventos"><span class="ic"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg></span><h3>Eventos y talleres</h3><p>Teatros o cuentacuentos, la chocolatada de Navidad y la barbacoa de fin de curso junto con el colegio. Talleres de juegos de mesa, rol y ciencias.</p></div>
-      <div class="tesela t-mochila"><span class="ic"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9a6 6 0 0 1 12 0v11H6z"/><path d="M9 5V3h6v2M9 14h6"/></svg></span><h3>Mochila Jugona Exploradora</h3><p style="font-size:15px;">Una mochila llena de juegos que va pasando por las casas de las familias.</p></div>
+  <section id="que-hacemos">
+    <div class="contenedor que-intro aparece">
+      <h2 class="sec-tit">¿Qué hacemos desde el AMPA?</h2>
+      <p class="intro" style="color:#3B4A60; max-width:62ch; font-size:19px; margin:0;">El AMPA es una entidad sin ánimo de lucro formada por familias del centro. Complementamos la labor educativa del colegio, representamos los intereses de las familias y organizamos actividades y servicios que enriquecen la vida escolar de nuestros alumnos y alumnas.</p>
     </div>
-    <p class="mas">Además, la Lotería de Navidad (participaciones solidarias para financiar actividades del curso) y charlas y talleres para familias en colaboración con la FAPA y otros organismos.</p>
+    <div class="carril" id="carril" style="--n:4">
+      <div class="carril-pin">
+        <div class="pista" id="pista">
+          <article class="panel p-libros"><svg class="icono" viewBox="0 0 24 24" fill="none" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2V5z"/><path d="M4 19a2 2 0 0 1 2-2h13"/><path d="M9 7h6M9 10h4"/></svg><h3>Banco de Libros</h3><p>Préstamo de los libros de lectura del curso de cada alumno o alumna.</p></article>
+          <article class="panel p-uniformes"><svg class="icono" viewBox="0 0 24 24" fill="none" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3L3 6l2 4 3-1v12h8V9l3 1 2-4-5-3a4 4 0 0 1-8 0z"/></svg><h3>Banco de Uniformes</h3><p>Donación e intercambio de uniformes: recogida y reparto para darles una segunda vida.</p></article>
+          <article class="panel p-eventos"><svg class="icono" viewBox="0 0 24 24" fill="none" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg><h3>Eventos y talleres</h3><p>Teatros o cuentacuentos, la chocolatada de Navidad y la barbacoa de fin de curso junto con el colegio. Talleres de juegos de mesa, rol y ciencias.</p></article>
+          <article class="panel p-mochila"><svg class="icono" viewBox="0 0 24 24" fill="none" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9a6 6 0 0 1 12 0v11H6z"/><path d="M9 5V3h6v2M9 14h6"/></svg><h3>Mochila Jugona Exploradora</h3><p>Una mochila llena de juegos que va pasando por las casas de las familias.</p></article>
+        </div>
+      </div>
+    </div>
+    <p class="contenedor mas aparece">Además, la Lotería de Navidad (participaciones solidarias para financiar actividades del curso) y charlas y talleres para familias en colaboración con la FAPA y otros organismos.</p>
   </section>
 
-
-  <section class="socio-fondo solo-publico" id="hazte-socio">
-    <div class="contenedor socio-dos">
-      <div class="socio-tarjeta">
-        <h2>Hazte socio</h2>
-        <p>Una familia socia paga 25 € al año, sea cual sea el tamaño de la familia.</p>
-        <a href="hazte-socio.html" class="pill pill-oscuro">Empezar la solicitud</a>
-        <p style="margin:14px 0 0; font-size:15px; color:var(--ink-soft);">¿Fuisteis socios otros años? <a href="reactivar-cuenta.html">Reactivad vuestra cuenta</a>.</p>
+  <section class="escena-socio solo-publico" id="hazte-socio">
+    <canvas id="polvoSocio" aria-hidden="true"></canvas>
+    <div class="contenedor">
+      <h2 class="gigante" id="gigante" aria-label="Hazte socio">Hazte socio</h2>
+      <div class="socio-fila">
+        <div class="socio-texto">
+          <p>Una familia socia paga 25 € al año, sea cual sea el tamaño de la familia.</p>
+          <a href="hazte-socio.html" class="pill pill-blanco pill-xl magnetico">Empezar la solicitud</a>
+          <p class="reactivar">¿Fuisteis socios otros años? <a href="reactivar-cuenta.html">Reactivad vuestra cuenta</a>.</p>
+        </div>
+        <ol class="pasos-socio" id="pasosSocio">
+          <li style="--i:0"><div><b>Rellena los datos</b><span>Los adultos de la familia y los alumnos y alumnas del colegio.</span></div></li>
+          <li style="--i:1"><div><b>Paga la cuota</b><span>Por transferencia, y sube el justificante en el mismo formulario.</span></div></li>
+          <li style="--i:2"><div><b>Recibe tu número de socio</b><span>La Junta revisa la solicitud y os llega un email de bienvenida.</span></div></li>
+        </ol>
       </div>
-      <div class="pasos-c"><div class="paso"><span class="n">1</span><div><b>Rellena los datos</b><span>Los adultos de la familia y los alumnos y alumnas del colegio.</span></div></div><div class="paso"><span class="n">2</span><div><b>Paga la cuota</b><span>Por transferencia, y sube el justificante en el mismo formulario.</span></div></div><div class="paso"><span class="n">3</span><div><b>Recibe tu número de socio</b><span>La Junta revisa la solicitud y os llega un email de bienvenida.</span></div></div></div>
     </div>
   </section>
 
   <!-- Solo aparece si hay eventos próximos -->
   <section class="bloque contenedor" id="bloqueEventos" hidden>
-    <div class="cabecera-bloque">
+    <div class="cabecera-bloque aparece">
       <h2>Próximos eventos</h2>
       <a class="ver-todos solo-publico" href="publico.html">Ver los eventos abiertos</a>
       <a class="ver-todos solo-socio" href="eventos.html">Ver todos los eventos</a>
@@ -259,9 +371,9 @@
   </section>
 
   <!-- Solo aparece si hay vídeos -->
-  <section class="bloque contenedor raya" id="bloqueVideos" hidden>
-    <h2 style="margin-bottom:20px;">Vídeos</h2>
-    <div style="max-width:880px;">
+  <section class="bloque contenedor" id="bloqueVideos" hidden>
+    <h2 class="aparece" style="margin-bottom:20px;">Vídeos</h2>
+    <div class="aparece" style="max-width:880px;">
       <div class="video-principal"><iframe id="videoFrame" title="Vídeo del AMPA" allow="accelerometer; encrypted-media; gyroscope; picture-in-picture" allowfullscreen loading="lazy"></iframe></div>
       <p class="video-titulo" id="videoTitulo"></p>
       <div class="videos-otros" id="videosOtros"></div>
@@ -269,13 +381,13 @@
   </section>
 
   <section class="bloque contenedor" id="junta">
-    <h2>La Junta</h2>
-    <p class="junta-intro">La Junta del AMPA está compuesta por madres y padres del colegio que colaboran de forma voluntaria. Coordinan las actividades, gestionan la comunicación con las familias y administran los recursos económicos de la asociación.</p>
-    <ul class="junta"><li><small>Presidente</small><b>Federico Prado Enrico</b><span>Familia monoparental con una niña en la ESO.</span><em>"Mi objetivo es contribuir al desarrollo educativo de los niños y niñas a través de actividades complementarias, fomentando una comunidad que refuerce la relación entre las familias y el Colegio."</em></li><li><small>Vicepresidenta</small><b>Paula Albo Pariente</b><span>Madre de un hijo en Primaria y otro en Educación Infantil.</span><em>"Quiero contribuir a mejorar la comunicación entre la escuela y las familias."</em></li><li><small>Secretaria</small><b>Isabel Gaona Herranz</b><span>Madre de una niña en Primaria.</span><em>"Quiero ayudar a seguir mejorando entre todos la comunidad escolar."</em></li><li><small>Tesorera</small><b>Beatriz Gómez Macho</b><span>Madre de dos hijos.</span><em>"Me gustaría contribuir a una mayor colaboración entre el colegio y las familias."</em></li></ul>
+    <h2 class="aparece">La Junta</h2>
+    <p class="junta-intro aparece">La Junta del AMPA está compuesta por madres y padres del colegio que colaboran de forma voluntaria. Coordinan las actividades, gestionan la comunicación con las familias y administran los recursos económicos de la asociación.</p>
+    <ul class="junta" id="listaJunta"><li style="--i:0"><small>Presidente</small><b>Federico Prado Enrico</b><span>Familia monoparental con una niña en la ESO.</span><em>"Mi objetivo es contribuir al desarrollo educativo de los niños y niñas a través de actividades complementarias, fomentando una comunidad que refuerce la relación entre las familias y el Colegio."</em></li><li style="--i:1"><small>Vicepresidenta</small><b>Paula Albo Pariente</b><span>Madre de un hijo en Primaria y otro en Educación Infantil.</span><em>"Quiero contribuir a mejorar la comunicación entre la escuela y las familias."</em></li><li style="--i:2"><small>Secretaria</small><b>Isabel Gaona Herranz</b><span>Madre de una niña en Primaria.</span><em>"Quiero ayudar a seguir mejorando entre todos la comunidad escolar."</em></li><li style="--i:3"><small>Tesorera</small><b>Beatriz Gómez Macho</b><span>Madre de dos hijos.</span><em>"Me gustaría contribuir a una mayor colaboración entre el colegio y las familias."</em></li></ul>
   </section>
 
-  <section class="bloque contenedor raya">
-    <div class="contacto-dos">
+  <section class="bloque contenedor" id="contacto">
+    <div class="contacto-dos aparece">
       <!-- Solo aparece si hay documentos publicados -->
       <div id="bloqueDocs" hidden>
         <h2>Newsletters y documentos</h2>
@@ -293,6 +405,8 @@
     </div>
   </section>
 </main>
+
+<a href="hazte-socio.html" class="flotante solo-publico" id="flotante" tabindex="-1" aria-hidden="true">Hazte socio</a>
 
 <footer class="pie-web">
   <div class="contenedor pie-cols">
@@ -321,6 +435,7 @@
         <li class="solo-publico"><a href="login.html">Entrar como socio</a></li>
         <li class="solo-publico"><a href="publico.html">Eventos abiertos</a></li>
         <li class="solo-publico"><a href="reactivar-cuenta.html">Reactivar mi cuenta</a></li>
+        <li><a href="donar.html">Donar material</a></li>
         <li class="solo-socio"><a href="dashboard.html">Mi perfil</a></li>
         <li class="solo-socio"><a href="eventos.html">Eventos</a></li>
         <li class="solo-socio"><a href="mochila.html">Mochila Jugona Exploradora</a></li>
@@ -337,55 +452,69 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="shared/supabaseClient.js"></script>
 <script src="shared/datos-ampa.js"></script>
+<script src="shared/portada-vida.js"></script>
 <script>
 const esc = (t) => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-
-// La cuota sale de datos-ampa.js para no tenerla repetida
-
+const COLORES = ['#FF4D8D', '#FFC21A', '#3FB54A', '#00A3E0', '#8A5CC2', '#FF7A1A'];
+const TINTES = ['#FFD6E5', '#FFEDB3', '#CDEFCF', '#C2E9F8', '#E3D7F2', '#FFDDC2'];
 
 /* ---------- Carrusel de fotos (oculto si no hay ninguna) ---------- */
 async function cargarFotos() {
   const { data: fotos, error } = await sb.from('fotos_carrusel').select('url, pie').is('evento_id', null).order('orden');
   if (error || !fotos || !fotos.length) return;
   const muro = document.getElementById('muro');
-  muro.innerHTML = fotos.map((f, k) => `<button type="button" class="polaroid" data-k="${k}" aria-label="Ver la foto en grande${f.pie ? ': ' + esc(f.pie) : ''}">
-      <img src="${esc(f.url)}" alt="${esc(f.pie || 'Foto de un evento del AMPA')}" loading="lazy">
-      <span class="pie">${esc(f.pie || '')}</span></button>`).join('');
-  if (fotos.length < 3) document.getElementById('carBotones').hidden = true;
-  const paso = () => Math.min(muro.clientWidth * 0.8, 380);
-  document.getElementById('carAnt').addEventListener('click', () => muro.scrollBy({ left: -paso(), behavior: 'smooth' }));
-  document.getElementById('carSig').addEventListener('click', () => muro.scrollBy({ left: paso(), behavior: 'smooth' }));
-  // Foto en grande
+  const tarjeta = (f, k, copia) => `<button type="button" class="polaroid" data-k="${k}" style="--k:${k}"${copia ? ' aria-hidden="true" tabindex="-1"' : ''} aria-label="Ver la foto en grande${f.pie ? ': ' + esc(f.pie) : ''}">
+      <img src="${esc(f.url)}" alt="${copia ? '' : esc(f.pie || 'Foto de un evento del AMPA')}" loading="lazy" draggable="false">
+      <span class="pie">${esc(f.pie || '')}</span></button>`;
+  // Con 3 o más fotos el muro pasa solo y sin fin: se repite la serie
+  const enMovimiento = fotos.length >= 3;
+  muro.innerHTML = fotos.map((f, k) => tarjeta(f, k, false)).join('') + (enMovimiento ? fotos.map((f, k) => tarjeta(f, k, true)).join('') : '');
+  if (!enMovimiento) document.getElementById('carBotones').hidden = true;
+  document.getElementById('bloqueFotos').hidden = false;
   const visor = document.getElementById('visor');
-  muro.addEventListener('click', (e) => {
-    const b = e.target.closest('.polaroid'); if (!b) return;
-    const f = fotos[Number(b.dataset.k)];
+  const abrir = (k) => {
+    const f = fotos[k];
     document.getElementById('visorImg').src = f.url;
     document.getElementById('visorImg').alt = f.pie || 'Foto de un evento del AMPA';
     document.getElementById('visorPie').textContent = f.pie || '';
+    Vida.sonido.papel();
     if (visor.showModal) visor.showModal(); else window.open(f.url, '_blank');
+  };
+  Vida.muroVivo(muro, {
+    enMovimiento,
+    pausa: document.getElementById('carPausa'),
+    ant: document.getElementById('carAnt'),
+    sig: document.getElementById('carSig'),
+    alPulsar: abrir
   });
   document.getElementById('visorCerrar').addEventListener('click', () => visor.close());
   visor.addEventListener('click', (e) => { if (e.target === visor) visor.close(); });
-  document.getElementById('bloqueFotos').hidden = false;
+  Vida.recalcularCinta();
 }
 
 /* ---------- Próximos eventos (oculto si no hay) ---------- */
 async function cargarEventos() {
-  const { data, error } = await sb.from('eventos').select('id, titulo, fecha, abierto_no_socios')
-    .eq('activo', true).gte('fecha', new Date().toISOString()).order('fecha').limit(3);
+  const { data, error } = await sb.from('eventos').select('id, titulo, fecha, abierto_no_socios, sin_inscripcion, lugar')
+    .eq('activo', true).gte('fecha', new Date().toISOString()).order('fecha').limit(4);
   if (error || !data || !data.length) return;
-  document.getElementById('eventosLista').innerHTML = data.map(ev => {
+  const socio = document.body.classList.contains('es-socio');
+  document.getElementById('eventosLista').innerHTML = data.map((ev, k) => {
     const f = new Date(ev.fecha);
     const mes = f.toLocaleDateString('es-ES', { month: 'short' }).replace('.', '');
     const hora = f.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-    const socio = document.body.classList.contains('es-socio');
-    return `<a class="evento" href="${socio ? 'eventos.html#ev-' + ev.id : ev.abierto_no_socios ? 'publico.html' : 'login.html'}">
-      <span class="dia"><b>${f.getDate()}</b><span>${mes}</span></span>
-      <span class="txt"><b>${esc(ev.titulo)}</b><span>${socio ? 'A las ' + hora : (ev.abierto_no_socios ? 'Abierto también a familias no socias' : 'Para familias socias') + ', a las ' + hora}</span></span>
+    const info = ev.sin_inscripcion
+      ? 'A las ' + hora + (ev.lugar ? ', en ' + esc(ev.lugar) : '')
+      : socio ? 'A las ' + hora : (ev.abierto_no_socios ? 'Abierto también a familias no socias' : 'Para familias socias') + ', a las ' + hora;
+    return `<a class="evento aparece" style="--c:${COLORES[k % 6]}; --t:${TINTES[k % 6]}" href="${socio ? 'eventos.html#ev-' + ev.id : ev.abierto_no_socios ? 'publico.html' : 'login.html'}">
+      <span class="ev-fecha"><b>${f.getDate()}</b><span>${mes}</span></span>
+      <span class="ev-tit">${esc(ev.titulo)}</span>
+      <span class="ev-info">${info}</span>
+      <span class="ev-flecha" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
     </a>`;
   }).join('');
   document.getElementById('bloqueEventos').hidden = false;
+  Vida.observarApariciones();
+  Vida.recalcularCinta();
 }
 
 /* ---------- Vídeos (oculto si no hay) ---------- */
@@ -405,6 +534,8 @@ async function cargarVideos() {
   }
   poner(0);
   document.getElementById('bloqueVideos').hidden = false;
+  Vida.observarApariciones();
+  Vida.recalcularCinta();
 }
 
 /* ---------- Documentos (oculto si no hay) ---------- */
@@ -417,6 +548,7 @@ async function cargarDocumentos() {
       <a class="btn btn-outline" href="${esc(d.url)}" target="_blank" rel="noopener">Abrir</a>
     </div>`).join('');
   document.getElementById('bloqueDocs').hidden = false;
+  Vida.recalcularCinta();
 }
 
 // ¿Socio con la sesión iniciada? Se marca ya (sin esperar a la red) si hay
@@ -433,6 +565,7 @@ async function comprobarSocio() {
     activo = !!socio && socio.estado === 'activa';
   } catch (e) { activo = false; }
   document.body.classList.toggle('es-socio', activo);
+  Vida.recalcularCinta();
 }
 comprobarSocio().then(() => { cargarEventos(); });
 // Cerrar sesión: se queda en la portada, ya como visitante
@@ -462,11 +595,14 @@ document.getElementById('contactoBtn').addEventListener('click', async () => {
     msg.style.display = 'block'; msg.className = 'msg-ok';
     msg.textContent = 'Mensaje enviado. Te contestaremos por email.';
     document.getElementById('contactoMensaje').value = '';
+    Vida.sonido.acorde();
   } catch (err) {
     msg.style.display = 'block'; msg.className = 'msg-error';
     msg.textContent = err.message;
   }
 });
+
+Vida.iniciar();
 </script>
 </body>
 </html>

@@ -250,6 +250,7 @@ const TIPOS_VISUAL = {
   barbacoa: ['verde', '<path d="M12 3c2 3 5 5 5 9a5 5 0 0 1-10 0c0-2 1-3 2-4 0 2 1 3 2 3 0-3 1-5 1-8z"/>'],
   comedor: ['morado', '<path d="M7 3v8M5 3v5a2 2 0 0 0 4 0V3M7 11v10M17 3c-2 0-3 2-3 6h3v12"/>'],
   concurso: ['rosa', '<path d="M4 20l4-1 11-11-3-3L5 16z"/><path d="M14 6l3 3"/>'],
+  loteria: ['verde', '<path d="M3 8a2 2 0 0 0 0 4v4h18v-4a2 2 0 0 0 0-4V4H3z"/><path d="M14 4v12" stroke-dasharray="2 2"/>'],
   informativo: ['morado', '<path d="M8 4h8v5a4 4 0 0 1-8 0zM5 5h3v2a3 3 0 0 1-3-2zM19 5h-3v2a3 3 0 0 0 3-2zM12 13v4M8 20h8"/>']
 };
 const ICONO_EVENTO = '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>';
@@ -274,7 +275,7 @@ function cabeceraEvento(evento) {
       ${f ? `<div class="ev-fecha"><span>${f.toLocaleDateString('es-ES', { month: 'short' }).replace('.', '')}</span><b>${f.getDate()}</b><span>${f.toLocaleDateString('es-ES', { weekday: 'short' }).replace('.', '')}</span></div>` : '<div class="ev-fecha"><b>?</b><span>fecha</span></div>'}
       <div class="ev-tit">
         <h2>${esc(evento.titulo)}</h2>
-        <p class="ev-hora">${f ? f.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }) + ', a las ' + f.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : 'Fecha por confirmar'}</p>
+        <p class="ev-hora">${f ? f.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }) + ', a las ' + f.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : 'Fecha por confirmar'}${evento.lugar ? '. Lugar: ' + esc(evento.lugar) : ''}</p>
         <div class="etiquetas"></div>
       </div>
       <svg class="ev-icono" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icono}</svg>

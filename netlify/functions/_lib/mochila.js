@@ -43,6 +43,7 @@ async function notificarNuevoTurno(supabaseAdmin, nuevoP1Id) {
   // "Apuntarme" mostrara error aunque sí se hubiera apuntado).
   try {
     await enviarEmail({ to: email, subject, text });
+    await supabaseAdmin.from('mochila_cola').update({ aviso_enviado_en: new Date().toISOString() }).eq('id', nuevoP1Id);
   } catch (e) {
     console.error('No se pudo enviar el aviso de la Mochila:', e.message);
   }

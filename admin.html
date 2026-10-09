@@ -218,6 +218,13 @@ async function mensajes() {
   if (error) { wrap.innerHTML = '<p class="msg-error">No se pudieron cargar los mensajes.</p>'; return; }
   const lista = data || [];
   const sinAtender = lista.filter(m => !m.atendido).length;
+  try {
+    const { count } = await sb.from('donaciones').select('id', { count: 'exact', head: true }).eq('estado', 'pendiente');
+    if (count) tarea('eventos', count, count === 1 ? 'Donación anunciada por revisar' : 'Donaciones anunciadas por revisar', 'Para la caja de donaciones, desde la página «Donar material».', 'admin-donaciones.html', 'Ver');
+    const { data: donado } = await sb.from('donado_stock').select('cantidad').gt('cantidad', 0);
+    const nDonado = (donado || []).reduce((t, x) => t + x.cantidad, 0);
+    if (nDonado) tarea('eventos', nDonado, 'En el stock donado sin revisar', 'Pasadlo al banco si está bien o descartadlo.', 'admin-donaciones.html', 'Revisar');
+  } catch (e) { /* tabla aún sin crear */ }
   if (sinAtender) tarea('comunicacion', sinAtender, sinAtender === 1 ? 'Mensaje de una familia sin atender' : 'Mensajes de familias sin atender', 'Desde la web pública o desde el portal de socios.', '#mensajes', 'Leer');
   if (!lista.length) { wrap.innerHTML = '<p class="nada">No ha llegado ningún mensaje.</p>'; return; }
   wrap.innerHTML = '';

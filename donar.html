@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Donar material · AMPA Juan de Valdés</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared/styles.css">
+<style>
+  .wrap{ max-width:820px; }
+  .es-donacion{ border-left:6px solid var(--ink); background:#fff; border-radius:0 18px 18px 0; padding:16px 20px; margin:0 0 22px; }
+  .es-donacion b{ display:block; font-family:var(--font-title); font-size:20px; margin-bottom:4px; }
+  .es-donacion p{ margin:0; color:#3B4A60; }
+  .dos{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:560px){ .dos{ grid-template-columns:1fr; } }
+  .confirmo{ display:flex; gap:12px; align-items:flex-start; margin:18px 0; font-weight:700; cursor:pointer; }
+  .confirmo input{ width:22px; height:22px; margin:2px 0 0; flex:0 0 auto; accent-color:var(--ink); }
+  .cat{ border-top:1px solid var(--line); padding:18px 0; }
+  .cat:first-of-type{ border-top:0; padding-top:4px; }
+  .cat h2{ font-family:var(--font-title); font-size:20px; margin:0 0 4px; }
+  .cat .ayuda{ color:var(--ink-soft); margin:0 0 10px; font-size:16px; }
+  .fila{ display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end; }
+  .fila .field{ margin:0; }
+  .fila .crece{ flex:1 1 260px; min-width:0; }
+  .fila .cant{ width:96px; }
+  .fila .talla{ width:120px; }
+  .cesta{ background:#F6F8FB; border-radius:18px; padding:16px 18px; margin:6px 0 4px; }
+  .cesta h2{ font-family:var(--font-title); font-size:20px; margin:0 0 8px; }
+  .cesta ul{ list-style:none; margin:0; padding:0; }
+  .cesta li{ display:flex; justify-content:space-between; gap:12px; align-items:center; padding:8px 0; border-bottom:1px solid var(--line); }
+  .cesta li:last-child{ border-bottom:0; }
+  .cesta .vacia{ color:var(--ink-soft); margin:0; }
+  .hecho{ text-align:center; padding:30px 10px; }
+  .hecho b{ display:block; font-family:var(--font-title); font-size:28px; margin-bottom:8px; }
+</style>
+</head>
+<body>
+<header class="pub-head">
+  <a href="index.html" class="pub-marca"><img src="assets/logo-ampa.png" alt=""><span><b>AMPA</b><small>Colegio Juan de Valdés</small></span></a>
+  <img class="pub-colegio" src="assets/logo-colegio.png" alt="Colegio Juan de Valdés">
+  <nav class="pub-links" id="navLinks">
+    <a href="index.html">Página principal</a>
+    <a href="publico.html">Eventos</a>
+    <a href="login.html" class="pub-pill">Entrar como socio</a>
+  </nav>
+</header>
+
+<div class="wrap">
+  <header class="cab-servicio cs-donar" style="margin-top:28px;"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l9-5 9 5v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M3 9l9 5 9-5M12 14v7"/></svg><div><nav class="miga" aria-label="Estás en"><a href="index.html" id="migaInicio">Página principal</a><span aria-hidden="true">›</span><span>Donaciones</span></nav><h1>Donar material</h1><p>Libros del Banco de Libros, uniformes, carillones y flautas, y ropa de extraescolares que ya no uséis. Puede donar cualquier persona, sea socia del AMPA o no.</p></div></header>
+
+  <div class="es-donacion">
+    <b>Es una donación</b>
+    <p>Lo que entregas pasa a ser del AMPA. No se paga nada por ello y no se devuelve. Se deja en la caja de donaciones del AMPA.</p>
+  </div>
+
+  <div class="card" id="formWrap">
+    <p style="margin:0 0 14px;">Solo recogemos lo que aparece aquí. Si quieres donar otra cosa, cuéntanoslo en «Otra cosa»: la Junta la revisará y puede no aceptarla.</p>
+
+    <section class="cat" id="catLibros">
+      <h2>Libros del Banco de Libros</h2>
+      <p class="ayuda">Solo los libros de lectura del catálogo.</p>
+      <div class="fila">
+        <div class="field crece"><label for="libro">Libro</label><select id="libro"></select></div>
+        <div class="field cant"><label for="libroCant">Cantidad</label><input type="number" id="libroCant" min="1" max="20" value="1"></div>
+        <button type="button" class="btn btn-outline" data-add="libros">Añadir</button>
+      </div>
+    </section>
+
+    <section class="cat" id="catUniformes">
+      <h2>Uniformes del Banco de Uniformes</h2>
+      <p class="ayuda">Cualquier talla.</p>
+      <div class="fila">
+        <div class="field crece"><label for="prenda">Prenda</label><select id="prenda"></select></div>
+        <div class="field talla"><label for="prendaTalla">Talla</label><select id="prendaTalla"></select></div>
+        <div class="field cant"><label for="prendaCant">Cantidad</label><input type="number" id="prendaCant" min="1" max="20" value="1"></div>
+        <button type="button" class="btn btn-outline" data-add="uniformes">Añadir</button>
+      </div>
+    </section>
+
+    <section class="cat">
+      <h2>Instrumentos musicales</h2>
+      <div class="fila">
+        <div class="field crece"><label for="instrumento">Instrumento</label><select id="instrumento"></select></div>
+        <div class="field cant"><label for="instrumentoCant">Cantidad</label><input type="number" id="instrumentoCant" min="1" max="20" value="1"></div>
+        <button type="button" class="btn btn-outline" data-add="instrumentos">Añadir</button>
+      </div>
+    </section>
+
+    <section class="cat">
+      <h2>Ropa de extraescolares</h2>
+      <div class="fila">
+        <div class="field crece"><label for="extra">Prenda</label><select id="extra"></select></div>
+        <div class="field talla"><label for="extraTalla">Talla</label><input type="text" id="extraTalla" placeholder="Opcional"></div>
+        <div class="field cant"><label for="extraCant">Cantidad</label><input type="number" id="extraCant" min="1" max="20" value="1"></div>
+        <button type="button" class="btn btn-outline" data-add="extraescolares">Añadir</button>
+      </div>
+    </section>
+
+    <section class="cat">
+      <h2>Otra cosa</h2>
+      <p class="ayuda">Algo que no está en la lista. La Junta lo revisará y puede no aceptarlo: no lo dejes en la caja hasta que te contestemos.</p>
+      <div class="field"><label for="otros">¿Qué es?</label><textarea id="otros" rows="3"></textarea></div>
+    </section>
+
+    <div class="cesta" aria-live="polite">
+      <h2>Lo que vas a donar</h2>
+      <ul id="cesta"></ul>
+    </div>
+
+    <div class="dos" style="margin-top:18px;">
+      <div class="field"><label for="nombre">Tu nombre *</label><input type="text" id="nombre" autocomplete="name"></div>
+      <div class="field"><label for="email">Tu email *</label><input type="email" id="email" autocomplete="email"></div>
+    </div>
+    <div class="field" style="margin-top:14px; max-width:380px;"><label for="telefono">Teléfono (opcional)</label><input type="tel" id="telefono" autocomplete="tel"></div>
+    <label class="confirmo"><input type="checkbox" id="acepto"> Entiendo que es una donación: lo que entrego pasa a ser del AMPA y no se devuelve.</label>
+    <button type="button" class="btn btn-primary" id="enviarBtn">Enviar la donación</button>
+    <p id="msg" class="msg-error" hidden style="margin-top:14px;"></p>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="shared/supabaseClient.js"></script>
+<script src="shared/donaciones.js"></script>
+<script>
+let token = null;
+const cesta = [];
+const esc = (t) => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const opciones = (lista) => lista.map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join('');
+const ORDEN_ETAPAS = ['Infantil', 'Primaria', 'ESO', 'Bachillerato'];
+let librosPorId = new Map();
+
+(async () => {
+  try {
+    const session = await getSession();
+    if (!session) return;
+    token = session.access_token;
+    const adulto = await getAdulto();
+    if (!adulto) return;
+    // Socio con la sesión iniciada: sus datos ya rellenos y su menú
+    document.getElementById('nombre').value = [adulto.nombre, adulto.apellidos].filter(Boolean).join(' ');
+    document.getElementById('email').value = adulto.email || '';
+    document.getElementById('navLinks').innerHTML = '<a href="index.html">Página principal</a><a href="dashboard.html" class="pub-pill">Mi perfil</a>';
+    const m = document.getElementById('migaInicio'); m.href = 'dashboard.html'; m.textContent = 'Inicio';
+  } catch (e) { /* sin sesión: formulario vacío */ }
+})();
+
+// Catálogos: libros del Banco de Libros y prendas del Banco de Uniformes
+(async () => {
+  const [{ data: libros }, { data: prendas }] = await Promise.all([
+    sb.from('libros_catalogo').select('id, titulo, editorial, etapa, curso').order('titulo'),
+    sb.from('prendas_catalogo').select('tipo')
+  ]);
+  const ls = (libros || []).slice().sort((a, b) => ORDEN_ETAPAS.indexOf(a.etapa) - ORDEN_ETAPAS.indexOf(b.etapa) || parseInt(a.curso) - parseInt(b.curso) || a.titulo.localeCompare(b.titulo));
+  librosPorId = new Map(ls.map(l => [l.id, l]));
+  const grupos = [];
+  ls.forEach(l => { const g = `${l.curso} de ${l.etapa}`; let x = grupos.find(y => y.g === g); if (!x) grupos.push(x = { g, l: [] }); x.l.push(l); });
+  const selLibro = document.getElementById('libro');
+  if (ls.length) selLibro.innerHTML = '<option value="">Elige el libro</option>' + grupos.map(x => `<optgroup label="${esc(x.g)}">${x.l.map(l => `<option value="${l.id}">${esc(l.titulo)} (${esc(l.editorial)})</option>`).join('')}</optgroup>`).join('');
+  else document.getElementById('catLibros').innerHTML = '<h2>Libros del Banco de Libros</h2><p class="ayuda">Ahora mismo no hay libros en el catálogo.</p>';
+
+  const tipos = DONACIONES.tiposUniforme.filter(t => (prendas || []).some(p => p.tipo === t));
+  if (tipos.length) {
+    document.getElementById('prenda').innerHTML = opciones(tipos);
+    const ponerTallas = () => { document.getElementById('prendaTalla').innerHTML = opciones(document.getElementById('prenda').value === 'Baby' ? DONACIONES.tallasBaby : DONACIONES.tallas); };
+    document.getElementById('prenda').addEventListener('change', ponerTallas); ponerTallas();
+  } else document.getElementById('catUniformes').innerHTML = '<h2>Uniformes del Banco de Uniformes</h2><p class="ayuda">Ahora mismo no hay prendas en el catálogo.</p>';
+})();
+document.getElementById('instrumento').innerHTML = opciones(DONACIONES.instrumentos);
+document.getElementById('extra').innerHTML = opciones(DONACIONES.extraescolares);
+
+function pintarCesta() {
+  const ul = document.getElementById('cesta');
+  const otros = document.getElementById('otros').value.trim();
+  if (!cesta.length && !otros) { ul.innerHTML = '<li class="vacia">Todavía no has añadido nada.</li>'; return; }
+  ul.innerHTML = cesta.map((i, k) => `<li><span>${i.cantidad} × ${esc(DONACIONES.texto(i))}</span><button type="button" class="linklike" data-quitar="${k}">Quitar</button></li>`).join('')
+    + (otros ? `<li><span>Otra cosa, por revisar: ${esc(otros)}</span></li>` : '');
+}
+document.getElementById('cesta').addEventListener('click', (e) => { const b = e.target.closest('[data-quitar]'); if (b) { cesta.splice(Number(b.dataset.quitar), 1); pintarCesta(); } });
+document.getElementById('otros').addEventListener('input', pintarCesta);
+
+function cantidadDe(id) { const n = Math.trunc(Number(document.getElementById(id).value)); return n >= 1 && n <= DONACIONES.maxCantidad ? n : null; }
+document.getElementById('formWrap').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-add]'); if (!b) return;
+  const msg = document.getElementById('msg'); msg.hidden = true;
+  let it = null, cant = null;
+  if (b.dataset.add === 'libros') {
+    const l = librosPorId.get(document.getElementById('libro').value);
+    if (!l) { msg.textContent = 'Elige el libro.'; msg.hidden = false; return; }
+    it = { categoria: 'libros', libro_id: l.id, titulo: l.titulo, curso: `${l.curso} de ${l.etapa}` }; cant = cantidadDe('libroCant');
+  } else if (b.dataset.add === 'uniformes') {
+    it = { categoria: 'uniformes', tipo: document.getElementById('prenda').value, talla: document.getElementById('prendaTalla').value }; cant = cantidadDe('prendaCant');
+  } else if (b.dataset.add === 'instrumentos') {
+    it = { categoria: 'instrumentos', articulo: document.getElementById('instrumento').value }; cant = cantidadDe('instrumentoCant');
+  } else {
+    it = { categoria: 'extraescolares', articulo: document.getElementById('extra').value, talla: document.getElementById('extraTalla').value.trim() || null }; cant = cantidadDe('extraCant');
+  }
+  if (!cant) { msg.textContent = `La cantidad tiene que ser de 1 a ${DONACIONES.maxCantidad}.`; msg.hidden = false; return; }
+  // Si ya estaba, se suma
+  const igual = cesta.find(x => DONACIONES.texto(x) === DONACIONES.texto(it));
+  if (igual) igual.cantidad = Math.min(DONACIONES.maxCantidad, igual.cantidad + cant); else cesta.push({ ...it, cantidad: cant });
+  pintarCesta();
+});
+pintarCesta();
+
+document.getElementById('enviarBtn').addEventListener('click', async () => {
+  const msg = document.getElementById('msg'), btn = document.getElementById('enviarBtn');
+  const error = (t) => { msg.textContent = t; msg.hidden = false; };
+  msg.hidden = true;
+  const datos = {
+    items: cesta,
+    otros: document.getElementById('otros').value.trim(),
+    nombre: document.getElementById('nombre').value.trim(),
+    email: document.getElementById('email').value.trim(),
+    telefono: document.getElementById('telefono').value.trim(),
+    aceptaDonacion: document.getElementById('acepto').checked
+  };
+  if (!datos.items.length && !datos.otros) return error('Añade al menos una cosa a la donación.');
+  if (!datos.nombre || !datos.email) return error('Escribe tu nombre y tu email.');
+  if (!datos.aceptaDonacion) return error('Marca la casilla para confirmar que es una donación.');
+  btn.disabled = true; btn.textContent = 'Enviando...';
+  try {
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) headers.Authorization = 'Bearer ' + token;
+    const r = await fetch('/.netlify/functions/donacion', { method: 'POST', headers, body: JSON.stringify(datos) });
+    let d = {}; try { d = await r.json(); } catch (e) { /* respuesta no JSON */ }
+    if (!r.ok) throw new Error(d.error || 'No se pudo enviar. Inténtalo de nuevo en unos minutos.');
+    document.getElementById('formWrap').innerHTML = `<div class="hecho"><b>Gracias por tu donación</b>
+      ${datos.items.length ? '<p>Déjalo en la caja de donaciones del AMPA.</p>' : ''}
+      ${datos.otros ? `<p>${datos.items.length ? 'Lo de «Otra cosa» no lo dejes todavía' : 'No lo dejes todavía en la caja'}: la Junta lo revisará y te escribirá a ${esc(datos.email)} para decirte si lo acepta.</p>` : ''}
+      <p><a href="index.html">Volver a la página principal</a></p></div>`;
+  } catch (e) {
+    error(e.message); btn.disabled = false; btn.textContent = 'Enviar la donación';
+  }
+});
+</script>
+</body>
+</html>

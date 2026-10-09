@@ -1,9 +1,9 @@
 # Pruebas automáticas del portal
 
-47 pruebas que abren tu web real en un navegador invisible y comprueban, como
+64 pruebas que abren tu web real en un navegador invisible y comprueban, como
 lo haría una persona: acceso y contraseñas, cuentas de baja, Hazte socio,
-Reactivar cuenta, el panel de Socios del admin, Mis datos, la Mochila y la
-seguridad entre familias.
+Reactivar cuenta, el panel de Socios del admin, Mis datos, la Mochila, las
+donaciones y el stock donado, la venta de lotería y la seguridad entre familias.
 
 ## Cómo ejecutarlas
 

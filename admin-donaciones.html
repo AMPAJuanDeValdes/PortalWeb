@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Donaciones (admin) · AMPA Juan de Valdés</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared/styles.css">
+<style>
+  .filtros{ display:flex; flex-wrap:wrap; gap:8px; margin:0 0 16px; }
+  .filtros button{ border:2px solid var(--line); background:#fff; border-radius:999px; padding:8px 14px; font:inherit; font-weight:700; cursor:pointer; color:var(--ink); }
+  .filtros button[aria-pressed="true"]{ border-color:var(--ink); background:var(--ink); color:#fff; }
+  .don{ border-bottom:1px solid var(--line); padding:16px 0; display:grid; gap:8px; }
+  .don:last-child{ border-bottom:0; }
+  .don-cab{ display:flex; flex-wrap:wrap; align-items:baseline; gap:6px 14px; }
+  .don-cab b{ font-size:18px; }
+  .don-tipo{ background:#EEF3F8; border-radius:999px; padding:2px 10px; font-weight:700; font-size:14px; }
+  .don-fecha{ color:var(--ink-soft); font-size:14px; }
+  .don-items{ margin:0; padding-left:20px; }
+  .don-otros{ white-space:pre-wrap; margin:0; background:#FFF4D6; border-radius:12px; padding:10px 14px; }
+  .don-otros b{ display:block; }
+  .don-acc{ display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+  .don-acc select{ width:auto; }
+  .don-acc input{ flex:1 1 240px; }
+  .stock-fila{ display:grid; grid-template-columns:minmax(0,1fr) auto; gap:10px 16px; align-items:center; padding:14px 0; border-bottom:1px solid var(--line); }
+  .stock-fila:last-child{ border-bottom:0; }
+  .stock-fila b{ font-size:18px; }
+  .stock-n{ display:inline-flex; align-items:center; justify-content:center; min-width:40px; height:40px; border-radius:12px; background:var(--ink); color:#fff; font-weight:800; margin-right:12px; }
+  .stock-acc{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; justify-content:flex-end; }
+  .stock-acc input.n{ width:76px; }
+  .stock-acc input.cod{ width:200px; }
+  .stock-sinbanco{ color:var(--ink-soft); font-size:15px; }
+  @media (max-width:700px){ .stock-fila{ grid-template-columns:1fr; } .stock-acc{ justify-content:flex-start; } }
+  .recibir{ background:#F6F8FB; border-radius:14px; padding:12px 14px; display:grid; gap:8px; }
+  .recibir label{ display:flex; align-items:center; gap:10px; }
+  .recibir input{ width:76px; }
+  .mov{ display:flex; justify-content:space-between; gap:12px; padding:8px 0; border-bottom:1px solid var(--line); font-size:15px; }
+  .mov small{ color:var(--ink-soft); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">Administración</div>
+  <h1>Donaciones</h1>
+  <p class="lede">Lo que anuncian socios y no socios desde la página «Donar material» para dejar en la caja de donaciones. Lo de la lista se recoge siempre; lo de «Otra cosa» hay que contestarlo por email, aceptándolo o rechazándolo, antes de que lo traigan.</p>
+
+  <div class="card">
+    <p class="section-label">Stock donado</p>
+    <p style="color:var(--ink-soft); margin:-4px 0 10px;">Lo que ha llegado en la caja y todavía no se ha revisado. Si está bien, pásalo al banco; si está roto o muy estropeado, descártalo.</p>
+    <div id="stock"><p class="loading">Cargando...</p></div>
+    <p class="msg-error" id="stockMsg" hidden></p>
+  </div>
+
+  <div class="card">
+    <p class="section-label">Donaciones anunciadas</p>
+    <div class="filtros" id="filtros">
+      <button type="button" data-f="pendiente" aria-pressed="true">Pendientes</button>
+      <button type="button" data-f="aceptada" aria-pressed="false">Aceptadas</button>
+      <button type="button" data-f="recibida" aria-pressed="false">Recibidas</button>
+      <button type="button" data-f="rechazada" aria-pressed="false">Rechazadas</button>
+      <button type="button" data-f="" aria-pressed="false">Todas</button>
+    </div>
+    <div id="lista"><p class="loading">Cargando...</p></div>
+  </div>
+
+  <div class="card">
+    <p class="section-label">Últimos movimientos del stock donado</p>
+    <div id="movs"><p class="loading">Cargando...</p></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="shared/supabaseClient.js"></script>
+<script src="shared/nav.js"></script>
+<script src="shared/donaciones.js"></script>
+<script>
+const ESTADOS = { pendiente: 'Pendiente', aceptada: 'Aceptada (otra cosa)', rechazada: 'Rechazada' };
+const FILTROS = { pendiente: 'pendientes', aceptada: 'aceptadas', recibida: 'recibidas', rechazada: 'rechazadas' };
+const ACCIONES = { entra: 'Entra en el donado', al_banco: 'Pasa al banco', descartado: 'Descartado' };
+const esc = (t) => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const fecha = (f) => new Date(f).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+let filtro = 'pendiente';
+let donaciones = [];
+
+/* ---------- Stock donado ---------- */
+function textoStock(d) {
+  if (d.categoria === 'libros') return `Libro: ${d.articulo}${d.detalle ? ' (' + d.detalle + ')' : ''}`;
+  if (d.categoria === 'uniformes') return `Uniforme: ${d.articulo}, talla ${d.detalle}`;
+  if (d.categoria === 'instrumentos') return `Instrumento: ${d.articulo}`;
+  return `Extraescolares: ${d.articulo}${d.detalle ? ', talla ' + d.detalle : ''}`;
+}
+async function cargarStock() {
+  const wrap = document.getElementById('stock');
+  const { data, error } = await sb.from('donado_stock').select('*').gt('cantidad', 0).order('categoria').order('articulo');
+  if (error) { wrap.innerHTML = '<p class="msg-error">No se pudo cargar. ¿Has ejecutado migracion-donado.sql en Supabase?</p>'; return; }
+  if (!data.length) { wrap.innerHTML = '<p class="nada">No hay nada pendiente de revisar.</p>'; return; }
+  wrap.innerHTML = data.map(d => {
+    const conBanco = d.categoria === 'libros' || d.categoria === 'uniformes';
+    return `<div class="stock-fila" data-id="${d.id}" data-cat="${d.categoria}">
+      <div><span class="stock-n">${d.cantidad}</span><b>${esc(textoStock(d))}</b></div>
+      <div class="stock-acc">
+        <input type="number" class="n" min="1" max="${d.cantidad}" value="${d.cantidad}" aria-label="Cantidad">
+        ${d.categoria === 'libros' ? '<input type="text" class="cod" placeholder="Códigos: 0901, 0902" aria-label="Código de cada libro">' : ''}
+        ${conBanco ? `<button type="button" class="btn btn-primary" data-s="banco">Pasar al ${d.categoria === 'libros' ? 'Banco de Libros' : 'Banco de Uniformes'}</button>` : '<span class="stock-sinbanco">No tiene banco: se queda aquí.</span>'}
+        <button type="button" class="btn-danger-link" data-s="descartar">Descartar</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+// «0901-0903, 0910» → ['0901','0902','0903','0910']
+function leerCodigos(txt) {
+  const out = [];
+  for (const parte of txt.split(/[\s,;]+/).filter(Boolean)) {
+    const m = parte.match(/^(\d+)-(\d+)$/);
+    if (m) { const a = parseInt(m[1], 10), b = parseInt(m[2], 10), w = Math.max(m[1].length, m[2].length); if (b < a || b - a > 200) return null; for (let i = a; i <= b; i++) out.push(String(i).padStart(w, '0')); }
+    else out.push(parte);
+  }
+  return out;
+}
+document.getElementById('stock').addEventListener('click', async (e) => {
+  const b = e.target.closest('button[data-s]'); if (!b) return;
+  const fila = b.closest('.stock-fila'), msg = document.getElementById('stockMsg'); msg.hidden = true;
+  const n = Math.trunc(Number(fila.querySelector('.n').value));
+  let res;
+  if (b.dataset.s === 'banco') {
+    let codigos = null;
+    if (fila.dataset.cat === 'libros') {
+      codigos = leerCodigos(fila.querySelector('.cod').value);
+      if (!codigos || codigos.length !== n) { msg.textContent = `Escribe un código por cada libro (${n}). Puedes poner un rango: 0901-0903.`; msg.hidden = false; return; }
+    }
+    res = await sb.rpc('donado_al_banco', { p_id: fila.dataset.id, p_cantidad: n, p_codigos: codigos });
+  } else {
+    const motivo = prompt('¿Por qué se descarta? (opcional, por ejemplo: roto)');
+    if (motivo === null) return;
+    res = await sb.rpc('donado_descartar', { p_id: fila.dataset.id, p_cantidad: n, p_motivo: motivo });
+  }
+  if (res.error) { msg.textContent = res.error.message; msg.hidden = false; return; }
+  await Promise.all([cargarStock(), cargarMovs()]);
+});
+
+async function cargarMovs() {
+  const wrap = document.getElementById('movs');
+  const { data, error } = await sb.from('donado_movimientos').select('*').order('created_at', { ascending: false }).limit(30);
+  if (error) { wrap.innerHTML = ''; return; }
+  if (!data.length) { wrap.innerHTML = '<p class="nada">Todavía no hay movimientos.</p>'; return; }
+  wrap.innerHTML = data.map(m => `<div class="mov"><span>${m.cantidad} × ${esc(m.texto)}${m.nota ? ' <small>(' + esc(m.nota) + ')</small>' : ''}</span><small>${ACCIONES[m.accion]}, ${fecha(m.created_at)}${m.creado_por_nombre ? ', ' + esc(m.creado_por_nombre) : ''}</small></div>`).join('');
+}
+
+/* ---------- Donaciones anunciadas ---------- */
+async function cargar() {
+  const wrap = document.getElementById('lista');
+  let q = sb.from('donaciones').select('*').order('created_at', { ascending: false });
+  if (filtro) q = q.eq('estado', filtro);
+  const { data, error } = await q;
+  if (error) { wrap.innerHTML = '<p class="msg-error">No se pudieron cargar. ¿Has ejecutado migracion-donaciones.sql en Supabase?</p>'; return; }
+  donaciones = data;
+  if (!data.length) { wrap.innerHTML = `<p class="nada">No hay donaciones${filtro ? ' ' + FILTROS[filtro] : ''}.</p>`; return; }
+  wrap.innerHTML = data.map((d, k) => {
+    const items = d.items || [];
+    const recibida = !!d.recibida_en || d.estado === 'recibida';
+    return `
+    <div class="don" data-id="${d.id}" data-k="${k}">
+      <div class="don-cab">${d.otros && d.estado === 'pendiente' ? '<span class="don-tipo">Otra cosa por revisar</span>' : ''}<b>${esc(d.nombre)}</b>${d.socio_id ? '<span class="don-fecha">Familia socia</span>' : ''}<span class="don-fecha">${fecha(d.created_at)}</span>${recibida ? `<span class="don-tipo">Recibida${d.recibida_en ? ' el ' + fecha(d.recibida_en) : ''}</span>` : ''}</div>
+      ${items.length ? `<ul class="don-items">${items.map(i => `<li>${i.cantidad} × ${esc(DONACIONES.texto(i))}</li>`).join('')}</ul>` : ''}
+      ${d.otros ? `<p class="don-otros"><b>Otra cosa (aceptar o rechazar):</b>${esc(d.otros)}</p>` : ''}
+      <div><a href="mailto:${esc(d.email)}?subject=${encodeURIComponent('Tu donación al AMPA')}">${esc(d.email)}</a>${d.telefono ? ' · ' + esc(d.telefono) : ''}</div>
+      <div class="recibir-wrap"></div>
+      <div class="don-acc">
+        ${recibida ? '' : `<select aria-label="Estado">${Object.entries(ESTADOS).map(([v, t]) => `<option value="${v}"${v === d.estado ? ' selected' : ''}>${t}</option>`).join('')}</select>`}
+        <input type="text" placeholder="Nota de la Junta (solo la veis vosotros)" aria-label="Nota de la Junta" value="${esc(d.nota_junta || '')}">
+        <button type="button" class="btn btn-outline" data-a="guardar">Guardar</button>
+        ${!recibida && d.estado !== 'rechazada' ? '<button type="button" class="btn btn-primary" data-a="recibir">Ha llegado a la caja</button>' : ''}
+        <button type="button" class="btn-danger-link" data-a="borrar">Borrar</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+document.getElementById('lista').addEventListener('click', async (e) => {
+  const b = e.target.closest('button[data-a]'); if (!b) return;
+  const fila = b.closest('.don'), id = fila.dataset.id, d = donaciones[Number(fila.dataset.k)];
+  if (b.dataset.a === 'borrar') {
+    if (!confirm('¿Borrar esta donación?')) return;
+    await sb.from('donaciones').delete().eq('id', id);
+  } else if (b.dataset.a === 'recibir') {
+    // Se confirma lo que de verdad había en la caja
+    const caja = fila.querySelector('.recibir-wrap');
+    const items = d.items || [];
+    caja.innerHTML = `<div class="recibir"><b>¿Qué ha llegado de verdad?</b>
+      ${items.map((i, n) => `<label><input type="number" min="0" max="${DONACIONES.maxCantidad}" value="${i.cantidad}" data-n="${n}"> ${esc(DONACIONES.texto(i))}</label>`).join('') || '<span>No hay nada de la lista: solo «otra cosa».</span>'}
+      <span style="color:var(--ink-soft); font-size:15px;">Entra en el stock donado. Desde ahí lo pasáis al banco cuando lo hayáis revisado.</span>
+      <div><button type="button" class="btn btn-primary" data-a="confirmar">Confirmar</button> <button type="button" class="linklike" data-a="cancelar">Cancelar</button></div></div>`;
+    return;
+  } else if (b.dataset.a === 'cancelar') {
+    fila.querySelector('.recibir-wrap').innerHTML = ''; return;
+  } else if (b.dataset.a === 'confirmar') {
+    const items = (d.items || []).map((i, n) => ({ ...i, cantidad: Math.max(0, Math.trunc(Number(fila.querySelector(`[data-n="${n}"]`).value) || 0)) }));
+    const { error } = await sb.rpc('donaciones_recibir', { p_donacion: id, p_items: items });
+    if (error) { alert(error.message); return; }
+    await Promise.all([cargarStock(), cargarMovs()]);
+  } else {
+    const sel = fila.querySelector('select');
+    const cambios = { nota_junta: fila.querySelector('input[type=text]').value.trim() || null };
+    if (sel) cambios.estado = sel.value;
+    const { error } = await sb.from('donaciones').update(cambios).eq('id', id);
+    if (error) { alert('No se pudo guardar: ' + error.message); return; }
+  }
+  cargar();
+});
+document.getElementById('filtros').addEventListener('click', (e) => {
+  const b = e.target.closest('button'); if (!b) return;
+  filtro = b.dataset.f;
+  document.querySelectorAll('#filtros button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+  cargar();
+});
+
+(async () => {
+  const ctx = await requireAdmin();
+  if (!ctx) return;
+  renderNav('admin-donaciones', ctx);
+  await Promise.all([cargarStock(), cargar(), cargarMovs()]);
+})();
+</script>
+</body>
+</html>

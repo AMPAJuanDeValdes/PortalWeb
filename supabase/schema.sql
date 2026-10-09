@@ -3306,3 +3306,380 @@ $body$;
 $f$;
   end if;
 end $$;
+
+-- ==================================================================
+-- DONACIONES DE MATERIAL. Cualquiera (socio o no) puede anunciar desde
+-- donar.html lo que va a dejar en la caja de donaciones. Solo se recoge:
+--   · libros del catálogo del Banco de Libros
+--   · prendas del Banco de Uniformes (cualquier talla)
+--   · instrumentos: carillones y flautas
+--   · ropa de extraescolares: kimonos, chándal y pantalón de fútbol
+--   · «otra cosa»: la Junta la revisa y puede rechazarla
+-- Se guarda por la función de Netlify `donacion` (clave de servicio): solo
+-- la Junta puede leer y cambiar la tabla.
+-- Se puede ejecutar varias veces (también si ya se ejecutó la versión anterior).
+-- ==================================================================
+create table if not exists donaciones (
+  id uuid primary key default gen_random_uuid(),
+  created_at timestamptz not null default now(),
+  items jsonb not null default '[]'::jsonb,
+  otros text,
+  nombre text not null,
+  email text not null,
+  telefono text,
+  socio_id uuid references socios(id) on delete set null,
+  estado text not null default 'pendiente',
+  nota_junta text
+);
+-- Por si existía la primera versión de la tabla
+alter table donaciones add column if not exists items jsonb not null default '[]'::jsonb;
+alter table donaciones add column if not exists otros text;
+do $$ begin
+  if exists (select 1 from information_schema.columns where table_name = 'donaciones' and column_name = 'tipo') then
+    alter table donaciones drop column tipo;
+  end if;
+  if exists (select 1 from information_schema.columns where table_name = 'donaciones' and column_name = 'descripcion') then
+    update donaciones set otros = coalesce(otros, descripcion);
+    alter table donaciones drop column descripcion;
+  end if;
+end $$;
+alter table donaciones drop constraint if exists donaciones_estado_check;
+update donaciones set estado = 'rechazada' where estado = 'descartada';
+alter table donaciones add constraint donaciones_estado_check check (estado in ('pendiente','aceptada','recibida','rechazada'));
+alter table donaciones drop constraint if exists donaciones_algo_check;
+alter table donaciones add constraint donaciones_algo_check check (jsonb_array_length(items) > 0 or coalesce(otros, '') <> '');
+create index if not exists donaciones_estado_idx on donaciones (estado, created_at desc);
+
+alter table donaciones enable row level security;
+drop policy if exists "junta ve las donaciones" on donaciones;
+create policy "junta ve las donaciones" on donaciones for select using (is_admin());
+drop policy if exists "junta gestiona las donaciones" on donaciones;
+create policy "junta gestiona las donaciones" on donaciones for update using (is_admin()) with check (is_admin());
+drop policy if exists "junta borra donaciones" on donaciones;
+create policy "junta borra donaciones" on donaciones for delete using (is_admin());
+
+-- ==================================================================
+-- STOCK DONADO. Lo que llega en la caja de donaciones no entra directo
+-- en los bancos: primero queda como «donado» hasta que la Junta lo revisa
+-- (la ropa puede estar rota, un libro muy estropeado...). Desde ahí, con
+-- un clic, pasa al stock real del Banco de Uniformes o del Banco de Libros
+-- (los libros, con el código que se les pega), o se descarta.
+-- Requiere migracion-donaciones.sql. Se puede ejecutar varias veces.
+-- ==================================================================
+alter table donaciones add column if not exists recibida_en timestamptz;
+
+create table if not exists donado_stock (
+  id uuid primary key default gen_random_uuid(),
+  clave text not null unique,            -- libros:<id> · uniformes:<tipo>:<talla> · instrumentos:<art> · extraescolares:<art>:<talla>
+  categoria text not null check (categoria in ('libros','uniformes','instrumentos','extraescolares')),
+  libro_id uuid references libros_catalogo(id) on delete cascade,
+  articulo text,                          -- título del libro, tipo de prenda o artículo
+  detalle text,                           -- curso del libro o talla
+  cantidad integer not null default 0 check (cantidad >= 0),
+  updated_at timestamptz not null default now()
+);
+alter table donado_stock enable row level security;
+drop policy if exists "junta ve el stock donado" on donado_stock;
+create policy "junta ve el stock donado" on donado_stock for select using (is_admin());
+
+create table if not exists donado_movimientos (
+  id uuid primary key default gen_random_uuid(),
+  created_at timestamptz not null default now(),
+  clave text not null,
+  texto text not null,
+  cantidad integer not null,
+  accion text not null check (accion in ('entra','al_banco','descartado')),
+  nota text,
+  donacion_id uuid references donaciones(id) on delete set null,
+  creado_por_nombre text
+);
+alter table donado_movimientos enable row level security;
+drop policy if exists "junta ve los movimientos del donado" on donado_movimientos;
+create policy "junta ve los movimientos del donado" on donado_movimientos for select using (is_admin());
+
+create or replace function _donado_texto(d donado_stock) returns text language sql immutable as $$
+  select case d.categoria
+    when 'libros' then 'Libro: ' || d.articulo || coalesce(' (' || d.detalle || ')', '')
+    when 'uniformes' then 'Uniforme: ' || d.articulo || ', talla ' || d.detalle
+    when 'instrumentos' then 'Instrumento: ' || d.articulo
+    else 'Extraescolares: ' || d.articulo || coalesce(', talla ' || d.detalle, '') end
+$$;
+
+-- La Junta confirma lo que ha llegado en la caja de una donación (puede
+-- corregir las cantidades: lo que de verdad había). Entra en el stock donado.
+create or replace function donaciones_recibir(p_donacion uuid, p_items jsonb)
+returns void language plpgsql security definer set search_path = public as $$
+declare
+  v_don donaciones; v_it jsonb; v_cant integer; v_clave text; v_fila donado_stock; v_nombre text;
+  v_libro libros_catalogo;
+begin
+  if not is_admin() then raise exception 'Solo la Junta puede hacer esto.'; end if;
+  select * into v_don from donaciones where id = p_donacion for update;
+  if not found then raise exception 'No existe esa donación.'; end if;
+  if v_don.recibida_en is not null then raise exception 'Esta donación ya se recibió.'; end if;
+  select nombre || ' ' || apellidos into v_nombre from adultos where id = auth.uid();
+  for v_it in select * from jsonb_array_elements(coalesce(p_items, '[]'::jsonb)) loop
+    v_cant := coalesce((v_it->>'cantidad')::integer, 0);
+    continue when v_cant <= 0;
+    if v_it->>'categoria' = 'libros' then
+      select * into v_libro from libros_catalogo where id = (v_it->>'libro_id')::uuid;
+      if not found then raise exception 'Un libro de la donación ya no está en el catálogo.'; end if;
+      v_clave := 'libros:' || v_libro.id;
+      insert into donado_stock (clave, categoria, libro_id, articulo, detalle, cantidad)
+      values (v_clave, 'libros', v_libro.id, v_libro.titulo, v_libro.curso || ' de ' || v_libro.etapa, 0) on conflict (clave) do nothing;
+    elsif v_it->>'categoria' = 'uniformes' then
+      v_clave := 'uniformes:' || (v_it->>'tipo') || ':' || (v_it->>'talla');
+      insert into donado_stock (clave, categoria, articulo, detalle, cantidad)
+      values (v_clave, 'uniformes', v_it->>'tipo', v_it->>'talla', 0) on conflict (clave) do nothing;
+    elsif v_it->>'categoria' in ('instrumentos', 'extraescolares') then
+      v_clave := (v_it->>'categoria') || ':' || (v_it->>'articulo') || coalesce(':' || nullif(trim(v_it->>'talla'), ''), '');
+      insert into donado_stock (clave, categoria, articulo, detalle, cantidad)
+      values (v_clave, v_it->>'categoria', v_it->>'articulo', nullif(trim(v_it->>'talla'), ''), 0) on conflict (clave) do nothing;
+    else
+      continue;
+    end if;
+    update donado_stock set cantidad = cantidad + v_cant, updated_at = now() where clave = v_clave returning * into v_fila;
+    insert into donado_movimientos (clave, texto, cantidad, accion, donacion_id, creado_por_nombre)
+    values (v_clave, _donado_texto(v_fila), v_cant, 'entra', p_donacion, v_nombre);
+  end loop;
+  update donaciones set estado = 'recibida', recibida_en = now() where id = p_donacion;
+end;
+$$;
+grant execute on function donaciones_recibir(uuid, jsonb) to authenticated;
+
+-- Pasar al banco: uniformes al stock del Banco de Uniformes; libros como
+-- ejemplares nuevos del Banco de Libros con sus códigos (uno por libro).
+create or replace function donado_al_banco(p_id uuid, p_cantidad integer, p_codigos text[] default null)
+returns void language plpgsql security definer set search_path = public as $$
+declare v_fila donado_stock; v_nombre text; v_cod text;
+begin
+  if not is_admin() then raise exception 'Solo la Junta puede hacer esto.'; end if;
+  select * into v_fila from donado_stock where id = p_id for update;
+  if not found then raise exception 'No existe en el stock donado.'; end if;
+  if p_cantidad is null or p_cantidad <= 0 then raise exception 'La cantidad tiene que ser mayor que 0.'; end if;
+  if p_cantidad > v_fila.cantidad then raise exception 'Solo hay % en el stock donado.', v_fila.cantidad; end if;
+  if v_fila.categoria = 'uniformes' then
+    perform uniformes_mover_stock(v_fila.articulo, v_fila.detalle, p_cantidad, 'sumar', 'Donación');
+  elsif v_fila.categoria = 'libros' then
+    if coalesce(array_length(p_codigos, 1), 0) <> p_cantidad then
+      raise exception 'Escribe un código por cada libro (% códigos).', p_cantidad;
+    end if;
+    foreach v_cod in array p_codigos loop
+      if exists (select 1 from libros_ejemplares where codigo = trim(v_cod)) then
+        raise exception 'El código % ya existe en el Banco de Libros.', trim(v_cod);
+      end if;
+      insert into libros_ejemplares (libro_id, codigo) values (v_fila.libro_id, trim(v_cod));
+    end loop;
+  else
+    raise exception 'Esto no tiene banco: se queda en el stock donado.';
+  end if;
+  update donado_stock set cantidad = cantidad - p_cantidad, updated_at = now() where id = p_id;
+  select nombre || ' ' || apellidos into v_nombre from adultos where id = auth.uid();
+  insert into donado_movimientos (clave, texto, cantidad, accion, nota, creado_por_nombre)
+  values (v_fila.clave, _donado_texto(v_fila), p_cantidad, 'al_banco',
+          case when v_fila.categoria = 'libros' then 'Códigos: ' || array_to_string(p_codigos, ', ') end, v_nombre);
+end;
+$$;
+grant execute on function donado_al_banco(uuid, integer, text[]) to authenticated;
+
+-- Descartar (roto, muy estropeado...)
+create or replace function donado_descartar(p_id uuid, p_cantidad integer, p_motivo text default null)
+returns void language plpgsql security definer set search_path = public as $$
+declare v_fila donado_stock; v_nombre text;
+begin
+  if not is_admin() then raise exception 'Solo la Junta puede hacer esto.'; end if;
+  select * into v_fila from donado_stock where id = p_id for update;
+  if not found then raise exception 'No existe en el stock donado.'; end if;
+  if p_cantidad is null or p_cantidad <= 0 then raise exception 'La cantidad tiene que ser mayor que 0.'; end if;
+  if p_cantidad > v_fila.cantidad then raise exception 'Solo hay % en el stock donado.', v_fila.cantidad; end if;
+  update donado_stock set cantidad = cantidad - p_cantidad, updated_at = now() where id = p_id;
+  select nombre || ' ' || apellidos into v_nombre from adultos where id = auth.uid();
+  insert into donado_movimientos (clave, texto, cantidad, accion, nota, creado_por_nombre)
+  values (v_fila.clave, _donado_texto(v_fila), p_cantidad, 'descartado', nullif(trim(coalesce(p_motivo, '')), ''), v_nombre);
+end;
+$$;
+grant execute on function donado_descartar(uuid, integer, text) to authenticated;
+
+-- ==================================================================
+-- VENTA DE LOTERÍA y LUGAR de los eventos.
+-- · Columna «lugar» para todos los eventos (dónde es).
+-- · Tipo de evento «loteria»: se publica día, hora y lugar; nadie se
+--   apunta y lo ve todo el mundo (también sin cuenta, en la web pública).
+--   Varias fechas de venta se crean de una vez como eventos separados.
+-- Requiere migracion-eventos-v2.sql y migracion-datos-familia.sql.
+-- Se puede ejecutar varias veces.
+-- ==================================================================
+alter table eventos add column if not exists lugar text;
+
+alter table eventos drop constraint if exists eventos_plantilla_check;
+alter table eventos add constraint eventos_plantilla_check check (plantilla is null or plantilla in
+  ('chocolatada', 'cabalgata', 'juegos', 'taller', 'barbacoa', 'comedor', 'concurso', 'informativo', 'loteria'));
+
+create or replace function eventos_aplicar_tipo()
+returns trigger language plpgsql as $$
+begin
+  if new.plantilla is null then return new; end if;
+  -- Por defecto, con inscripción normal
+  if new.plantilla not in ('concurso', 'informativo', 'loteria') then
+    new.sin_inscripcion := false; new.usa_concurso_texto := false;
+  end if;
+  if new.plantilla in ('juegos', 'taller', 'barbacoa', 'concurso') then
+    new.tipo_elegibilidad := 'alumnos';
+    if new.elegibilidad_modo is null then new.elegibilidad_modo := 'curso'; end if;
+  end if;
+  case new.plantilla
+    when 'chocolatada' then
+      new.tipo_elegibilidad := 'toda_familia'; new.pide_alergias := true; new.alumnos_requieren_adulto := true;
+      new.permite_invitados := true; new.abierto_no_socios := false; new.publico_solo_actividades := false;
+      new.metodo_asignacion := 'aforo'; new.requiere_pareja_adulto_alumno := false;
+    when 'cabalgata' then
+      new.tipo_elegibilidad := 'toda_familia'; new.metodo_asignacion := 'sorteo';
+      new.requiere_pareja_adulto_alumno := true; new.usa_prioridad_historial := false;
+      -- Solo alumnos de 6 a 12 años (edad el día de la cabalgata), no por curso
+      new.elegibilidad_modo := 'edad'; new.edad_min := 6; new.edad_max := 12; new.cursos_permitidos := null;
+    when 'juegos', 'taller' then
+      new.metodo_asignacion := 'aforo'; new.requiere_pareja_adulto_alumno := false;
+      if new.voluntariado_modo = 'adultos_y_ninos' then new.voluntariado_modo := 'adultos'; end if;
+    when 'barbacoa' then
+      new.metodo_asignacion := 'aforo'; new.requiere_pareja_adulto_alumno := false;
+      new.voluntariado_modo := 'adultos_y_ninos'; new.voluntariado_habilitado := true;
+      new.permite_invitados := false;
+      if new.abierto_no_socios then new.publico_solo_actividades := true; end if;
+      -- Sin cursos marcados = todos los alumnos del colegio
+      if new.elegibilidad_modo = 'curso' and (new.cursos_permitidos is null or jsonb_array_length(new.cursos_permitidos) = 0) then
+        new.cursos_permitidos := (select jsonb_agg(jsonb_build_object('etapa', e, 'curso', c)) from (values
+          ('Infantil','0 años'),('Infantil','1 año'),('Infantil','2 años'),('Infantil','3 años'),('Infantil','4 años'),('Infantil','5 años'),
+          ('Primaria','1º'),('Primaria','2º'),('Primaria','3º'),('Primaria','4º'),('Primaria','5º'),('Primaria','6º'),
+          ('ESO','1º'),('ESO','2º'),('ESO','3º'),('ESO','4º'),('Bachillerato','1º'),('Bachillerato','2º')) v(e, c));
+      end if;
+    when 'comedor' then
+      new.tipo_elegibilidad := 'adultos'; new.metodo_asignacion := 'sorteo';
+      new.usa_prioridad_historial := true; new.requiere_pareja_adulto_alumno := false;
+    when 'concurso' then
+      new.usa_concurso_texto := true; new.sin_inscripcion := false;
+    when 'informativo' then
+      new.sin_inscripcion := true; new.usa_concurso_texto := false;
+    when 'loteria' then
+      -- Venta de Lotería: día, hora y lugar. Nadie se apunta y la ve todo el mundo
+      new.sin_inscripcion := true; new.usa_concurso_texto := false;
+      new.abierto_no_socios := true; new.publico_solo_actividades := false;
+      new.voluntariado_modo := 'no'; new.voluntariado_habilitado := false; new.permite_invitados := false;
+    else null;
+  end case;
+  return new;
+end;
+$$;
+
+-- ==================================================================
+-- REVISIÓN DE SEGURIDAD (octubre 2026). Cierra huecos por los que una
+-- familia, desde la consola del navegador, podía saltarse las reglas:
+--  1. Cambiar su inscripción a un evento (marcarse «ganador» de un sorteo,
+--     pasar de voluntario a apuntado, cambiar de evento o de alumno).
+--  2. Apuntar a eventos a adultos o alumnos de OTRA familia.
+--  3. Colarse en la Mochila Jugona Exploradora ya «asignada».
+--  4. Pasar el turno de la Mochila sin que a la siguiente familia le llegue
+--     el email (ahora la revisión de cada 15 minutos manda los que falten).
+--  5. Marcar «datos de la familia revisados» sin completar etapa, curso y aula.
+-- Requiere las migraciones de eventos, mochila v2 y datos de familia.
+-- Se puede ejecutar varias veces.
+-- ==================================================================
+
+-- 1. Inscripciones: la familia solo puede cambiar el acompañante
+create or replace function eventos_proteger_inscripcion()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is null or is_admin() then return new; end if;
+  if new.estado is distinct from old.estado
+     or new.es_voluntario is distinct from old.es_voluntario
+     or new.evento_id is distinct from old.evento_id
+     or new.actividad_id is distinct from old.actividad_id
+     or new.tipo_miembro is distinct from old.tipo_miembro
+     or new.socio_id is distinct from old.socio_id
+     or new.adulto_id is distinct from old.adulto_id
+     or new.alumno_id is distinct from old.alumno_id
+     or new.grupo_id is distinct from old.grupo_id then
+    raise exception 'Esta inscripción no se puede cambiar. Quítala y vuelve a apuntarte.';
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists trg_eventos_proteger_inscripcion on evento_inscripciones;
+create trigger trg_eventos_proteger_inscripcion before update on evento_inscripciones
+for each row execute function eventos_proteger_inscripcion();
+
+-- 2. Inscripciones: solo adultos y alumnos de la propia familia
+create or replace function eventos_inscripcion_de_la_familia()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is null or is_admin() then return new; end if;
+  if new.adulto_id is not null and not exists (select 1 from adultos where id = new.adulto_id and socio_id = new.socio_id) then
+    raise exception 'Solo puedes apuntar a adultos de tu familia.';
+  end if;
+  if new.alumno_id is not null and not exists (select 1 from alumnos where id = new.alumno_id and socio_id = new.socio_id) then
+    raise exception 'Solo puedes apuntar a alumnos de tu familia.';
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists trg_evento_inscripcion_de_la_familia on evento_inscripciones;
+create trigger trg_evento_inscripcion_de_la_familia before insert on evento_inscripciones
+for each row execute function eventos_inscripcion_de_la_familia();
+
+-- 3. Mochila: quien se apunta entra siempre esperando, al final
+create or replace function mochila_asignar_posicion()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  lock table mochila_cola in share row exclusive mode;
+  new.posicion := coalesce((select max(posicion) from mochila_cola), 0) + 1;
+  if auth.uid() is not null and not is_admin() then
+    new.estado := 'espera'; new.notificado_en := null;
+    new.fecha_entrega := null; new.fecha_devolucion_prevista := null;
+  end if;
+  return new;
+end;
+$$;
+
+-- 4. Mochila: se anota cuándo se mandó el email del turno
+alter table mochila_cola add column if not exists aviso_enviado_en timestamptz;
+-- Las familias que ya tienen el turno ya recibieron su email
+update mochila_cola set aviso_enviado_en = notificado_en where estado = 'asignada' and aviso_enviado_en is null;
+
+-- 5. «Datos revisados» solo lo pone confirmar_datos_familia() (o la Junta)
+create or replace function confirmar_datos_familia()
+returns void language plpgsql security definer set search_path = public as $$
+declare v_socio uuid := mi_socio_id(); v_faltan text;
+begin
+  if v_socio is null then raise exception 'No se pudo identificar tu cuenta de socio.'; end if;
+  select string_agg(nombre, ', ' order by nombre) into v_faltan from alumnos
+  where socio_id = v_socio and (coalesce(btrim(etapa), '') = '' or coalesce(btrim(curso), '') = '' or coalesce(btrim(aula), '') = '');
+  if v_faltan is not null then
+    raise exception 'Falta la etapa, el curso o el aula de: %.', v_faltan;
+  end if;
+  perform set_config('ampa.confirmando_datos', 'si', true);
+  update socios set datos_revisados_en = now() where id = v_socio;
+  perform set_config('ampa.confirmando_datos', '', true);
+end;
+$$;
+grant execute on function confirmar_datos_familia() to authenticated;
+
+create or replace function proteger_campos_socio()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is null or is_admin() then return new; end if;
+  if new.estado is distinct from old.estado and new.estado <> 'baja' then
+    raise exception 'Solo el AMPA puede cambiar el estado de la cuenta.';
+  end if;
+  if new.numero_secuencial is distinct from old.numero_secuencial
+     or new.anio_ultima_cuota is distinct from old.anio_ultima_cuota
+     or new.codigo_asociacion is distinct from old.codigo_asociacion
+     or new.motivo_rechazo is distinct from old.motivo_rechazo
+     or new.reactivacion_solicitada_en is distinct from old.reactivacion_solicitada_en then
+    raise exception 'Solo el AMPA puede cambiar el número de socio o la cuota.';
+  end if;
+  if new.datos_revisados_en is distinct from old.datos_revisados_en
+     and coalesce(current_setting('ampa.confirmando_datos', true), '') <> 'si' then
+    raise exception 'Para confirmar los datos de la familia usa el botón de Mis datos.';
+  end if;
+  return new;
+end;
+$$;

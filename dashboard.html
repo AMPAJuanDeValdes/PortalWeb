@@ -104,6 +104,7 @@
   .redes .ico{ flex:0 0 44px; height:44px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:#fff; }
   .redes .ico svg{ width:22px; height:22px; }
   .redes small{ display:block; color:var(--ink-soft); font-size:14px; overflow-wrap:anywhere; }
+  .donar-linea{ color:var(--ink-soft); margin:26px 0 30px; } .donar-linea a{ font-weight:700; color:var(--ink); }
 </style>
 </head>
 <body>
@@ -180,6 +181,8 @@
     <span class="junta-pend" id="tileSolicitudes" hidden></span>
     <span class="junta-ir">Abrir</span>
   </a>
+
+  <p class="donar-linea">¿Tenéis libros del Banco de Libros, uniformes, carillones, flautas o ropa de extraescolares que ya no uséis? <a href="donar.html">Donar material</a></p>
 
   <h2 class="bloque">Síguenos</h2>
   <div class="redes">
@@ -307,7 +310,7 @@ function alumnoCumple(al, e) {
 
 
 /* ---------- Calendario de eventos ---------- */
-const COLOR_TIPO = { chocolatada: 'rosa', cabalgata: 'cielo', juegos: 'amarillo', taller: 'amarillo', barbacoa: 'verde', comedor: 'morado', concurso: 'rosa', informativo: 'morado' };
+const COLOR_TIPO = { chocolatada: 'rosa', cabalgata: 'cielo', juegos: 'amarillo', taller: 'amarillo', barbacoa: 'verde', comedor: 'morado', concurso: 'rosa', informativo: 'morado', loteria: 'verde' };
 function colorEvento(e) {
   if (COLOR_TIPO[e.plantilla]) return COLOR_TIPO[e.plantilla];
   const paleta = ['verde', 'rosa', 'amarillo', 'cielo', 'morado'];

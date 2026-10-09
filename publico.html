@@ -69,7 +69,7 @@ async function cargarEventos() {
   // Solo los que el admin abre a no socios (la Chocolatada, por ejemplo, no:
   // allí los no socios los apunta un socio desde su cuenta)
   const { data: eventos, error } = await sb.from('eventos').select('*').eq('activo', true)
-    .eq('abierto_no_socios', true).eq('sin_inscripcion', false).eq('usa_concurso_texto', false)
+    .eq('abierto_no_socios', true).eq('usa_concurso_texto', false)
     .order('fecha', { ascending: true });
   document.getElementById('loadingMsg').style.display = 'none';
   if (error) { cont.innerHTML = '<p class="msg-error">No se pudieron cargar los eventos. Recarga la página.</p>'; return; }
@@ -84,7 +84,7 @@ async function tarjetaEvento(ev) {
   card.className = 'card evento-card';
   const precio = Number(ev.precio_invitado) || 0;
   card.innerHTML = `
-    <p class="evento-fecha">${fechaLarga(ev.fecha)}</p>
+    <p class="evento-fecha">${fechaLarga(ev.fecha)}${ev.lugar ? '. Lugar: ' + esc(ev.lugar) : ''}</p>
     <h2>${esc(ev.titulo)}</h2>
     <div class="eventoCarrusel" style="max-width:420px; margin:10px 0;"></div>
     ${ev.descripcion ? `<p style="white-space:pre-line; margin:0;">${esc(ev.descripcion)}</p>` : ''}
@@ -96,6 +96,8 @@ async function tarjetaEvento(ev) {
     if (fotos && fotos.length) renderCarrusel(c, fotos.map(f => f.url)); else c.remove();
   });
 
+  // Sin inscripción (p. ej. la venta de lotería): solo se informa
+  if (ev.sin_inscripcion) { etiqueta('No hace falta apuntarse'); return card; }
   if (precio && !ev.publico_solo_actividades) etiqueta(`No socios: ${euros(precio)}`);
   if (ev.tipo_elegibilidad === 'alumnos' && ev.elegibilidad_modo === 'curso' && (ev.cursos_permitidos || []).length) {
     etiqueta('Para ' + resumirCursos(ev.cursos_permitidos));

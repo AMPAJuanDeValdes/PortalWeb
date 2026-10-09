@@ -79,6 +79,23 @@ function plantillaComentario({ origen, nombre, mensaje }) {
   };
 }
 
+// items: [{ texto, cantidad }] ya validados; otros: texto libre (puede rechazarse)
+function plantillaDonacion({ items, otros, nombre, email, telefono, esSocio, urlAdmin }) {
+  const lista = items.map(i => `  - ${i.cantidad} × ${i.texto}`).join('\n');
+  return {
+    subject: otros ? 'Donación anunciada (con «otra cosa» por revisar)' : 'Donación anunciada para la caja',
+    text:
+      `Han anunciado una donación desde la web.\n\n` +
+      (lista ? `Para la caja de donaciones:\n${lista}\n\n` : '') +
+      (otros ? `Otra cosa (hay que decirle si se acepta o no):\n${otros}\n\n` : '') +
+      `De: ${nombre}${esSocio ? ' (familia socia)' : ''}\n` +
+      `Email: ${email}\n` +
+      (telefono ? `Teléfono: ${telefono}\n` : '') +
+      `\nResponde a este email para contestar directamente.\n` +
+      (urlAdmin ? `Todas las donaciones: ${urlAdmin}\n` : '')
+  };
+}
+
 // Cuenta activada por el admin: alta nueva (desde "Hazte socio") o
 // reactivación de una cuenta que estaba de baja / pendiente de pago.
 function plantillaBienvenida({ nombre, numeroSocio, reactivacion, urlPortal }) {
@@ -157,6 +174,6 @@ function plantillaRecordatorioDevolucion({ nombre, libros }) {
 }
 
 module.exports = {
-  enviarEmail, plantillaCredenciales, plantillaMochilaTurno, plantillaComentario,
+  enviarEmail, plantillaCredenciales, plantillaMochilaTurno, plantillaComentario, plantillaDonacion,
   plantillaBienvenida, plantillaRechazo, plantillaRecuperarPassword, plantillaRecordatorioDevolucion
 };

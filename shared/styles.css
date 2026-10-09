@@ -389,6 +389,7 @@ h2{ font-weight:800; letter-spacing:-.015em; }
 .cs-encuestas{ background:#EFE7FA; color:#4A2A75; } .cs-encuestas > svg{ stroke:#6B3FA0; } .cs-encuestas h1{ color:#4A2A75; }
 .cs-familia{ background:#fff; border:1px solid var(--line); color:var(--ink); } .cs-familia > svg{ stroke:var(--navy); background:#EEF4FB; }
 @media (max-width:600px){ .cab-servicio{ padding:22px; } .cab-servicio > svg{ width:52px; height:52px; padding:12px; } }
+.cs-donar{ background:#EEF3F8; color:var(--ink); } .cs-donar > svg{ stroke:var(--navy); }
 .cs-hazte{ background:#FDE7F1; color:#6E1038; } .cs-hazte > svg{ stroke:var(--cta); } .cs-hazte h1{ color:#6E1038; }
 
 /* Barra del portal: mismos enlaces que la cabecera pública */
@@ -413,3 +414,6 @@ h2{ font-weight:800; letter-spacing:-.015em; }
 .topbar-brand img{ height:58px; }
 .pub-marca img,.topbar-brand img{ border-radius:12px; }
 @media (max-width:600px){ .pub-marca img{ height:56px; } .topbar-brand img{ height:48px; } }
+
+/* Nada se sale de lado en el móvil (el polvo de colores de las cabeceras) */
+html, body{ overflow-x:clip; }

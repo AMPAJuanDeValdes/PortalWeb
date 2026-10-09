@@ -54,6 +54,20 @@ module.exports = async function limpiar() {
   }
   await admin.from('prendas_movimientos').delete().ilike('motivo', `%${MARCA}%`);
 
+  // 6b. Donaciones de prueba, lo que movieron en el stock donado y los
+  //     libros que pasaron al banco con un código de prueba
+  const { data: movsDonado } = await admin.from('donado_movimientos').select('id, clave, cantidad, accion').ilike('creado_por_nombre', '%Automática%');
+  const saldo = {};
+  (movsDonado || []).forEach(m => { saldo[m.clave] = (saldo[m.clave] || 0) + (m.accion === 'entra' ? m.cantidad : -m.cantidad); });
+  for (const [clave, n] of Object.entries(saldo)) {
+    if (n <= 0) continue;
+    const { data: fila } = await admin.from('donado_stock').select('id, cantidad').eq('clave', clave).maybeSingle();
+    if (fila) await admin.from('donado_stock').update({ cantidad: Math.max(0, fila.cantidad - n) }).eq('id', fila.id);
+  }
+  if ((movsDonado || []).length) await admin.from('donado_movimientos').delete().in('id', movsDonado.map(m => m.id));
+  await admin.from('donaciones').delete().ilike('email', `%${MARCA}%`);
+  await admin.from('libros_ejemplares').delete().ilike('codigo', `${MARCA}%`);
+
   // 7. Convocatoria de préstamo de prueba que se hubiera quedado abierta
   const { CIERRE_PRUEBA } = require('./datos');
   await admin.from('prestamo_convocatorias').delete().eq('fecha_cierre', CIERRE_PRUEBA);
