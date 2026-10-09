@@ -18,6 +18,9 @@
   <div class="eyebrow">Mi cuenta</div>
   <h1>Mis datos</h1>
 
+  <!-- Solo aparece hasta que la familia confirma sus datos -->
+  <section class="aviso-revisar" id="avisoRevisar" hidden aria-live="polite"></section>
+
   <div class="card">
     <p class="section-label">Datos de la cuenta</p>
     <div class="two-col">
@@ -332,6 +335,12 @@ function renderAlumnoCard(alumno, esNuevo = false) {
   const body = document.createElement('div');
   body.className = 'hijo-body';
 
+  const faltan = esNuevo ? [] : faltaDeAlumno(alumno);
+  if (faltan.length) {
+    card.classList.add('falta-datos');
+    body.insertAdjacentHTML('beforeend', `<p class="falta-datos-txt">Falta: ${faltan.join(', ')}.</p>`);
+  }
+
   const row1 = document.createElement('div');
   row1.className = 'two-col';
   row1.appendChild(campoTexto('Nombre', alumno.nombre, v => alumno.nombre = v, true));
@@ -346,7 +355,7 @@ function renderAlumnoCard(alumno, esNuevo = false) {
 
   const aulaField = document.createElement('div');
   aulaField.className = 'field';
-  aulaField.innerHTML = '<label>Aula (opcional)</label>';
+  aulaField.innerHTML = '<label>Aula *</label>';
   const aulaSelect = document.createElement('select');
   aulaSelect.innerHTML = '<option value="">Sin especificar</option>' +
     ['A', 'B', 'C', 'D'].map(v => `<option value="${v}" ${alumno.aula === v ? 'selected' : ''}>${v}</option>`).join('');
@@ -377,7 +386,7 @@ function renderAlumnoCard(alumno, esNuevo = false) {
   saveBtn.style.marginTop = '14px';
   saveBtn.textContent = esNuevo ? 'Añadir alumno/a' : 'Guardar';
   saveBtn.addEventListener('click', async () => {
-    if (!alumno.nombre.trim() || !alumno.apellidos.trim() || !alumno.etapa || !alumno.curso || !alumno.fecha_nacimiento) {
+    if (!alumno.nombre.trim() || !alumno.apellidos.trim() || !alumno.etapa || !alumno.curso || !alumno.aula || !alumno.fecha_nacimiento) {
       msg.style.display = 'block'; msg.className = 'msg-error';
       msg.textContent = 'Completa los campos obligatorios (*).';
       return;
@@ -406,10 +415,45 @@ function renderAlumnoCard(alumno, esNuevo = false) {
   return card;
 }
 
+function faltaDeAlumno(a) {
+  const f = [];
+  if (!a.etapa) f.push('etapa');
+  if (!a.curso) f.push('curso');
+  if (!a.aula) f.push('aula');
+  if (!a.fecha_nacimiento) f.push('fecha de nacimiento');
+  return f;
+}
+
+// Aviso rojo hasta que la familia confirma que sus datos están bien
+function pintarAvisoRevisar(alumnos) {
+  const caja = document.getElementById('avisoRevisar');
+  if (ctxGlobal.socio.datos_revisados_en) { caja.hidden = true; return; }
+  const incompletos = alumnos.filter(a => faltaDeAlumno(a).filter(x => x !== 'fecha de nacimiento').length);
+  caja.innerHTML = `
+    <h2>REVISA LOS DATOS DE TU FAMILIA</h2>
+    <p>ACTUALIZA etapa, curso y aula de cada alumno. Esto es necesario para poder acceder a los eventos.</p>
+    ${incompletos.length ? `<p>Os falta completar:</p><ul>${incompletos.map(a => `<li>${escHtml(a.nombre)}: ${faltaDeAlumno(a).join(', ')}</li>`).join('')}</ul>` : ''}
+    <button type="button" class="btn btn-grande" id="confirmarDatosBtn">Los datos de mi familia están bien</button>
+    <p class="error" id="confirmarDatosMsg" hidden></p>`;
+  caja.hidden = false;
+  document.getElementById('confirmarDatosBtn').addEventListener('click', async () => {
+    const { error } = await sb.rpc('confirmar_datos_familia');
+    const m = document.getElementById('confirmarDatosMsg');
+    if (error) { m.textContent = textoErrorBD(error); m.hidden = false; return; }
+    ctxGlobal.socio.datos_revisados_en = new Date().toISOString();
+    caja.hidden = true;
+    document.querySelector('.wrap').insertAdjacentHTML('afterbegin', '<p class="msg-ok" style="font-size:18px;">Gracias. Ya podéis apuntaros a los eventos.</p>');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+}
+const escHtml = (v) => String(v || '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const textoErrorBD = (e) => String((e && e.message) || e).replace(/^.*?ERROR:\s*/, '');
+
 async function cargarAlumnos() {
   const wrap = document.getElementById('alumnosWrap');
   const { data, error } = await sb.from('alumnos').select('*').eq('socio_id', ctxGlobal.socio.id).order('created_at');
   if (error) { wrap.innerHTML = '<p class="msg-error">No se pudo cargar.</p>'; return; }
+  pintarAvisoRevisar(data);
   wrap.innerHTML = '';
   if (data.length === 0) {
     wrap.innerHTML = '<p class="empty-hint">Todavía no has añadido ningún alumno.</p>';
@@ -628,6 +672,11 @@ document.getElementById('confirmarBajaBtn').addEventListener('click', async () =
   if (!ctx) return;
   ctxGlobal = ctx;
   renderNav('mis-datos', ctx);
+  // Mientras falte revisar, los alumnos van justo debajo del aviso
+  if (!ctx.socio.datos_revisados_en) {
+    const cardAlumnos = document.getElementById('alumnosWrap').closest('.card');
+    document.getElementById('avisoRevisar').after(cardAlumnos);
+  }
   cargarCuenta();
   await cargarAdultos();
   await cargarAlumnos();

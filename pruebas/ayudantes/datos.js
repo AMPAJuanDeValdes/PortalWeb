@@ -38,9 +38,10 @@ async function ok(promesa, que) {
 
 // Crea una familia completa directamente en la base de datos.
 async function crearFamilia({ etiqueta = 'fam', estado = 'activa', adultos = 1, alumnos = 0,
-  esAdmin = false, forzarCambioClave = false, conNumero = false } = {}) {
+  esAdmin = false, forzarCambioClave = false, conNumero = false, datosRevisados = true } = {}) {
   const socio = await ok(admin.from('socios').insert({
     anio_ultima_cuota: new Date().getFullYear(), estado,
+    datos_revisados_en: datosRevisados ? new Date().toISOString() : null,
     numero_secuencial: conNumero ? await siguienteNumeroLibre() : null
   }).select('*').single(), 'crear socio');
 

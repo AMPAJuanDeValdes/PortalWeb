@@ -101,11 +101,19 @@ const esc = (t) => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<'
 const euros = (n) => Number(n).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
 const nombreCompleto = (p) => p ? `${p.nombre} ${p.apellidos}` : '';
 
-function edadDe(alumno) { return calcularEdad(alumno.fecha_nacimiento); }
+// Edad el día del evento (si se sabe), si no, hoy
+function edadDe(alumno, fechaEvento) {
+  if (!alumno.fecha_nacimiento) return null;
+  const ref = fechaEvento ? new Date(fechaEvento) : new Date();
+  const n = new Date(alumno.fecha_nacimiento + 'T12:00:00');
+  let e = ref.getFullYear() - n.getFullYear();
+  if (ref.getMonth() < n.getMonth() || (ref.getMonth() === n.getMonth() && ref.getDate() < n.getDate())) e--;
+  return e;
+}
 
-function cumpleElegibilidad(alumno, modo, cursos, edadMin, edadMax) {
+function cumpleElegibilidad(alumno, modo, cursos, edadMin, edadMax, fechaEvento) {
   if (modo === 'edad') {
-    const edad = edadDe(alumno);
+    const edad = edadDe(alumno, fechaEvento);
     if (edad === null) return false;
     return (edadMin == null || edad >= edadMin) && (edadMax == null || edad <= edadMax);
   }
@@ -114,9 +122,11 @@ function cumpleElegibilidad(alumno, modo, cursos, edadMin, edadMax) {
 }
 
 function miembrosElegiblesEvento(evento) {
-  if (evento.tipo_elegibilidad === 'toda_familia') return { adultos: misAdultos, alumnos: misAlumnos };
+  if (evento.tipo_elegibilidad === 'toda_familia') return { adultos: misAdultos,
+    // p. ej. la Cabalgata: solo alumnos de cierta edad
+    alumnos: evento.elegibilidad_modo === 'edad' ? misAlumnos.filter(a => cumpleElegibilidad(a, 'edad', null, evento.edad_min, evento.edad_max, evento.fecha)) : misAlumnos };
   if (evento.tipo_elegibilidad === 'adultos') return { adultos: misAdultos, alumnos: [] };
-  return { adultos: [], alumnos: misAlumnos.filter(a => cumpleElegibilidad(a, evento.elegibilidad_modo, evento.cursos_permitidos, evento.edad_min, evento.edad_max)) };
+  return { adultos: [], alumnos: misAlumnos.filter(a => cumpleElegibilidad(a, evento.elegibilidad_modo, evento.cursos_permitidos, evento.edad_min, evento.edad_max, evento.fecha)) };
 }
 
 function claveMiembro(tipo, id) { return tipo + ':' + id; }
@@ -814,7 +824,11 @@ async function renderEventoPareja(evento) {
 
   const b = document.createElement('div');
   b.className = 'bloque';
-  b.innerHTML = '<h3>Quién va de tu familia</h3><p class="ayuda">Cada alumno o alumna tiene que ir con un adulto. También pueden ir adultos solos. Las plazas son para alumnos y se sortean al cerrar el plazo; cada alumno que sale va con su adulto.</p>';
+  const rangoEdad = evento.elegibilidad_modo === 'edad' && (evento.edad_min != null || evento.edad_max != null)
+    ? ` Solo pueden ir alumnos de ${evento.edad_min ?? 0} a ${evento.edad_max ?? 99} años (edad el día del evento).` : '';
+  const sinFecha = evento.elegibilidad_modo === 'edad' && misAlumnos.some(a => !a.fecha_nacimiento)
+    ? ' <b>A algún alumno le falta la fecha de nacimiento: añadidla en <a href="mis-datos.html">Mis datos</a>.</b>' : '';
+  b.innerHTML = '<h3>Quién va de tu familia</h3><p class="ayuda">Cada alumno o alumna tiene que ir con un adulto. También pueden ir adultos solos.' + rangoEdad + ' Las plazas son para alumnos y se sortean al cerrar el plazo; cada alumno que sale va con su adulto.' + sinFecha + '</p>';
   const ordenTipo = { alumno: 0, adulto: 1, invitado: 1 };
   Object.entries(grupos).forEach(([g, filas]) => {
     filas.sort((x, y) => ordenTipo[x.tipo_miembro] - ordenTipo[y.tipo_miembro]);
@@ -1053,6 +1067,14 @@ async function renderEventoConcurso(evento) {
   ]);
   misAdultos = adultosData || [];
   misAlumnos = alumnosData || [];
+  if (!ctx.socio.datos_revisados_en) {
+    document.getElementById('loadingMsg').style.display = 'none';
+    document.getElementById('eventosContainer').innerHTML = `<a class="aviso-revisar" href="mis-datos.html" style="display:block; text-decoration:none;">
+      <h2>REVISA LOS DATOS DE TU FAMILIA</h2>
+      <p>ACTUALIZA etapa, curso y aula de cada alumno. Esto es necesario para poder acceder a los eventos.</p>
+      <span class="btn btn-grande">Ir a Mis datos</span></a>`;
+    return;
+  }
   await cargarEventos();
 })();
 </script>

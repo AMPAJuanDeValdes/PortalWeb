@@ -323,3 +323,42 @@ input:disabled, select:disabled, textarea:disabled{ background:#F3F5F9; color:va
 .firma-borrar{ margin-top:6px; font-size:14px; }
 .acciones-sepa{ display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-top:18px; }
 .sepa-preview img{ display:block; width:100%; max-width:640px; border:1px solid var(--line); border-radius:12px; box-shadow:0 2px 10px rgba(22,35,58,.08); }
+
+/* ---------- Aviso: la familia tiene que revisar sus datos ---------- */
+.aviso-revisar{ background:#B3261E; color:#fff; border-radius:var(--radius-card); padding:26px 28px; margin:0 0 28px; }
+.aviso-revisar h2{ color:#fff; font-family:var(--font-title); font-weight:800; font-size:clamp(26px,4vw,36px); line-height:1.1; margin:0 0 10px; }
+.aviso-revisar p{ margin:0 0 8px; font-size:19px; }
+.aviso-revisar ul{ margin:8px 0 0; padding-left:22px; font-size:17px; }
+.aviso-revisar .btn{ margin-top:16px; background:#fff; color:#B3261E; }
+.aviso-revisar .btn:hover{ background:#FDE7E5; color:#8C1D18; }
+.aviso-revisar .error{ background:#fff; color:#B3261E; border-radius:10px; padding:10px 14px; margin-top:12px; font-weight:700; }
+.hijo-card.falta-datos{ border:3px solid #B3261E; }
+.falta-datos-txt{ color:#B3261E; font-weight:700; margin:0 0 10px; }
+
+/* ============================================================
+   Propuesta A · «Patio» (portal y Panel de la Junta)
+   Títulos más grandes y apretados, tarjetas más redondeadas, la barra
+   con la franja de colores del logo y el polvo de colores en Inicio.
+   ============================================================ */
+:root{ --radius-card:26px; }
+body{ font-size:17px; }
+h1{ font-size:clamp(36px,5.4vw,58px); letter-spacing:-.03em; line-height:.98; margin-bottom:12px; }
+h2{ font-weight:800; letter-spacing:-.015em; }
+.topbar-simple{ position:relative; border-bottom:0; }
+.topbar-simple::after{ content:""; position:absolute; left:0; right:0; bottom:0; height:4px; background:linear-gradient(90deg,#FF4D8D,#FF7A1A,#FFC21A,#3FB54A,#00A3E0,#8A5CC2); }
+.topbar-brand img{ height:44px; }
+.card{ border-radius:var(--radius-card); }
+.section-label{ font-weight:800; font-size:22px; letter-spacing:-.01em; }
+.btn-primary{ background:var(--ink); }
+.btn-primary:hover{ background:#000; }
+.btn-outline{ border-color:var(--ink) !important; color:var(--ink) !important; }
+
+/* Polvo de colores detrás del saludo (Inicio del socio) */
+.con-polvo{ position:relative; isolation:isolate; padding:8px 0 4px; }
+.con-polvo::before{ content:""; position:absolute; z-index:-1; top:-60px; right:-40px; width:min(520px,80%); height:260px; pointer-events:none;
+  background:radial-gradient(closest-side,#FF4D8D 0,transparent 100%) 0 30%/46% 80% no-repeat,
+             radial-gradient(closest-side,#FFC21A 0,transparent 100%) 35% 0/42% 80% no-repeat,
+             radial-gradient(closest-side,#3FB54A 0,transparent 100%) 70% 40%/42% 80% no-repeat,
+             radial-gradient(closest-side,#00A3E0 0,transparent 100%) 100% 80%/40% 80% no-repeat;
+  filter:blur(26px); opacity:.55; }
+@media (max-width:640px){ .con-polvo::before{ right:-120px; opacity:.35; } }

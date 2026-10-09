@@ -9,110 +9,144 @@
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="shared/styles.css">
 <style>
-  body{ background:#FFFFFF; font-size:17px; }
-  .contenedor{ max-width:1180px; margin:0 auto; padding-left:24px; padding-right:24px; }
-  .portada-head{ display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:14px; padding-top:16px; padding-bottom:16px; }
+  /* ===== Propuesta A · Patio ===== */
+  html, body{ overflow-x:clip; }
+  body{ background:#FFFFFF; font-size:18px; }
+  .contenedor{ max-width:1200px; margin:0 auto; padding-left:24px; padding-right:24px; }
+  .portada-head{ display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:14px; padding-top:18px; padding-bottom:18px; position:relative; z-index:2; }
   .marca{ display:flex; align-items:center; gap:12px; text-decoration:none; color:var(--ink); }
-  .marca img{ height:44px; width:auto; }
+  .marca img{ height:56px; width:auto; }
   .marca b{ font-family:var(--font-title); font-weight:800; font-size:18px; line-height:1.1; display:block; }
   .marca small{ font-family:var(--font-title); font-weight:600; font-size:14px; color:var(--ink-soft); }
-  .menu{ display:flex; flex-wrap:wrap; align-items:center; gap:8px 22px; }
+  .menu{ display:flex; flex-wrap:wrap; align-items:center; gap:8px 26px; font-weight:700; font-size:16px; }
   .menu a{ color:var(--ink); text-decoration:none; }
-  .menu a:hover{ color:var(--navy); text-decoration:underline; }
-  .menu a.entrar{ color:var(--navy); font-weight:700; border:2px solid var(--navy); border-radius:999px; padding:8px 20px; text-decoration:none; }
-  .menu a.entrar:hover{ background:#EEF4FB; }
-  .menu button.salir{ background:none; border:0; padding:0; font:inherit; color:var(--ink); cursor:pointer; text-decoration:underline; }
-  .menu button.salir:hover{ color:var(--navy); }
+  .menu a:hover{ text-decoration:underline; text-underline-offset:4px; }
+  .menu a.entrar{ border:2px solid var(--ink); border-radius:999px; padding:10px 22px; }
+  .menu a.entrar:hover{ background:var(--ink); color:#fff; text-decoration:none; }
+  .menu button.salir{ background:none; border:0; padding:0; font:inherit; font-weight:700; color:var(--ink); cursor:pointer; text-decoration:underline; }
 
-  .hero{ display:flex; flex-wrap:wrap; align-items:center; gap:40px; padding-top:36px; padding-bottom:64px; }
-  .hero-texto{ flex:1 1 480px; min-width:0; }
-  .hero h1{ font-size:clamp(34px,4.6vw,58px); line-height:1.02; letter-spacing:-.02em; margin:0 0 22px; }
-  .hero p{ font-size:20px; color:#3B4A60; max-width:34ch; margin:0 0 30px; }
-  .hero-acciones{ display:flex; flex-wrap:wrap; align-items:center; gap:14px 22px; }
-  .hero-acciones a.secundario{ font-weight:700; }
-  .hero-logo{ flex:1 1 400px; min-width:0; display:flex; justify-content:center; }
-  .hero-logo img{ width:100%; max-width:540px; height:auto; }
+  /* Inicio con el polvo de colores del logo */
+  .hero{ position:relative; padding-top:40px; padding-bottom:36px; overflow:hidden; }
+  .polvo{ position:absolute; top:-60px; right:-6%; width:64%; height:calc(100% + 140px); pointer-events:none; filter:blur(42px); opacity:.72; z-index:0; -webkit-mask-image:radial-gradient(farthest-side at 55% 45%,#000 55%,transparent); mask-image:radial-gradient(farthest-side at 55% 45%,#000 55%,transparent); }
+  .polvo i{ position:absolute; border-radius:50%; }
+  @media (max-width:760px){ .polvo{ width:auto; left:-15%; right:-15%; top:-30px; opacity:.38; } }
+  .hero-texto{ position:relative; z-index:1; max-width:760px; }
+  .hero h1{ font-family:var(--font-title); font-weight:800; font-size:clamp(44px,6.6vw,92px); line-height:.95; letter-spacing:-.03em; margin:0 0 24px; max-width:13ch; }
+  .hero p{ font-size:20px; color:#3B4A60; max-width:46ch; margin:0 0 30px; }
+  .hero-acciones{ display:flex; flex-wrap:wrap; align-items:center; gap:14px; }
+  .pill{ display:inline-flex; align-items:center; justify-content:center; min-height:52px; padding:0 26px; border-radius:999px; font-weight:700; text-decoration:none; font-size:17px; }
+  .pill-cta{ background:var(--cta); color:#fff; } .pill-cta:hover{ background:var(--cta-deep); color:#fff; }
+  .pill-linea{ border:2px solid var(--ink); color:var(--ink); } .pill-linea:hover{ background:var(--ink); color:#fff; }
+  .cuota-chip{ display:inline-flex; align-items:center; gap:14px; margin-top:34px; background:#fff; border:2px solid var(--ink); border-radius:20px; padding:12px 20px 12px 18px; box-shadow:6px 6px 0 #F2B705; }
+  .cuota-chip b{ font-family:var(--font-title); font-weight:800; font-size:36px; line-height:1; white-space:nowrap; }
+  .cuota-chip span{ font-size:16px; line-height:1.35; }
 
-  .bloque{ padding-top:64px; padding-bottom:64px; }
-  .bloque h2{ font-family:var(--font-title); font-weight:800; font-size:clamp(30px,4vw,40px); line-height:1.1; margin:0 0 10px; }
-  .bloque .intro{ color:#3B4A60; max-width:60ch; margin:0 0 30px; }
-  .fondo-suave{ background:var(--paper); }
-  .fondo-azul{ background:var(--navy); color:#fff; }
-  .fondo-azul h2{ color:#fff; }
-  .cabecera-bloque{ display:flex; flex-wrap:wrap; align-items:flex-end; justify-content:space-between; gap:12px; margin-bottom:20px; }
+  .bloque{ padding-top:72px; padding-bottom:72px; }
+  .bloque h2, .sec-tit{ font-family:var(--font-title); font-weight:800; font-size:clamp(34px,5vw,60px); line-height:1; letter-spacing:-.025em; margin:0 0 14px; }
+  .bloque .intro{ color:#3B4A60; max-width:62ch; margin:0 0 30px; }
+  .raya{ border-top:2px solid var(--ink); }
+  .cabecera-bloque{ display:flex; flex-wrap:wrap; align-items:flex-end; justify-content:space-between; gap:12px; margin-bottom:24px; }
   .cabecera-bloque h2{ margin:0; }
+  .ver-todos{ font-weight:700; color:var(--ink); }
 
-  /* Carrusel grande */
+  /* Fotos como polaroids pegadas en la pared */
+  .fotos-bloque{ padding-top:24px; padding-bottom:64px; }
   .car-botones{ display:flex; gap:10px; }
-  .car-botones button{ width:48px; height:48px; border-radius:50%; border:2px solid var(--ink); background:#fff; color:var(--ink); cursor:pointer; display:flex; align-items:center; justify-content:center; }
+  .car-botones button{ width:52px; height:52px; border-radius:50%; border:2px solid var(--ink); background:#fff; color:var(--ink); cursor:pointer; display:flex; align-items:center; justify-content:center; }
   .car-botones button.sig{ background:var(--ink); color:#fff; }
-  .car-foto{ position:relative; border-radius:28px; overflow:hidden; aspect-ratio:16/8; background:#E9EEF4; }
-  .car-foto img{ width:100%; height:100%; object-fit:cover; display:block; }
-  .car-pie{ position:absolute; left:0; right:0; bottom:0; padding:18px 24px; background:rgba(22,35,58,.78); color:#fff; display:flex; flex-wrap:wrap; justify-content:space-between; gap:6px 16px; align-items:baseline; }
-  .car-pie b{ font-family:var(--font-title); font-size:24px; }
-  .car-pie span{ color:#D9E2EC; font-size:15px; }
-  .car-miniaturas{ display:flex; gap:10px; margin-top:14px; overflow-x:auto; padding:3px 3px 6px; }
-  .car-miniaturas button{ flex:0 0 112px; height:72px; border-radius:12px; border:3px solid transparent; padding:0; overflow:hidden; cursor:pointer; background:#E9EEF4; }
-  .car-miniaturas button img{ width:100%; height:100%; object-fit:cover; display:block; }
-  .car-miniaturas button[aria-current="true"]{ border-color:var(--ink); }
-  @media (max-width:640px){ .car-foto{ aspect-ratio:4/3; border-radius:20px; } .car-pie b{ font-size:19px; } }
+  .muro{ display:flex; gap:34px; overflow-x:auto; scroll-snap-type:x mandatory; padding:34px 10px 30px; margin:0 -10px; scrollbar-width:thin; }
+  .polaroid{ flex:0 0 auto; width:min(340px,78vw); margin:0; background:#fff; padding:14px 14px 0; box-shadow:0 14px 30px rgba(22,35,58,.16), 0 2px 4px rgba(22,35,58,.08); scroll-snap-align:center; position:relative; cursor:zoom-in; border:0; font:inherit; text-align:left; color:var(--ink); transition:transform .2s; }
+  .polaroid:nth-child(4n+1){ transform:rotate(-3deg); } .polaroid:nth-child(4n+2){ transform:rotate(2deg) translateY(10px); }
+  .polaroid:nth-child(4n+3){ transform:rotate(-1.5deg) translateY(-6px); } .polaroid:nth-child(4n){ transform:rotate(3deg) translateY(6px); }
+  .polaroid:hover, .polaroid:focus-visible{ transform:rotate(0) scale(1.03); z-index:2; }
+  .polaroid::before{ content:""; position:absolute; top:-14px; left:50%; width:96px; height:28px; margin-left:-48px; background:rgba(242,183,5,.7); transform:rotate(-4deg); }
+  .polaroid:nth-child(3n+2)::before{ background:rgba(0,152,216,.45); transform:rotate(5deg); }
+  .polaroid:nth-child(3n)::before{ background:rgba(214,36,110,.4); transform:rotate(-7deg); }
+  .polaroid img{ display:block; width:100%; aspect-ratio:1/1; object-fit:cover; background:#E9EEF4; }
+  .polaroid .pie{ display:block;  min-height:56px; padding:12px 4px 14px; font-size:17px; font-style:italic; line-height:1.3; }
+  @media (prefers-reduced-motion:reduce){ .polaroid{ transition:none; } }
+  .visor{ border:0; padding:0; background:transparent; max-width:min(1000px,94vw); }
+  .visor::backdrop{ background:rgba(16,24,40,.82); }
+  .visor figure{ margin:0; background:#fff; padding:16px 16px 0; }
+  .visor img{ display:block; max-width:100%; max-height:76vh; margin:0 auto; }
+  .visor figcaption{ padding:12px 4px 16px; font-style:italic; font-size:18px; }
+  .visor-cerrar{ position:absolute; top:10px; right:10px; width:44px; height:44px; border-radius:50%; border:0; background:var(--ink); color:#fff; font-size:22px; cursor:pointer; }
 
-  /* Servicios */
-  .servicios{ display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:16px; }
-  .servicio{ border-radius:var(--radius-card); padding:24px; }
-  .servicio h3{ font-size:22px; margin:12px 0 6px; }
-  .servicio p{ margin:0; font-size:16px; }
-  .s-libros{ background:var(--libros-bg); } .s-libros svg{ stroke:var(--libros); }
-  .s-uniformes{ background:var(--uniformes-bg); } .s-uniformes svg{ stroke:var(--uniformes); }
-  .s-eventos{ background:var(--eventos-bg); } .s-eventos svg{ stroke:var(--eventos); }
-  .s-mochila{ background:var(--mochila-bg); } .s-mochila svg{ stroke:var(--mochila); }
+  /* Servicios en bloques de distinto tamaño */
+  .bento{ display:grid; grid-template-columns:repeat(6,1fr); gap:16px; }
+  .tesela{ border-radius:28px; padding:26px; position:relative; overflow:hidden; min-height:180px; }
+  .tesela h3{ font-family:var(--font-title); font-weight:800; font-size:28px; line-height:1.05; letter-spacing:-.02em; margin:16px 0 8px; }
+  .tesela p{ margin:0; font-size:17px; max-width:40ch; }
+  .tesela .ic{ width:56px; height:56px; border-radius:18px; background:rgba(255,255,255,.8); display:flex; align-items:center; justify-content:center; }
+  .tesela .grande{ position:absolute; right:-20px; bottom:-26px; opacity:.16; }
+  .t-libros{ grid-column:span 3; grid-row:span 2; background:var(--libros-bg); color:#6E1038; } .t-libros h3{ font-size:clamp(32px,4vw,46px); } .t-libros svg{ stroke:var(--libros); }
+  .t-uniformes{ grid-column:span 3; background:var(--uniformes-bg); color:#5C4300; } .t-uniformes svg{ stroke:var(--uniformes); }
+  .t-eventos{ grid-column:span 2; background:var(--eventos-bg); color:#2A4A0C; } .t-eventos svg{ stroke:var(--eventos); }
+  .t-mochila{ grid-column:span 1; background:var(--mochila-bg); color:#00506F; text-decoration:none; } .t-mochila svg{ stroke:var(--mochila); } .t-mochila h3{ font-size:21px; }
+  @media (max-width:900px){ .bento{ grid-template-columns:1fr 1fr; } .t-libros,.t-uniformes,.t-eventos,.t-mochila{ grid-column:span 2; grid-row:auto; } }
+  .mas{ margin:26px 0 0; color:#3B4A60; max-width:70ch; }
 
-  /* Pasos */
-  .pasos{ list-style:none; padding:0; margin:0 0 36px; display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:28px; }
-  .pasos li{ display:flex; gap:16px; }
-  .pasos .num{ flex:0 0 48px; height:48px; border-radius:50%; font-family:var(--font-title); font-weight:800; font-size:22px; display:flex; align-items:center; justify-content:center; }
-  .pasos h3{ margin:0 0 4px; font-size:19px; font-family:var(--font-text); }
-  .pasos p{ margin:0; color:#3B4A60; font-size:16px; }
-  .cuota-familia{ margin:0 0 32px; font-size:clamp(18px,2.2vw,21px); color:var(--ink); max-width:60ch; }
-  .cuota-familia b{ color:var(--cta); }
+  /* Hazte socio */
+  .socio-fondo{ background:var(--paper); padding:72px 0; margin-top:24px; }
+  .socio-dos{ display:grid; grid-template-columns:1fr 1.25fr; gap:24px; align-items:start; }
+  @media (max-width:900px){ .socio-dos{ grid-template-columns:1fr; } }
+  .socio-tarjeta{ background:#fff; border:1px solid var(--line); border-radius:28px; padding:36px; }
+  .socio-tarjeta h2{ font-family:var(--font-title); font-weight:800; font-size:clamp(36px,4.6vw,54px); line-height:1; letter-spacing:-.025em; margin:0 0 14px; }
+  .socio-tarjeta p{ margin:0; color:#3B4A60; max-width:42ch; }
+  .socio-tarjeta .precio{ display:block; font-family:var(--font-title); font-weight:800; font-size:clamp(72px,9vw,104px); line-height:.95; letter-spacing:-.03em; color:var(--cta); margin:6px 0 4px; }
+  .socio-tarjeta .pill{ margin-top:26px; }
+  .pill-oscuro{ background:var(--ink); color:#fff; } .pill-oscuro:hover{ background:#000; color:#fff; }
+  .paso{ display:flex; gap:16px; align-items:flex-start; background:#fff; border:1px solid var(--line); border-radius:20px; padding:20px 22px; margin-bottom:12px; }
+  .paso .n{ flex:0 0 40px; height:40px; border-radius:12px; background:var(--ink); color:#fff; font-family:var(--font-title); font-weight:800; display:flex; align-items:center; justify-content:center; }
+  .paso b{ display:block; font-size:19px; }
+  .paso span{ color:#3B4A60; font-size:16px; }
 
-  /* Eventos */
-  .eventos-lista{ display:flex; flex-direction:column; gap:12px; }
-  .evento{ display:flex; align-items:center; gap:20px; background:#fff; color:var(--ink); border-radius:16px; padding:16px 20px; text-decoration:none; }
-  .evento:hover{ color:var(--ink); box-shadow:0 0 0 3px #9CCBF0; }
-  .evento .dia{ flex:0 0 60px; text-align:center; line-height:1; }
-  .evento .dia b{ font-family:var(--font-title); font-size:30px; display:block; }
-  .evento .dia span{ font-size:14px; color:var(--ink-soft); }
-  .evento .txt b{ font-size:18px; }
-  .evento .txt span{ display:block; font-size:15px; color:var(--ink-soft); }
+  /* Eventos en tarjetas */
+  .eventos-lista{ display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+  @media (max-width:900px){ .eventos-lista{ grid-template-columns:1fr; } }
+  .evento{ display:flex; flex-direction:column; gap:14px; min-height:210px; border:2px solid var(--ink); border-radius:26px; padding:22px; color:var(--ink); text-decoration:none; background:#fff; transition:transform .15s, box-shadow .15s; }
+  .evento:hover{ color:var(--ink); transform:translate(-3px,-3px); box-shadow:6px 6px 0 var(--ink); }
+  .evento .dia{ display:flex; align-items:baseline; gap:8px; font-family:var(--font-title); font-weight:800; }
+  .evento .dia b{ font-size:64px; line-height:.8; }
+  .evento .dia span{ font-size:18px; }
+  .evento .txt{ margin-top:auto; }
+  .evento .txt b{ display:block; font-family:var(--font-title); font-size:24px; line-height:1.1; }
+  .evento .txt span{ display:block; font-size:15px; color:var(--ink-soft); margin-top:4px; }
+  @media (prefers-reduced-motion:reduce){ .evento{ transition:none; } .evento:hover{ transform:none; } }
 
   /* Vídeos */
-  .video-principal{ border-radius:20px; overflow:hidden; aspect-ratio:16/9; background:var(--ink); }
+  .video-principal{ border-radius:28px; overflow:hidden; aspect-ratio:16/9; background:var(--ink); }
   .video-principal iframe{ width:100%; height:100%; border:0; display:block; }
   .video-titulo{ font-weight:700; margin:10px 0 0; }
   .videos-otros{ display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:12px; margin-top:16px; }
   .videos-otros button{ text-align:left; background:none; border:0; padding:0; cursor:pointer; font:inherit; color:var(--ink); }
-  .videos-otros img{ width:100%; aspect-ratio:16/9; object-fit:cover; border-radius:12px; display:block; margin-bottom:6px; border:3px solid transparent; }
+  .videos-otros img{ width:100%; aspect-ratio:16/9; object-fit:cover; border-radius:14px; display:block; margin-bottom:6px; border:3px solid transparent; }
   .videos-otros button[aria-current="true"] img{ border-color:var(--ink); }
   .videos-otros span{ font-size:15px; }
 
-  /* Junta y documentos */
-  .dos-columnas{ display:flex; flex-wrap:wrap; gap:48px; }
-  .dos-columnas > div{ flex:1 1 420px; min-width:0; }
-  .junta{ list-style:none; padding:0; margin:0; }
-  .junta li{ padding:14px 0; border-bottom:1px solid var(--line); font-size:16px; }
-  .junta b{ display:block; }
-  .junta em{ color:#3B4A60; }
-  .doc-item{ display:flex; justify-content:space-between; align-items:center; gap:12px; padding:12px 0; border-bottom:1px solid var(--line); }
+  /* La Junta */
+  .junta{ list-style:none; padding:0; margin:0; display:grid; grid-template-columns:repeat(2,1fr); gap:0 56px; border-top:2px solid var(--ink); }
+  @media (max-width:760px){ .junta{ grid-template-columns:1fr; } }
+  .junta li{ padding:22px 0; border-bottom:1px solid #C9D3E3; font-size:16px; display:flex; flex-direction:column; gap:2px; }
+  .junta small{ font-weight:700; color:var(--cta); font-size:15px; }
+  .junta b{ display:block; font-family:var(--font-title); font-weight:700; font-size:clamp(24px,2.6vw,30px); line-height:1.1; letter-spacing:-.01em; }
+  .junta span{ color:#3B4A60; }
+  .junta em{ color:#3B4A60; margin-top:8px; }
+  .junta-intro{ color:#3B4A60; max-width:62ch; margin:0 0 26px; }
+  .doc-item{ display:flex; justify-content:space-between; align-items:center; gap:12px; padding:14px 0; border-bottom:1px solid var(--line); }
   .doc-fecha{ font-size:14px; color:var(--ink-soft); }
+  .contacto-dos{ display:grid; grid-template-columns:1fr 1fr; gap:48px; }
+  .contacto-dos:has(#bloqueDocs[hidden]){ grid-template-columns:minmax(0,680px); }
+  @media (max-width:900px){ .contacto-dos{ grid-template-columns:1fr; } }
 
-  .pie-web{ background:var(--ink); color:#C9D4E3; font-size:15px; }
+  .pie-web{ background:var(--ink); color:#C9D4E3; font-size:15px; position:relative; overflow:hidden; }
+  .pie-web::before{ content:""; position:absolute; left:0; right:0; top:0; height:6px; background:linear-gradient(90deg,#FF4D8D,#FF7A1A,#FFC21A,#3FB54A,#00A3E0,#8A5CC2); }
   .pie-web a{ color:#fff; text-decoration:none; }
   .pie-cols{ display:flex; flex-wrap:wrap; gap:40px 56px; padding-top:56px; padding-bottom:40px; }
   .pie-cols > div{ flex:1 1 220px; min-width:0; }
   .pie-cols > .pie-marca{ flex:1.2 1 260px; }
   .pie-cols > .pie-siguenos{ flex:1.6 1 340px; }
-  .pie-logo{ display:inline-flex; background:#FFFDFA; border-radius:16px; padding:8px 12px; margin-bottom:14px; }
+  .pie-logo{ display:inline-flex; background:#fff; border-radius:18px; padding:8px 12px; margin-bottom:14px; }
   .pie-logo img{ height:56px; width:auto; }
   .pie-marca p{ margin:0; max-width:34ch; line-height:1.5; }
   .pie-titulo{ font-family:var(--font-title); font-weight:700; font-size:18px; color:#fff; margin:0 0 14px; }
@@ -153,95 +187,74 @@
 </header>
 
 <main>
-  <section class="contenedor hero">
-    <div class="hero-texto">
-      <h1>Asociación de Familias del Colegio Juan de Valdés</h1>
-      <p>Trabajamos para que la vida escolar de nuestros alumnos y alumnas sea más rica: Banco de Libros, Banco de Uniformes, actividades, eventos y apoyo a las familias del colegio.</p>
-      <div class="hero-acciones solo-socio">
-        <a href="dashboard.html" class="btn btn-cta btn-grande">Mi perfil</a>
-      </div>
-      <div class="hero-acciones solo-publico">
-        <a href="hazte-socio.html" class="btn btn-cta btn-grande" id="ctaHero">Hazte socio</a>
-        <a href="login.html" class="secundario">Ya soy socio, entrar</a>
+  <section class="hero">
+    <div class="polvo" aria-hidden="true"><i style="left:10%;top:8%;width:320px;height:320px;background:#FF4D8D"></i><i style="left:38%;top:0%;width:300px;height:300px;background:#FFC21A"></i><i style="left:58%;top:22%;width:320px;height:320px;background:#3FB54A"></i><i style="left:30%;top:46%;width:280px;height:280px;background:#00A3E0"></i><i style="left:62%;top:56%;width:260px;height:260px;background:#8A5CC2"></i><i style="left:4%;top:50%;width:240px;height:240px;background:#FF7A1A"></i></div>
+    <div class="contenedor">
+      <div class="hero-texto">
+        <h1>Asociación de Familias del Colegio Juan de Valdés</h1>
+        <p>Trabajamos para que la vida escolar de nuestros alumnos y alumnas sea más rica: Banco de Libros, Banco de Uniformes, actividades, eventos y apoyo a las familias del colegio.</p>
+        <div class="hero-acciones solo-socio">
+          <a href="dashboard.html" class="pill pill-cta">Mi perfil</a>
+        </div>
+        <div class="hero-acciones solo-publico">
+          <a href="hazte-socio.html" class="pill pill-cta" id="ctaHero">Hazte socio</a>
+          <a href="login.html" class="pill pill-linea">Ya soy socio, entrar</a>
+        </div>
       </div>
     </div>
-    <div class="hero-logo"><img src="assets/logo-ampa.png" alt="Logotipo del AMPA con un arco de polvo de colores"></div>
   </section>
 
   <!-- Solo aparece si hay fotos -->
-  <section class="contenedor" id="bloqueFotos" hidden style="padding-bottom:72px;">
+  <section class="contenedor fotos-bloque" id="bloqueFotos" hidden>
     <div class="cabecera-bloque">
-      <h2 style="font-family:var(--font-title); font-weight:800; font-size:clamp(30px,4vw,40px); line-height:1.1;">Así lo vivimos</h2>
+      <h2 class="sec-tit" style="margin:0;">Así lo vivimos</h2>
       <div class="car-botones" id="carBotones">
-        <button type="button" id="carAnt" aria-label="Foto anterior"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button>
-        <button type="button" id="carSig" class="sig" aria-label="Foto siguiente"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
+        <button type="button" id="carAnt" aria-label="Fotos anteriores"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button>
+        <button type="button" id="carSig" class="sig" aria-label="Fotos siguientes"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
       </div>
     </div>
-    <div class="car-foto" id="carFoto">
-      <img id="carImg" src="" alt="">
-      <div class="car-pie" id="carPie"><b id="carTitulo"></b><span id="carNum"></span></div>
-    </div>
-    <div class="car-miniaturas" id="carMinis"></div>
+    <div class="muro" id="muro"></div>
+    <dialog class="visor" id="visor"><figure><img id="visorImg" alt=""><figcaption id="visorPie"></figcaption></figure><button type="button" class="visor-cerrar" id="visorCerrar" aria-label="Cerrar">×</button></dialog>
   </section>
 
-  <section class="bloque fondo-suave" id="que-hacemos">
-    <div class="contenedor">
-      <h2>¿Qué hacemos desde el AMPA?</h2>
-      <p class="intro">El AMPA es una entidad sin ánimo de lucro formada por familias del centro. Complementamos la labor educativa del colegio, representamos los intereses de las familias y organizamos actividades y servicios que enriquecen la vida escolar de nuestros alumnos y alumnas.</p>
-      <div class="servicios">
-        <div class="servicio s-libros">
-          <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2V5z"/><path d="M4 19a2 2 0 0 1 2-2h13"/></svg>
-          <h3>Banco de Libros</h3>
-          <p>Préstamo de los libros de lectura del curso de cada alumno o alumna.</p>
-        </div>
-        <div class="servicio s-uniformes">
-          <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3L3 6l2 4 3-1v12h8V9l3 1 2-4-5-3a4 4 0 0 1-8 0z"/></svg>
-          <h3>Banco de Uniformes</h3>
-          <p>Donación e intercambio de uniformes: recogida y reparto para darles una segunda vida.</p>
-        </div>
-        <div class="servicio s-eventos">
-          <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
-          <h3>Eventos y talleres</h3>
-          <p>Teatros o cuentacuentos, la chocolatada de Navidad y la barbacoa de fin de curso junto con el colegio. Talleres de juegos de mesa, rol y ciencias.</p>
-        </div>
-        <div class="servicio s-mochila">
-          <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9a6 6 0 0 1 12 0v11H6z"/><path d="M9 5V3h6v2M9 14h6"/></svg>
-          <h3>Mochila Jugona Exploradora</h3>
-          <p>Una mochila llena de juegos que va pasando por las casas de las familias.</p>
-        </div>
+  <section class="bloque contenedor" id="que-hacemos" style="padding-top:48px;">
+    <h2>¿Qué hacemos desde el AMPA?</h2>
+    <p class="intro">El AMPA es una entidad sin ánimo de lucro formada por familias del centro. Complementamos la labor educativa del colegio, representamos los intereses de las familias y organizamos actividades y servicios que enriquecen la vida escolar de nuestros alumnos y alumnas.</p>
+    <div class="bento">
+      <div class="tesela t-libros"><span class="ic"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2V5z"/><path d="M4 19a2 2 0 0 1 2-2h13"/></svg></span><h3>Banco de Libros</h3><p>Préstamo de los libros de lectura del curso de cada alumno o alumna.</p><span class="grande"><svg width="210" height="210" viewBox="0 0 24 24" fill="none" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2V5z"/><path d="M4 19a2 2 0 0 1 2-2h13"/></svg></span></div>
+      <div class="tesela t-uniformes"><span class="ic"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3L3 6l2 4 3-1v12h8V9l3 1 2-4-5-3a4 4 0 0 1-8 0z"/></svg></span><h3>Banco de Uniformes</h3><p>Donación e intercambio de uniformes: recogida y reparto para darles una segunda vida.</p></div>
+      <div class="tesela t-eventos"><span class="ic"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg></span><h3>Eventos y talleres</h3><p>Teatros o cuentacuentos, la chocolatada de Navidad y la barbacoa de fin de curso junto con el colegio. Talleres de juegos de mesa, rol y ciencias.</p></div>
+      <div class="tesela t-mochila"><span class="ic"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9a6 6 0 0 1 12 0v11H6z"/><path d="M9 5V3h6v2M9 14h6"/></svg></span><h3>Mochila Jugona Exploradora</h3><p style="font-size:15px;">Una mochila llena de juegos que va pasando por las casas de las familias.</p></div>
+    </div>
+    <p class="mas">Además, la Lotería de Navidad (participaciones solidarias para financiar actividades del curso) y charlas y talleres para familias en colaboración con la FAPA y otros organismos.</p>
+  </section>
+
+
+  <section class="socio-fondo solo-publico" id="hazte-socio">
+    <div class="contenedor socio-dos">
+      <div class="socio-tarjeta">
+        <h2>Hazte socio</h2>
+        <p>Una familia socia paga 25 € al año, sea cual sea el tamaño de la familia.</p>
+        <a href="hazte-socio.html" class="pill pill-oscuro">Empezar la solicitud</a>
+        <p style="margin:14px 0 0; font-size:15px; color:var(--ink-soft);">¿Fuisteis socios otros años? <a href="reactivar-cuenta.html">Reactivad vuestra cuenta</a>.</p>
       </div>
-      <p style="margin:28px 0 0; color:#3B4A60; max-width:70ch;">Además, la Lotería de Navidad (participaciones solidarias para financiar actividades del curso) y charlas y talleres para familias en colaboración con la FAPA y otros organismos.</p>
+      <div class="pasos-c"><div class="paso"><span class="n">1</span><div><b>Rellena los datos</b><span>Los adultos de la familia y los alumnos y alumnas del colegio.</span></div></div><div class="paso"><span class="n">2</span><div><b>Paga la cuota</b><span>Por transferencia, y sube el justificante en el mismo formulario.</span></div></div><div class="paso"><span class="n">3</span><div><b>Recibe tu número de socio</b><span>La Junta revisa la solicitud y os llega un email de bienvenida.</span></div></div></div>
     </div>
-  </section>
-
-  <section class="bloque contenedor solo-publico" id="hazte-socio">
-    <h2 style="margin-bottom:12px;">Cómo hacerse socio</h2>
-    <p class="cuota-familia">Una familia socia paga <b>25 € al año</b>, sea cual sea el tamaño de la familia.</p>
-    <ol class="pasos">
-      <li><span class="num" style="background:var(--cta); color:#fff;">1</span><div><h3>Rellena los datos</h3><p>Los adultos de la familia y los alumnos y alumnas del colegio.</p></div></li>
-      <li><span class="num" style="background:#F2B705; color:var(--ink);">2</span><div><h3>Paga la cuota</h3><p>Por transferencia, y sube el justificante en el mismo formulario.</p></div></li>
-      <li><span class="num" style="background:#5E9426; color:#fff;">3</span><div><h3>Recibe tu número de socio</h3><p>La Junta revisa la solicitud y os llega un email de bienvenida.</p></div></li>
-    </ol>
-    <a href="hazte-socio.html" class="btn btn-cta btn-grande">Empezar la solicitud</a>
-    <p style="margin:14px 0 0; font-size:15px; color:var(--ink-soft);">¿Fuisteis socios otros años? <a href="reactivar-cuenta.html">Reactivad vuestra cuenta</a>.</p>
   </section>
 
   <!-- Solo aparece si hay eventos próximos -->
-  <section class="bloque fondo-azul" id="bloqueEventos" hidden>
-    <div class="contenedor dos-columnas">
-      <div style="flex:1 1 300px;">
-        <h2>Próximos eventos</h2>
-        <p class="solo-publico" style="margin:0 0 20px; color:#D6E6F7;">Los que están abiertos a familias no socias se pueden reservar sin cuenta.</p>
-        <a class="solo-publico" href="publico.html" style="color:#fff; font-weight:700;">Ver los eventos abiertos</a>
-        <p class="solo-socio" style="margin:0 0 20px; color:#D6E6F7;">Apuntaos desde vuestro portal.</p>
-        <a class="solo-socio" href="eventos.html" style="color:#fff; font-weight:700;">Ver todos los eventos</a>
-      </div>
-      <div style="flex:2 1 520px;"><div class="eventos-lista" id="eventosLista"></div></div>
+  <section class="bloque contenedor" id="bloqueEventos" hidden>
+    <div class="cabecera-bloque">
+      <h2>Próximos eventos</h2>
+      <a class="ver-todos solo-publico" href="publico.html">Ver los eventos abiertos</a>
+      <a class="ver-todos solo-socio" href="eventos.html">Ver todos los eventos</a>
     </div>
+    <p class="intro solo-publico" style="margin-top:-8px;">Los que están abiertos a familias no socias se pueden reservar sin cuenta.</p>
+    <div class="eventos-lista" id="eventosLista"></div>
   </section>
 
   <!-- Solo aparece si hay vídeos -->
-  <section class="bloque contenedor" id="bloqueVideos" hidden>
+  <section class="bloque contenedor raya" id="bloqueVideos" hidden>
     <h2 style="margin-bottom:20px;">Vídeos</h2>
     <div style="max-width:880px;">
       <div class="video-principal"><iframe id="videoFrame" title="Vídeo del AMPA" allow="accelerometer; encrypted-media; gyroscope; picture-in-picture" allowfullscreen loading="lazy"></iframe></div>
@@ -250,30 +263,26 @@
     </div>
   </section>
 
-  <section class="bloque fondo-suave" id="junta">
-    <div class="contenedor dos-columnas">
-      <div>
-        <h2>La Junta</h2>
-        <p class="intro" style="margin-bottom:16px;">La Junta del AMPA está compuesta por madres y padres del colegio que colaboran de forma voluntaria. Coordinan las actividades, gestionan la comunicación con las familias y administran los recursos económicos de la asociación.</p>
-        <ul class="junta">
-          <li><b>Presidente – Federico Prado Enrico</b>Familia monoparental con una niña en la ESO.<br><em>"Mi objetivo es contribuir al desarrollo educativo de los niños y niñas a través de actividades complementarias, fomentando una comunidad que refuerce la relación entre las familias y el Colegio."</em></li>
-          <li><b>Vicepresidenta – Paula Albo Pariente</b>Madre de un hijo en Primaria y otro en Educación Infantil.<br><em>"Quiero contribuir a mejorar la comunicación entre la escuela y las familias."</em></li>
-          <li><b>Secretaria – Isabel Gaona Herranz</b>Madre de una niña en Primaria.<br><em>"Quiero ayudar a seguir mejorando entre todos la comunidad escolar."</em></li>
-          <li><b>Tesorera – Beatriz Gómez Macho</b>Madre de dos hijos.<br><em>"Me gustaría contribuir a una mayor colaboración entre el colegio y las familias."</em></li>
-        </ul>
+  <section class="bloque contenedor" id="junta">
+    <h2>La Junta</h2>
+    <p class="junta-intro">La Junta del AMPA está compuesta por madres y padres del colegio que colaboran de forma voluntaria. Coordinan las actividades, gestionan la comunicación con las familias y administran los recursos económicos de la asociación.</p>
+    <ul class="junta"><li><small>Presidente</small><b>Federico Prado Enrico</b><span>Familia monoparental con una niña en la ESO.</span><em>"Mi objetivo es contribuir al desarrollo educativo de los niños y niñas a través de actividades complementarias, fomentando una comunidad que refuerce la relación entre las familias y el Colegio."</em></li><li><small>Vicepresidenta</small><b>Paula Albo Pariente</b><span>Madre de un hijo en Primaria y otro en Educación Infantil.</span><em>"Quiero contribuir a mejorar la comunicación entre la escuela y las familias."</em></li><li><small>Secretaria</small><b>Isabel Gaona Herranz</b><span>Madre de una niña en Primaria.</span><em>"Quiero ayudar a seguir mejorando entre todos la comunidad escolar."</em></li><li><small>Tesorera</small><b>Beatriz Gómez Macho</b><span>Madre de dos hijos.</span><em>"Me gustaría contribuir a una mayor colaboración entre el colegio y las familias."</em></li></ul>
+  </section>
+
+  <section class="bloque contenedor raya">
+    <div class="contacto-dos">
+      <!-- Solo aparece si hay documentos publicados -->
+      <div id="bloqueDocs" hidden>
+        <h2>Newsletters y documentos</h2>
+        <div id="docsLista"></div>
       </div>
       <div>
-        <!-- Solo aparece si hay documentos publicados -->
-        <div id="bloqueDocs" hidden style="margin-bottom:40px;">
-          <h2>Newsletters y documentos</h2>
-          <div id="docsLista"></div>
-        </div>
         <h2>Escríbenos</h2>
         <p style="color:#3B4A60; margin:0 0 16px;">¿Dudas o sugerencias? Te contestamos por email.</p>
         <div class="field"><label for="contactoNombre">Tu nombre (opcional)</label><input type="text" id="contactoNombre"></div>
         <div class="field"><label for="contactoEmail">Tu email</label><input type="email" id="contactoEmail"></div>
         <div class="field"><label for="contactoMensaje">Mensaje</label><textarea id="contactoMensaje" rows="4"></textarea></div>
-        <button type="button" class="btn btn-primary" id="contactoBtn">Enviar mensaje</button>
+        <button type="button" class="pill pill-cta" id="contactoBtn" style="border:0; cursor:pointer;">Enviar mensaje</button>
         <p id="contactoMsg" style="display:none;"></p>
       </div>
     </div>
@@ -333,36 +342,27 @@ const esc = (t) => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<'
 async function cargarFotos() {
   const { data: fotos, error } = await sb.from('fotos_carrusel').select('url, pie').is('evento_id', null).order('orden');
   if (error || !fotos || !fotos.length) return;
-  const bloque = document.getElementById('bloqueFotos');
-  const img = document.getElementById('carImg');
-  const minis = document.getElementById('carMinis');
-  let i = 0;
-  if (fotos.length === 1) { document.getElementById('carBotones').hidden = true; minis.hidden = true; }
-  minis.innerHTML = fotos.map((f, k) => `<button type="button" data-k="${k}" aria-label="Ver foto ${k + 1}"><img src="${esc(f.url)}" alt="" loading="lazy"></button>`).join('');
-  function mostrar(k) {
-    i = (k + fotos.length) % fotos.length;
-    const f = fotos[i];
-    img.src = f.url;
-    img.alt = f.pie || 'Foto de un evento del AMPA';
-    document.getElementById('carTitulo').textContent = f.pie || '';
-    document.getElementById('carNum').textContent = fotos.length > 1 ? `Foto ${i + 1} de ${fotos.length}` : '';
-    document.getElementById('carPie').hidden = !f.pie && fotos.length === 1;
-    minis.querySelectorAll('button').forEach(b => b.setAttribute('aria-current', String(Number(b.dataset.k) === i)));
-  }
-  document.getElementById('carAnt').addEventListener('click', () => mostrar(i - 1));
-  document.getElementById('carSig').addEventListener('click', () => mostrar(i + 1));
-  minis.addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) mostrar(Number(b.dataset.k)); });
-  // deslizar con el dedo en el móvil
-  let x0 = null;
-  const foto = document.getElementById('carFoto');
-  foto.addEventListener('touchstart', (e) => { x0 = e.touches[0].clientX; }, { passive: true });
-  foto.addEventListener('touchend', (e) => {
-    if (x0 === null) return;
-    const dx = e.changedTouches[0].clientX - x0; x0 = null;
-    if (Math.abs(dx) > 40) mostrar(i + (dx < 0 ? 1 : -1));
+  const muro = document.getElementById('muro');
+  muro.innerHTML = fotos.map((f, k) => `<button type="button" class="polaroid" data-k="${k}" aria-label="Ver la foto en grande${f.pie ? ': ' + esc(f.pie) : ''}">
+      <img src="${esc(f.url)}" alt="${esc(f.pie || 'Foto de un evento del AMPA')}" loading="lazy">
+      <span class="pie">${esc(f.pie || '')}</span></button>`).join('');
+  if (fotos.length < 3) document.getElementById('carBotones').hidden = true;
+  const paso = () => Math.min(muro.clientWidth * 0.8, 380);
+  document.getElementById('carAnt').addEventListener('click', () => muro.scrollBy({ left: -paso(), behavior: 'smooth' }));
+  document.getElementById('carSig').addEventListener('click', () => muro.scrollBy({ left: paso(), behavior: 'smooth' }));
+  // Foto en grande
+  const visor = document.getElementById('visor');
+  muro.addEventListener('click', (e) => {
+    const b = e.target.closest('.polaroid'); if (!b) return;
+    const f = fotos[Number(b.dataset.k)];
+    document.getElementById('visorImg').src = f.url;
+    document.getElementById('visorImg').alt = f.pie || 'Foto de un evento del AMPA';
+    document.getElementById('visorPie').textContent = f.pie || '';
+    if (visor.showModal) visor.showModal(); else window.open(f.url, '_blank');
   });
-  mostrar(0);
-  bloque.hidden = false;
+  document.getElementById('visorCerrar').addEventListener('click', () => visor.close());
+  visor.addEventListener('click', (e) => { if (e.target === visor) visor.close(); });
+  document.getElementById('bloqueFotos').hidden = false;
 }
 
 /* ---------- Próximos eventos (oculto si no hay) ---------- */

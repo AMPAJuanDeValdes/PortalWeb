@@ -199,7 +199,7 @@
         [{ href: 'dashboard.html', texto: 'Volver a Inicio', primario: true }]);
       return;
     }
-    window.location.href = 'dashboard.html';
+    window.location.href = socio.datos_revisados_en ? 'dashboard.html' : 'mis-datos.html';
   });
 </script>
 </body>

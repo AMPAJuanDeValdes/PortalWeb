@@ -69,3 +69,25 @@ test.describe('Mis datos y Mochila', () => {
   });
 
 });
+
+test.describe('Familia importada sin revisar sus datos', () => {
+  test('Entra en Mis datos con el aviso rojo y no puede confirmar sin aula', async ({ page }) => {
+    const fam = await crearFamilia({ etiqueta: 'sinrevisar', alumnos: 1, datosRevisados: false });
+    aceptarDialogos(page);
+    await entrar(page, fam.adultos[0].email);
+    await expect(page).toHaveURL(/mis-datos/);
+    const aviso = page.locator('#avisoRevisar');
+    await expect(aviso).toContainText('REVISA LOS DATOS DE TU FAMILIA');
+    await expect(aviso).toContainText('aula');
+    await aviso.getByRole('button', { name: 'Los datos de mi familia están bien' }).click();
+    await expect(aviso).toContainText('Falta la etapa, el curso o el aula');
+
+    await admin.from('alumnos').update({ aula: 'A' }).eq('id', fam.alumnos[0].id);
+    await page.reload();
+    await page.locator('#avisoRevisar').getByRole('button', { name: 'Los datos de mi familia están bien' }).click();
+    await expect(page.getByText('Ya podéis apuntaros a los eventos')).toBeVisible();
+    const { data } = await admin.from('socios').select('datos_revisados_en').eq('id', fam.socio.id).single();
+    expect(data.datos_revisados_en).not.toBeNull();
+  });
+});
+

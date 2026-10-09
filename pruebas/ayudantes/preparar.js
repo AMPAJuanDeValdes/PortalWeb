@@ -19,6 +19,9 @@ module.exports = async function preparar() {
   const { error: errMig3 } = await admin.from('eventos').select('pide_alergias', { head: true });
   if (errMig3) throw new Error('Falta ejecutar supabase/migracion-eventos-v2.sql en Supabase (' + errMig3.message + ')');
 
+  const { error: errDatos } = await admin.from('socios').select('datos_revisados_en', { head: true });
+  if (errDatos) throw new Error('Falta ejecutar supabase/migracion-datos-familia.sql en Supabase (' + errDatos.message + ')');
+
   const { error: errMochila } = await admin.from('mochila_juegos').select('id', { head: true });
   if (errMochila) throw new Error('Falta ejecutar supabase/migracion-mochila-v2.sql en Supabase (' + errMochila.message + ')');
 

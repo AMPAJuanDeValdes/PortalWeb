@@ -130,8 +130,9 @@ después `migracion-libros-uniformes.sql`, `migracion-fusionar-libros-repetidos.
 (reglas de inscripción de los eventos) y `migracion-panel-junta.sql`
 (mensajes de familias marcables como atendidos), `migracion-eventos-reglas.sql`
 (apuntado o voluntario, nunca las dos cosas; un adulto por familia en la
-visita al comedor), `cron-reseteo-anual.sql` (reseteo del 31 de julio) y
-`migracion-mochila-v2.sql` (nueva lista de espera de la Mochila Jugona y sus juegos).
+visita al comedor), `cron-reseteo-anual.sql` (reseteo del 31 de julio) 
+`migracion-mochila-v2.sql` (nueva lista de espera de la Mochila Jugona Exploradora y sus juegos) y
+`migracion-datos-familia.sql` (las familias confirman sus datos antes de apuntarse a eventos; Cabalgata de 6 a 12 años).
 Todas se pueden ejecutar dos veces sin problema.
 
 ## Variables de entorno en Netlify

@@ -1,11 +1,82 @@
 -- ==================================================================
--- Reglas de inscripción en eventos (ejecutar después de migracion-eventos-v2.sql):
---  * Quien está apuntado a un evento no puede ser voluntario, y al revés.
---  * Visita al comedor: como mucho un adulto apuntado por familia.
--- Se puede ejecutar varias veces.
+-- DATOS DE LA FAMILIA REVISADOS + CABALGATA POR EDAD
+--  * Las familias (p. ej. las importadas) tienen que revisar y confirmar
+--    etapa, curso y aula de cada alumno en «Mis datos» antes de poder
+--    apuntarse a eventos. Cada 31 de julio se vuelve a pedir.
+--  * La Cabalgata es solo para alumnos de 6 a 12 años (edad el día de la
+--    cabalgata), no por curso.
+--  * Infantil llega hasta 5 años.
+-- Ejecutar después de migracion-eventos-v2.sql. Se puede ejecutar varias veces.
 -- ==================================================================
 
 alter table socios add column if not exists datos_revisados_en timestamptz;
+
+-- La familia confirma sus datos: todos sus alumnos tienen que tener
+-- etapa, curso y aula
+create or replace function confirmar_datos_familia()
+returns void language plpgsql security definer set search_path = public as $$
+declare v_socio uuid := mi_socio_id(); v_faltan text;
+begin
+  if v_socio is null then raise exception 'No se pudo identificar tu cuenta de socio.'; end if;
+  select string_agg(nombre, ', ' order by nombre) into v_faltan from alumnos
+  where socio_id = v_socio and (coalesce(btrim(etapa), '') = '' or coalesce(btrim(curso), '') = '' or coalesce(btrim(aula), '') = '');
+  if v_faltan is not null then
+    raise exception 'Falta la etapa, el curso o el aula de: %.', v_faltan;
+  end if;
+  update socios set datos_revisados_en = now() where id = v_socio;
+end;
+$$;
+grant execute on function confirmar_datos_familia() to authenticated;
+
+create or replace function eventos_aplicar_tipo()
+returns trigger language plpgsql as $$
+begin
+  if new.plantilla is null then return new; end if;
+  -- Por defecto, con inscripción normal
+  if new.plantilla not in ('concurso', 'informativo') then
+    new.sin_inscripcion := false; new.usa_concurso_texto := false;
+  end if;
+  if new.plantilla in ('juegos', 'taller', 'barbacoa', 'concurso') then
+    new.tipo_elegibilidad := 'alumnos';
+    if new.elegibilidad_modo is null then new.elegibilidad_modo := 'curso'; end if;
+  end if;
+  case new.plantilla
+    when 'chocolatada' then
+      new.tipo_elegibilidad := 'toda_familia'; new.pide_alergias := true; new.alumnos_requieren_adulto := true;
+      new.permite_invitados := true; new.abierto_no_socios := false; new.publico_solo_actividades := false;
+      new.metodo_asignacion := 'aforo'; new.requiere_pareja_adulto_alumno := false;
+    when 'cabalgata' then
+      new.tipo_elegibilidad := 'toda_familia'; new.metodo_asignacion := 'sorteo';
+      new.requiere_pareja_adulto_alumno := true; new.usa_prioridad_historial := false;
+      -- Solo alumnos de 6 a 12 años (edad el día de la cabalgata), no por curso
+      new.elegibilidad_modo := 'edad'; new.edad_min := 6; new.edad_max := 12; new.cursos_permitidos := null;
+    when 'juegos', 'taller' then
+      new.metodo_asignacion := 'aforo'; new.requiere_pareja_adulto_alumno := false;
+      if new.voluntariado_modo = 'adultos_y_ninos' then new.voluntariado_modo := 'adultos'; end if;
+    when 'barbacoa' then
+      new.metodo_asignacion := 'aforo'; new.requiere_pareja_adulto_alumno := false;
+      new.voluntariado_modo := 'adultos_y_ninos'; new.voluntariado_habilitado := true;
+      new.permite_invitados := false;
+      if new.abierto_no_socios then new.publico_solo_actividades := true; end if;
+      -- Sin cursos marcados = todos los alumnos del colegio
+      if new.elegibilidad_modo = 'curso' and (new.cursos_permitidos is null or jsonb_array_length(new.cursos_permitidos) = 0) then
+        new.cursos_permitidos := (select jsonb_agg(jsonb_build_object('etapa', e, 'curso', c)) from (values
+          ('Infantil','0 años'),('Infantil','1 año'),('Infantil','2 años'),('Infantil','3 años'),('Infantil','4 años'),('Infantil','5 años'),
+          ('Primaria','1º'),('Primaria','2º'),('Primaria','3º'),('Primaria','4º'),('Primaria','5º'),('Primaria','6º'),
+          ('ESO','1º'),('ESO','2º'),('ESO','3º'),('ESO','4º'),('Bachillerato','1º'),('Bachillerato','2º')) v(e, c));
+      end if;
+    when 'comedor' then
+      new.tipo_elegibilidad := 'adultos'; new.metodo_asignacion := 'sorteo';
+      new.usa_prioridad_historial := true; new.requiere_pareja_adulto_alumno := false;
+    when 'concurso' then
+      new.usa_concurso_texto := true; new.sin_inscripcion := false;
+    when 'informativo' then
+      new.sin_inscripcion := true; new.usa_concurso_texto := false;
+    else null;
+  end case;
+  return new;
+end;
+$$;
 
 create or replace function eventos_validar_inscripcion()
 returns trigger language plpgsql security definer set search_path = public as $$
@@ -164,3 +235,35 @@ begin
   return new;
 end;
 $$;
+
+-- Cabalgatas ya creadas: pasan a ser por edad (6 a 12 años)
+update eventos set plantilla = plantilla where plantilla in ('cabalgata', 'barbacoa');
+
+-- Reseteo anual: también vuelve a pedir la revisión de datos
+-- (solo si ya está instalado el cron de cron-reseteo-anual.sql)
+do $$ begin
+  if exists (select 1 from pg_proc where proname = 'reseteo_anual_socios') then
+    execute $f$create or replace function reseteo_anual_socios()
+returns integer language plpgsql security definer set search_path = public as $body$
+declare
+  n integer;
+begin
+  -- cada curso nuevo, las familias vuelven a revisar etapa, curso y aula
+  update socios set datos_revisados_en = null where datos_revisados_en is not null;
+  with desactivados as (
+    update socios s set estado = 'falta_pago'
+    where s.estado = 'activa'
+      and not exists (select 1 from adultos a where a.socio_id = s.id and a.role = 'admin')
+    returning s.id
+  ), alumnos_reset as (
+    update alumnos al set verificado = false
+    where al.socio_id in (select id from desactivados)
+    returning 1
+  )
+  select count(*) into n from desactivados;
+  return n;
+end;
+$body$;
+$f$;
+  end if;
+end $$;

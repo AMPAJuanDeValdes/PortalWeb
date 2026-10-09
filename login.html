@@ -164,7 +164,8 @@
 
     if (adulto.force_password_change) { window.location.href = 'cambiar-clave.html'; return; }
     if (socio.estado === 'recien_creada') { window.location.href = 'estado-recien-creada.html'; return; }
-    window.location.href = 'dashboard.html';
+    // Familias que aún no han revisado sus datos (p. ej. las importadas): a Mis datos
+    window.location.href = socio.datos_revisados_en ? 'dashboard.html' : 'mis-datos.html';
   });
 
   /* ---------------- Recuperar contraseña ---------------- */

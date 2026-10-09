@@ -102,8 +102,17 @@
 </head>
 <body>
 <div class="wrap">
-  <h1 id="saludo">Hola</h1>
-  <p class="familia" id="familia"></p>
+  <div class="con-polvo">
+    <h1 id="saludo">Hola</h1>
+    <p class="familia" id="familia"></p>
+  </div>
+
+  <!-- Hasta que la familia revisa sus datos -->
+  <a class="aviso-revisar" id="avisoRevisar" href="mis-datos.html" hidden style="display:block; text-decoration:none;">
+    <h2>REVISA LOS DATOS DE TU FAMILIA</h2>
+    <p>ACTUALIZA etapa, curso y aula de cada alumno. Esto es necesario para poder acceder a los eventos.</p>
+    <span class="btn btn-grande">Ir a Mis datos</span>
+  </a>
 
   <!-- Solo aparece si hay algo pendiente -->
   <section class="pendientes" id="pendientes" aria-label="Tenéis pendiente" hidden></section>
@@ -491,6 +500,7 @@ document.getElementById('comentarioBtn').addEventListener('click', async () => {
   renderNav('dashboard', ctx);
   const socioId = ctx.socio.id;
   document.getElementById('saludo').textContent = 'Hola, ' + ctx.adulto.nombre;
+  if (!ctx.socio.datos_revisados_en) document.getElementById('avisoRevisar').hidden = false;
 
   if (ctx.adulto.role === 'admin') {
     document.getElementById('adminSection').hidden = false;
@@ -509,7 +519,7 @@ document.getElementById('comentarioBtn').addEventListener('click', async () => {
   const resultados = await Promise.all([
     estadoLibros(socioId, alumnos || []).catch(() => []),
     estadoUniformes(socioId).catch(() => []),
-    estadoEventos(socioId, alumnos || []).catch(() => []),
+    (ctx.socio.datos_revisados_en ? estadoEventos(socioId, alumnos || []) : Promise.resolve([])).catch(() => []),
     estadoEncuestas(socioId).catch(() => []),
     cargarMochila().catch(() => {}),
     sb.from('evento_inscripciones').select('evento_id').eq('socio_id', socioId)

@@ -1,4 +1,8 @@
 -- ============================================================
+
+-- Fecha en que la familia confirmó sus datos (hace falta para apuntarse a eventos)
+alter table socios add column if not exists datos_revisados_en timestamptz;
+
 -- Eventos v2: lo que necesitan Chocolatada, Cabalgata, Talleres,
 -- Barbacoa y Visita al Comedor tal como los describió la Junta.
 -- Se puede ejecutar varias veces sin problema.
@@ -80,6 +84,8 @@ declare
   ocupadas integer;
   ahora timestamptz := now();
   es_admin boolean := coalesce(is_admin(), false);
+  v_nac date;
+  v_edad integer;
 begin
   -- Bloquea el evento: dos familias a la vez no pueden pasarse del aforo
   select * into ev from eventos where id = new.evento_id for update;
@@ -113,6 +119,24 @@ begin
       end if;
     elsif ev.fecha_apertura_socios is not null and ahora < ev.fecha_apertura_socios then
       raise exception 'La inscripción todavía no está abierta.';
+    end if;
+  end if;
+
+  -- La familia tiene que haber revisado sus datos (etapa, curso y aula)
+  if not es_admin and new.tipo_miembro in ('adulto', 'alumno') and new.socio_id is not null
+     and (select datos_revisados_en from socios where id = new.socio_id) is null then
+    raise exception 'Antes de apuntaros a eventos, revisad los datos de vuestra familia en Mis datos (etapa, curso y aula de cada alumno).';
+  end if;
+
+  -- Eventos por edad (p. ej. la Cabalgata): edad el día del evento
+  if new.tipo_miembro = 'alumno' and not new.es_voluntario and new.actividad_id is null and ev.elegibilidad_modo = 'edad' then
+    select fecha_nacimiento into v_nac from alumnos where id = new.alumno_id;
+    if v_nac is null then
+      raise exception 'Falta la fecha de nacimiento de este alumno o alumna: añadidla en Mis datos.';
+    end if;
+    v_edad := date_part('year', age(coalesce(ev.fecha::date, current_date), v_nac));
+    if (ev.edad_min is not null and v_edad < ev.edad_min) or (ev.edad_max is not null and v_edad > ev.edad_max) then
+      raise exception 'Este evento es para alumnos de % a % años.', coalesce(ev.edad_min, 0), coalesce(ev.edad_max, 99);
     end if;
   end if;
 
@@ -427,6 +451,8 @@ begin
     when 'cabalgata' then
       new.tipo_elegibilidad := 'toda_familia'; new.metodo_asignacion := 'sorteo';
       new.requiere_pareja_adulto_alumno := true; new.usa_prioridad_historial := false;
+      -- Solo alumnos de 6 a 12 años (edad el día de la cabalgata), no por curso
+      new.elegibilidad_modo := 'edad'; new.edad_min := 6; new.edad_max := 12; new.cursos_permitidos := null;
     when 'juegos', 'taller' then
       new.metodo_asignacion := 'aforo'; new.requiere_pareja_adulto_alumno := false;
       if new.voluntariado_modo = 'adultos_y_ninos' then new.voluntariado_modo := 'adultos'; end if;
@@ -438,7 +464,7 @@ begin
       -- Sin cursos marcados = todos los alumnos del colegio
       if new.elegibilidad_modo = 'curso' and (new.cursos_permitidos is null or jsonb_array_length(new.cursos_permitidos) = 0) then
         new.cursos_permitidos := (select jsonb_agg(jsonb_build_object('etapa', e, 'curso', c)) from (values
-          ('Infantil','0 años'),('Infantil','1 año'),('Infantil','2 años'),('Infantil','3 años'),
+          ('Infantil','0 años'),('Infantil','1 año'),('Infantil','2 años'),('Infantil','3 años'),('Infantil','4 años'),('Infantil','5 años'),
           ('Primaria','1º'),('Primaria','2º'),('Primaria','3º'),('Primaria','4º'),('Primaria','5º'),('Primaria','6º'),
           ('ESO','1º'),('ESO','2º'),('ESO','3º'),('ESO','4º'),('Bachillerato','1º'),('Bachillerato','2º')) v(e, c));
       end if;

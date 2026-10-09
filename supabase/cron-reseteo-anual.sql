@@ -25,6 +25,8 @@ returns integer language plpgsql security definer set search_path = public as $$
 declare
   n integer;
 begin
+  -- cada curso nuevo, las familias vuelven a revisar etapa, curso y aula
+  update socios set datos_revisados_en = null where datos_revisados_en is not null;
   with desactivados as (
     update socios s set estado = 'falta_pago'
     where s.estado = 'activa'
