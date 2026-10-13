@@ -1,4 +1,4 @@
-// Copia de shared/donaciones.js para la función de Netlify (mantener las dos iguales).
+// Copia de web/shared/donaciones.js para la función de Netlify (mantener las dos iguales).
 // Lo que el AMPA recoge como donación (lo comparten donar.html,
 // admin-donaciones.html y la función de Netlify `donacion`).
 (function (raiz) {
@@ -11,11 +11,16 @@
     maxCantidad: 20,
     // Texto de una línea de la donación
     texto(i) {
-      if (i.categoria === 'libros') return `Libro: ${i.titulo}${i.curso ? ' (' + i.curso + ')' : ''}`;
-      if (i.categoria === 'uniformes') return `Uniforme: ${i.tipo}, talla ${i.talla}`;
-      if (i.categoria === 'instrumentos') return `Instrumento: ${i.articulo}`;
-      if (i.categoria === 'extraescolares') return `Extraescolares: ${i.articulo}${i.talla ? ', talla ' + i.talla : ''}`;
+      if (i.categoria === 'libros') return `Libro «${i.titulo}»${i.curso ? ', ' + i.curso : ''}`;
+      if (i.categoria === 'uniformes') return `${i.tipo} del uniforme, talla ${i.talla}`;
+      if (i.categoria === 'instrumentos') return String(i.articulo || '');
+      if (i.categoria === 'extraescolares') return `${i.articulo}${i.talla ? ', talla ' + i.talla : ''}`;
       return String(i.articulo || '');
+    },
+    // Línea con la cantidad: «Camiseta del uniforme, talla 20 · 2 unidades»
+    linea(i) {
+      const n = Number(i.cantidad) || 1;
+      return `${this.texto(i)} · ${n} ${n === 1 ? 'unidad' : 'unidades'}`;
     }
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = DONACIONES; else raiz.DONACIONES = DONACIONES;

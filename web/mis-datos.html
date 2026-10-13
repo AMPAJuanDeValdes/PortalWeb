@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mis datos · AMPA Juan de Valdés</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared/styles.css">
+<style>
+  .two-col{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:560px){ .two-col{ grid-template-columns:1fr; } }
+  .readonly-value{ background:#F5F3EC; border:1px solid var(--line); border-radius:var(--radius); padding:10px 12px; font-family:var(--font-text); font-size:14px; color:var(--ink-soft); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="cab-servicio cs-familia"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M15 20c0-2 1-4 3-4.5 2 .5 3 2.5 3 4.5"/></svg><div><nav class="miga" aria-label="Estás en"><a href="dashboard.html">Inicio</a><span aria-hidden="true">›</span><span>Mi cuenta</span></nav><h1>Mis datos</h1><p>Adultos, alumnos y alumnas, forma de pago y domiciliación.</p></div></header>
+
+  <!-- Solo aparece hasta que la familia confirma sus datos -->
+  <section class="aviso-revisar" id="avisoRevisar" hidden aria-live="polite"></section>
+
+  <div class="card">
+    <p class="section-label">Datos de la cuenta</p>
+    <div class="two-col">
+      <div class="field"><label>Número de socio</label><div class="readonly-value" id="numeroSocioValue">—</div></div>
+      <div class="field"><label>Año de última cuota</label><div class="readonly-value" id="anioValue">—</div></div>
+    </div>
+    <div class="two-col" style="margin-top:14px;">
+      <div class="field"><label>Forma de pago</label><div class="readonly-value" id="formaPagoValue">—</div></div>
+      <div class="field" id="ibanField" style="display:none;"><label>IBAN domiciliado</label><div class="readonly-value" id="ibanValue">—</div></div>
+    </div>
+    <div id="mandatoVigente" style="margin-top:14px; display:none;"></div>
+    <div style="margin-top:16px; display:flex; gap:10px; flex-wrap:wrap;">
+      <button type="button" class="btn btn-outline" id="cambiarBancoBtn">Domiciliar la cuota</button>
+      <a href="cambiar-clave.html" class="btn btn-outline">Cambiar mi contraseña</a>
+      <button type="button" class="btn-danger-link" id="bajaBtn">Dar de baja mi cuenta</button>
+    </div>
+    <div id="sepaZona" style="margin-top:16px; display:none;"></div>
+  </div>
+
+  <div class="card">
+    <p class="section-label">Adultos de la familia</p>
+    <div id="adultosWrap"><p class="loading">Cargando...</p></div>
+    <button type="button" class="btn btn-outline" id="addAdultoBtn" style="margin-top:14px; display:none;">+ Añadir segundo adulto</button>
+    <div id="adulto2Form" class="hijo-card" style="display:none; margin-top:14px;">
+      <div class="hijo-head"><span class="hijo-tag">Nuevo adulto (recibirá su contraseña por email)</span></div>
+      <div class="hijo-body">
+        <div class="two-col"><div class="field"><label>Nombre *</label><input type="text" id="n2Nombre"></div><div class="field"><label>Apellidos *</label><input type="text" id="n2Apellidos"></div></div>
+        <div class="two-col" style="margin-top:14px;"><div class="field"><label>Email * (distinto al tuyo)</label><input type="email" id="n2Email"></div><div class="field"><label>Móvil *</label><input type="text" id="n2Movil"></div></div>
+        <div class="two-col" style="margin-top:14px;"><div class="field"><label>DNI / NIE *</label><input type="text" id="n2Dni"></div><div class="field"><label>Teléfono fijo</label><input type="text" id="n2Fijo"></div></div>
+        <div class="field" style="margin-top:14px;"><label>Dirección *</label><input type="text" id="n2Direccion"></div>
+        <div class="two-col" style="margin-top:14px;"><div class="field"><label>Ciudad *</label><input type="text" id="n2Ciudad"></div><div class="field"><label>Provincia *</label><input type="text" id="n2Provincia"></div></div>
+        <div class="two-col" style="margin-top:14px;"><div class="field"><label>Código postal *</label><input type="text" id="n2Cp"></div><div class="field"><label>Relación con los alumnos</label><input type="text" id="n2Relacion" placeholder="padre / madre / tutor legal..."></div></div>
+        <div style="display:flex; gap:12px; align-items:center; margin-top:16px; flex-wrap:wrap;">
+          <button type="button" class="btn btn-primary" id="n2Guardar">Añadir adulto</button>
+          <button type="button" class="linklike" id="n2Cancelar" style="font-size:14px;">Cancelar</button>
+        </div>
+        <p id="n2Msg" style="display:none; margin-top:10px;"></p>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <p class="section-label">Alumnos</p>
+    <div id="alumnosWrap"><p class="loading">Cargando...</p></div>
+    <button type="button" class="btn btn-outline" id="addAlumnoBtn" style="margin-top:14px;">+ Añadir alumno/a</button>
+  </div>
+
+</div>
+
+<!-- Pop-up de confirmación de baja -->
+<div id="bajaModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.4); align-items:center; justify-content:center; z-index:100;">
+  <div class="card" style="max-width:420px; margin:20px;">
+    <p class="section-label">Confirmar baja</p>
+    <p style="font-size:14.5px;">
+      Al dar de baja tu cuenta perderéis en el momento todos los beneficios
+      de ser socios (Banco de Libros, Banco de Uniformes, eventos de socios, etc.). Podréis
+      solicitar volver a ser socios más adelante. ¿Seguro que quieres
+      continuar?
+    </p>
+    <div style="display:flex; gap:10px; margin-top:16px;">
+      <button type="button" class="btn btn-outline" id="cancelarBajaBtn">Cancelar</button>
+      <button type="button" class="btn btn-primary" id="confirmarBajaBtn" style="background:var(--red);">Sí, dar de baja</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="shared/supabaseClient.js"></script>
+<script src="shared/nav.js"></script>
+<script src="shared/catalogo.js"></script>
+<script src="shared/documentoRellenable.js"></script>
+<script src="shared/mandatoSepa.js"></script>
+<script src="shared/datos-ampa.js"></script>
+<script>
+let ctxGlobal = null;
+
+function campoTexto(label, valor, onInput, required = false, tipo = 'text') {
+  const wrap = document.createElement('div');
+  wrap.className = 'field';
+  wrap.innerHTML = `<label>${label}${required ? ' *' : ''}</label>`;
+  const input = document.createElement('input');
+  input.type = tipo; input.value = valor || '';
+  if (tipo === 'date') { input.min = NACIMIENTO_MIN; input.max = new Date().toISOString().slice(0, 10); }
+  input.addEventListener('input', e => onInput(e.target.value));
+  wrap.appendChild(input);
+  if (tipo === 'date') notaEdad(input);
+  return wrap;
+}
+
+function renderAdultoCard(adulto, esUnoMismo) {
+  const card = document.createElement('div');
+  card.className = 'hijo-card';
+  card.innerHTML = `<div class="hijo-head"><span class="hijo-tag">${adulto.nombre} ${adulto.apellidos} ${esUnoMismo ? '(tú)' : ''}</span></div>`;
+  const body = document.createElement('div');
+  body.className = 'hijo-body';
+
+  const row1 = document.createElement('div');
+  row1.className = 'two-col';
+  row1.appendChild(campoTexto('Nombre', adulto.nombre, v => adulto.nombre = v, true));
+  row1.appendChild(campoTexto('Apellidos', adulto.apellidos, v => adulto.apellidos = v, true));
+  body.appendChild(row1);
+
+  const row2 = document.createElement('div');
+  row2.className = 'two-col';
+  row2.style.marginTop = '14px';
+  const emailField = campoTexto('Email (usuario de acceso)', adulto.email, () => {}, false, 'email');
+  const emailInput = emailField.querySelector('input');
+  emailInput.readOnly = true; emailInput.style.background = '#F5F3EC';
+  emailInput.title = 'Para cambiar el email de acceso, pídeselo al AMPA';
+  emailField.insertAdjacentHTML('beforeend', '<small style="color:var(--ink-soft); font-size:14px;">Para cambiarlo, pídeselo al AMPA.</small>');
+  row2.appendChild(emailField);
+  row2.appendChild(campoTexto('Móvil', adulto.movil === 'PENDIENTE' ? '' : adulto.movil, v => adulto.movil = v, true));
+  body.appendChild(row2);
+
+  const row2b = document.createElement('div');
+  row2b.className = 'two-col';
+  row2b.style.marginTop = '14px';
+  row2b.appendChild(campoTexto('DNI / NIE / Pasaporte', adulto.dni_nie === 'PENDIENTE' ? '' : adulto.dni_nie, v => adulto.dni_nie = v, true));
+  row2b.appendChild(campoTexto('Teléfono fijo', adulto.telefono_fijo, v => adulto.telefono_fijo = v));
+  body.appendChild(row2b);
+
+  const row2c = document.createElement('div');
+  row2c.className = 'field';
+  row2c.style.marginTop = '14px';
+  row2c.innerHTML = '<label>Dirección</label>';
+  const inputDir = document.createElement('input');
+  inputDir.type = 'text';
+  inputDir.value = adulto.direccion === 'PENDIENTE' ? '' : (adulto.direccion || '');
+  inputDir.addEventListener('input', e => adulto.direccion = e.target.value);
+  row2c.appendChild(inputDir);
+  body.appendChild(row2c);
+
+  const row2d = document.createElement('div');
+  row2d.className = 'two-col';
+  row2d.style.marginTop = '14px';
+  row2d.appendChild(campoTexto('Ciudad', adulto.ciudad === 'PENDIENTE' ? '' : adulto.ciudad, v => adulto.ciudad = v, true));
+  row2d.appendChild(campoTexto('Provincia', adulto.provincia === 'PENDIENTE' ? '' : adulto.provincia, v => adulto.provincia = v, true));
+  body.appendChild(row2d);
+
+  const row2e = document.createElement('div');
+  row2e.className = 'field';
+  row2e.style.marginTop = '14px';
+  row2e.style.maxWidth = '160px';
+  row2e.innerHTML = '<label>Código postal</label>';
+  const inputCp = document.createElement('input');
+  inputCp.type = 'text';
+  inputCp.value = adulto.codigo_postal === '00000' ? '' : (adulto.codigo_postal || '');
+  inputCp.addEventListener('input', e => adulto.codigo_postal = e.target.value);
+  row2e.appendChild(inputCp);
+  body.appendChild(row2e);
+
+  const row3 = document.createElement('div');
+  row3.className = 'field';
+  row3.style.marginTop = '14px';
+  row3.innerHTML = '<label>Relación con los alumnos (opcional)</label>';
+  const input3 = document.createElement('input');
+  input3.type = 'text';
+  input3.value = adulto.relacion_alumnos || '';
+  input3.placeholder = 'padre / madre / abuela / tutor legal...';
+  input3.addEventListener('input', e => adulto.relacion_alumnos = e.target.value);
+  row3.appendChild(input3);
+  body.appendChild(row3);
+
+  const msg = document.createElement('p');
+  msg.style.display = 'none'; msg.style.marginTop = '10px';
+
+  const saveBtn = document.createElement('button');
+  saveBtn.className = 'btn btn-primary';
+  saveBtn.style.marginTop = '14px';
+  saveBtn.textContent = 'Guardar';
+  saveBtn.addEventListener('click', async () => {
+    const t = (v) => String(v == null ? '' : v).trim();
+    if (!t(adulto.nombre) || !t(adulto.apellidos) || !t(adulto.dni_nie) || !t(adulto.email) ||
+        !t(adulto.direccion) || !t(adulto.ciudad) || !t(adulto.provincia) ||
+        !t(adulto.codigo_postal) || !t(adulto.movil)) {
+      msg.style.display = 'block'; msg.className = 'msg-error';
+      msg.textContent = 'Completa los campos obligatorios (*), incluido el móvil.';
+      return;
+    }
+    const malo = !movilValido(adulto.movil) ? MSG_MOVIL : !dniValido(adulto.dni_nie, adulto.es_pasaporte) ? MSG_DNI : '';
+    if (malo) { msg.style.display = 'block'; msg.className = 'msg-error'; msg.textContent = malo; return; }
+    const { data, error } = await sb.from('adultos').update({
+      nombre: adulto.nombre, apellidos: adulto.apellidos,
+      movil: adulto.movil, relacion_alumnos: adulto.relacion_alumnos || null,
+      dni_nie: adulto.dni_nie, telefono_fijo: adulto.telefono_fijo || null,
+      direccion: adulto.direccion, ciudad: adulto.ciudad,
+      provincia: adulto.provincia, codigo_postal: adulto.codigo_postal
+    }).eq('id', adulto.id).select('id');
+    // Si la base de datos no ha actualizado ninguna fila, NO está guardado
+    const sinCambios = !error && (!data || data.length === 0);
+    msg.style.display = 'block';
+    msg.className = (error || sinCambios) ? 'msg-error' : 'msg-ok';
+    msg.textContent = error ? 'Error: ' + error.message
+      : sinCambios ? 'No se ha podido guardar (sin permiso). Avisa al AMPA.' : 'Guardado ✓';
+  });
+
+  body.appendChild(saveBtn);
+  body.appendChild(msg);
+  card.appendChild(body);
+  return card;
+}
+
+async function cargarAdultos() {
+  const wrap = document.getElementById('adultosWrap');
+  const { data, error } = await sb.from('adultos').select('*').eq('socio_id', ctxGlobal.socio.id);
+  if (error) { wrap.innerHTML = '<p class="msg-error">No se pudo cargar.</p>'; return; }
+  wrap.innerHTML = '';
+  data.forEach(a => wrap.appendChild(renderAdultoCard(a, a.id === ctxGlobal.adulto.id)));
+  document.getElementById('addAdultoBtn').style.display = data.length < 2 ? 'block' : 'none';
+}
+
+document.getElementById('addAdultoBtn').addEventListener('click', () => {
+  // La dirección suele ser la misma: se rellena con la del adulto actual
+  const yo = ctxGlobal.adulto;
+  const limpio = (v) => (v === 'PENDIENTE' || v === '00000') ? '' : (v || '');
+  document.getElementById('n2Direccion').value = limpio(yo.direccion);
+  document.getElementById('n2Ciudad').value = limpio(yo.ciudad);
+  document.getElementById('n2Provincia').value = limpio(yo.provincia);
+  document.getElementById('n2Cp').value = limpio(yo.codigo_postal);
+  document.getElementById('adulto2Form').style.display = 'block';
+  document.getElementById('addAdultoBtn').style.display = 'none';
+  document.getElementById('n2Nombre').focus();
+});
+document.getElementById('n2Cancelar').addEventListener('click', () => {
+  document.getElementById('adulto2Form').style.display = 'none';
+  document.getElementById('addAdultoBtn').style.display = 'block';
+});
+
+document.getElementById('n2Guardar').addEventListener('click', async () => {
+  const $ = (id) => document.getElementById(id);
+  const msg = $('n2Msg');
+  const btn = $('n2Guardar');
+  const obligatorios = ['n2Nombre', 'n2Apellidos', 'n2Email', 'n2Movil', 'n2Dni', 'n2Direccion', 'n2Ciudad', 'n2Provincia', 'n2Cp'].map($);
+  if (!marcarCamposVacios(obligatorios)) {
+    msg.style.display = 'block'; msg.className = 'msg-error'; msg.textContent = 'Completa los campos marcados en rojo.';
+    return;
+  }
+  if (!movilValido($('n2Movil').value)) { $('n2Movil').classList.add('campo-error'); msg.style.display = 'block'; msg.className = 'msg-error'; msg.textContent = MSG_MOVIL; return; }
+  if (!dniValido($('n2Dni').value)) { $('n2Dni').classList.add('campo-error'); msg.style.display = 'block'; msg.className = 'msg-error'; msg.textContent = MSG_DNI; return; }
+  const email = $('n2Email').value.trim().toLowerCase();
+  if (email === (ctxGlobal.adulto.email || '').trim().toLowerCase()) {
+    $('n2Email').classList.add('campo-error');
+    msg.style.display = 'block'; msg.className = 'msg-error'; msg.textContent = 'El segundo adulto debe tener un email distinto al tuyo.';
+    return;
+  }
+  btn.disabled = true; btn.textContent = 'Añadiendo...';
+  const session = await getSession();
+  try {
+    const resp = await fetch('/.netlify/functions/invitar-adulto', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
+      body: JSON.stringify({
+        email, nombre: $('n2Nombre').value.trim(), apellidos: $('n2Apellidos').value.trim(),
+        movil: $('n2Movil').value.trim(), dni_nie: $('n2Dni').value.trim(), telefono_fijo: $('n2Fijo').value.trim(),
+        direccion: $('n2Direccion').value.trim(), ciudad: $('n2Ciudad').value.trim(),
+        provincia: $('n2Provincia').value.trim(), codigo_postal: $('n2Cp').value.trim(),
+        relacion_alumnos: $('n2Relacion').value.trim()
+      })
+    });
+    let data = {};
+    try { data = await resp.json(); } catch (e) {}
+    if (!resp.ok) throw new Error(data.error || 'Error al añadir el adulto');
+    $('adulto2Form').style.display = 'none';
+    await cargarAdultos();
+    alert(data.emailEnviado === false
+      ? 'Adulto añadido, pero NO se pudo enviar el email con su contraseña. Avisa al AMPA para que se la reenvíe.'
+      : 'Adulto añadido. Le hemos enviado un email a ' + email + ' con su contraseña provisional.');
+  } catch (err) {
+    msg.style.display = 'block'; msg.className = 'msg-error'; msg.textContent = err.message;
+  }
+  btn.disabled = false; btn.textContent = 'Añadir adulto';
+});
+
+/* ---------------- Alumnos: alta y edición ---------------- */
+
+function selectEtapaCurso(alumno, onChangeEtapa, onChangeCurso) {
+  const wrap = document.createElement('div');
+  wrap.className = 'two-col';
+
+  const etapaField = document.createElement('div');
+  etapaField.className = 'field';
+  etapaField.innerHTML = '<label>Etapa *</label>';
+  const etapaSelect = document.createElement('select');
+  etapaSelect.innerHTML = '<option value="">Selecciona...</option>' +
+    Object.keys(CURSOS_POR_ETAPA).map(e =>
+      `<option value="${e}" ${alumno.etapa === e ? 'selected' : ''}>${e}</option>`
+    ).join('');
+  etapaField.appendChild(etapaSelect);
+  wrap.appendChild(etapaField);
+
+  const cursoField = document.createElement('div');
+  cursoField.className = 'field';
+  cursoField.innerHTML = '<label>Curso *</label>';
+  const cursoSelect = document.createElement('select');
+  const cursosDisponibles = CURSOS_POR_ETAPA[alumno.etapa] || [];
+  cursoSelect.innerHTML = '<option value="">Selecciona...</option>' +
+    cursosDisponibles.map(c =>
+      `<option value="${c}" ${alumno.curso === c ? 'selected' : ''}>${c}</option>`
+    ).join('');
+  cursoField.appendChild(cursoSelect);
+  wrap.appendChild(cursoField);
+
+  etapaSelect.addEventListener('change', () => {
+    onChangeEtapa(etapaSelect.value);
+    alumno.curso = '';
+    cursoSelect.innerHTML = '<option value="">Selecciona...</option>' +
+      (CURSOS_POR_ETAPA[etapaSelect.value] || []).map(c => `<option value="${c}">${c}</option>`).join('');
+  });
+  cursoSelect.addEventListener('change', () => onChangeCurso(cursoSelect.value));
+
+  return wrap;
+}
+
+function renderAlumnoCard(alumno, esNuevo = false) {
+  const card = document.createElement('div');
+  card.className = 'hijo-card';
+  card.innerHTML = `<div class="hijo-head"><span class="hijo-tag">${esNuevo ? 'Nuevo alumno/a' : alumno.nombre + ' ' + alumno.apellidos}</span></div>`;
+  const body = document.createElement('div');
+  body.className = 'hijo-body';
+
+  const faltan = esNuevo ? [] : faltaDeAlumno(alumno);
+  if (faltan.length) {
+    card.classList.add('falta-datos');
+    body.insertAdjacentHTML('beforeend', `<p class="falta-datos-txt">Falta: ${faltan.join(', ')}.</p>`);
+  }
+
+  const row1 = document.createElement('div');
+  row1.className = 'two-col';
+  row1.appendChild(campoTexto('Nombre', alumno.nombre, v => alumno.nombre = v, true));
+  row1.appendChild(campoTexto('Apellidos', alumno.apellidos, v => alumno.apellidos = v, true));
+  body.appendChild(row1);
+
+  body.appendChild(selectEtapaCurso(alumno, v => alumno.etapa = v, v => alumno.curso = v));
+
+  const row3 = document.createElement('div');
+  row3.className = 'two-col';
+  row3.style.marginTop = '14px';
+
+  const aulaField = document.createElement('div');
+  aulaField.className = 'field';
+  aulaField.innerHTML = '<label>Aula *</label>';
+  const aulaSelect = document.createElement('select');
+  aulaSelect.innerHTML = '<option value="">Sin especificar</option>' +
+    ['A', 'B', 'C', 'D'].map(v => `<option value="${v}" ${alumno.aula === v ? 'selected' : ''}>${v}</option>`).join('');
+  aulaSelect.addEventListener('change', () => alumno.aula = aulaSelect.value);
+  aulaField.appendChild(aulaSelect);
+  row3.appendChild(aulaField);
+
+  row3.appendChild(campoTexto('Fecha de nacimiento', alumno.fecha_nacimiento, v => alumno.fecha_nacimiento = v, true, 'date'));
+  body.appendChild(row3);
+
+  const row4 = document.createElement('div');
+  row4.className = 'field';
+  row4.style.marginTop = '14px';
+  row4.innerHTML = '<label>Sexo (opcional)</label>';
+  const sexoSelect = document.createElement('select');
+  sexoSelect.innerHTML = ['', 'Masculino', 'Femenino', 'Otro'].map(v =>
+    `<option value="${v}" ${alumno.sexo === v ? 'selected' : ''}>${v === '' ? 'Sin especificar' : v}</option>`
+  ).join('');
+  sexoSelect.addEventListener('change', () => alumno.sexo = sexoSelect.value);
+  row4.appendChild(sexoSelect);
+  body.appendChild(row4);
+
+  const msg = document.createElement('p');
+  msg.style.display = 'none'; msg.style.marginTop = '10px';
+
+  const saveBtn = document.createElement('button');
+  saveBtn.className = 'btn btn-primary';
+  saveBtn.style.marginTop = '14px';
+  saveBtn.textContent = esNuevo ? 'Añadir alumno/a' : 'Guardar';
+  saveBtn.addEventListener('click', async () => {
+    if (!alumno.nombre.trim() || !alumno.apellidos.trim() || !alumno.etapa || !alumno.curso || !alumno.aula || !alumno.fecha_nacimiento) {
+      msg.style.display = 'block'; msg.className = 'msg-error';
+      msg.textContent = 'Completa los campos obligatorios (*).';
+      return;
+    }
+    if (!nacimientoValido(alumno.fecha_nacimiento)) {
+      msg.style.display = 'block'; msg.className = 'msg-error'; msg.textContent = MSG_NACIMIENTO;
+      return;
+    }
+    const datos = {
+      nombre: alumno.nombre, apellidos: alumno.apellidos, etapa: alumno.etapa,
+      curso: alumno.curso, aula: alumno.aula || null,
+      fecha_nacimiento: alumno.fecha_nacimiento,
+      sexo: alumno.sexo || null
+    };
+    saveBtn.disabled = true;
+    let error, data;
+    if (esNuevo) {
+      ({ data, error } = await sb.from('alumnos').insert({ ...datos, socio_id: ctxGlobal.socio.id }).select('id'));
+    } else {
+      ({ data, error } = await sb.from('alumnos').update(datos).eq('id', alumno.id).select('id'));
+    }
+    saveBtn.disabled = false;
+    const sinCambios = !error && (!data || data.length === 0);
+    if (error || sinCambios) {
+      msg.style.display = 'block'; msg.className = 'msg-error';
+      msg.textContent = error ? 'Error: ' + error.message : 'No se ha podido guardar (sin permiso). Avisa al AMPA.';
+      return;
+    }
+    // Al recargar la lista, la tarjeta de este alumno/a muestra «Guardado ✓»
+    alumnoRecienGuardado = data[0].id;
+    await cargarAlumnos();
+  });
+
+  body.appendChild(saveBtn);
+  body.appendChild(msg);
+  if (!esNuevo && alumno.id && alumno.id === alumnoRecienGuardado) {
+    msg.style.display = 'block'; msg.className = 'msg-ok'; msg.textContent = 'Guardado ✓';
+    alumnoRecienGuardado = null;
+  }
+  card.appendChild(body);
+  return card;
+}
+let alumnoRecienGuardado = null;
+
+function faltaDeAlumno(a) {
+  const f = [];
+  if (!a.etapa) f.push('etapa');
+  if (!a.curso) f.push('curso');
+  if (!a.aula) f.push('aula');
+  if (!a.fecha_nacimiento) f.push('fecha de nacimiento');
+  return f;
+}
+
+// Aviso rojo hasta que la familia confirma que sus datos están bien
+function pintarAvisoRevisar(alumnos) {
+  const caja = document.getElementById('avisoRevisar');
+  if (ctxGlobal.socio.datos_revisados_en) { caja.hidden = true; return; }
+  const incompletos = alumnos.filter(a => faltaDeAlumno(a).filter(x => x !== 'fecha de nacimiento').length);
+  caja.innerHTML = `
+    <h2>REVISA LOS DATOS DE TU FAMILIA</h2>
+    <p>ACTUALIZA etapa, curso y aula de cada alumno. Esto es necesario para poder acceder a los eventos.</p>
+    ${incompletos.length ? `<p>Os falta completar:</p><ul>${incompletos.map(a => `<li>${escHtml(a.nombre)}: ${faltaDeAlumno(a).join(', ')}</li>`).join('')}</ul>` : ''}
+    <button type="button" class="btn btn-grande" id="confirmarDatosBtn">Los datos de mi familia están bien</button>
+    <p class="error" id="confirmarDatosMsg" hidden></p>`;
+  caja.hidden = false;
+  document.getElementById('confirmarDatosBtn').addEventListener('click', async () => {
+    const { error } = await sb.rpc('confirmar_datos_familia');
+    const m = document.getElementById('confirmarDatosMsg');
+    if (error) { m.textContent = textoErrorBD(error); m.hidden = false; return; }
+    ctxGlobal.socio.datos_revisados_en = new Date().toISOString();
+    caja.hidden = true;
+    document.querySelector('.wrap').insertAdjacentHTML('afterbegin', '<p class="msg-ok" style="font-size:18px;">Gracias. Ya podéis apuntaros a los eventos.</p>');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+}
+const escHtml = (v) => String(v || '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const textoErrorBD = (e) => String((e && e.message) || e).replace(/^.*?ERROR:\s*/, '');
+
+async function cargarAlumnos() {
+  const wrap = document.getElementById('alumnosWrap');
+  const { data, error } = await sb.from('alumnos').select('*').eq('socio_id', ctxGlobal.socio.id).order('created_at');
+  if (error) { wrap.innerHTML = '<p class="msg-error">No se pudo cargar.</p>'; return; }
+  pintarAvisoRevisar(data);
+  wrap.innerHTML = '';
+  if (data.length === 0) {
+    wrap.innerHTML = '<p class="empty-hint">Todavía no has añadido ningún alumno.</p>';
+  } else {
+    data.forEach(a => wrap.appendChild(renderAlumnoCard(a, false)));
+  }
+}
+
+document.getElementById('addAlumnoBtn').addEventListener('click', () => {
+  const wrap = document.getElementById('alumnosWrap');
+  if (wrap.querySelector('.empty-hint')) wrap.innerHTML = '';
+  wrap.appendChild(renderAlumnoCard({ nombre: '', apellidos: '', etapa: '', curso: '', aula: '', fecha_nacimiento: '', sexo: '' }, true));
+});
+
+/* ---------------- Cuenta / baja ---------------- */
+
+function cargarCuenta() {
+  const socio = ctxGlobal.socio;
+  document.getElementById('numeroSocioValue').textContent = socio.numero_socio_completo ? (n => /^\d{12}$/.test(n) ? n.slice(0, 4) + '.' + n.slice(4, 8) + '.' + n.slice(8) : n)(socio.numero_socio_completo) : '(pendiente de activación)';
+  document.getElementById('anioValue').textContent = socio.anio_ultima_cuota;
+  document.getElementById('formaPagoValue').textContent = socio.forma_pago || 'Sin especificar';
+  if (socio.forma_pago === 'Domiciliación Bancaria' && socio.iban) {
+    document.getElementById('ibanField').style.display = 'block';
+    document.getElementById('ibanValue').textContent = socio.iban;
+  }
+  cargarMandatoVigente();
+}
+
+// La domiciliación es de la FAMILIA (socio), no de cada adulto: hay un
+// único mandato vigente por socio y los dos adultos ven el mismo.
+let mandatoVigente = null;
+async function cargarMandatoVigente() {
+  const socio = ctxGlobal.socio;
+  const { data } = await sb.from('mandatos_sepa')
+    .select('id, adulto_id, iban, archivo_final_url, created_at')
+    .eq('socio_id', socio.id).eq('vigente', true)
+    .order('created_at', { ascending: false }).limit(1);
+  mandatoVigente = data && data[0] ? data[0] : null;
+
+  const caja = document.getElementById('mandatoVigente');
+  const btn = document.getElementById('cambiarBancoBtn');
+  if (!mandatoVigente) {
+    caja.style.display = 'none';
+    btn.textContent = 'Domiciliar la cuota';
+    return;
+  }
+  btn.textContent = 'Cambiar la cuenta bancaria';
+
+  let firmante = '';
+  if (mandatoVigente.adulto_id) {
+    const { data: a } = await sb.from('adultos').select('nombre, apellidos').eq('id', mandatoVigente.adulto_id).maybeSingle();
+    if (a) firmante = a.nombre + ' ' + a.apellidos;
+  }
+  let enlace = '';
+  if (mandatoVigente.archivo_final_url) {
+    const { data: u } = await sb.storage.from('mandatos-sepa').createSignedUrl(mandatoVigente.archivo_final_url, 600);
+    if (u && u.signedUrl) enlace = ` · <a href="${u.signedUrl}" target="_blank" rel="noopener" style="color:var(--navy);">Ver mandato firmado</a>`;
+  }
+  caja.style.display = 'block';
+  caja.innerHTML = `<div class="aviso" style="margin:0;">
+    <b>Mandato SEPA de la familia</b> (uno por socio, el mismo para los dos adultos)<br>
+    IBAN <span style="font-family:ui-monospace,Menlo,Consolas,monospace;">${mandatoVigente.iban}</span>
+    · firmado${firmante ? ' por ' + firmante : ''} el ${new Date(mandatoVigente.created_at).toLocaleDateString('es-ES')}${enlace}
+  </div>`;
+}
+
+document.getElementById('cambiarBancoBtn').addEventListener('click', abrirFirmaSepa);
+
+async function abrirFirmaSepa() {
+  const zona = document.getElementById('sepaZona');
+  zona.style.display = 'block';
+
+  // Los datos del deudor son los del adulto que firma ahora (el que ha
+  // iniciado sesión). El mandato es de la familia y sustituye al anterior.
+  const adulto = (await getAdulto()) || ctxGlobal.adulto;
+  const socio = ctxGlobal.socio;
+  const limpio = (v) => (v === 'PENDIENTE' || v === '00000' || v == null) ? '' : String(v).trim();
+  const esc = (v) => String(v || '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+  const original = {
+    titular: [limpio(adulto.nombre), limpio(adulto.apellidos)].filter(Boolean).join(' '),
+    direccion: limpio(adulto.direccion),
+    cpPoblacion: [limpio(adulto.codigo_postal), limpio(adulto.ciudad), limpio(adulto.provincia)].filter(Boolean).join(' - '),
+    pais: 'España',
+    localidad: limpio(adulto.ciudad)
+  };
+  const ibanInicial = (mandatoVigente && mandatoVigente.iban) || socio.iban || '';
+
+  zona.innerHTML = `
+    <div class="sepa-form">
+      <div class="aviso" style="margin-top:0;">El mandato es de <b>toda la familia</b>: uno por socio.${mandatoVigente ? ' Si firmas uno nuevo, <b>sustituye al actual</b>.' : ''}
+        Revisa tus datos y firma: el documento se rellena solo.</div>
+
+      <div class="field"><label for="sTitular">Titular de la cuenta</label><input type="text" id="sTitular" autocomplete="name" value="${esc(original.titular)}"></div>
+      <div class="field"><label for="sDireccion">Dirección</label><input type="text" id="sDireccion" autocomplete="street-address" value="${esc(original.direccion)}"></div>
+      <div class="two-col">
+        <div class="field"><label for="sCp">Código postal, población y provincia</label><input type="text" id="sCp" value="${esc(original.cpPoblacion)}"></div>
+        <div class="field"><label for="sPais">País</label><input type="text" id="sPais" value="${esc(original.pais)}"></div>
+      </div>
+      <div class="two-col">
+        <div class="field"><label for="sIban">IBAN</label><input type="text" id="sIban" inputmode="text" autocomplete="off" spellcheck="false" placeholder="ES00 0000 0000 0000 0000 0000" value="${esc(ibanInicial ? formatearIban(ibanInicial) : '')}" style="font-family:ui-monospace,Menlo,Consolas,monospace; letter-spacing:.02em;"><small class="campo-ayuda" id="sIbanAyuda"></small></div>
+        <div class="field"><label for="sBic">Código BIC del banco</label><input type="text" id="sBic" autocomplete="off" spellcheck="false" style="text-transform:uppercase;"><small class="campo-ayuda">Se rellena solo con los bancos más habituales. Si no, viene en tu extracto o en la web de tu banco.</small></div>
+      </div>
+      <div class="field"><label for="sLocalidad">Localidad donde firmas</label><input type="text" id="sLocalidad" value="${esc(original.localidad)}"></div>
+
+      <div class="field"><label>Firma</label><div id="sFirma"></div></div>
+
+      <div class="acciones-sepa">
+        <button type="button" class="btn btn-primary" id="sRevisar">Ver el documento</button>
+        <button type="button" class="linklike" id="sCancelar">Cancelar</button>
+      </div>
+      <p id="sMsg" class="msg-error" hidden></p>
+    </div>
+    <div class="sepa-preview" hidden>
+      <p style="margin:0 0 10px;">Así queda tu mandato. Si todo está bien, confírmalo.</p>
+      <img id="sPreviewImg" alt="Vista previa del mandato firmado">
+      <div class="acciones-sepa">
+        <button type="button" class="btn btn-primary" id="sConfirmar">Confirmar y domiciliar</button>
+        <button type="button" class="btn btn-outline" id="sCorregir">Corregir</button>
+      </div>
+      <p id="sMsg2" hidden></p>
+    </div>`;
+
+  const $ = (id) => document.getElementById(id);
+  const pad = montarPadFirma($('sFirma'));
+  const iban = $('sIban'), bic = $('sBic'), ayuda = $('sIbanAyuda');
+  let bicTocado = false;
+  function revisarIban() {
+    const v = validarIban(iban.value);
+    if (!bicTocado) bic.value = v.ok ? bicDesdeIban(v.limpio) : '';
+    ayuda.textContent = !iban.value.trim() ? '' : v.ok ? 'IBAN correcto ✓' : v.mensaje;
+    ayuda.className = 'campo-ayuda ' + (!iban.value.trim() ? '' : v.ok ? 'ok' : 'error');
+    return v;
+  }
+  iban.addEventListener('input', revisarIban);
+  iban.addEventListener('blur', () => { if (validarIban(iban.value).ok) iban.value = formatearIban(iban.value); });
+  bic.addEventListener('input', () => { bicTocado = true; });
+  revisarIban();
+  $('sCancelar').addEventListener('click', () => { zona.style.display = 'none'; zona.innerHTML = ''; });
+
+  let pdfBlob = null, datos = null;
+  $('sRevisar').addEventListener('click', async () => {
+    const msg = $('sMsg'); msg.hidden = true;
+    const v = revisarIban();
+    const val = (id) => $(id).value.trim();
+    const falta = [['sTitular', 'el titular'], ['sDireccion', 'la dirección'], ['sCp', 'el código postal y la población'], ['sPais', 'el país'], ['sLocalidad', 'la localidad']]
+      .filter(([id]) => !val(id)).map(([, n]) => n);
+    let error = '';
+    if (falta.length) error = 'Falta ' + falta.join(', ') + '.';
+    else if (!v.ok) error = v.mensaje;
+    else if (!/^[A-Z0-9]{8}([A-Z0-9]{3})?$/.test(val('sBic').toUpperCase())) error = 'El BIC tiene 8 u 11 letras y números.';
+    else if (pad.vacio()) error = 'Falta tu firma.';
+    if (error) { msg.textContent = error; msg.hidden = false; return; }
+
+    datos = {
+      referencia: socio.numero_socio_completo || '',
+      titular: val('sTitular'), direccion: val('sDireccion'), cpPoblacion: val('sCp'), pais: val('sPais'),
+      bic: val('sBic').toUpperCase(), iban: v.limpio,
+      fechaLugar: new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' – ' + val('sLocalidad'),
+      firmaPng: pad.dataUrl()
+    };
+    const btn = $('sRevisar'); btn.disabled = true; btn.textContent = 'Preparando el documento...';
+    try {
+      pdfBlob = await generarMandatoSepaPdf(datos);
+      const url = URL.createObjectURL(pdfBlob);
+      const { dataUrl } = await renderizarPaginaPDF(url, 1);
+      URL.revokeObjectURL(url);
+      $('sPreviewImg').src = dataUrl;
+      hacerAmpliable($('sPreviewImg'));
+      zona.querySelector('.sepa-form').hidden = true;
+      zona.querySelector('.sepa-preview').hidden = false;
+      zona.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } catch (err) {
+      msg.textContent = 'No se pudo preparar el documento: ' + err.message; msg.hidden = false;
+    } finally { btn.disabled = false; btn.textContent = 'Ver el documento'; }
+  });
+
+  $('sCorregir').addEventListener('click', () => {
+    zona.querySelector('.sepa-preview').hidden = true;
+    zona.querySelector('.sepa-form').hidden = false;
+  });
+
+  $('sConfirmar').addEventListener('click', async () => {
+    const btn = $('sConfirmar'), msg = $('sMsg2');
+    btn.disabled = true; btn.textContent = 'Guardando...';
+    const fallo = (t) => { msg.className = 'msg-error'; msg.textContent = t; msg.hidden = false; btn.disabled = false; btn.textContent = 'Confirmar y domiciliar'; };
+
+    const path = `${socio.id}/${Date.now()}.pdf`;
+    const { error: upErr } = await sb.storage.from('mandatos-sepa').upload(path, pdfBlob, { contentType: 'application/pdf' });
+    if (upErr) return fallo('No se pudo guardar el documento: ' + upErr.message);
+
+    const { firmaPng, ...datosFinales } = datos;
+    const avisoDiferencias = ['titular', 'direccion', 'cpPoblacion', 'pais'].some(k => datos[k] !== original[k]);
+    const { error } = await sb.rpc('mandato_sepa_firmar', {
+      p_iban: datos.iban, p_archivo_url: path, p_datos_finales: datosFinales, p_aviso_diferencias: avisoDiferencias
+    });
+    if (error) return fallo('No se pudo registrar el mandato: ' + error.message);
+
+    zona.innerHTML = '<p class="msg-ok">Mandato firmado ✓. La cuota de la familia ya está domiciliada en esta cuenta.</p>';
+    setTimeout(() => location.reload(), 1400);
+  });
+}
+
+document.getElementById('bajaBtn').addEventListener('click', () => {
+  document.getElementById('bajaModal').style.display = 'flex';
+});
+document.getElementById('cancelarBajaBtn').addEventListener('click', () => {
+  document.getElementById('bajaModal').style.display = 'none';
+});
+document.getElementById('confirmarBajaBtn').addEventListener('click', async () => {
+  await sb.from('socios').update({ estado: 'baja' }).eq('id', ctxGlobal.socio.id);
+  await signOut();
+});
+
+(async () => {
+  const ctx = await requireAuth();
+  if (!ctx) return;
+  ctxGlobal = ctx;
+  renderNav('mis-datos', ctx);
+  // Mientras falte revisar, los alumnos van justo debajo del aviso
+  if (!ctx.socio.datos_revisados_en) {
+    const cardAlumnos = document.getElementById('alumnosWrap').closest('.card');
+    document.getElementById('avisoRevisar').after(cardAlumnos);
+  }
+  cargarCuenta();
+  await cargarAdultos();
+  await cargarAlumnos();
+})();
+</script>
+<script src="shared/sonido.js"></script>
+<script src="shared/vida.js"></script>
+</body>
+</html>

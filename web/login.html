@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Iniciar sesión · AMPA Juan de Valdés</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared/styles.css">
+<style>
+  body{ overflow-x:clip; }
+  /* Escena: el logo flotando en su nube de polvo y, al lado, la tarjeta para entrar */
+  .entrar{ position:relative; isolation:isolate; min-height:calc(100svh - 92px); display:grid; grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);
+    align-items:center; gap:clamp(20px,4vw,60px); max-width:1180px; margin:0 auto; padding:24px clamp(16px,4vw,40px) 60px; }
+  #polvoLogin{ position:fixed; inset:0; width:100vw; height:100vh; z-index:-1; pointer-events:none; }
+  .escena{ text-align:center; }
+  .escena img{ width:min(520px,90%); height:auto; display:block; margin:0 auto; filter:drop-shadow(0 18px 30px rgba(22,35,58,.10)); }
+  .escena h1{ font-family:var(--font-title); font-weight:800; font-size:clamp(40px,5.4vw,76px); line-height:.95; letter-spacing:-.035em; margin:6px 0 12px; }
+  .escena h1 .pal{ display:inline-block; }
+
+  /* Tarjeta en forma de hoja, con el icono en un hexágono de color que asoma */
+  .hoja{ position:relative; background:#fff; border-radius:72px 18px 72px 18px; padding:58px clamp(22px,3vw,40px) 30px;
+    box-shadow:0 2px 4px rgba(22,35,58,.04), 0 30px 60px -28px rgba(22,35,58,.35); }
+  .hoja .sello{ position:absolute; top:-34px; right:38px; width:76px; height:76px; display:grid; place-items:center; color:#fff;
+    background:linear-gradient(135deg,#FF4D8D,#D6246E); clip-path:polygon(25% 4%,75% 4%,100% 50%,75% 96%,25% 96%,0 50%); }
+  .hoja .sello svg{ width:32px; height:32px; }
+  .hoja.c-reset .sello{ background:linear-gradient(135deg,#FFC21A,#FF7A1A); }
+  .hoja.c-inactiva .sello{ background:linear-gradient(135deg,#00A3E0,#006D9C); }
+  .hoja h2{ font-family:var(--font-title); font-weight:800; font-size:28px; letter-spacing:-.02em; margin:0 0 4px; }
+  .hoja .nota{ color:var(--ink-soft); font-size:15.5px; margin:0 0 20px; }
+  .hoja .field{ margin-bottom:16px; }
+  .hoja .btn-block{ min-height:56px; font-size:18px; margin-top:6px; }
+  .hoja .reset-link{ text-align:center; margin:16px 0 0; }
+  .hoja .reset-link a{ color:var(--navy); font-size:15px; }
+  .hoja.temblor{ animation:temblor .4s; }
+  @keyframes temblor{ 20%,60%{ transform:translateX(-8px); } 40%,80%{ transform:translateX(8px); } }
+
+  /* Debajo: dos píldoras de color para quien aún no tiene cuenta */
+  .otras{ display:flex; gap:10px; flex-wrap:wrap; justify-content:center; margin-top:22px; }
+  .otras a{ display:inline-flex; align-items:center; gap:8px; padding:10px 18px; border-radius:999px; text-decoration:none; font-weight:700; font-size:15px; color:var(--ink); transition:transform .3s cubic-bezier(.3,1.6,.5,1); }
+  .otras a:hover{ transform:translateY(-3px) rotate(-1deg); color:var(--ink); }
+  .otras .o-socio{ background:#FDE7F1; } .otras .o-socio b{ color:#B0185A; }
+  .otras .o-reactivar{ background:#DCF0FA; } .otras .o-reactivar b{ color:#006D9C; }
+  .otras small{ font-weight:400; color:var(--ink-soft); font-size:14px; }
+
+  /* Entrada: el logo cae flotando, las palabras suben y la tarjeta gira a su sitio */
+  .js:not(.quieto) .escena img{ animation:logoEntra 1s cubic-bezier(.2,.9,.25,1.15) both, flota 7s ease-in-out 1.1s infinite; }
+  .js:not(.quieto) .escena h1 .pal{ animation:palabra .7s cubic-bezier(.2,.9,.25,1.2) both; animation-delay:calc(.35s + var(--i) * .09s); }
+  .js:not(.quieto) .hoja{ animation:hojaEntra .8s cubic-bezier(.2,.9,.25,1.15) both .25s; }
+  .js:not(.quieto) .hoja .sello{ animation:selloEntra .7s cubic-bezier(.3,1.7,.5,1) both .8s; }
+  @keyframes logoEntra{ from{ opacity:0; transform:translateY(-40px) scale(.85) rotate(-6deg); } }
+  @keyframes flota{ 50%{ transform:translateY(-10px) rotate(1deg); } }
+  @keyframes palabra{ from{ opacity:0; transform:translateY(24px) rotate(4deg); } }
+  @keyframes hojaEntra{ from{ opacity:0; transform:translateY(40px) rotate(4deg) scale(.96); } }
+  @keyframes selloEntra{ from{ opacity:0; transform:scale(0) rotate(-120deg); } }
+
+  @media (max-width:860px){
+    .entrar{ grid-template-columns:1fr; min-height:0; padding-top:8px; gap:46px; }
+    .escena img{ width:min(300px,72%); }
+    .hoja{ border-radius:56px 16px 56px 16px; }
+  }
+</style>
+<script>document.documentElement.classList.add('js'); try { if (localStorage.getItem('ampa-movimiento') === '0') document.documentElement.classList.add('quieto'); } catch (e) {}</script>
+</head>
+<body>
+<header class="pub-head">
+  <a href="index.html" class="pub-marca"><img src="assets/logo-ampa-transparente.png" alt=""><span><b>AMPA</b><small>Colegio Juan de Valdés</small></span></a>
+  <img class="pub-colegio" src="assets/logo-colegio.png" alt="Colegio Juan de Valdés">
+  <nav class="pub-links">
+    <a href="index.html">Página principal</a>
+  </nav>
+</header>
+
+<canvas id="polvoLogin" aria-hidden="true"></canvas>
+
+<main class="entrar">
+  <div class="escena">
+    <img src="assets/logo-ampa-transparente.png" alt="AMPA Colegio Juan de Valdés" width="507" height="325">
+    <h1 id="titulo">Entrar como socio</h1>
+  </div>
+
+  <div>
+    <!-- 1. Acceso -->
+    <section class="hoja" id="loginCard" aria-labelledby="loginTit">
+      <span class="sello" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="15" r="4"/><path d="M10.8 12.2 20 3M17 6l3 3M14.5 8.5l2 2"/></svg></span>
+      <h2 id="loginTit">Iniciar sesión</h2>
+      <p class="nota" id="lede">Accede con tu email y contraseña personal.</p>
+      <form id="loginForm">
+        <div class="field">
+          <label for="email">Correo electrónico</label>
+          <input type="email" id="email" required autocomplete="username">
+        </div>
+        <div class="field">
+          <label for="password">Contraseña</label>
+          <input type="password" id="password" required autocomplete="current-password">
+        </div>
+        <p id="errorMsg" class="msg-error" hidden></p>
+        <button type="submit" class="btn btn-cta btn-block" id="submitBtn">Iniciar sesión</button>
+      </form>
+      <p class="reset-link"><a href="#" id="resetLink">¿Has olvidado tu contraseña?</a></p>
+    </section>
+
+    <!-- 2. Recuperar contraseña -->
+    <section class="hoja c-reset" id="resetCard" style="display:none;" aria-labelledby="resetTit">
+      <span class="sello" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg></span>
+      <h2 id="resetTit">Recuperar contraseña</h2>
+      <p class="nota">Te enviaremos un enlace para elegir una contraseña nueva. Solo funciona
+        con cuentas activas, y puedes pedirlo una vez cada 15 minutos.</p>
+      <div class="field">
+        <label for="resetEmail">Correo electrónico</label>
+        <input type="email" id="resetEmail" autocomplete="username">
+      </div>
+      <div id="resetMsg" style="display:none;"></div>
+      <button type="button" class="btn btn-cta btn-block" id="resetBtn">Enviarme el enlace</button>
+      <p class="reset-link"><a href="#" id="volverLoginLink">‹ Volver a iniciar sesión</a></p>
+    </section>
+
+    <!-- 3. Cuenta inactiva -->
+    <section class="hoja c-inactiva" id="inactivaCard" style="display:none;" aria-labelledby="inactivaTitulo">
+      <span class="sello" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg></span>
+      <h2 id="inactivaTitulo">Cuenta inactiva</h2>
+      <p style="font-size:15.5px;" id="inactivaTexto"></p>
+      <a class="btn btn-cta btn-block" id="reactivarBtn" href="reactivar-cuenta.html">Sí, quiero reactivar mi cuenta</a>
+      <p class="reset-link"><a href="login.html">‹ Volver a iniciar sesión</a></p>
+    </section>
+
+    <nav class="otras" aria-label="Si no tienes cuenta">
+      <a class="o-socio" href="hazte-socio.html"><small>¿Todavía no eres socio?</small><b>Hazte socio</b></a>
+      <a class="o-reactivar" href="reactivar-cuenta.html"><small>¿Tu cuenta está de baja?</small><b>Reactívala</b></a>
+    </nav>
+  </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="shared/supabaseClient.js"></script>
+<script>
+  const form = document.getElementById('loginForm');
+  const errorMsg = document.getElementById('errorMsg');
+  const submitBtn = document.getElementById('submitBtn');
+
+  const MENSAJE_CREDENCIALES_INVALIDAS = 'Email o contraseña incorrectos.';
+
+  function mostrar(cardId) {
+    ['loginCard', 'resetCard', 'inactivaCard'].forEach(id => {
+      document.getElementById(id).style.display = id === cardId ? 'block' : 'none';
+    });
+  }
+
+  function errorLogin(texto) {
+    errorMsg.className = 'msg-error';
+    errorMsg.textContent = texto;
+    errorMsg.hidden = false;
+    const hoja = document.getElementById('loginCard');
+    hoja.classList.remove('temblor'); void hoja.offsetWidth; hoja.classList.add('temblor');
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Iniciar sesión';
+  }
+
+  // Solo se llega aquí con la contraseña CORRECTA, así que decir que la
+  // cuenta está de baja no revela nada a quien no conozca la contraseña.
+  function mostrarCuentaInactiva(socio, email) {
+    const titulo = document.getElementById('inactivaTitulo');
+    const texto = document.getElementById('inactivaTexto');
+    if (socio.estado === 'baja') {
+      titulo.textContent = 'Usuario dado de baja';
+      texto.innerHTML = 'Tu cuenta del AMPA está <b>dada de baja</b>' +
+        (socio.motivo_rechazo ? ' (motivo: <i>' + socio.motivo_rechazo.replace(/</g, '&lt;') + '</i>)' : '') +
+        '. ¿Quieres <b>reactivarla</b>? Solo tienes que enviarnos el comprobante de pago de la cuota: el resto de tus datos ya los tenemos.';
+    } else {
+      titulo.textContent = 'Cuenta inactiva: falta el pago de la cuota';
+      texto.innerHTML = socio.forma_pago === 'Domiciliación Bancaria'
+        ? 'Tu cuenta está pendiente de renovar la cuota. Como la tienes <b>domiciliada</b>, se reactivará sola en cuanto se cobre el recibo. Si ya no tienes la domiciliación, puedes reactivarla ahora enviando el comprobante de una transferencia.'
+        : 'Tu cuenta está <b>inactiva</b> porque falta el pago de la cuota de este curso. ¿Quieres <b>reactivarla</b>? Solo tienes que enviarnos el comprobante de pago.';
+    }
+    document.getElementById('reactivarBtn').href =
+      'reactivar-cuenta.html?motivo=' + socio.estado + '&email=' + encodeURIComponent(email);
+    document.getElementById('titulo').textContent = 'Tu cuenta no está activa';
+    document.getElementById('lede').textContent = '';
+    mostrar('inactivaCard');
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    errorMsg.hidden = true;
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Entrando...';
+
+    const email = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value;
+
+    const { error } = await sb.auth.signInWithPassword({ email, password });
+    if (error) { errorLogin(MENSAJE_CREDENCIALES_INVALIDAS); return; }
+
+    const adulto = await getAdulto();
+    if (!adulto) {
+      await sb.auth.signOut();
+      errorLogin(MENSAJE_CREDENCIALES_INVALIDAS);
+      return;
+    }
+
+    const socio = await getSocio(adulto.socio_id);
+    if (!socio) {
+      await sb.auth.signOut();
+      errorLogin(MENSAJE_CREDENCIALES_INVALIDAS);
+      return;
+    }
+
+    if (socio.estado === 'baja' || socio.estado === 'falta_pago') {
+      await sb.auth.signOut();
+      mostrarCuentaInactiva(socio, email);
+      return;
+    }
+
+    if (adulto.force_password_change) { window.location.href = 'cambiar-clave.html'; return; }
+    if (socio.estado === 'recien_creada') { window.location.href = 'estado-recien-creada.html'; return; }
+    // Familias que aún no han revisado sus datos (p. ej. las importadas): a Mis datos
+    window.location.href = socio.datos_revisados_en ? 'dashboard.html' : 'mis-datos.html';
+  });
+
+  /* ---------------- Recuperar contraseña ---------------- */
+
+  const resetBtn = document.getElementById('resetBtn');
+  const resetMsg = document.getElementById('resetMsg');
+  const CLAVE_ENVIADO = 'ampa_recuperacion_enviada';
+
+  function bloquearBotonReset() {
+    resetBtn.disabled = true;
+    resetBtn.textContent = 'Enlace enviado';
+  }
+
+  document.getElementById('resetLink').addEventListener('click', (e) => {
+    e.preventDefault();
+    document.getElementById('resetEmail').value = document.getElementById('email').value.trim();
+    errorMsg.hidden = true;
+    mostrar('resetCard');
+    // Si ya se pidió hace menos de 15 minutos desde este navegador, el
+    // botón sigue bloqueado (también tras recargar la página)
+    try {
+      const t = parseInt(localStorage.getItem(CLAVE_ENVIADO) || '0', 10);
+      if (Date.now() - t < 15 * 60000) {
+        bloquearBotonReset();
+        resetMsg.style.display = 'block';
+        resetMsg.className = 'msg-ok';
+        resetMsg.textContent = 'Ya te hemos enviado un enlace hace poco. Revisa tu correo (también la carpeta de spam).';
+      }
+    } catch (err) { /* sin almacenamiento local: no pasa nada */ }
+  });
+
+  document.getElementById('volverLoginLink').addEventListener('click', (e) => {
+    e.preventDefault();
+    mostrar('loginCard');
+  });
+
+  resetBtn.addEventListener('click', async () => {
+    const email = document.getElementById('resetEmail').value.trim();
+    resetMsg.style.display = 'block';
+    if (!email) {
+      resetMsg.className = 'msg-error';
+      resetMsg.textContent = 'Escribe tu email.';
+      document.getElementById('resetEmail').classList.add('campo-error');
+      return;
+    }
+    document.getElementById('resetEmail').classList.remove('campo-error');
+    resetBtn.disabled = true;
+    resetBtn.textContent = 'Enviando...';
+
+    try {
+      const resp = await fetch('/.netlify/functions/recuperar-contrasena', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+      let data = {};
+      try { data = await resp.json(); } catch (e) {}
+
+      if (resp.ok) {
+        resetMsg.className = 'msg-ok';
+        resetMsg.textContent = 'Te hemos enviado un correo con un enlace para elegir una contraseña nueva. Revisa también la carpeta de spam.';
+        try { localStorage.setItem(CLAVE_ENVIADO, String(Date.now())); } catch (e) {}
+        bloquearBotonReset();
+        return;
+      }
+      if (data.codigo === 'demasiado_pronto') {
+        resetMsg.className = 'msg-error';
+        resetMsg.textContent = data.error;
+        bloquearBotonReset();
+        return;
+      }
+      if (data.codigo === 'no_activa') {
+        resetMsg.className = 'aviso-error';
+        resetMsg.innerHTML = data.error +
+          '<br><br>Si tu cuenta está dada de baja o pendiente de pago, <a href="reactivar-cuenta.html?email=' +
+          encodeURIComponent(email) + '">reactívala aquí</a>. Si todavía no eres socio, <a href="hazte-socio.html">hazte socio</a>.';
+        resetBtn.disabled = false;
+        resetBtn.textContent = 'Enviarme el enlace';
+        return;
+      }
+      throw new Error(data.error || 'No se pudo enviar el correo.');
+    } catch (err) {
+      resetMsg.className = 'msg-error';
+      resetMsg.textContent = err.message;
+      resetBtn.disabled = false;
+      resetBtn.textContent = 'Enviarme el enlace';
+    }
+  });
+</script>
+<script>
+// Polvo de colores alrededor del logo: flota despacio, se aparta al pasar el ratón
+// y vuelve a su sitio. Con «Movimiento» apagado queda quieto.
+(function () {
+  const h1 = document.getElementById('titulo');
+  if (h1 && !h1.children.length) {
+    const pal = h1.textContent.trim().split(/\s+/);
+    h1.setAttribute('aria-label', h1.textContent.trim());
+    h1.innerHTML = pal.map((p, i) => `<span class="pal" aria-hidden="true" style="--i:${i}">${p}</span>`).join(' ');
+  }
+  const c = document.getElementById('polvoLogin'), logo = document.querySelector('.escena img');
+  if (!c || !c.getContext) return;
+  const g = c.getContext('2d'), COL = ['#FF4D8D', '#FF7A1A', '#FFC21A', '#3FB54A', '#00A3E0', '#8A5CC2'];
+  const quieto = () => document.documentElement.classList.contains('quieto');
+  const sprites = {};
+  COL.forEach(col => { const s = document.createElement('canvas'); s.width = s.height = 64; const x = s.getContext('2d'), rg = x.createRadialGradient(32, 32, 0, 32, 32, 32);
+    rg.addColorStop(0, col); rg.addColorStop(.35, col + 'CC'); rg.addColorStop(1, col + '00'); x.fillStyle = rg; x.fillRect(0, 0, 64, 64); sprites[col] = s; });
+  let W = 0, H = 0, p = [], raton = { x: -1e4, y: -1e4 };
+  function casa() {
+    const r = logo.getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2, rx: Math.max(r.width * .75, 180), ry: Math.max(r.height * .9, 140) };
+  }
+  function preparar() {
+    const dpr = Math.min(2, devicePixelRatio || 1);
+    W = innerWidth; H = innerHeight; c.width = W * dpr; c.height = H * dpr; g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const n = W < 700 ? 70 : 140, k = casa();
+    while (p.length < n) {
+      const ang = Math.random() * 6.283, d = Math.pow(Math.random(), .6) * 1.15;
+      p.push({ ang, d, vel: (Math.random() - .5) * .0016, fase: Math.random() * 6.28, col: COL[p.length % COL.length], r: 6 + Math.random() * (p.length % 7 ? 16 : 46), a: .25 + Math.random() * .5, x: k.x, y: k.y, vx: 0, vy: 0 });
+    }
+    p.length = n;
+  }
+  function paso(t) {
+    const k = casa();
+    g.clearRect(0, 0, W, H);
+    for (const q of p) {
+      if (!quieto()) q.ang += q.vel;
+      const hx = k.x + Math.cos(q.ang) * q.d * k.rx + Math.sin(t / 1600 + q.fase) * 10;
+      const hy = k.y + Math.sin(q.ang) * q.d * k.ry + Math.cos(t / 1900 + q.fase) * 10;
+      const dx = q.x - raton.x, dy = q.y - raton.y, dd = dx * dx + dy * dy;
+      if (dd < 14000) { const f = (14000 - dd) / 14000 * 2.2; const l = Math.sqrt(dd) || 1; q.vx += dx / l * f; q.vy += dy / l * f; }
+      q.vx += (hx - q.x) * .02; q.vy += (hy - q.y) * .02; q.vx *= .86; q.vy *= .86;
+      q.x += q.vx; q.y += q.vy;
+      g.globalAlpha = q.a; g.drawImage(sprites[q.col], q.x - q.r, q.y - q.r, q.r * 2, q.r * 2);
+    }
+    g.globalAlpha = 1;
+  }
+  function bucle(t) { paso(t); if (!quieto() && !document.hidden) requestAnimationFrame(bucle); else setTimeout(() => requestAnimationFrame(bucle), 500); }
+  addEventListener('pointermove', (e) => { raton.x = e.clientX; raton.y = e.clientY; });
+  addEventListener('resize', preparar);
+  const empezar = () => { preparar(); p.forEach(q => { const k = casa(); q.x = k.x; q.y = k.y; }); requestAnimationFrame(bucle); };
+  if (logo.complete) empezar(); else logo.addEventListener('load', empezar);
+})();
+</script>
+<script src="shared/sonido.js"></script>
+<script src="shared/vida.js"></script>
+</body>
+</html>

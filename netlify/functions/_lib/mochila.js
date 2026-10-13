@@ -1,5 +1,5 @@
 // Utilidad compartida de la Mochila Jugona Exploradora: cuando una familia recibe el
-// turno (la Junta pulsa «Entregar mochila», otra familia pasa su turno,
+// turno (la Junta pulsa «Asignar», otra familia pasa su turno,
 // se desapunta o caduca a las 24 h), se le avisa por email para que
 // entre en la web a aceptarla.
 //
@@ -15,7 +15,7 @@ async function notificarNuevoTurno(supabaseAdmin, nuevoP1Id) {
 
   const { data: entrada, error } = await supabaseAdmin
     .from('mochila_cola')
-    .select('tipo, socio_id, nombre_contacto, email_contacto')
+    .select('tipo, socio_id, nombre_contacto, email_contacto, fecha_entrega, fecha_devolucion_prevista')
     .eq('id', nuevoP1Id)
     .single();
   if (error || !entrada) return;
@@ -37,7 +37,7 @@ async function notificarNuevoTurno(supabaseAdmin, nuevoP1Id) {
     email = entrada.email_contacto;
   }
 
-  const { subject, text } = plantillaMochilaTurno({ nombre });
+  const { subject, text } = plantillaMochilaTurno({ nombre, entrega: entrada.fecha_entrega, devolucion: entrada.fecha_devolucion_prevista });
   // Si el correo falla, la acción sobre la cola YA se ha hecho: no debe
   // devolver error al usuario (antes, un fallo de SMTP hacía que
   // "Apuntarme" mostrara error aunque sí se hubiera apuntado).
@@ -55,7 +55,7 @@ const { createClient } = require('@supabase/supabase-js');
 // Llama a una función SQL de la Mochila "como el usuario" (las funciones
 // comprueban dentro quién es: la familia o la Junta) y, si devuelve el id
 // de una familia que acaba de recibir el turno, le manda el email.
-async function accionMochila(event, rpc, { soloAdmin = false } = {}) {
+async function accionMochila(event, rpc, { soloAdmin = false, parametros = null } = {}) {
   const json = (statusCode, obj) => ({ statusCode, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(obj) });
   if (event.httpMethod !== 'POST') return { statusCode: 405, body: 'Método no permitido' };
   const authHeader = event.headers.authorization || event.headers.Authorization;
@@ -71,7 +71,9 @@ async function accionMochila(event, rpc, { soloAdmin = false } = {}) {
   let supabaseUser;
   try { supabaseUser = clienteUsuario(event, accessToken); }
   catch (e) { return json(500, { error: e.message }); }
-  const { data: idAviso, error } = await supabaseUser.rpc(rpc);
+  let cuerpo = {};
+  try { cuerpo = event.body ? JSON.parse(event.body) : {}; } catch { return json(400, { error: 'JSON no válido' }); }
+  const { data: idAviso, error } = parametros ? await supabaseUser.rpc(rpc, parametros(cuerpo)) : await supabaseUser.rpc(rpc);
   if (error) return json(400, { error: error.message });
   if (idAviso) await notificarNuevoTurno(supabaseAdmin, idAviso);
   return json(200, { ok: true, avisada: !!idAviso });

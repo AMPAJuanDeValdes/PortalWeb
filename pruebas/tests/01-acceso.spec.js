@@ -71,6 +71,8 @@ test.describe('Acceso y contraseñas', () => {
   });
 
   test('Recuperar contraseña: cuenta activa → se envía UNA vez (la 2ª se bloquea)', async ({ page }) => {
+    // En local, sin SMTP_* en ampa-pruebas.env el correo no puede salir: esta prueba no aplica
+    test.skip(process.env.AMPA_LOCAL === '1' && !process.env.SMTP_HOST, 'Prueba en local sin SMTP_* configurado');
     await page.goto('/login.html');
     await page.click('#resetLink');
     await page.fill('#resetEmail', activa.adultos[0].email);

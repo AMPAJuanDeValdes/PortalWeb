@@ -23,10 +23,72 @@ function getTransporter() {
   });
 }
 
-async function enviarEmail({ to, bcc, replyTo, subject, text, html }) {
+// ---------- Firma del AMPA (igual que en los emails que manda la Junta) ----------
+//   Un saludo,
+//   Junta Directiva
+//   AMPA Juan de Valdés
+//   [logo]
+// Va en todos los emails a familias. Los avisos internos que llegan al
+// propio buzón del AMPA (comentarios, donaciones) van sin firma.
+const fs = require('fs');
+const path = require('path');
+const AZUL_FIRMA = '#499AD8';
+const FIRMA_TEXTO = '\n\nUn saludo,\n\nJunta Directiva\nAMPA Juan de Valdés';
+const LOGO_CID = 'logo-ampa@ampajuandevaldes';
+
+// El logo va dentro del email (adjunto en línea): se ve aunque el programa
+// de correo bloquee las imágenes de internet. Si no se encuentra el archivo,
+// se usa el de la web.
+let logoCache;
+function logoFirma() {
+  if (logoCache !== undefined) return logoCache;
+  const candidatos = [
+    path.join(__dirname, '..', '..', '..', 'web', 'assets', 'logo-ampa-email.jpg'),
+    path.join(process.cwd(), 'web', 'assets', 'logo-ampa-email.jpg'),
+    path.join(process.env.LAMBDA_TASK_ROOT || '', 'web', 'assets', 'logo-ampa-email.jpg')
+  ];
+  logoCache = null;
+  for (const c of candidatos) {
+    try { if (fs.existsSync(c)) { logoCache = c; break; } } catch (e) { /* siguiente */ }
+  }
+  return logoCache;
+}
+
+const escHtml = (t) => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+// Texto plano -> HTML sencillo (párrafos, saltos de línea y enlaces que se pueden pulsar)
+function textoAHtml(texto) {
+  return String(texto || '').trim().split(/\n{2,}/).map(par =>
+    '<p style="margin:0 0 14px;">' + escHtml(par)
+      .replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" style="color:#004B93;">$1</a>')
+      .replace(/\n/g, '<br>') + '</p>').join('\n');
+}
+function firmaHtml(srcLogo) {
+  return `
+<div style="margin-top:22px; font-family:Verdana, Geneva, sans-serif; font-size:10pt; color:${AZUL_FIRMA};">
+  <p style="margin:0 0 14px;">Un saludo,</p>
+  <p style="margin:0 0 12px; font-weight:bold;">Junta Directiva<br>AMPA Juan de Valdés</p>
+  <img src="${srcLogo}" alt="AMPA Juan de Valdés" width="160" style="display:block; width:160px; height:auto; border:0;">
+</div>`;
+}
+
+async function enviarEmail({ to, bcc, replyTo, subject, text, html, sinFirma }) {
   const transporter = getTransporter();
   const from = `"${process.env.SMTP_FROM_NAME || 'AMPA'}" <${process.env.SMTP_USER}>`;
-  return transporter.sendMail({ from, to: to || process.env.SMTP_USER, bcc, replyTo, subject, text, html });
+  const destino = to || process.env.SMTP_USER;
+  // Aviso interno: va solo al buzón del AMPA (sin copias ocultas a familias)
+  const interno = !bcc && String(destino).trim().toLowerCase() === String(process.env.SMTP_USER || '').trim().toLowerCase();
+  if (sinFirma || interno) {
+    return transporter.sendMail({ from, to: destino, bcc, replyTo, subject, text, html });
+  }
+  const logo = logoFirma();
+  const srcLogo = logo ? 'cid:' + LOGO_CID : (process.env.SITE_URL || '').replace(/\/$/, '') + '/assets/logo-ampa-email.jpg';
+  const cuerpoHtml = html || `<div style="font-family:Verdana, Geneva, sans-serif; font-size:10pt; line-height:1.5; color:#1A1A18; max-width:600px;">\n${textoAHtml(text)}\n</div>`;
+  return transporter.sendMail({
+    from, to: destino, bcc, replyTo, subject,
+    text: String(text || '').trimEnd() + FIRMA_TEXTO,
+    html: cuerpoHtml + firmaHtml(srcLogo),
+    attachments: logo ? [{ filename: 'logo-ampa.jpg', path: logo, cid: LOGO_CID }] : []
+  });
 }
 
 function plantillaCredenciales({ nombre, email, password, urlPortal }) {
@@ -38,16 +100,20 @@ function plantillaCredenciales({ nombre, email, password, urlPortal }) {
       `Ya tienes acceso al portal del AMPA.\n\n` +
       `Email: ${email}\n` +
       `Contraseña provisional: ${password}\n\n` +
-      `Entra en ${url}/login.html y cambia la contraseña en tu primer acceso.\n\n` +
-      `AMPA Colegio Juan de Valdés`
+      `Entra en ${url}/login.html y cambia la contraseña en tu primer acceso.\n\n`
   };
 }
 
 // Aviso de que le toca la Mochila Jugona Exploradora a una familia (la Junta le da el
 // turno, o le llega porque otra familia lo pasa, se desapunta o no
 // contesta). Tiene 24 horas para aceptarla en la web.
-function plantillaMochilaTurno({ nombre, urlPortal }) {
+function plantillaMochilaTurno({ nombre, urlPortal, entrega, devolucion }) {
   const url = urlPortal || (process.env.SITE_URL || '');
+  // entrega / devolucion: 'YYYY-MM-DD' (las pone la Junta al asignar)
+  const dia = (f) => new Date(f + 'T12:00:00Z').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Madrid' }).replace(',', '');
+  const fechas = entrega
+    ? `La recogeréis el ${dia(entrega)}, de 17:30 a 18:00, y la devolveréis el ${devolucion ? dia(devolucion) : 'viernes siguiente'}, de 16:00 a 16:30.\n\n`
+    : `Se recoge el viernes de 17:30 a 18:00 y se devuelve el viernes siguiente de 16:00 a 16:30.\n\n`;
   return {
     subject: 'Os toca la Mochila Jugona Exploradora: tenéis 24 horas para aceptarla',
     text:
@@ -55,11 +121,12 @@ function plantillaMochilaTurno({ nombre, urlPortal }) {
       `¡Os toca la Mochila Jugona Exploradora!\n\n` +
       `Para quedárosla tenéis que entrar en la web del AMPA y pulsar "La queremos" ` +
       `en las próximas 24 horas:\n${url}/mochila.html\n\n` +
+      fechas +
+      `Al recogerla hay que firmar la carta de compromiso de buen uso. Cuando aceptéis la mochila podréis firmarla en esa misma página de la web, o a mano ese día.\n\n` +
       `Si esta semana no os viene bien, en la misma página podéis pulsar ` +
       `"Esperar una semana más" y el turno pasará a la siguiente familia.\n\n` +
       `Si en 24 horas no la aceptáis, saldréis de la lista y el turno pasará ` +
-      `a la siguiente familia.\n\n` +
-      `AMPA Colegio Juan de Valdés`
+      `a la siguiente familia.\n\n`
   };
 }
 
@@ -81,7 +148,7 @@ function plantillaComentario({ origen, nombre, mensaje }) {
 
 // items: [{ texto, cantidad }] ya validados; otros: texto libre (puede rechazarse)
 function plantillaDonacion({ items, otros, nombre, email, telefono, esSocio, urlAdmin }) {
-  const lista = items.map(i => `  - ${i.cantidad} × ${i.texto}`).join('\n');
+  const lista = items.map(i => `  - ${i.texto} · ${i.cantidad} ${Number(i.cantidad) === 1 ? "unidad" : "unidades"}`).join('\n');
   return {
     subject: otros ? 'Donación anunciada (con «otra cosa» por revisar)' : 'Donación anunciada para la caja',
     text:
@@ -112,8 +179,7 @@ function plantillaBienvenida({ nombre, numeroSocio, reactivacion, urlPortal }) {
       (numeroSocio ? `Vuestro número de socio es: ${numeroSocio}\n\n` : '') +
       `Ya podéis entrar en el portal con vuestro email y contraseña: ${url}/login.html\n` +
       `Desde allí podéis apuntaros a eventos, pedir libros en préstamo, uniformes y mucho más.\n\n` +
-      `Si no recordáis la contraseña, usad "¿Has olvidado tu contraseña?" en la pantalla de acceso.\n\n` +
-      `AMPA Colegio Juan de Valdés`
+      `Si no recordáis la contraseña, usad "¿Has olvidado tu contraseña?" en la pantalla de acceso.\n\n`
   };
 }
 
@@ -128,8 +194,7 @@ function plantillaRechazo({ nombre, motivo, urlPortal }) {
       `Motivo:\n${motivo}\n\n` +
       `Cuando lo hayas solucionado, puedes volver a enviarnos el comprobante desde ` +
       `${url}/reactivar-cuenta.html (no hace falta rellenar de nuevo todos los datos).\n\n` +
-      `Si tienes cualquier duda, responde a este correo.\n\n` +
-      `AMPA Colegio Juan de Valdés`
+      `Si tienes cualquier duda, responde a este correo.\n\n`
   };
 }
 
@@ -141,20 +206,17 @@ function plantillaRecuperarPassword({ enlace }) {
     `Hemos recibido una solicitud para restablecer la contraseña de tu cuenta en el portal del AMPA.\n` +
     `Si has sido tú, abre este enlace para elegir una contraseña nueva (solo funciona una vez):\n\n` +
     `${enlace}\n\n` +
-    `Si no lo has pedido tú, ignora este correo: tu contraseña actual sigue funcionando.\n\n` +
-    `AMPA Colegio Juan de Valdés`;
+    `Si no lo has pedido tú, ignora este correo: tu contraseña actual sigue funcionando.`;
   const html = `
-<div style="font-family: Arial, Helvetica, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px; color: #1A1A18;">
+<div style="font-family: Verdana, Geneva, sans-serif; font-size: 10pt; max-width: 480px; margin: 0 auto; padding: 24px; color: #1A1A18;">
   <h2 style="color: #00335E; margin: 0 0 4px; font-size: 20px;">AMPA Colegio Juan de Valdés</h2>
   <p style="color: #6B675F; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 24px;">Recuperación de contraseña</p>
-  <p style="font-size: 14.5px; line-height: 1.55;">Hola,</p>
-  <p style="font-size: 14.5px; line-height: 1.55;">Hemos recibido una solicitud para restablecer la contraseña de tu cuenta en el portal del AMPA. Si has sido tú, pulsa el botón para elegir una contraseña nueva:</p>
+  <p style="font-size: 10pt; line-height: 1.5;">Hola,</p>
+  <p style="font-size: 10pt; line-height: 1.5;">Hemos recibido una solicitud para restablecer la contraseña de tu cuenta en el portal del AMPA. Si has sido tú, pulsa el botón para elegir una contraseña nueva:</p>
   <p style="text-align: center; margin: 32px 0;">
     <a href="${enlace}" style="background-color: #004B93; color: #ffffff; padding: 12px 26px; text-decoration: none; border-radius: 2px; font-weight: bold; font-size: 14px; display: inline-block;">Restablecer mi contraseña</a>
   </p>
   <p style="font-size: 13px; color: #6B675F; line-height: 1.55;">El enlace solo funciona una vez y caduca pasado un tiempo. Si no lo has pedido tú, ignora este correo: tu contraseña actual sigue funcionando.</p>
-  <hr style="border: none; border-top: 1px solid #E4E1D8; margin: 28px 0 16px;">
-  <p style="font-size: 12px; color: #6B675F; margin: 0;">AMPA Colegio Juan de Valdés</p>
 </div>`;
   return { subject: 'Restablece tu contraseña — AMPA Colegio Juan de Valdés', text, html };
 }
@@ -169,7 +231,7 @@ function plantillaRecordatorioDevolucion({ nombre, libros }) {
       libros.map(l => `  · ${l.titulo} (ejemplar ${l.codigo}) — ${l.alumno}`).join('\n') + `\n\n` +
       `Por favor, devolvedlos al AMPA para que puedan prestarse a otras familias el curso que viene. ` +
       `Si alguno se ha perdido o estropeado, respondednos a este correo y lo vemos.\n\n` +
-      `¡Gracias!\n\nAMPA Colegio Juan de Valdés`
+      `¡Gracias!`
   };
 }
 

@@ -41,7 +41,8 @@ test.describe('Hazte socio y reactivación', () => {
     await page.goto('/index.html');
     // (por texto, no por dirección: Netlify reescribe los enlaces "x.html" como "/x")
     await expect(page.locator('header').getByRole('link', { name: 'Entrar como socio' })).toBeVisible();
-    await expect(page.locator('header').getByRole('link', { name: 'Eventos', exact: true })).toBeVisible();
+    // Los eventos están en la propia portada (el bloque solo se ve si hay eventos próximos)
+    await expect(page.locator('#bloqueEventos')).toHaveCount(1);
     await expect(page.locator('#ctaHero')).toHaveText('Hazte socio');
     await expect(page.getByRole('link', { name: 'Reactivad vuestra cuenta' })).toBeVisible();
     await page.goto('/publico.html');

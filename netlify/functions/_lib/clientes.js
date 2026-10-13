@@ -5,7 +5,7 @@
 // La clave pública se toma de la variable de entorno SUPABASE_ANON_KEY
 // (o SUPABASE_PUBLISHABLE_KEY). Si no está configurada en Netlify, se usa
 // la que manda el propio navegador en la cabecera "x-supabase-anon-key"
-// (es la misma clave pública de shared/config.js, no es un secreto: con
+// (es la misma clave pública de web/shared/config.js, no es un secreto: con
 // ella solo se tienen los permisos del usuario que ya ha iniciado sesión).
 // Antes, sin la variable de entorno, todas las funciones de la Mochila
 // fallaban siempre.

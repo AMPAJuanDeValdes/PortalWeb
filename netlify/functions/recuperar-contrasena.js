@@ -76,6 +76,7 @@ exports.handler = async (event) => {
   try {
     await enviarEmail({ to: email, subject, text, html });
   } catch (e) {
+    console.error('[recuperar-contrasena] No se pudo enviar el email:', e && e.message);
     return json(500, { error: 'No se pudo enviar el correo. Inténtalo más tarde.' });
   }
 

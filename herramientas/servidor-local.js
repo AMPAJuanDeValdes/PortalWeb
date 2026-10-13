@@ -1,12 +1,12 @@
 // Servidor para probar la web EN TU ORDENADOR, sin subir nada a Netlify.
-// Lo arranca probar-en-local.bat (doble clic). Abre http://localhost:8888
+// Lo arranca herramientas\probar-en-local.bat (doble clic). Abre http://localhost:8888
 //
-// · Sirve las páginas igual que Netlify (index.html, shared/, assets/...).
+// · Sirve la carpeta web/ igual que Netlify (index.html, shared/, assets/...).
 // · Ejecuta las funciones de netlify/functions (altas, donaciones, Mochila...)
 //   con las mismas claves que usan las pruebas automáticas:
 //     - C:\Users\<tú>\ampa-pruebas.env   → SUPABASE_SERVICE_ROLE_KEY (y SMTP_* si
 //       quieres que salgan los emails; si no están, todo funciona salvo el envío)
-//     - shared/config.js                → SUPABASE_URL y SUPABASE_ANON_KEY
+//     - web/shared/config.js            → SUPABASE_URL y SUPABASE_ANON_KEY
 // · Cada 15 minutos hace la revisión de la Mochila (como en Netlify).
 //
 // OJO: los datos son los REALES de Supabase (la misma base que la web).
@@ -18,6 +18,7 @@ const os = require('os');
 const { URL } = require('url');
 
 const RAIZ = path.join(__dirname, '..');
+const WEB = path.join(RAIZ, 'web');
 const PUERTO = Number(process.env.PUERTO || 8888);
 const FUNCIONES = path.join(RAIZ, 'netlify', 'functions');
 
@@ -32,7 +33,7 @@ function leerEnv(archivo) {
   }
   return out;
 }
-const config = fs.readFileSync(path.join(RAIZ, 'shared', 'config.js'), 'utf8');
+const config = fs.readFileSync(path.join(WEB, 'shared', 'config.js'), 'utf8');
 const deConfig = (k) => { const m = config.match(new RegExp(k + "\\s*=\\s*['\"]([^'\"]+)")); return m && m[1]; };
 const env = { SUPABASE_URL: deConfig('SUPABASE_URL'), SUPABASE_ANON_KEY: deConfig('SUPABASE_ANON_KEY'), ...leerEnv(path.join(os.homedir(), 'ampa-pruebas.env')) };
 for (const [k, v] of Object.entries(env)) if (v && !process.env[k]) process.env[k] = v;
@@ -80,12 +81,12 @@ const TIPOS = { '.html': 'text/html; charset=utf-8', '.js': 'application/javascr
 function servirArchivo(url, res) {
   let ruta = decodeURIComponent(url.pathname);
   if (ruta.endsWith('/')) ruta += 'index.html';
-  const archivo = path.normalize(path.join(RAIZ, ruta));
-  // Como en Netlify: nada fuera del proyecto, ni las pruebas, ni dependencias
-  const prohibido = !archivo.startsWith(RAIZ) || /[\\/](pruebas|node_modules|\.git|netlify)[\\/]/.test(archivo.slice(RAIZ.length) + '/');
+  const archivo = path.normalize(path.join(WEB, ruta));
+  // Como en Netlify: solo se publica la carpeta web/
+  const prohibido = !archivo.startsWith(WEB + path.sep);
   if (prohibido || !fs.existsSync(archivo) || fs.statSync(archivo).isDirectory()) {
     res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8' });
-    res.end(fs.readFileSync(path.join(RAIZ, 'index.html')));
+    res.end(fs.readFileSync(path.join(WEB, 'index.html')));
     return;
   }
   res.writeHead(200, { 'Content-Type': TIPOS[path.extname(archivo).toLowerCase()] || 'application/octet-stream', 'Cache-Control': 'no-store' });

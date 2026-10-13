@@ -97,6 +97,7 @@ test.describe('Stock donado (Junta)', () => {
   test('Ha llegado a la caja → stock donado → banco o descartar', async ({ page }) => {
     aceptarDialogos(page);
     await entrar(page, jefe.adultos[0].email);
+    await expect(page).toHaveURL(/dashboard\.html/);
     await page.goto('/admin-donaciones.html');
     const fila = page.locator(`.don[data-id="${donacionId}"]`);
     await fila.getByRole('button', { name: 'Ha llegado a la caja' }).click();
@@ -133,6 +134,7 @@ test.describe('Venta de Lotería', () => {
     const jefe = await crearFamilia({ etiqueta: 'loteria', esAdmin: true });
     aceptarDialogos(page);
     await entrar(page, jefe.adultos[0].email);
+    await expect(page).toHaveURL(/dashboard\.html/);
     await page.goto('/admin-eventos.html');
     await page.selectOption('#ePlantilla', 'loteria');
     const titulo = `${MARCA}${process.env.RUN_ID} Venta de Lotería`;

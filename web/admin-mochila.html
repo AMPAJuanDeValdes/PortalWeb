@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mochila Jugona Exploradora · Admin AMPA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared/styles.css">
+<style>
+  .ahora{ background:var(--mochila-bg); border-radius:var(--radius-card); padding:22px 24px; margin-bottom:22px; }
+  .ahora h2{ margin:0 0 4px; font-size:24px; }
+  .ahora p{ margin:0; }
+  .ahora .siguiente{ margin-top:18px; padding-top:16px; border-top:2px dashed rgba(0,109,156,.25); }
+  .ahora h3{ margin:0 0 4px; font-size:20px; }
+  .carta-linea{ margin-top:8px !important; font-size:15px; }
+  .fechas-asignar{ display:grid; grid-template-columns:repeat(2, minmax(0, 240px)); gap:12px 16px; margin-top:14px; }
+  @media (max-width:560px){ .fechas-asignar{ grid-template-columns:1fr; } }
+  .fechas-asignar .opc{ font-weight:400; color:var(--ink-soft); font-size:14px; }
+  .sin-carta{ color:var(--ink-soft); }
+  .linklike.carta{ font-size:inherit; }
+  .acciones{ display:flex; gap:12px; flex-wrap:wrap; margin-top:16px; align-items:center; }
+  .acciones .nota{ color:var(--ink-soft); font-size:15px; }
+  .fila{ display:flex; align-items:center; gap:14px; padding:12px 0; border-bottom:1px solid var(--line); flex-wrap:wrap; }
+  .fila:last-child{ border-bottom:none; }
+  .fila .num{ flex:0 0 40px; height:40px; border-radius:50%; background:#EEF1F5; font-family:var(--font-title); font-weight:800; display:flex; align-items:center; justify-content:center; }
+  .fila.tiene .num, .fila.turno .num{ background:var(--mochila); color:#fff; }
+  .fila .quien{ flex:1 1 220px; min-width:0; }
+  .fila .quien small{ display:block; color:var(--ink-soft); font-size:14px; }
+  .pill{ border-radius:999px; padding:3px 12px; font-size:14px; font-weight:700; }
+  .pill.tiene{ background:#E6F2D8; color:#3F6E12; }
+  .pill.turno{ background:#FFF3C4; color:#7A5800; }
+  .mover{ display:flex; gap:6px; }
+  .mover button{ width:40px; height:40px; border-radius:50%; border:1.5px solid #C9D3DF; background:#fff; cursor:pointer; font-size:18px; }
+  .mover button:disabled{ opacity:.35; cursor:default; }
+  .fila.quitada .quien{ text-decoration:line-through; color:var(--ink-soft); }
+  .juego{ display:flex; gap:14px; align-items:flex-start; padding:14px 0; border-bottom:1px solid var(--line); flex-wrap:wrap; }
+  .juego:last-child{ border-bottom:none; }
+  .juego .foto{ width:160px; flex-shrink:0; display:grid; gap:8px; }
+  .juego .foto img, .juego .foto .sinfoto{ width:160px; height:120px; object-fit:contain; border-radius:12px; background:#EEF1F5; display:flex; align-items:center; justify-content:center; color:var(--ink-soft); font-size:14px; text-align:center; }
+  .juego .foto label{ cursor:pointer; text-align:center; font-size:14px; font-weight:700; color:var(--navy); border:1.5px solid #C9D3DF; border-radius:999px; padding:6px 10px; background:#fff; }
+  .juego .foto input{ position:absolute; width:1px; height:1px; opacity:0; }
+  .juego .foto .linklike{ font-size:14px; }
+  .juego .datos{ flex:1 1 260px; display:grid; gap:8px; }
+  .dos{ display:grid; grid-template-columns:2fr 1fr 90px; gap:10px; }
+  @media (max-width:600px){ .dos{ grid-template-columns:1fr; } }
+  table.h{ width:100%; border-collapse:collapse; font-size:15px; }
+  table.h th, table.h td{ text-align:left; padding:8px 6px; border-bottom:1px solid var(--line); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Mochila Jugona Exploradora</h1>
+  <p class="lede">La lista de espera, quién la tiene y los juegos que lleva. Se recoge los viernes de 17:30 a 18:00 y se devuelve el viernes siguiente de 16:00 a 16:30.</p>
+
+  <section class="ahora" id="ahora"><p class="loading">Cargando...</p></section>
+
+  <div class="card">
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
+      <p class="section-label" style="margin:0;">Lista de espera</p>
+      <button type="button" class="btn btn-outline" id="editarBtn">Editar lista</button>
+    </div>
+    <p id="listaBloqueada" hidden style="margin:8px 0 0; color:var(--ink-soft); font-size:15px;">Hay una familia con el turno asignado: la lista no se puede cambiar hasta que lo rechace o se le entregue la mochila.</p>
+    <div id="lista" style="margin-top:8px;"></div>
+    <div class="acciones" id="edicionBotones" hidden>
+      <button type="button" class="btn btn-primary" id="guardarListaBtn">Guardar cambios</button>
+      <button type="button" class="linklike" id="cancelarEdicionBtn">Cancelar</button>
+    </div>
+    <p id="listaMsg" hidden></p>
+  </div>
+
+  <div class="card">
+    <p class="section-label">Juegos de la Mochila Jugona Exploradora</p>
+    <p style="color:var(--ink-soft); margin:-6px 0 12px;">Lo que ven las familias en la página de la Mochila Jugona Exploradora: foto, explicación y edad recomendada. Cambia lo que quieras y pulsa «Guardar».</p>
+    <div id="juegos"></div>
+    <details style="margin-top:14px;">
+      <summary class="btn btn-outline" style="display:inline-flex;">Añadir un juego</summary>
+      <div style="display:grid; gap:12px; margin-top:14px;">
+        <div class="dos">
+          <div class="field"><label for="jNombre">Nombre</label><input type="text" id="jNombre"></div>
+          <div class="field"><label for="jEdad">Edad recomendada</label><input type="text" id="jEdad" placeholder="Desde 6 años"></div>
+          <div class="field"><label for="jOrden">Orden</label><input type="number" id="jOrden" value="0"></div>
+        </div>
+        <div class="field"><label for="jDesc">Explicación corta</label><textarea id="jDesc" rows="3"></textarea></div>
+        <div class="field"><label for="jFoto">Foto (opcional)</label><input type="file" id="jFoto" accept="image/*"></div>
+        <div><button type="button" class="btn btn-primary" id="jGuardar">Añadir juego</button></div>
+        <p id="jMsg" hidden></p>
+      </div>
+    </details>
+  </div>
+
+  <div class="card" id="historialCard" hidden>
+    <p class="section-label">Historial</p>
+    <div style="overflow-x:auto;"><table class="h"><thead><tr><th>Familia</th><th>Nº socio</th><th>Se la llevó</th><th>La devolvió</th></tr></thead><tbody id="historial"></tbody></table></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="shared/supabaseClient.js"></script>
+<script src="shared/nav.js"></script>
+<script src="shared/mochila.js"></script>
+<script>
+const esc = (t) => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const fecha = (f) => f ? new Date(String(f).length === 10 ? f + 'T12:00:00' : f).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' }) : '';
+const fechaHora = (f) => new Date(f).toLocaleString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
+let cola = [], edicion = null;
+
+function nombreFamilia(x) {
+  if (x.tipo === 'no_socio') return x.nombre_contacto || 'Familia no socia';
+  const ads = (x.socios?.adultos || []).map(a => a.nombre + ' ' + a.apellidos);
+  return ads.length ? ads.join(' y ') : 'Familia sin adultos';
+}
+
+async function cargar() {
+  const { data, error } = await sb.from('mochila_cola')
+    .select('id, tipo, socio_id, estado, posicion, nombre_contacto, notificado_en, fecha_entrega, fecha_devolucion_prevista, created_at, socios(numero_socio_completo, adultos(nombre, apellidos))')
+    .order('posicion');
+  if (error) { document.getElementById('ahora').innerHTML = '<p class="msg-error">No se pudo cargar la lista: ' + esc(error.message) + '</p>'; return; }
+  cola = data || [];
+  edicion = null;
+  await cargarCartas();
+  pintarAhora();
+  pintarLista();
+}
+
+const HORA_RECOGIDA = 'de 17:30 a 18:00', HORA_DEVOLUCION = 'de 16:00 a 16:30';
+const viernes = (f) => f ? new Date(f + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }).replace(',', '') : '';
+let cartas = {};   // socio_id -> { archivo_url, firmado_en }
+// Fechas por defecto al asignar: el viernes en que la devuelve quien la tiene
+// (si aún no ha pasado) o, si está en el AMPA, el siguiente viernes
+const isoLocal = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+function masDias(iso, n) { const d = new Date(iso + 'T12:00:00'); d.setDate(d.getDate() + n); return isoLocal(d); }
+function fechaRecogidaPorDefecto(tiene) {
+  const hoy = isoLocal(new Date());
+  if (tiene && tiene.fecha_devolucion_prevista && tiene.fecha_devolucion_prevista >= hoy) return tiene.fecha_devolucion_prevista;
+  const d = new Date(); d.setDate(d.getDate() + (((5 - d.getDay() + 7) % 7) || 7));
+  return isoLocal(d);
+}
+async function cargarCartas() {
+  const { data } = await sb.from('mochila_compromisos').select('socio_id, archivo_url, firmado_en');
+  cartas = Object.fromEntries((data || []).map(c => [c.socio_id, c]));
+}
+function cartaTxt(x) {
+  if (x.tipo !== 'socio') return '';
+  const c = cartas[x.socio_id];
+  if (!c && x.estado !== 'aceptada') return '';   // solo la familia con el turno aceptado puede firmarla
+  return c ? `<button type="button" class="linklike carta" data-carta="${esc(c.archivo_url)}">Carta firmada el ${fecha(c.firmado_en)}</button>`
+           : '<span class="sin-carta">Carta sin firmar en la web</span>';
+}
+function pintarAhora() {
+  const caja = document.getElementById('ahora');
+  const tiene = cola.find(x => x.estado === 'la_tiene');
+  const turno = cola.find(x => x.estado === 'asignada' || x.estado === 'aceptada');
+  const siguiente = cola.filter(x => x.estado === 'espera').sort((a, b) => a.posicion - b.posicion)[0];
+  // 1. Dónde está la mochila
+  let casa;
+  if (tiene) {
+    const tarde = tiene.fecha_devolucion_prevista && new Date(tiene.fecha_devolucion_prevista + 'T23:59:59') < new Date();
+    casa = `<h2>La tiene ${esc(nombreFamilia(tiene))}</h2>
+      <p>Se la llevó el ${fecha(tiene.fecha_entrega)}. ${tarde ? '<b style="color:#B3261E;">Tenía que devolverla el ' + viernes(tiene.fecha_devolucion_prevista) + '.</b>' : 'La devuelve el ' + viernes(tiene.fecha_devolucion_prevista) + ' ' + HORA_DEVOLUCION + '.'}</p>
+      <div class="acciones">
+        <button type="button" class="btn btn-primary" id="recibirBtn">Recibir mochila</button>
+        <span class="nota">Cuando la devuelvan. Sale de la lista y queda en el AMPA.</span>
+      </div>`;
+  } else {
+    casa = '<h2>La Mochila Jugona Exploradora está en el AMPA</h2>';
+  }
+  // 2. La familia de la semana siguiente
+  let sig;
+  if (turno && turno.estado === 'asignada') {
+    const fin = new Date(new Date(turno.notificado_en).getTime() + 24 * 3600 * 1000);
+    sig = `<h3>Siguiente: ${esc(nombreFamilia(turno))}</h3>
+      <p>Tiene el turno desde el ${fechaHora(turno.notificado_en)} y hasta el ${fechaHora(fin)} para aceptarla en la web; si no, sale de la lista y el turno pasa a la siguiente familia.</p>
+      ${turno.fecha_entrega ? `<p>Entrega el ${viernes(turno.fecha_entrega)} ${HORA_RECOGIDA}; devolución el ${viernes(turno.fecha_devolucion_prevista)} ${HORA_DEVOLUCION}.</p>` : ''}`;
+  } else if (turno) {
+    sig = `<h3>Siguiente: ${esc(nombreFamilia(turno))}</h3>
+      <p>La ha aceptado. La recoge el ${viernes(turno.fecha_entrega)} ${HORA_RECOGIDA} y la devuelve el ${viernes(turno.fecha_devolucion_prevista)} ${HORA_DEVOLUCION}.</p>`;
+  } else if (siguiente) {
+    sig = `<h3>Siguiente en la lista: ${esc(nombreFamilia(siguiente))}</h3>
+      <p>Al asignarla le llega un email y tiene 24 h para aceptarla. Se puede asignar aunque otra familia la tenga en casa.</p>
+      <div class="fechas-asignar">
+        <div class="field"><label for="aEntrega">Fecha de entrega <span class="opc">(${HORA_RECOGIDA})</span></label><input type="date" id="aEntrega" value="${fechaRecogidaPorDefecto(tiene)}"></div>
+        <div class="field"><label for="aDevolucion">Fecha de devolución <span class="opc">(${HORA_DEVOLUCION})</span></label><input type="date" id="aDevolucion" value="${masDias(fechaRecogidaPorDefecto(tiene), 7)}"></div>
+      </div>
+      <div class="acciones"><button type="button" class="btn btn-cta" id="asignarBtn">Asignar mochila</button>
+        <span class="nota">Las fechas le llegan en el email.</span></div>`;
+  } else {
+    sig = '<p>No hay ninguna familia esperando en la lista.</p>';
+  }
+  if (turno) {
+    sig += `<p class="carta-linea">${cartaTxt(turno) || 'Cuando acepte el turno podrá firmar la carta de compromiso en la web.'}</p>
+      <div class="acciones">
+        <button type="button" class="btn btn-cta" id="entregarBtn" ${tiene ? 'disabled' : ''}>Entregar mochila</button>
+        <span class="nota">${tiene ? 'Se podrá entregar cuando la recibáis de ' + esc(nombreFamilia(tiene)) + '.' : 'Pulsa cuando se la des en mano.'}</span>
+      </div>`;
+  }
+  caja.innerHTML = casa + '<div class="siguiente">' + sig + '</div><p class="msg-error" id="ahoraMsg" hidden style="margin-top:10px;"></p>';
+  const err = (e) => { const m = document.getElementById('ahoraMsg'); m.textContent = e.message || e; m.hidden = false; };
+  const accion = (id, pregunta, hacer) => {
+    const b = document.getElementById(id);
+    if (!b) return;
+    b.addEventListener('click', async () => {
+      if (!confirm(pregunta)) return;
+      b.disabled = true;
+      try { await hacer(); await Promise.all([cargar(), cargarHistorial()]); }
+      catch (e) { err(e); b.disabled = false; }
+    });
+  };
+  const rpc = async (n) => { const { error } = await sb.rpc(n, {}); if (error) throw error; };
+  if (tiene) accion('recibirBtn', '¿Confirmas que ' + nombreFamilia(tiene) + ' ha devuelto la mochila?', () => rpc('mochila_admin_devuelto'));
+  if (!turno && siguiente) {
+    const ent = document.getElementById('aEntrega'), dev = document.getElementById('aDevolucion');
+    ent.addEventListener('change', () => { if (ent.value) dev.value = masDias(ent.value, 7); });
+    const b = document.getElementById('asignarBtn');
+    b.addEventListener('click', async () => {
+      if (!ent.value || !dev.value) { err('Pon la fecha de entrega y la de devolución.'); return; }
+      if (dev.value <= ent.value) { err('La fecha de devolución tiene que ser posterior a la de entrega.'); return; }
+      if (!confirm(`Se le dará el turno a ${nombreFamilia(siguiente)} (entrega el ${viernes(ent.value)}, devolución el ${viernes(dev.value)}) y le llegará un email. ¿Seguimos?`)) return;
+      b.disabled = true;
+      try { await mochilaNetlify('mochila-admin-asignar', { entrega: ent.value, devolucion: dev.value }); await cargar(); }
+      catch (e) { err(e); b.disabled = false; }
+    });
+  }
+  if (turno) accion('entregarBtn', '¿Confirmas que ' + nombreFamilia(turno) + ' se lleva hoy la mochila?', () => rpc('mochila_admin_entregada'));
+  enlazarCartas(caja);
+}
+function enlazarCartas(cont) {
+  cont.querySelectorAll('[data-carta]').forEach(b => b.addEventListener('click', async () => {
+    const { data, error } = await sb.storage.from('mochila-compromisos').createSignedUrl(b.dataset.carta, 600);
+    if (error) { alert('No se pudo abrir la carta: ' + error.message); return; }
+    window.open(data.signedUrl, '_blank');
+  }));
+}
+function pintarLista() {
+  const wrap = document.getElementById('lista');
+  const filas = edicion || cola.map(x => ({ ...x, quitada: false }));
+  const conTurno = cola.some(x => x.estado === 'asignada' || x.estado === 'aceptada');
+  document.getElementById('editarBtn').hidden = !!edicion || !cola.length || conTurno;
+  document.getElementById('listaBloqueada').hidden = !conTurno;
+  document.getElementById('edicionBotones').hidden = !edicion;
+  if (!filas.length) { wrap.innerHTML = '<p class="empty-hint">No hay ninguna familia apuntada.</p>'; return; }
+  let n = 0;
+  wrap.innerHTML = filas.map((x, i) => {
+    const fija = x.estado === 'la_tiene';
+    const puesto = x.quitada ? '–' : fija ? '·' : String(++n);
+    const pill = x.estado === 'la_tiene' ? '<span class="pill tiene">La tiene en casa</span>' : x.estado === 'asignada' ? '<span class="pill turno">Turno sin aceptar</span>' : x.estado === 'aceptada' ? '<span class="pill turno">Turno aceptado</span>' : '';
+    const controles = !edicion ? '' : fija ? '<span class="nota" style="font-size:14px; color:var(--ink-soft);">No se mueve</span>' : `
+      <span class="mover">
+        <button type="button" data-i="${i}" data-m="-1" aria-label="Subir" ${i === 0 || filas[i - 1].estado === 'la_tiene' ? 'disabled' : ''}>↑</button>
+        <button type="button" data-i="${i}" data-m="1" aria-label="Bajar" ${i === filas.length - 1 ? 'disabled' : ''}>↓</button>
+      </span>
+      <button type="button" class="${x.quitada ? 'linklike' : 'btn-danger-link'}" data-q="${i}">${x.quitada ? 'Deshacer' : 'Quitar'}</button>`;
+    return `<div class="fila ${x.estado === 'la_tiene' ? 'tiene' : x.estado !== 'espera' ? 'turno' : ''} ${x.quitada ? 'quitada' : ''}">
+      <span class="num">${puesto}</span>
+      <span class="quien"><b>${esc(nombreFamilia(x))}</b><small>${x.socios?.numero_socio_completo ? 'Socio nº ' + esc(x.socios.numero_socio_completo) + ' · ' : ''}apuntada el ${fecha(x.created_at)}${cartaTxt(x) ? ' · ' + cartaTxt(x) : ''}</small></span>
+      ${pill}${controles}
+    </div>`;
+  }).join('');
+  enlazarCartas(wrap);
+  wrap.querySelectorAll('[data-m]').forEach(b => b.addEventListener('click', () => {
+    const i = Number(b.dataset.i), j = i + Number(b.dataset.m);
+    [edicion[i], edicion[j]] = [edicion[j], edicion[i]];
+    pintarLista();
+  }));
+  wrap.querySelectorAll('[data-q]').forEach(b => b.addEventListener('click', () => {
+    const x = edicion[Number(b.dataset.q)]; x.quitada = !x.quitada; pintarLista();
+  }));
+}
+
+document.getElementById('editarBtn').addEventListener('click', () => { edicion = cola.map(x => ({ ...x, quitada: false })); pintarLista(); });
+document.getElementById('cancelarEdicionBtn').addEventListener('click', () => { edicion = null; pintarLista(); });
+document.getElementById('guardarListaBtn').addEventListener('click', async () => {
+  const msg = document.getElementById('listaMsg');
+  const quitadas = edicion.filter(x => x.quitada);
+  if (quitadas.length && !confirm('Se quitará de la lista a: ' + quitadas.map(nombreFamilia).join(', ') + '. ¿Seguimos?')) return;
+  const ids = edicion.filter(x => !x.quitada).map(x => x.id);
+  const { error } = await sb.rpc('mochila_admin_guardar_lista', { p_ids: ids });
+  if (error) { msg.className = 'msg-error'; msg.textContent = error.message; msg.hidden = false; return; }
+  msg.hidden = true;
+  await cargar();
+});
+
+/* ---------- Juegos ---------- */
+let fotoDe = {};
+async function subirFoto(file) {
+  const path = Date.now() + '-' + file.name.replace(/[^\w.-]/g, '_');
+  const { error } = await sb.storage.from('mochila-juegos').upload(path, file, { contentType: file.type });
+  if (error) throw error;
+  return sb.storage.from('mochila-juegos').getPublicUrl(path).data.publicUrl;
+}
+async function borrarFoto(url) {
+  const m = url && url.match(/\/mochila-juegos\/(.+)$/);
+  if (m) await sb.storage.from('mochila-juegos').remove([decodeURIComponent(m[1])]);
+}
+async function cargarJuegos() {
+  const wrap = document.getElementById('juegos');
+  const { data } = await sb.from('mochila_juegos').select('*').order('orden').order('created_at');
+  if (!data || !data.length) { wrap.innerHTML = '<p class="empty-hint">Todavía no hay juegos. Mientras no haya, las familias no ven esta parte.</p>'; return; }
+  fotoDe = Object.fromEntries(data.map(j => [j.id, j.foto_url]));
+  wrap.innerHTML = data.map(j => `
+    <div class="juego" data-id="${j.id}">
+      <div class="foto">
+        ${j.foto_url ? `<img src="${esc(j.foto_url)}" alt="Foto de ${esc(j.nombre)}">` : '<span class="sinfoto">Sin foto</span>'}
+        <label>${j.foto_url ? 'Cambiar foto' : 'Subir foto'}<input type="file" accept="image/*" class="f"></label>
+        ${j.foto_url ? '<button type="button" class="linklike quitarFoto">Quitar foto</button>' : ''}
+      </div>
+      <div class="datos">
+        <div class="dos">
+          <div class="field"><label>Nombre</label><input type="text" class="n" value="${esc(j.nombre)}"></div>
+          <div class="field"><label>Edad recomendada</label><input type="text" class="e" value="${esc(j.edad)}"></div>
+          <div class="field"><label>Orden</label><input type="number" class="o" value="${j.orden}"></div>
+        </div>
+        <div class="field"><label>Explicación corta</label><textarea class="d" rows="2">${esc(j.descripcion)}</textarea></div>
+        <div style="display:flex; gap:14px; align-items:center; flex-wrap:wrap;">
+          <button type="button" class="btn btn-outline guardar">Guardar</button>
+          <button type="button" class="btn-danger-link borrar">Borrar</button>
+          <span class="ok" hidden style="color:#1E7A46;">Guardado ✓</span>
+        </div>
+      </div>
+    </div>`).join('');
+  wrap.querySelectorAll('.juego').forEach(el => {
+    const id = el.dataset.id;
+    el.querySelector('.guardar').addEventListener('click', async () => {
+      const { error } = await sb.from('mochila_juegos').update({
+        nombre: el.querySelector('.n').value.trim(), edad: el.querySelector('.e').value.trim() || null,
+        orden: Number(el.querySelector('.o').value) || 0, descripcion: el.querySelector('.d').value.trim() || null
+      }).eq('id', id);
+      if (error) { alert(error.message); return; }
+      const ok = el.querySelector('.ok'); ok.hidden = false; setTimeout(() => ok.hidden = true, 1500);
+    });
+    el.querySelector('.f').addEventListener('change', async (ev) => {
+      const file = ev.target.files[0];
+      if (!file) return;
+      const lbl = el.querySelector('.foto label'); lbl.firstChild.textContent = 'Subiendo...';
+      try {
+        const url = await subirFoto(file);
+        const { error } = await sb.from('mochila_juegos').update({ foto_url: url }).eq('id', id);
+        if (error) throw error;
+        await borrarFoto(fotoDe[id]);
+        cargarJuegos();
+      } catch (e) { alert('No se pudo subir la foto: ' + e.message); cargarJuegos(); }
+    });
+    const qf = el.querySelector('.quitarFoto');
+    if (qf) qf.addEventListener('click', async () => {
+      if (!confirm('¿Quitar la foto de este juego?')) return;
+      const { error } = await sb.from('mochila_juegos').update({ foto_url: null }).eq('id', id);
+      if (error) { alert(error.message); return; }
+      await borrarFoto(fotoDe[id]);
+      cargarJuegos();
+    });
+    el.querySelector('.borrar').addEventListener('click', async () => {
+      if (!confirm('¿Borrar este juego de la lista?')) return;
+      const { error } = await sb.from('mochila_juegos').delete().eq('id', id);
+      if (error) { alert(error.message); return; }
+      cargarJuegos();
+    });
+  });
+}
+
+document.getElementById('jGuardar').addEventListener('click', async () => {
+  const msg = document.getElementById('jMsg');
+  const nombre = document.getElementById('jNombre').value.trim();
+  if (!nombre) { msg.className = 'msg-error'; msg.textContent = 'Escribe el nombre del juego.'; msg.hidden = false; return; }
+  let foto_url = null;
+  const file = document.getElementById('jFoto').files[0];
+  if (file) {
+    try { foto_url = await subirFoto(file); }
+    catch (e) { msg.className = 'msg-error'; msg.textContent = 'No se pudo subir la foto: ' + e.message; msg.hidden = false; return; }
+  }
+  const { error } = await sb.from('mochila_juegos').insert({
+    nombre, edad: document.getElementById('jEdad').value.trim() || null,
+    orden: Number(document.getElementById('jOrden').value) || 0,
+    descripcion: document.getElementById('jDesc').value.trim() || null, foto_url
+  });
+  if (error) { msg.className = 'msg-error'; msg.textContent = error.message; msg.hidden = false; return; }
+  ['jNombre', 'jEdad', 'jDesc', 'jFoto'].forEach(id => document.getElementById(id).value = '');
+  msg.className = 'msg-ok'; msg.textContent = 'Juego añadido ✓'; msg.hidden = false;
+  cargarJuegos();
+});
+
+async function cargarHistorial() {
+  const { data } = await sb.from('mochila_historial').select('*').order('fecha_devolucion', { ascending: false }).limit(50);
+  if (!data || !data.length) return;
+  document.getElementById('historial').innerHTML = data.map(h => `<tr><td>${esc(h.nombre_familia)}</td><td>${esc(h.numero_socio_completo || '')}</td><td>${fecha(h.fecha_entrega)}</td><td>${fecha(h.fecha_devolucion)}</td></tr>`).join('');
+  document.getElementById('historialCard').hidden = false;
+}
+
+(async () => {
+  const ctx = await requireAdmin();
+  if (!ctx) return;
+  renderNav('admin-mochila', ctx);
+  await Promise.all([cargar(), cargarJuegos(), cargarHistorial()]);
+})();
+</script>
+<script src="shared/sonido.js"></script>
+<script src="shared/vida.js"></script>
+</body>
+</html>

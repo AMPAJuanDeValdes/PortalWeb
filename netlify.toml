@@ -1,21 +1,11 @@
 [build]
-  publish = "."
+  publish = "web"
   functions = "netlify/functions"
   command = "npm install"
 
-# La carpeta "pruebas" es solo para ejecutar en tu ordenador: no se sirve en la web
-[[redirects]]
-  from = "/pruebas/*"
-  to = "/index.html"
-  status = 404
-  force = true
-
-# Herramientas para probar en tu ordenador: tampoco se sirven en la web
-[[redirects]]
-  from = "/herramientas/*"
-  to = "/index.html"
-  status = 404
-  force = true
+# El logo de la firma de los emails va dentro del propio email
+[functions]
+  included_files = ["web/assets/logo-ampa-email.jpg"]
 
 [[redirects]]
   from = "/*"

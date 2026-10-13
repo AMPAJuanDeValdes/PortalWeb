@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Enviar email · Admin AMPA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared/styles.css">
+<style>
+  .two-col{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:560px){ .two-col{ grid-template-columns:1fr; } }
+  textarea#cuerpo{ min-height:180px; }
+  /* Selección de cursos: una fila por etapa con sus cursos como píldoras */
+  .cursos-sel{ display:grid; gap:12px; margin-top:6px; }
+  .etapa-fila{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+  .etapa-fila .etapa{ min-width:118px; font-weight:700; }
+  .chip-curso{ position:relative; }
+  .chip-curso input{ position:absolute; opacity:0; pointer-events:none; }
+  .chip-curso span{ display:inline-flex; align-items:center; min-height:38px; padding:0 14px; border-radius:999px; border:2px solid var(--line); background:#fff; font-size:15px; cursor:pointer; user-select:none; transition:background .15s, border-color .15s, color .15s; }
+  .chip-curso input:checked + span{ background:var(--navy); border-color:var(--navy); color:#fff; }
+  .chip-curso input:focus-visible + span{ outline:3px solid #9CCBF0; }
+  .chip-etapa span{ border-style:dashed; font-weight:700; }
+  .cursos-atajos{ display:flex; gap:16px; flex-wrap:wrap; margin-top:12px; font-size:14px; }
+  #cursosResumen{ font-size:14px; color:var(--ink-soft); margin-top:8px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">Administración</div>
+  <h1>Enviar email</h1>
+  <p class="lede">Se envía por email vía el buzón del AMPA (SMTP), en BCC por tandas. Es un email de texto plano, sin plantillas de diseño.</p>
+
+  <div class="card">
+    <p class="section-label">Destinatarios</p>
+    <select id="tipoDestinatario">
+      <option value="todos">Todos los socios activos</option>
+      <option value="curso">Familias con alumnos/as en unos cursos</option>
+      <option value="evento">Inscritos a un evento</option>
+    </select>
+
+    <div id="cursoWrap" style="display:none; margin-top:14px;">
+      <p style="font-size:14.5px; margin:0 0 4px;">Marca todos los cursos que quieras. Pulsa el nombre de la etapa para marcarla entera.</p>
+      <div class="cursos-sel" id="cursosSel"></div>
+      <div class="cursos-atajos">
+        <button type="button" class="linklike" id="cursosTodos">Marcar todos</button>
+        <button type="button" class="linklike" id="cursosNinguno">Quitar todos</button>
+      </div>
+      <p id="cursosResumen"></p>
+    </div>
+
+    <div id="eventoWrap" style="display:none; margin-top:14px;">
+      <div class="field"><label>Evento</label><select id="fEvento"></select></div>
+    </div>
+
+    <button type="button" class="btn btn-outline" id="calcularBtn" style="margin-top:16px;">Calcular destinatarios</button>
+    <p id="totalMsg" style="margin-top:10px; font-size:14px; color:var(--ink-soft);"></p>
+  </div>
+
+  <div class="card">
+    <p class="section-label">Mensaje</p>
+    <div class="field"><label>Asunto</label><input type="text" id="asunto"></div>
+    <div class="field" style="margin-top:14px;"><label>Cuerpo</label><textarea id="cuerpo"></textarea></div>
+    <button type="button" class="btn btn-primary" id="enviarBtn" style="margin-top:16px;" disabled>Enviar</button>
+    <p id="msg" style="display:none; margin-top:14px;"></p>
+  </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="shared/supabaseClient.js"></script>
+<script src="shared/nav.js"></script>
+<script src="shared/catalogo.js"></script>
+<script src="shared/helpers.js"></script>
+<script>
+// Cursos: una fila por etapa; la píldora de la etapa marca o desmarca todos sus cursos
+const cursosSel = document.getElementById('cursosSel');
+cursosSel.innerHTML = Object.entries(CURSOS_POR_ETAPA).map(([etapa, cursos]) => `<div class="etapa-fila">
+  <label class="chip-curso chip-etapa etapa"><input type="checkbox" data-etapa="${etapa}"><span>${etapa}</span></label>
+  ${cursos.map(c => `<label class="chip-curso"><input type="checkbox" data-curso="${etapa}|${c}"><span>${c}</span></label>`).join('')}
+</div>`).join('');
+const cursosMarcados = () => [...cursosSel.querySelectorAll('input[data-curso]:checked')].map(i => i.dataset.curso);
+function repasarCursos() {
+  cursosSel.querySelectorAll('input[data-etapa]').forEach(e => {
+    const suyos = [...cursosSel.querySelectorAll(`input[data-curso^="${e.dataset.etapa}|"]`)];
+    const n = suyos.filter(i => i.checked).length;
+    e.checked = n === suyos.length; e.indeterminate = n > 0 && n < suyos.length;
+  });
+  const m = cursosMarcados();
+  document.getElementById('cursosResumen').textContent = m.length
+    ? 'Cursos marcados: ' + m.map(c => { const [e, k] = c.split('|'); return k + ' ' + e; }).join(', ') + '.'
+    : 'No hay ningún curso marcado.';
+  document.getElementById('enviarBtn').disabled = true;
+  document.getElementById('totalMsg').textContent = '';
+}
+cursosSel.addEventListener('change', (ev) => {
+  const e = ev.target;
+  if (e.dataset.etapa) cursosSel.querySelectorAll(`input[data-curso^="${e.dataset.etapa}|"]`).forEach(i => { i.checked = e.checked; });
+  repasarCursos();
+});
+document.getElementById('cursosTodos').addEventListener('click', () => { cursosSel.querySelectorAll('input[data-curso]').forEach(i => { i.checked = true; }); repasarCursos(); });
+document.getElementById('cursosNinguno').addEventListener('click', () => { cursosSel.querySelectorAll('input[data-curso]').forEach(i => { i.checked = false; }); repasarCursos(); });
+repasarCursos();
+
+// Emails de los adultos de esas familias (en trozos: con cientos de ids la consulta sería demasiado larga)
+async function emailsDeSocios(socioIds, soloActivos) {
+  const ids = [...new Set(socioIds.filter(Boolean))], emails = [];
+  for (let i = 0; i < ids.length; i += 150) {
+    let trozo = ids.slice(i, i + 150);
+    if (soloActivos) {
+      const { data: activos } = await sb.from('socios').select('id').in('id', trozo).eq('estado', 'activa');
+      trozo = (activos || []).map(s => s.id);
+      if (!trozo.length) continue;
+    }
+    const { data: adultos } = await sb.from('adultos').select('email').in('socio_id', trozo);
+    (adultos || []).forEach(a => a.email && emails.push(a.email));
+  }
+  return emails;
+}
+
+document.getElementById('tipoDestinatario').addEventListener('change', (e) => {
+  document.getElementById('cursoWrap').style.display = e.target.value === 'curso' ? 'grid' : 'none';
+  document.getElementById('eventoWrap').style.display = e.target.value === 'evento' ? 'block' : 'none';
+  document.getElementById('enviarBtn').disabled = true;
+  document.getElementById('totalMsg').textContent = '';
+});
+
+async function cargarEventosSelect() {
+  const { data } = await sb.from('eventos').select('id, titulo').order('fecha', { ascending: false });
+  document.getElementById('fEvento').innerHTML = (data || []).map(e => '<option value="' + e.id + '">' + e.titulo + '</option>').join('');
+}
+
+let destinatariosCalculados = [];
+
+document.getElementById('calcularBtn').addEventListener('click', async () => {
+  const tipo = document.getElementById('tipoDestinatario').value;
+  let emails = [];
+
+  if (tipo === 'todos') {
+    const socios = await todasLasFilas(() => sb.from('socios').select('id').eq('estado', 'activa').order('id'));
+    emails = await emailsDeSocios(socios.map(s => s.id), false);
+  } else if (tipo === 'curso') {
+    const marcados = cursosMarcados();
+    if (!marcados.length) { document.getElementById('totalMsg').textContent = 'Marca al menos un curso.'; return; }
+    const nombresCurso = [...new Set(marcados.map(c => c.split('|')[1]))];
+    const alumnos = await todasLasFilas(() => sb.from('alumnos').select('socio_id, etapa, curso').in('curso', nombresCurso).order('id'));
+    const quiero = new Set(marcados);
+    emails = await emailsDeSocios(alumnos.filter(a => quiero.has(a.etapa + '|' + a.curso)).map(a => a.socio_id), true);
+  } else if (tipo === 'evento') {
+    const eventoId = document.getElementById('fEvento').value;
+    const { data: inscripciones } = await sb.from('evento_inscripciones').select('socio_id').eq('evento_id', eventoId).not('socio_id', 'is', null);
+    const socioIds = [...new Set((inscripciones || []).map(i => i.socio_id))];
+    if (socioIds.length) {
+      const { data: adultos } = await sb.from('adultos').select('email').in('socio_id', socioIds);
+      emails = (adultos || []).map(a => a.email);
+    }
+  }
+
+  destinatariosCalculados = [...new Set(emails)];
+  document.getElementById('totalMsg').textContent = destinatariosCalculados.length + ' destinatarios encontrados.';
+  document.getElementById('enviarBtn').disabled = destinatariosCalculados.length === 0;
+});
+
+document.getElementById('enviarBtn').addEventListener('click', async () => {
+  const asunto = document.getElementById('asunto').value.trim();
+  const cuerpo = document.getElementById('cuerpo').value.trim();
+  const msg = document.getElementById('msg');
+  const btn = document.getElementById('enviarBtn');
+
+  if (!asunto || !cuerpo) {
+    msg.style.display = 'block'; msg.className = 'msg-error'; msg.textContent = 'Completa asunto y cuerpo.';
+    return;
+  }
+  if (!confirm('¿Enviar este email a ' + destinatariosCalculados.length + ' destinatarios?')) return;
+
+  btn.disabled = true; btn.textContent = 'Enviando...';
+  const session = await getSession();
+  try {
+    const resp = await fetch('/.netlify/functions/enviar-email-masivo', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
+      body: JSON.stringify({ destinatarios: destinatariosCalculados, asunto, cuerpo })
+    });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.error || 'Error al enviar');
+    msg.style.display = 'block'; msg.className = 'msg-ok';
+    msg.textContent = 'Enviado a ' + data.enviados + ' destinatarios ✓';
+  } catch (err) {
+    msg.style.display = 'block'; msg.className = 'msg-error';
+    msg.textContent = err.message;
+  }
+  btn.disabled = false; btn.textContent = 'Enviar';
+});
+
+(async () => {
+  const ctx = await requireAdmin();
+  if (!ctx) return;
+  renderNav('admin-email', ctx);
+  await cargarEventosSelect();
+})();
+</script>
+<script src="shared/sonido.js"></script>
+<script src="shared/vida.js"></script>
+</body>
+</html>

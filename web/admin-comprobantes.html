@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Comprobantes de invitados · Admin AMPA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared/styles.css">
+<style>
+  .panel{ display:none; } .panel.active{ display:block; }
+  .fila-socio{ padding:14px 0; border-bottom:1px solid var(--line); }
+  .fila-socio:last-child{ border-bottom:none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">Administración</div>
+  <h1>Comprobantes de invitados</h1>
+  <p class="lede">Verifica los comprobantes de pago de los invitados a eventos.</p>
+  <div class="aviso">Las <b>altas nuevas</b>, las <b>reactivaciones</b> y las cuentas <b>pendientes de pago</b> se gestionan ahora en
+    <a href="admin-socios.html" style="color:var(--navy); font-weight:600;">Socios → Solicitudes pendientes</a>,
+    donde se ven todos los datos de la familia y al activar o rechazar se envía el email automáticamente.</div>
+
+  <div class="panel active" id="panel-invitados"><div class="card" id="wrapInvitados"><p class="loading">Cargando...</p></div></div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="shared/supabaseClient.js"></script>
+<script src="shared/nav.js"></script>
+<script>
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
+  });
+});
+
+async function urlComprobante(path) {
+  const { data } = await sb.storage.from('comprobantes').createSignedUrl(path, 300);
+  return data ? data.signedUrl : '#';
+}
+
+// Varias personas no socias pueden ir en una sola transferencia (mismo pago_id):
+// se muestran juntas, con el importe total, y se verifican de una vez.
+async function cargarInvitados() {
+  const wrap = document.getElementById('wrapInvitados');
+  const { data: comprobantes } = await sb.from('comprobantes_pago')
+    .select('*, evento_inscripciones(nombre_invitado, apellidos_invitado, evento_id, eventos(titulo, precio_invitado), socios(numero_socio_completo))')
+    .eq('tipo', 'invitado_evento').eq('verificado', false).order('created_at');
+
+  if (!comprobantes || comprobantes.length === 0) { wrap.innerHTML = '<p class="empty-hint">No hay comprobantes de invitados pendientes.</p>'; return; }
+
+  const grupos = [];
+  comprobantes.forEach(c => {
+    const clave = c.pago_id || c.id;
+    let g = grupos.find(x => x.clave === clave);
+    if (!g) grupos.push(g = { clave, filas: [] });
+    g.filas.push(c);
+  });
+  const esc = (t) => String(t ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+  const euros = (n) => Number(n).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+
+  wrap.innerHTML = '';
+  for (const g of grupos) {
+    const c = g.filas[0];
+    const ins = c.evento_inscripciones || {};
+    const nombres = g.filas.map(f => [f.evento_inscripciones?.nombre_invitado, f.evento_inscripciones?.apellidos_invitado].filter(Boolean).join(' ') || 'Invitado');
+    const importe = c.importe != null ? Number(c.importe) : (Number(ins.eventos?.precio_invitado) || 0) * g.filas.length;
+    const div = document.createElement('div');
+    div.className = 'fila-socio';
+    div.innerHTML = `
+      <b>${esc(ins.eventos?.titulo || '')}</b> — ${g.filas.length === 1 ? '1 persona' : g.filas.length + ' personas'}${importe ? ', <b>' + euros(importe) + '</b>' : ''}
+      ${ins.socios?.numero_socio_completo ? ' · socio nº ' + esc(ins.socios.numero_socio_completo) : ''}<br>
+      <span style="color:var(--ink-soft);">${nombres.map(esc).join(', ')}</span><br>
+      <a href="${await urlComprobante(c.archivo_url)}" target="_blank">Ver justificante</a>
+      <div style="margin-top:8px;"><button class="btn btn-primary verificarBtn">Marcar como verificado</button></div>
+    `;
+    div.querySelector('.verificarBtn').addEventListener('click', async (ev) => {
+      ev.target.disabled = true;
+      const { error } = await sb.from('comprobantes_pago').update({ verificado: true }).in('id', g.filas.map(f => f.id));
+      if (error) { alert(error.message); ev.target.disabled = false; return; }
+      cargarInvitados();
+    });
+    wrap.appendChild(div);
+  }
+}
+
+(async () => {
+  const ctx = await requireAdmin();
+  if (!ctx) return;
+  renderNav('admin-comprobantes', ctx);
+  await cargarInvitados();
+})();
+</script>
+<script src="shared/sonido.js"></script>
+<script src="shared/vida.js"></script>
+</body>
+</html>

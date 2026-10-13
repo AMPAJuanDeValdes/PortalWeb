@@ -41,7 +41,7 @@ compras y el filtro de libros por curso.
 
 ## Probar sin subir a Netlify (en tu ordenador)
 
-- **Ver la web:** doble clic en **`probar-en-local.bat`** (en la carpeta del
+- **Ver la web:** doble clic en **`herramientas\probar-en-local.bat`** (en la carpeta del
   proyecto). Se abre `http://localhost:8888` con la web tal como está en tu
   carpeta, funciones incluidas (altas, donaciones, Mochila...). Para pararla,
   cierra la ventana negra.

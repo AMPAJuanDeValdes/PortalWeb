@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mochila Jugona Exploradora · AMPA Juan de Valdés</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared/styles.css">
+<style>
+  .wrap{ max-width:960px; }
+
+  h2.sec{ font-family:var(--font-title); font-weight:800; font-size:28px; margin:0 0 16px; }
+  .pasos{ list-style:none; padding:0; margin:0 0 40px; display:grid; gap:14px; counter-reset:paso; }
+  .pasos li{ display:flex; gap:16px; align-items:flex-start; background:#fff; border:1px solid var(--line); border-radius:var(--radius-card); padding:16px 18px; }
+  .pasos li::before{ counter-increment:paso; content:counter(paso); flex:0 0 40px; height:40px; border-radius:50%; background:var(--mochila); color:#fff; font-family:var(--font-title); font-weight:800; font-size:19px; display:flex; align-items:center; justify-content:center; }
+  .pasos b{ display:block; font-size:18px; margin-bottom:2px; }
+  .pasos span{ color:#3B4A60; }
+
+  .juegos{ display:grid; grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); gap:14px; margin-bottom:40px; }
+  .juego{ background:#fff; border:1px solid var(--line); border-radius:var(--radius-card); overflow:hidden; display:flex; flex-direction:column; }
+  /* La foto se ve entera (sin recortar), sea vertical u horizontal */
+  .juego .marco{ display:flex; align-items:center; justify-content:center; height:240px; padding:14px; background:#F6F8FB; border-bottom:1px solid var(--line); }
+  .juego .marco img{ max-width:100%; max-height:100%; width:auto; height:auto; object-fit:contain; display:block; border-radius:8px; }
+  .juego .cuerpo{ padding:16px 18px 18px; display:flex; flex-direction:column; gap:6px; flex:1; }
+  .juego h3{ margin:0; font-size:20px; }
+  .juego p{ margin:0; color:#3B4A60; }
+  .edad{ align-self:flex-start; background:var(--mochila-bg); color:var(--mochila); font-weight:700; font-size:14px; border-radius:999px; padding:4px 12px; }
+
+  .lista{ background:#fff; border:2px solid var(--mochila); border-radius:var(--radius-card); padding:26px; }
+  .lista-fila{ display:flex; align-items:center; justify-content:space-between; gap:16px 28px; flex-wrap:wrap; }
+  .dato{ display:flex; align-items:center; gap:16px; margin:0; }
+  .dato > b{ font-family:var(--font-title); font-weight:800; font-size:64px; line-height:1; color:var(--mochila); }
+  .dato > span{ font-size:19px; font-weight:700; max-width:24ch; line-height:1.25; }
+  .lista .nota{ margin:14px 0 0; color:var(--ink-soft); }
+  .titulo-grande{ font-family:var(--font-title); font-weight:800; font-size:26px; margin:0 0 6px; }
+  .mochila-acciones{ display:flex; gap:12px; flex-wrap:wrap; margin-top:16px; }
+  .horario{ margin-top:10px !important; }
+  .carta{ margin-top:40px; background:#fff; border-radius:56px 16px 56px 16px; padding:28px clamp(18px,3vw,34px); box-shadow:0 2px 4px rgba(22,35,58,.04), 0 24px 50px -28px rgba(22,35,58,.3); }
+  .carta .dos{ display:grid; grid-template-columns:1fr 1fr; gap:12px 16px; }
+  @media (max-width:640px){ .carta .dos{ grid-template-columns:1fr; } }
+  .carta .field{ margin:0; }
+  .carta .opc{ font-weight:400; color:var(--ink-soft); font-size:14px; }
+  .carta .firma-zona{ margin-top:16px; }
+  .carta-preview img{ width:100%; max-width:620px; border:1px solid var(--line); border-radius:12px; display:block; margin:12px 0; }
+  .carta .botones{ display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-top:16px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="cab-servicio cs-mochila"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9a6 6 0 0 1 12 0v11H6z"/><path d="M9 5V3h6v2M9 14h6"/></svg><div><nav class="miga" aria-label="Estás en"><a href="dashboard.html">Inicio</a><span aria-hidden="true">›</span><span>Mochila Jugona Exploradora</span></nav><h1>Mochila Jugona Exploradora</h1><p>Una mochila llena de juegos que va pasando por las casas de las familias socias. Cada familia la tiene una semana para jugar en casa y después la devuelve para que le llegue a la siguiente.</p></div></header>
+
+  <h2 class="sec">Cómo funciona</h2>
+  <ol class="pasos">
+    <li><div><b>Apuntaos a la lista de espera</b><span>Entráis al final de la lista. En Inicio veréis siempre vuestro puesto.</span></div></li>
+    <li><div><b>Cuando os toque, os llega un email</b><span>La Junta os da el turno de la semana siguiente cuando sois los primeros de la lista, aunque otra familia la tenga todavía en casa.</span></div></li>
+    <li><div><b>Tenéis 24 horas para aceptarla</b><span>Entrad en esta página y pulsad «La queremos». Si esa semana no os viene bien, pulsad «Esperar una semana más»: la siguiente familia pasa delante y vosotros quedáis segundos. Si en 24 horas no contestáis, salís de la lista y el turno pasa a la siguiente familia.</span></div></li>
+    <li><div><b>Recogedla el viernes, de 17:30 a 18:00</b><span>Al recogerla se firma la carta de compromiso de buen uso. Cuando aceptéis el turno, podréis firmarla antes en esta página o a mano ese día.</span></div></li>
+    <li><div><b>Devolvedla el viernes siguiente, de 16:00 a 16:30</b><span>Con todos los juegos completos y en buen estado. Cuando os la entregan, la lista avanza y todas las familias suben un puesto.</span></div></li>
+  </ol>
+
+  <!-- Solo aparece si la Junta ha añadido juegos -->
+  <section id="bloqueJuegos" hidden>
+    <h2 class="sec">Qué juegos lleva</h2>
+    <div class="juegos" id="juegos"></div>
+  </section>
+
+  <section class="lista" id="lista" aria-live="polite"><p class="loading">Cargando...</p></section>
+
+  <section class="carta" id="carta" aria-labelledby="cartaTit" hidden>
+    <h2 class="sec" id="cartaTit">Carta de compromiso de buen uso</h2>
+    <p>Es la que se firma al recoger la mochila: os comprometéis a devolverla con todos los juegos completos y en buen estado, y a pagar el precio indicado si se pierde o se rompe algún componente. Podéis firmarla aquí antes de recogerla o a mano ese día.</p>
+    <p><a href="assets/carta-compromiso-mochila.pdf" target="_blank" rel="noopener">Ver la carta (PDF)</a></p>
+    <div id="cartaZona"><p class="loading">Cargando...</p></div>
+  </section>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="shared/supabaseClient.js"></script>
+<script src="shared/nav.js"></script>
+<script src="shared/mochila.js"></script>
+<script src="shared/documentoRellenable.js"></script>
+<script src="shared/mandatoSepa.js"></script>
+<script src="shared/compromisoMochila.js"></script>
+<script>
+let ctxGlobal = null;
+const esc = (t) => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+async function cargarJuegos() {
+  const { data } = await sb.from('mochila_juegos').select('*').order('orden').order('created_at');
+  if (!data || !data.length) return;
+  document.getElementById('juegos').innerHTML = data.map(j => `
+    <article class="juego">
+      ${j.foto_url ? `<a class="marco" href="${esc(j.foto_url)}" target="_blank" rel="noopener" aria-label="Ver la foto de ${esc(j.nombre)} en grande"><img src="${esc(j.foto_url)}" alt="" loading="lazy"></a>` : ''}
+      <div class="cuerpo">
+        <h3>${esc(j.nombre)}</h3>
+        ${j.edad ? `<span class="edad">${esc(j.edad)}</span>` : ''}
+        ${j.descripcion ? `<p>${esc(j.descripcion)}</p>` : ''}
+      </div>
+    </article>`).join('');
+  document.getElementById('bloqueJuegos').hidden = false;
+}
+
+async function pintarLista() {
+  const caja = document.getElementById('lista');
+  let est;
+  try { est = await mochilaEstado(); }
+  catch (e) { caja.innerHTML = '<p class="msg-error">No se pudo cargar la lista. Recarga la página.</p>'; return; }
+  // La carta de compromiso solo la tiene la familia que ha aceptado el turno
+  const carta = document.getElementById('carta');
+  const conCarta = est.estado === 'aceptada';
+  if (conCarta && carta.hidden) { carta.hidden = false; pintarCarta(false); }
+  if (!conCarta) carta.hidden = true;
+
+  if (!est.apuntada) {
+    caja.innerHTML = `
+      <div class="lista-fila">
+        <p class="dato"><b>${est.esperan}</b><span>${mochilaFamilias(est.esperan)} en la lista de espera</span></p>
+        <button type="button" class="btn btn-cta btn-grande" id="apuntarBtn">Agregarnos a la lista de espera</button>
+      </div>
+      <p class="nota">${est.esperan ? `Entraréis en el puesto ${est.esperan + 1}.` : 'No hay nadie esperando: seréis los primeros.'}</p>
+      <p class="msg-error" id="listaMsg" hidden></p>`;
+    document.getElementById('apuntarBtn').addEventListener('click', async (ev) => {
+      ev.target.disabled = true;
+      try { await mochilaApuntarse(); await pintarLista(); }
+      catch (e) { const m = document.getElementById('listaMsg'); m.textContent = e.message; m.hidden = false; ev.target.disabled = false; }
+    });
+    return;
+  }
+  if (est.estado === 'la_tiene') {
+    caja.innerHTML = `<p class="titulo-grande">La tenéis en casa</p>
+      <p>Devolvedla a la Junta el <b>${mochilaFecha(est.fecha_devolucion_prevista)}</b>, ${MOCHILA_HORA_DEVOLUCION}. ¡Que la disfrutéis!</p>`;
+    return;
+  }
+  if (est.estado === 'aceptada') {
+    caja.innerHTML = `<p class="titulo-grande">¡La semana que viene la tenéis vosotros!</p>
+      <p>Recogedla el <b>${mochilaFecha(est.fecha_entrega)}</b>, ${MOCHILA_HORA_RECOGIDA}, y devolvedla el <b>${mochilaFecha(est.fecha_devolucion_prevista)}</b>, ${MOCHILA_HORA_DEVOLUCION}.</p>
+      <p class="nota">${est.carta_firmada_en ? 'Ya habéis firmado la carta de compromiso.' : 'Al recogerla hay que firmar la carta de compromiso: podéis firmarla ya aquí abajo.'}
+        <button type="button" class="linklike" id="salirBtn">Desapuntarnos de la Mochila Jugona Exploradora</button></p>
+      <p class="msg-error" id="listaMsg" hidden></p>`;
+    document.getElementById('salirBtn').addEventListener('click', async () => {
+      try { if (await mochilaDesapuntarse()) await pintarLista(); }
+      catch (e) { const m = document.getElementById('listaMsg'); m.textContent = e.message; m.hidden = false; }
+    });
+    return;
+  }
+  if (est.estado === 'asignada') {
+    caja.innerHTML = `<p class="titulo-grande">¡Os toca la Mochila Jugona Exploradora!</p>
+      <p>Tenéis hasta el <b>${mochilaLimite(est)}</b> para aceptarla. Si no contestáis, saldréis de la lista.</p>
+      ${est.viernes_recogida ? `<p class="horario">Si la aceptáis, la recogeréis el <b>${mochilaFecha(est.viernes_recogida)}</b>, ${MOCHILA_HORA_RECOGIDA}, y la devolveréis el viernes siguiente, ${MOCHILA_HORA_DEVOLUCION}.</p>` : ''}
+      <div id="turno"></div>`;
+    mochilaBotonesTurno(document.getElementById('turno'), est, pintarLista);
+    return;
+  }
+  caja.innerHTML = `
+    <p class="dato"><b>${est.puesto}º</b><span>Vuestro puesto en la lista de espera${est.esperan > 1 ? ` (de ${est.esperan} ${mochilaFamilias(est.esperan)})` : ''}</span></p>
+    <p class="nota">${est.puesto === 1 ? 'Sois los siguientes: os llegará un email cuando la Junta os dé el turno.' : 'Os llegará un email cuando os toque.'}
+      <button type="button" class="linklike" id="salirBtn">Desapuntarnos de la Mochila Jugona Exploradora</button></p>
+    <p class="msg-error" id="listaMsg" hidden></p>`;
+  document.getElementById('salirBtn').addEventListener('click', async () => {
+    try { if (await mochilaDesapuntarse()) await pintarLista(); }
+    catch (e) { const m = document.getElementById('listaMsg'); m.textContent = e.message; m.hidden = false; }
+  });
+}
+
+/* ---------- Carta de compromiso ---------- */
+const numeroBonito = (n) => /^\d{12}$/.test(n || '') ? n.slice(0, 4) + '.' + n.slice(4, 8) + '.' + n.slice(8) : (n || '');
+const fechaCorta = (f) => f ? new Date(f + 'T12:00:00').toLocaleDateString('es-ES') : '';
+async function pintarCarta(forzarFormulario) {
+  const zona = document.getElementById('cartaZona');
+  let est = {};
+  try { est = await mochilaEstado(); } catch (e) { /* sin estado: se firma igual */ }
+  const { data: firmada } = await sb.from('mochila_compromisos').select('archivo_url, firmado_en').eq('socio_id', ctxGlobal.socio.id).maybeSingle();
+  if (firmada && !forzarFormulario) {
+    zona.innerHTML = `<p class="msg-ok">La firmasteis el ${new Date(firmada.firmado_en).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })} ✓</p>
+      <div class="botones"><button type="button" class="btn btn-outline" id="cVer">Ver la carta firmada</button>
+      <button type="button" class="linklike" id="cOtra">Volver a firmarla</button></div>`;
+    document.getElementById('cVer').addEventListener('click', async () => {
+      const { data, error } = await sb.storage.from('mochila-compromisos').createSignedUrl(firmada.archivo_url, 600);
+      if (error) { alert('No se pudo abrir la carta: ' + error.message); return; }
+      window.open(data.signedUrl, '_blank');
+    });
+    document.getElementById('cOtra').addEventListener('click', () => pintarCarta(true));
+    return;
+  }
+  const a = ctxGlobal.adulto;
+  const entrega = est.fecha_entrega || est.viernes_recogida || '';
+  const devolucion = est.fecha_devolucion_prevista || '';
+  zona.innerHTML = `<div class="carta-form">
+      <div class="dos">
+        <div class="field"><label for="cNombre">Nombre y apellidos</label><input type="text" id="cNombre" value="${esc((a.nombre || '') + ' ' + (a.apellidos || ''))}"></div>
+        <div class="field"><label for="cDni">DNI / NIE</label><input type="text" id="cDni" value="${esc(a.dni_nie || '')}"></div>
+        <div class="field"><label for="cSocio">Número de socio</label><input type="text" id="cSocio" value="${esc(numeroBonito(ctxGlobal.socio.numero_socio_completo))}"></div>
+        <div class="field"><label for="cTel">Teléfono</label><input type="tel" id="cTel" value="${esc(a.telefono || '')}"></div>
+        <div class="field"><label for="cEntrega">Fecha de entrega</label><input type="text" id="cEntrega" value="${esc(fechaCorta(entrega))}" readonly></div>
+        <div class="field"><label for="cDevolucion">Fecha de devolución</label><input type="text" id="cDevolucion" value="${esc(fechaCorta(devolucion))}" readonly></div>
+      </div>
+      <div class="firma-zona"><label>Firma</label><div id="cPad"></div></div>
+      <p class="msg-error" id="cMsg" hidden></p>
+      <div class="botones"><button type="button" class="btn btn-cta" id="cRevisar">Ver la carta firmada</button>
+      ${forzarFormulario ? '<button type="button" class="linklike" id="cCancelar">Cancelar</button>' : ''}</div>
+    </div>
+    <div class="carta-preview" hidden>
+      <p>Así quedará la carta. Si está bien, confirmad.</p>
+      <img id="cPreview" alt="Vista previa de la carta firmada">
+      <p class="msg-error" id="cMsg2" hidden></p>
+      <div class="botones"><button type="button" class="btn btn-cta" id="cConfirmar">Confirmar y firmar</button>
+      <button type="button" class="linklike" id="cCorregir">Corregir</button></div>
+    </div>`;
+  const pad = montarPadFirma(document.getElementById('cPad'));
+  const $ = (id) => document.getElementById(id);
+  if ($('cCancelar')) $('cCancelar').addEventListener('click', () => pintarCarta(false));
+  let pdfBlob = null;
+  $('cRevisar').addEventListener('click', async () => {
+    const msg = $('cMsg'); msg.hidden = true;
+    const v = (id) => $(id).value.trim();
+    const falta = [['cNombre', 'el nombre'], ['cDni', 'el DNI'], ['cSocio', 'el número de socio'], ['cTel', 'el teléfono']].filter(([id]) => !v(id)).map(([, n]) => n);
+    if (falta.length) { msg.textContent = 'Falta ' + falta.join(', ') + '.'; msg.hidden = false; return; }
+    if (pad.vacio()) { msg.textContent = 'Falta vuestra firma.'; msg.hidden = false; return; }
+    const btn = $('cRevisar'); btn.disabled = true; btn.textContent = 'Preparando la carta...';
+    try {
+      pdfBlob = await generarCompromisoMochilaPdf({ nombre: v('cNombre'), dni: v('cDni'), numeroSocio: v('cSocio'), telefono: v('cTel'),
+        fechaEntrega: v('cEntrega'), fechaDevolucion: v('cDevolucion'), firmaPng: pad.dataUrl() });
+      const url = URL.createObjectURL(pdfBlob);
+      const { dataUrl } = await renderizarPaginaPDF(url, 1);
+      URL.revokeObjectURL(url);
+      $('cPreview').src = dataUrl;
+      hacerAmpliable($('cPreview'));
+      zona.querySelector('.carta-form').hidden = true;
+      zona.querySelector('.carta-preview').hidden = false;
+    } catch (e) { msg.textContent = 'No se pudo preparar la carta: ' + e.message; msg.hidden = false; }
+    finally { btn.disabled = false; btn.textContent = 'Ver la carta firmada'; }
+  });
+  $('cCorregir').addEventListener('click', () => { zona.querySelector('.carta-preview').hidden = true; zona.querySelector('.carta-form').hidden = false; });
+  $('cConfirmar').addEventListener('click', async () => {
+    const btn = $('cConfirmar'), msg = $('cMsg2');
+    btn.disabled = true; btn.textContent = 'Guardando...';
+    const fallo = (t) => { msg.textContent = t; msg.hidden = false; btn.disabled = false; btn.textContent = 'Confirmar y firmar'; };
+    const path = `${ctxGlobal.socio.id}/${Date.now()}.pdf`;
+    const { error: upErr } = await sb.storage.from('mochila-compromisos').upload(path, pdfBlob, { contentType: 'application/pdf' });
+    if (upErr) return fallo('No se pudo guardar la carta: ' + upErr.message);
+    const { error } = await sb.from('mochila_compromisos').upsert({ socio_id: ctxGlobal.socio.id, archivo_url: path, firmado_por: ctxGlobal.adulto.id, firmado_en: new Date().toISOString() });
+    if (error) return fallo('No se pudo registrar la carta: ' + error.message);
+    await pintarCarta(false); await pintarLista();
+  });
+}
+
+(async () => {
+  const ctx = await requireAuth();
+  if (!ctx) return;
+  ctxGlobal = ctx;
+  renderNav('mochila', ctx);
+  await Promise.all([cargarJuegos(), pintarLista()]);
+})();
+</script>
+<script src="shared/sonido.js"></script>
+<script src="shared/vida.js"></script>
+</body>
+</html>

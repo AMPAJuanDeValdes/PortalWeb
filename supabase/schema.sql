@@ -6,6 +6,10 @@
 -- una migración segura en caliente desde el esquema anterior.
 -- ============================================================
 
+-- Las funciones se crean antes que algunas tablas que usan: que no se
+-- comprueben hasta ejecutarse (igual que hace pg_dump)
+set check_function_bodies = off;
+
 create extension if not exists "pgcrypto";
 
 -- ------------------------------------------------------------
@@ -3279,7 +3283,7 @@ $$;
 update eventos set plantilla = plantilla where plantilla in ('cabalgata', 'barbacoa');
 
 -- Reseteo anual: también vuelve a pedir la revisión de datos
--- (solo si ya está instalado el cron de cron-reseteo-anual.sql)
+-- (solo si ya está instalado el cron de supabase/cron-reseteo-anual.sql)
 do $$ begin
   if exists (select 1 from pg_proc where proname = 'reseteo_anual_socios') then
     execute $f$create or replace function reseteo_anual_socios()
@@ -3683,3 +3687,590 @@ begin
   return new;
 end;
 $$;
+
+-- =====================================================================
+-- Banco de Libros: prestar un ejemplar a mano a un alumno/a
+-- (sin convocatoria). Se puede ejecutar más de una vez.
+-- =====================================================================
+
+alter table prestamo_items add column if not exists a_mano boolean not null default false;
+
+-- Un préstamo a mano no tiene convocatoria
+do $$
+declare r record;
+begin
+  for r in select conname from pg_constraint
+           where conrelid = 'prestamo_items'::regclass and contype = 'c'
+             and pg_get_constraintdef(oid) like '%convocatoria_id IS NOT NULL%'
+  loop
+    execute format('alter table prestamo_items drop constraint %I', r.conname);
+  end loop;
+end $$;
+alter table prestamo_items add constraint prestamo_items_convocatoria_o_a_mano
+  check (tipo = 'donacion' or convocatoria_id is not null or a_mano);
+
+-- Las familias no pueden crear préstamos a mano
+create or replace function prestamo_items_proteger_a_mano()
+returns trigger language plpgsql as $$
+begin
+  if new.a_mano and not is_admin() then
+    raise exception 'Solo la Junta puede prestar libros a mano.';
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists trg_prestamo_items_proteger_a_mano on prestamo_items;
+create trigger trg_prestamo_items_proteger_a_mano before insert or update on prestamo_items
+  for each row execute function prestamo_items_proteger_a_mano();
+
+-- Prestar: el ejemplar pasa a «prestado» y queda entregado hoy al alumno/a
+create or replace function prestamo_admin_prestar(p_ejemplar_id uuid, p_alumno_id uuid)
+returns void
+language plpgsql security definer set search_path = public as $$
+declare
+  v_ej libros_ejemplares;
+  v_al alumnos;
+begin
+  if not is_admin() then raise exception 'Solo un admin puede hacer esto.'; end if;
+  select * into v_ej from libros_ejemplares where id = p_ejemplar_id for update;
+  if not found then raise exception 'El ejemplar no existe.'; end if;
+  if v_ej.estado <> 'disponible' then raise exception 'Ese ejemplar no está disponible.'; end if;
+  select * into v_al from alumnos where id = p_alumno_id;
+  if not found then raise exception 'El alumno/a no existe.'; end if;
+
+  insert into prestamo_items (alumno_id, socio_id, libro_id, tipo, a_mano, ejemplar_id, estado, fecha_asignacion, entregado_en)
+  values (v_al.id, v_al.socio_id, v_ej.libro_id, 'solicitud', true, v_ej.id, 'asignado', current_date, current_date);
+  update libros_ejemplares set estado = 'prestado' where id = v_ej.id;
+end;
+$$;
+grant execute on function prestamo_admin_prestar(uuid, uuid) to authenticated;
+
+-- ==================================================================
+-- MOCHILA JUGONA EXPLORADORA: ASIGNAR, ENTREGAR, RECIBIR y CARTA DE COMPROMISO
+--
+-- Cómo funciona ahora:
+--   · «Asignar»  (Junta): la siguiente familia de la lista recibe el turno y
+--                 un email con las fechas de entrega y devolución (la Junta
+--                 las puede cambiar al asignar). Se puede asignar aunque otra familia tenga la
+--                 mochila en casa (es para la semana siguiente).
+--   · «La queremos» (familia, 24 h): queda «aceptada». La recogerá el viernes
+--                 (de 17:30 a 18:00) y la devolverá el viernes siguiente
+--                 (de 16:00 a 16:30).
+--   · «Recibir»  (Junta): la familia que la tenía la devuelve. Sale de la
+--                 lista y todas suben un puesto.
+--   · «Entregar» (Junta): se da en mano a la familia con el turno. Solo se
+--                 puede si la mochila está en el AMPA (ya recibida).
+--   · Carta de compromiso: cada familia puede firmarla en la web cuando
+--     quiera (o a mano al recogerla). No depende de tener turno.
+-- Se puede ejecutar varias veces.
+-- ==================================================================
+
+-- 1. Nuevo estado «aceptada» ------------------------------------------------
+alter table mochila_cola drop constraint if exists mochila_cola_estado_check;
+alter table mochila_cola add constraint mochila_cola_estado_check
+  check (estado in ('espera', 'asignada', 'aceptada', 'la_tiene'));
+
+-- Puede haber a la vez una familia con la mochila en casa y otra con el turno
+drop index if exists mochila_cola_un_turno;
+create unique index if not exists mochila_cola_una_en_casa on mochila_cola ((true)) where estado = 'la_tiene';
+create unique index if not exists mochila_cola_un_turno_siguiente on mochila_cola ((true)) where estado in ('asignada', 'aceptada');
+
+-- 2. Viernes de recogida y devolución -------------------------------------
+-- Siguiente viernes (estrictamente después de p_desde)
+create or replace function mochila_viernes_tras(p_desde date)
+returns date language sql immutable as $$
+  select p_desde + (case when (5 - extract(isodow from p_desde)::int + 7) % 7 = 0 then 7
+                         else (5 - extract(isodow from p_desde)::int + 7) % 7 end);
+$$;
+
+-- Viernes en que recogerá la mochila la familia con turno: el día en que la
+-- devuelve quien la tiene (si aún no ha pasado) o, si está en el AMPA, el
+-- siguiente viernes.
+create or replace function mochila_viernes_recogida()
+returns date language sql stable security definer set search_path = public as $$
+  select coalesce(
+    (select fecha_devolucion_prevista from mochila_cola
+      where estado = 'la_tiene' and fecha_devolucion_prevista >= current_date),
+    mochila_viernes_tras(current_date));
+$$;
+revoke all on function mochila_viernes_recogida() from public, anon;
+
+-- La siguiente familia que espera (la de puesto más bajo)
+create or replace function mochila_siguiente_en_espera()
+returns uuid language sql stable security definer set search_path = public as $$
+  select id from mochila_cola where estado = 'espera' order by posicion limit 1;
+$$;
+revoke all on function mochila_siguiente_en_espera() from public, anon, authenticated;
+
+-- 3. Junta: «Asignar» -------------------------------------------------------
+drop function if exists mochila_admin_entregar();
+drop function if exists mochila_admin_asignar();
+-- p_entrega / p_devolucion: las fechas que pone la Junta (si no, los viernes
+-- que tocan: recogida y una semana después)
+create or replace function mochila_admin_asignar(p_entrega date default null, p_devolucion date default null)
+returns uuid language plpgsql security definer set search_path = public as $$
+declare v_id uuid; v_e date; v_d date;
+begin
+  if not is_admin() then raise exception 'Solo la Junta puede hacer esto.'; end if;
+  lock table mochila_cola in share row exclusive mode;
+  if exists (select 1 from mochila_cola where estado in ('asignada', 'aceptada')) then
+    raise exception 'Ya hay una familia con el turno de la semana siguiente.';
+  end if;
+  v_id := mochila_siguiente_en_espera();
+  if v_id is null then raise exception 'No hay ninguna familia esperando en la lista.'; end if;
+  v_e := coalesce(p_entrega, mochila_viernes_recogida());
+  v_d := coalesce(p_devolucion, v_e + 7);
+  if v_d <= v_e then raise exception 'La fecha de devolución tiene que ser posterior a la de entrega.'; end if;
+  update mochila_cola set estado = 'asignada', notificado_en = now(),
+    fecha_entrega = v_e, fecha_devolucion_prevista = v_d
+  where id = v_id;
+  return v_id;
+end;
+$$;
+grant execute on function mochila_admin_asignar(date, date) to authenticated;
+
+-- 4. Familia: «La queremos» -> aceptada, con sus viernes -------------------
+create or replace function mochila_confirmar()
+returns void language plpgsql security definer set search_path = public as $$
+declare e mochila_cola; v_viernes date;
+begin
+  lock table mochila_cola in share row exclusive mode;
+  select * into e from mochila_cola where socio_id = mi_socio_id();
+  if not found or e.estado <> 'asignada' then
+    raise exception 'Ahora mismo no tenéis turno para la mochila.';
+  end if;
+  -- Las fechas las puso la Junta al asignar (si faltan, los viernes que tocan)
+  v_viernes := coalesce(e.fecha_entrega, mochila_viernes_recogida());
+  update mochila_cola set estado = 'aceptada', fecha_entrega = v_viernes,
+    fecha_devolucion_prevista = coalesce(e.fecha_devolucion_prevista, v_viernes + 7)
+  where id = e.id;
+end;
+$$;
+grant execute on function mochila_confirmar() to authenticated;
+
+-- 5. Junta: «Entregar» (en mano). Solo si la mochila ya está en el AMPA ----
+create or replace function mochila_admin_entregada()
+returns void language plpgsql security definer set search_path = public as $$
+declare e mochila_cola;
+begin
+  if not is_admin() then raise exception 'Solo la Junta puede hacer esto.'; end if;
+  lock table mochila_cola in share row exclusive mode;
+  if exists (select 1 from mochila_cola where estado = 'la_tiene') then
+    raise exception 'La mochila no ha vuelto todavía: márcala antes como recibida.';
+  end if;
+  select * into e from mochila_cola where estado in ('asignada', 'aceptada');
+  if not found then raise exception 'Ninguna familia tiene el turno: asígnala antes.'; end if;
+  update mochila_cola set estado = 'la_tiene', fecha_entrega = current_date,
+    fecha_devolucion_prevista = case when e.fecha_devolucion_prevista > current_date then e.fecha_devolucion_prevista
+                                     else mochila_viernes_tras(current_date) end
+  where id = e.id;
+end;
+$$;
+grant execute on function mochila_admin_entregada() to authenticated;
+
+-- 6. Turno que se libera: pasa a la siguiente que espera --------------------
+create or replace function mochila_esperar_semana()
+returns uuid language plpgsql security definer set search_path = public as $$
+declare e mochila_cola; s mochila_cola;
+begin
+  lock table mochila_cola in share row exclusive mode;
+  select * into e from mochila_cola where socio_id = mi_socio_id();
+  if not found or e.estado <> 'asignada' then
+    raise exception 'Ahora mismo no tenéis turno para la mochila.';
+  end if;
+  select * into s from mochila_cola where estado = 'espera' and posicion > e.posicion order by posicion limit 1;
+  if not found then
+    raise exception 'No hay más familias en la lista: no se puede pasar el turno.';
+  end if;
+  set constraints mochila_cola_posicion_unica deferred;
+  update mochila_cola set posicion = s.posicion, estado = 'espera', notificado_en = null,
+    fecha_entrega = null, fecha_devolucion_prevista = null where id = e.id;
+  update mochila_cola set posicion = e.posicion, estado = 'asignada', notificado_en = now(),
+    fecha_entrega = e.fecha_entrega, fecha_devolucion_prevista = e.fecha_devolucion_prevista where id = s.id;
+  return s.id;
+end;
+$$;
+grant execute on function mochila_esperar_semana() to authenticated;
+
+create or replace function mochila_desapuntarse()
+returns uuid language plpgsql security definer set search_path = public as $$
+declare e mochila_cola; v_sig uuid;
+begin
+  lock table mochila_cola in share row exclusive mode;
+  select * into e from mochila_cola where socio_id = mi_socio_id();
+  if not found then raise exception 'No estáis en la lista de la mochila.'; end if;
+  if e.estado = 'la_tiene' then
+    raise exception 'Tenéis la mochila en casa: devolvedla a la Junta antes de desapuntaros.';
+  end if;
+  delete from mochila_cola where id = e.id;
+  perform mochila_compactar();
+  if e.estado in ('asignada', 'aceptada') then
+    v_sig := mochila_siguiente_en_espera();
+    if v_sig is not null then
+      update mochila_cola set estado = 'asignada', notificado_en = now(),
+        fecha_entrega = e.fecha_entrega, fecha_devolucion_prevista = e.fecha_devolucion_prevista where id = v_sig;
+    end if;
+  end if;
+  return v_sig;
+end;
+$$;
+grant execute on function mochila_desapuntarse() to authenticated;
+
+create or replace function mochila_caducar_turno()
+returns uuid language plpgsql security definer set search_path = public as $$
+declare e mochila_cola; v_sig uuid;
+begin
+  lock table mochila_cola in share row exclusive mode;
+  select * into e from mochila_cola where estado = 'asignada' and notificado_en < now() - interval '24 hours';
+  if not found then return null; end if;
+  delete from mochila_cola where id = e.id;
+  perform mochila_compactar();
+  v_sig := mochila_siguiente_en_espera();
+  if v_sig is not null then
+    update mochila_cola set estado = 'asignada', notificado_en = now(),
+      fecha_entrega = e.fecha_entrega, fecha_devolucion_prevista = e.fecha_devolucion_prevista where id = v_sig;
+  end if;
+  return v_sig;
+end;
+$$;
+revoke all on function mochila_caducar_turno() from public, anon, authenticated;
+
+-- 7. Junta: «Editar lista». Quien la tiene, siempre primera. Mientras una
+--    familia tiene el turno (le ha llegado el email), la lista no se toca:
+--    se libera cuando lo rechaza, caduca o se le entrega la mochila.
+create or replace function mochila_admin_guardar_lista(p_ids uuid[])
+returns void language plpgsql security definer set search_path = public as $$
+declare v_tiene uuid;
+begin
+  if not is_admin() then raise exception 'Solo la Junta puede hacer esto.'; end if;
+  lock table mochila_cola in share row exclusive mode;
+  if exists (select 1 from mochila_cola where estado in ('asignada', 'aceptada')) then
+    raise exception 'Hay una familia con el turno asignado: la lista no se puede cambiar hasta que lo rechace o se le entregue la mochila.';
+  end if;
+  p_ids := coalesce(p_ids, '{}');
+  select id into v_tiene from mochila_cola where estado = 'la_tiene';
+  if v_tiene is not null and (array_length(p_ids, 1) is null or p_ids[1] <> v_tiene) then
+    raise exception 'La familia que tiene la mochila no se puede mover ni quitar: márcala antes como recibida.';
+  end if;
+  if exists (select 1 from unnest(p_ids) x where not exists (select 1 from mochila_cola c where c.id = x)) then
+    raise exception 'La lista ha cambiado mientras la editabas. Recarga la página.';
+  end if;
+  delete from mochila_cola where not (id = any(p_ids));
+  set constraints mochila_cola_posicion_unica deferred;
+  update mochila_cola c set posicion = o.n
+  from unnest(p_ids) with ordinality as o(id, n) where c.id = o.id;
+end;
+$$;
+grant execute on function mochila_admin_guardar_lista(uuid[]) to authenticated;
+
+-- 8. Lo que ve la familia (añade si ha firmado la carta) --------------------
+create table if not exists mochila_compromisos (
+  socio_id uuid primary key references socios(id) on delete cascade,
+  archivo_url text not null,
+  firmado_por uuid references adultos(id) on delete set null,
+  firmado_en timestamptz not null default now()
+);
+alter table mochila_compromisos enable row level security;
+-- Solo puede firmar la carta la familia que ha aceptado el turno
+create or replace function mochila_puedo_firmar_carta()
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (select 1 from mochila_cola where socio_id = mi_socio_id() and estado = 'aceptada');
+$$;
+grant execute on function mochila_puedo_firmar_carta() to authenticated;
+grant select, insert, update on mochila_compromisos to authenticated;
+drop policy if exists "familia ve su carta de la mochila" on mochila_compromisos;
+create policy "familia ve su carta de la mochila" on mochila_compromisos for select
+  using (socio_id = mi_socio_id() or is_admin());
+drop policy if exists "familia firma su carta de la mochila" on mochila_compromisos;
+create policy "familia firma su carta de la mochila" on mochila_compromisos for insert
+  with check (socio_id = mi_socio_id() and firmado_por = auth.uid() and mochila_puedo_firmar_carta());
+drop policy if exists "familia vuelve a firmar su carta de la mochila" on mochila_compromisos;
+create policy "familia vuelve a firmar su carta de la mochila" on mochila_compromisos for update
+  using (socio_id = mi_socio_id()) with check (socio_id = mi_socio_id() and firmado_por = auth.uid() and mochila_puedo_firmar_carta());
+drop policy if exists "junta gestiona las cartas de la mochila" on mochila_compromisos;
+create policy "junta gestiona las cartas de la mochila" on mochila_compromisos for all
+  using (is_admin()) with check (is_admin());
+
+insert into storage.buckets (id, name, public) values ('mochila-compromisos', 'mochila-compromisos', false)
+on conflict (id) do nothing;
+drop policy if exists "familia sube su carta de la mochila" on storage.objects;
+create policy "familia sube su carta de la mochila" on storage.objects for insert
+  with check (bucket_id = 'mochila-compromisos' and (storage.foldername(name))[1] = mi_socio_id()::text and mochila_puedo_firmar_carta());
+drop policy if exists "familia ve su carta de la mochila en storage" on storage.objects;
+create policy "familia ve su carta de la mochila en storage" on storage.objects for select
+  using (bucket_id = 'mochila-compromisos' and ((storage.foldername(name))[1] = mi_socio_id()::text or is_admin()));
+
+create or replace function mochila_mi_estado()
+returns jsonb language plpgsql security definer set search_path = public stable as $$
+declare
+  e mochila_cola;
+  v_esperan integer;
+  v_prestada boolean;
+  v_carta timestamptz;
+begin
+  select count(*) filter (where estado <> 'la_tiene'), bool_or(estado = 'la_tiene')
+    into v_esperan, v_prestada from mochila_cola;
+  select firmado_en into v_carta from mochila_compromisos where socio_id = mi_socio_id();
+  select * into e from mochila_cola where socio_id = mi_socio_id();
+  if not found then
+    return jsonb_build_object('apuntada', false, 'esperan', v_esperan, 'prestada', coalesce(v_prestada, false), 'carta_firmada_en', v_carta);
+  end if;
+  return jsonb_build_object(
+    'apuntada', true,
+    'estado', e.estado,
+    'puesto', e.posicion - case when coalesce(v_prestada, false) and e.estado <> 'la_tiene' then 1 else 0 end,
+    'esperan', v_esperan,
+    'prestada', coalesce(v_prestada, false),
+    'hay_detras', exists (select 1 from mochila_cola where estado = 'espera' and posicion > e.posicion),
+    'notificado_en', e.notificado_en,
+    'fecha_entrega', e.fecha_entrega,
+    'fecha_devolucion_prevista', e.fecha_devolucion_prevista,
+    -- con turno pero sin aceptar: qué viernes la recogería
+    'viernes_recogida', case when e.estado = 'asignada' then coalesce(e.fecha_entrega, mochila_viernes_recogida()) end,
+    'carta_firmada_en', v_carta
+  );
+end;
+$$;
+grant execute on function mochila_mi_estado() to authenticated;
+
+-- ==================================================================
+-- REVISIÓN DEL 12 DE OCTUBRE
+--  1. Eventos: ir al evento y ser voluntario/a son excluyentes para cada persona.
+--     Un alumno/a, vaya al evento o sea voluntario/a, necesita un adulto de su
+--     familia en el evento (yendo o como voluntario/a, da igual cuál).
+--     No se puede quitar al último adulto mientras queden alumnos/as que dependen de él.
+--  2. Justificantes de pago: cada familia ve los suyos (antes no los veía y
+--     la web decía «Falta el justificante» aunque estuviera subido).
+-- Se puede ejecutar varias veces.
+-- ==================================================================
+
+-- 1. Ir al evento y ser voluntario/a son excluyentes para una misma persona.
+--    Un alumno/a puede ir al evento acompañado de un adulto de su familia que
+--    vaya al evento o que sea voluntario/a (no hace falta que sea lo mismo).
+create or replace function eventos_validar_inscripcion()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare
+  ev eventos%rowtype;
+  act evento_actividades%rowtype;
+  ocupadas integer;
+  ahora timestamptz := now();
+  es_admin boolean := coalesce(is_admin(), false);
+  v_nac date;
+  v_edad integer;
+begin
+  -- Bloquea el evento: dos familias a la vez no pueden pasarse del aforo
+  select * into ev from eventos where id = new.evento_id for update;
+  if not found then raise exception 'El evento no existe.'; end if;
+
+  if not es_admin then
+    if not ev.activo then raise exception 'Este evento ya no está disponible.'; end if;
+    if ev.sin_inscripcion or ev.usa_concurso_texto then
+      raise exception 'Este evento no tiene inscripción.';
+    end if;
+    if ev.sorteo_realizado then raise exception 'El sorteo de este evento ya se hizo.'; end if;
+    if ev.fecha_cierre_inscripcion is not null and ahora >= ev.fecha_cierre_inscripcion then
+      raise exception 'El plazo de inscripción está cerrado.';
+    end if;
+    if new.tipo_miembro = 'publico' then
+      if not ev.abierto_no_socios then raise exception 'Este evento no está abierto a no socios.'; end if;
+      if ev.fecha_apertura_no_socios is not null and ahora < ev.fecha_apertura_no_socios then
+        raise exception 'La inscripción para no socios todavía no está abierta.';
+      end if;
+      if ev.publico_solo_actividades and new.actividad_id is null then
+        raise exception 'Los no socios solo pueden apuntarse a las actividades.';
+      end if;
+      if new.es_voluntario then raise exception 'Solo los socios pueden apuntarse como voluntarios.'; end if;
+      -- Alumno externo: su curso tiene que estar entre los permitidos
+      if ev.tipo_elegibilidad = 'alumnos' and ev.elegibilidad_modo = 'curso'
+         and ev.cursos_permitidos is not null and jsonb_array_length(ev.cursos_permitidos) > 0 then
+        if not exists (select 1 from jsonb_array_elements(ev.cursos_permitidos) c
+                       where c->>'etapa' = new.alumno_etapa and c->>'curso' = new.alumno_curso) then
+          raise exception 'Este taller no es para el curso indicado.';
+        end if;
+      end if;
+    elsif ev.fecha_apertura_socios is not null and ahora < ev.fecha_apertura_socios then
+      raise exception 'La inscripción todavía no está abierta.';
+    end if;
+  end if;
+
+  -- La familia tiene que haber revisado sus datos (etapa, curso y aula)
+  if not es_admin and new.tipo_miembro in ('adulto', 'alumno') and new.socio_id is not null
+     and (select datos_revisados_en from socios where id = new.socio_id) is null then
+    raise exception 'Antes de apuntaros a eventos, revisad los datos de vuestra familia en Mis datos (etapa, curso y aula de cada alumno).';
+  end if;
+
+  -- Eventos por edad (p. ej. la Cabalgata): edad el día del evento
+  if new.tipo_miembro = 'alumno' and not new.es_voluntario and new.actividad_id is null and ev.elegibilidad_modo = 'edad' then
+    select fecha_nacimiento into v_nac from alumnos where id = new.alumno_id;
+    if v_nac is null then
+      raise exception 'Falta la fecha de nacimiento de este alumno o alumna: añadidla en Mis datos.';
+    end if;
+    v_edad := date_part('year', age(coalesce(ev.fecha::date, current_date), v_nac));
+    if (ev.edad_min is not null and v_edad < ev.edad_min) or (ev.edad_max is not null and v_edad > ev.edad_max) then
+      raise exception 'Este evento es para alumnos de % a % años.', coalesce(ev.edad_min, 0), coalesce(ev.edad_max, 99);
+    end if;
+  end if;
+
+  -- Misma persona apuntada dos veces a lo mismo
+  if new.tipo_miembro in ('adulto', 'alumno') and exists (
+    select 1 from evento_inscripciones i
+    where i.evento_id = new.evento_id
+      and i.actividad_id is not distinct from new.actividad_id
+      and i.es_voluntario = new.es_voluntario
+      and ((new.tipo_miembro = 'adulto' and i.adulto_id = new.adulto_id)
+        or (new.tipo_miembro = 'alumno' and i.alumno_id = new.alumno_id))
+  ) then
+    raise exception 'Ya está apuntado/a.';
+  end if;
+
+  if new.es_voluntario then
+    if ev.voluntariado_modo = 'no' then raise exception 'Este evento no busca voluntarios.'; end if;
+    if new.tipo_miembro = 'alumno' and ev.voluntariado_modo <> 'adultos_y_ninos' then
+      raise exception 'En este evento solo pueden ser voluntarios los adultos.';
+    end if;
+    -- Quien está apuntado al evento no puede ser voluntario (y al revés)
+    if exists (
+      select 1 from evento_inscripciones i where i.evento_id = new.evento_id and not i.es_voluntario
+        and ((new.tipo_miembro = 'adulto' and i.adulto_id = new.adulto_id)
+          or (new.tipo_miembro = 'alumno' and i.alumno_id = new.alumno_id))
+    ) then
+      raise exception 'Ya está apuntado/a al evento: no puede ser también voluntario/a.';
+    end if;
+    return new;   -- los voluntarios no ocupan plaza
+  end if;
+
+  if new.tipo_miembro in ('adulto', 'alumno') and exists (
+    select 1 from evento_inscripciones i where i.evento_id = new.evento_id and i.es_voluntario
+      and ((new.tipo_miembro = 'adulto' and i.adulto_id = new.adulto_id)
+        or (new.tipo_miembro = 'alumno' and i.alumno_id = new.alumno_id))
+  ) then
+    raise exception 'Está apuntado/a como voluntario/a: no puede apuntarse también al evento.';
+  end if;
+
+  -- Visita al comedor: como mucho un adulto por familia
+  if ev.plantilla = 'comedor' and new.actividad_id is null and new.socio_id is not null and exists (
+    select 1 from evento_inscripciones i
+    where i.evento_id = new.evento_id and i.socio_id = new.socio_id and i.actividad_id is null and not i.es_voluntario
+  ) then
+    raise exception 'Ya hay un adulto de vuestra familia apuntado: solo puede ir uno por familia.';
+  end if;
+
+  if new.actividad_id is not null then
+    select * into act from evento_actividades where id = new.actividad_id and evento_id = new.evento_id for update;
+    if not found then raise exception 'Esa actividad no es de este evento.'; end if;
+    -- Para una subactividad hay que estar apuntado antes al evento principal
+    if new.tipo_miembro in ('adulto', 'alumno') and not exists (
+      select 1 from evento_inscripciones i
+      where i.evento_id = new.evento_id and i.actividad_id is null and not i.es_voluntario
+        and ((new.tipo_miembro = 'adulto' and i.adulto_id = new.adulto_id)
+          or (new.tipo_miembro = 'alumno' and i.alumno_id = new.alumno_id))
+    ) then
+      raise exception 'Primero hay que apuntarse al evento principal.';
+    end if;
+    if act.aforo is not null then
+      select count(*) into ocupadas from evento_inscripciones
+        where actividad_id = new.actividad_id and not es_voluntario;
+      if ocupadas >= act.aforo then raise exception 'La actividad «%» está completa.', act.nombre; end if;
+    end if;
+    return new;
+  end if;
+
+  -- Evento principal: aforo (en los de sorteo no, se reparte al sortear)
+  if ev.metodo_asignacion = 'aforo' and ev.aforo_total is not null then
+    select count(*) into ocupadas from evento_inscripciones
+      where evento_id = new.evento_id and actividad_id is null and not es_voluntario;
+    if ocupadas >= ev.aforo_total then raise exception 'El evento está completo.'; end if;
+  end if;
+
+  -- Alumnos sin ningún adulto de su familia: tienen que ir con un adulto
+  -- socio de otra familia que ya esté apuntado a este evento
+  if ev.alumnos_requieren_adulto and new.tipo_miembro = 'alumno'
+     and not exists (
+       select 1 from evento_inscripciones i
+       where i.evento_id = new.evento_id and i.socio_id = new.socio_id and i.actividad_id is null
+         and i.tipo_miembro = 'adulto'   -- vale si el adulto va al evento o es voluntario/a
+     )
+     and not (new.responsable_adulto_id is not null and exists (
+       select 1 from evento_inscripciones i
+       where i.evento_id = new.evento_id and i.actividad_id is null and i.tipo_miembro = 'adulto'
+         and i.adulto_id = new.responsable_adulto_id
+     )) then
+    raise exception 'Apunta antes a un adulto de la familia, o indica el adulto socio de otra familia que le acompaña (tiene que estar apuntado).';
+  end if;
+
+  if ev.pide_alergias and new.tipo_miembro <> 'publico' and new.tiene_alergias is null then
+    raise exception 'Indica si tiene alergias.';
+  end if;
+  return new;
+end;
+$$;
+
+-- 1b. Alumno/a voluntario/a: basta con un adulto de la familia en el evento,
+--     vaya al evento o sea voluntario/a
+create or replace function verificar_alumno_voluntario_acompanado()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if new.tipo_miembro = 'alumno' and new.es_voluntario = true and new.actividad_id is null then
+    if not exists (
+      select 1 from evento_inscripciones
+      where evento_id = new.evento_id and socio_id = new.socio_id and actividad_id is null
+        and tipo_miembro = 'adulto'
+    ) then
+      raise exception 'Un alumno o alumna solo puede ser voluntario/a si un adulto de la familia está en el evento (yendo o como voluntario/a).';
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+-- 1c. No dejar a alumnos/as sin adulto: no se puede quitar al último adulto de
+--     la familia en el evento si quedan alumnos/as que dependen de él
+create or replace function eventos_no_dejar_alumnos_solos()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare ev eventos%rowtype;
+begin
+  if old.tipo_miembro <> 'adulto' or old.actividad_id is not null then return old; end if;
+  if auth.uid() is null or is_admin() then return old; end if;
+  -- Borrados en cascada (se borra el adulto, la familia o el evento): no se comprueba
+  if not exists (select 1 from adultos where id = old.adulto_id) then return old; end if;
+  select * into ev from eventos where id = old.evento_id;
+  if not found then return old; end if;
+  if exists (
+    select 1 from evento_inscripciones i
+    where i.evento_id = old.evento_id and i.socio_id = old.socio_id and i.actividad_id is null
+      and i.tipo_miembro = 'adulto' and i.id <> old.id
+  ) then return old; end if;
+  if exists (
+    select 1 from evento_inscripciones i
+    where i.evento_id = old.evento_id and i.socio_id = old.socio_id and i.actividad_id is null
+      and i.tipo_miembro = 'alumno'
+      and (i.es_voluntario or (ev.alumnos_requieren_adulto and i.responsable_adulto_id is null))
+  ) then
+    raise exception 'No se puede quitar: es el único adulto de la familia en el evento y hay alumnos/as que van con él. Quita antes a los alumnos/as.';
+  end if;
+  return old;
+end;
+$$;
+drop trigger if exists trg_eventos_no_dejar_alumnos_solos on evento_inscripciones;
+create trigger trg_eventos_no_dejar_alumnos_solos before delete on evento_inscripciones
+  for each row execute function eventos_no_dejar_alumnos_solos();
+
+-- 2. La familia ve sus propios justificantes
+drop policy if exists "familia ve sus comprobantes" on comprobantes_pago;
+create policy "familia ve sus comprobantes" on comprobantes_pago for select
+  using (
+    socio_id = mi_socio_id()
+    or exists (select 1 from evento_inscripciones i where i.id = evento_inscripcion_id and i.socio_id = mi_socio_id())
+  );
+
+-- 3. Cada familia ve sus donaciones (para consultarlas después de enviarlas)
+drop policy if exists "familia ve sus donaciones" on donaciones;
+create policy "familia ve sus donaciones" on donaciones for select
+  using (socio_id is not null and socio_id = mi_socio_id());
+
+-- 4. Personas no socias: se apuntan varias a la vez con una sola transferencia.
+--    Cada persona tiene su fila de justificante, todas con el mismo pago_id,
+--    el mismo archivo y el importe total.
+alter table comprobantes_pago add column if not exists pago_id uuid;
+alter table comprobantes_pago add column if not exists importe numeric(8,2);
+create index if not exists comprobantes_pago_pago_idx on comprobantes_pago (pago_id);

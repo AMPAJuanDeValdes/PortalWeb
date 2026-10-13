@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hazte socio · AMPA Juan de Valdés</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared/styles.css">
+<style>
+  .two-col{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:560px){ .two-col{ grid-template-columns:1fr; } }
+  .paso{ font-family:var(--font-title); font-weight:700; font-size:20px; color:var(--ink); margin:0 0 8px; }
+</style>
+</head>
+<body>
+<header class="pub-head">
+  <a href="index.html" class="pub-marca"><img src="assets/logo-ampa-transparente.png" alt=""><span><b>AMPA</b><small>Colegio Juan de Valdés</small></span></a>
+  <img class="pub-colegio" src="assets/logo-colegio.png" alt="Colegio Juan de Valdés">
+  <nav class="pub-links">
+    <a href="index.html">Página principal</a>
+    <a href="publico.html">Eventos</a>
+    <a href="login.html" class="pub-pill">Entrar como socio</a>
+  </nav>
+</header>
+
+<div class="wrap">
+  <header class="cab-servicio cs-hazte" style="margin-top:28px;"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M15 20c0-2 1-4 3-4.5 2 .5 3 2.5 3 4.5"/></svg><div><nav class="miga" aria-label="Estás en"><a href="index.html">Página principal</a><span aria-hidden="true">›</span><span>Nuevas familias</span></nav><h1>Hazte socio</h1><p>Rellena los datos de tu familia, paga la cuota y adjunta el comprobante. La Junta revisará tu solicitud y, en cuanto la active, te llegará un email de bienvenida con tu número de socio.</p></div></header>
+  <div class="aviso">¿Ya fuiste socio/a y tu cuenta está de baja? No hace falta que rellenes todo otra vez: <a href="reactivar-cuenta.html" style="color:var(--navy); font-weight:600;">reactiva tu cuenta aquí</a>.</div>
+  <p style="font-size:14px; color:var(--ink-soft);">Los campos con * son obligatorios.</p>
+
+  <div class="card">
+    <p class="paso">Adulto principal (tú)</p>
+    <div class="two-col"><div class="field"><label>Nombre *</label><input type="text" id="a1Nombre"></div><div class="field"><label>Apellidos *</label><input type="text" id="a1Apellidos"></div></div>
+    <div class="two-col" style="margin-top:14px;"><div class="field"><label>Email *</label><input type="email" id="a1Email"></div><div class="field"><label>DNI/NIE *</label><input type="text" id="a1Dni"></div></div>
+    <div class="field" style="margin-top:10px;">
+      <label style="display:flex; align-items:center; gap:8px; font-weight:400;"><input type="checkbox" id="a1EsPasaporte" style="width:auto;"> Es número de pasaporte</label>
+    </div>
+    <div class="two-col" style="margin-top:14px;"><div class="field"><label>Contraseña *</label><input type="password" id="a1Password" minlength="6"></div><div class="field"><label>Repite la contraseña *</label><input type="password" id="a1Password2" minlength="6"></div></div>
+    <div class="field" style="margin-top:14px;"><label>Dirección *</label><input type="text" id="a1Direccion"></div>
+    <div class="two-col" style="margin-top:14px;"><div class="field"><label>Ciudad *</label><input type="text" id="a1Ciudad"></div><div class="field"><label>Provincia *</label><input type="text" id="a1Provincia"></div></div>
+    <div class="two-col" style="margin-top:14px;"><div class="field"><label>Código postal *</label><input type="text" id="a1Cp"></div>
+      <div class="field"><label>Sexo</label><select id="a1Sexo"><option value="">Sin especificar</option><option>Masculino</option><option>Femenino</option><option>Otro</option></select></div>
+    </div>
+    <div class="two-col" style="margin-top:14px;"><div class="field"><label>Teléfono fijo</label><input type="text" id="a1TelefonoFijo"></div><div class="field"><label>Móvil *</label><input type="text" id="a1Movil"></div></div>
+    <div class="field" style="margin-top:14px;"><label>Relación con los alumnos</label><input type="text" id="a1Relacion" placeholder="padre / madre / tutor legal..."></div>
+  </div>
+
+  <div class="card">
+    <p class="paso">Segundo adulto (opcional)</p>
+    <label style="display:flex; align-items:center; gap:8px; font-weight:400; margin-bottom:12px;">
+      <input type="checkbox" id="tieneAdulto2" style="width:auto;"> Añadir un segundo adulto (recibirá su contraseña por email)
+    </label>
+    <div id="adulto2Wrap" style="display:none;">
+      <div class="two-col"><div class="field"><label>Nombre *</label><input type="text" id="a2Nombre"></div><div class="field"><label>Apellidos *</label><input type="text" id="a2Apellidos"></div></div>
+      <div class="two-col" style="margin-top:14px;"><div class="field"><label>Email * (distinto al principal)</label><input type="email" id="a2Email"></div><div class="field"><label>DNI/NIE *</label><input type="text" id="a2Dni"></div></div>
+      <div class="field" style="margin-top:10px;">
+        <label style="display:flex; align-items:center; gap:8px; font-weight:400;"><input type="checkbox" id="a2EsPasaporte" style="width:auto;"> Es número de pasaporte</label>
+      </div>
+      <div class="field" style="margin-top:14px;"><label>Dirección *</label><input type="text" id="a2Direccion"></div>
+      <div class="two-col" style="margin-top:14px;"><div class="field"><label>Ciudad *</label><input type="text" id="a2Ciudad"></div><div class="field"><label>Provincia *</label><input type="text" id="a2Provincia"></div></div>
+      <div class="two-col" style="margin-top:14px;"><div class="field"><label>Código postal *</label><input type="text" id="a2Cp"></div>
+        <div class="field"><label>Sexo</label><select id="a2Sexo"><option value="">Sin especificar</option><option>Masculino</option><option>Femenino</option><option>Otro</option></select></div>
+      </div>
+      <div class="two-col" style="margin-top:14px;"><div class="field"><label>Teléfono fijo</label><input type="text" id="a2TelefonoFijo"></div><div class="field"><label>Móvil *</label><input type="text" id="a2Movil"></div></div>
+      <div class="field" style="margin-top:14px;"><label>Relación con los alumnos</label><input type="text" id="a2Relacion" placeholder="padre / madre / tutor legal..."></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <p class="paso">Alumnos</p>
+    <div id="alumnosWrap"></div>
+    <button type="button" class="btn btn-outline" id="addAlumnoBtn">+ Añadir alumno/a</button>
+  </div>
+
+  <div class="card" id="pagoCard">
+    <p class="paso">Pago de la cuota y forma de pago</p>
+    <div class="aviso" style="margin-top:4px;">
+      <b>Importante:</b> haz la transferencia de la cuota <b>ANTES</b> de pulsar
+      "Terminar y crear mi cuenta", y adjunta el justificante en el botón de
+      abajo. Sin el comprobante no se puede completar el alta.
+    </div>
+    <ol class="pasos-pago">
+      <li>Haz una transferencia con estos datos:</li>
+    </ol>
+    <div id="datosPago"></div>
+    <ol class="pasos-pago" start="2">
+      <li>Descarga o haz una captura del justificante de la transferencia.</li>
+      <li>Adjúntalo aquí:</li>
+    </ol>
+    <div class="field" style="margin-top:6px;"><label for="comprobanteFile">Comprobante de la transferencia (imagen o PDF) *</label><input type="file" id="comprobanteFile" accept="image/*,.pdf"></div>
+
+    <div class="field" style="margin-top:18px;">
+      <label for="formaPago">¿Cómo queréis pagar las próximas cuotas?</label>
+      <select id="formaPago">
+        <option value="Transferencia">Transferencia (cada año, como ahora)</option>
+        <option value="Domiciliación Bancaria">Domiciliación bancaria (la configuráis después, dentro del portal)</option>
+      </select>
+    </div>
+  </div>
+
+  <button type="button" class="btn btn-primary btn-block" id="enviarBtn" style="margin:20px 0;">Terminar y crear mi cuenta</button>
+  <div id="msg" style="display:none; margin-bottom:20px;"></div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="shared/supabaseClient.js"></script>
+<script src="shared/catalogo.js"></script>
+<script src="shared/datos-ampa.js"></script>
+<script>
+document.getElementById('tieneAdulto2').addEventListener('change', (e) => {
+  document.getElementById('adulto2Wrap').style.display = e.target.checked ? 'block' : 'none';
+});
+
+let alumnos = [];
+let alumnoCounter = 0;
+function renderAlumnos() {
+  const wrap = document.getElementById('alumnosWrap');
+  wrap.innerHTML = '';
+  alumnos.forEach(al => {
+    const div = document.createElement('div');
+    div.className = 'hijo-card';
+    div.innerHTML = '<div class="hijo-head"><span class="hijo-tag">Alumno/a</span>' +
+      '<button class="btn-danger-link" data-id="' + al.id + '">Quitar</button></div>';
+    const body = document.createElement('div'); body.className = 'hijo-body';
+    body.innerHTML =
+      '<div class="two-col"><div class="field"><label>Nombre *</label><input type="text" id="alN_' + al.id + '"></div>' +
+      '<div class="field"><label>Apellidos *</label><input type="text" id="alA_' + al.id + '"></div></div>' +
+      '<div class="two-col" style="margin-top:14px;">' +
+      '<div class="field"><label>Fecha de nacimiento *</label><input type="date" min="' + NACIMIENTO_MIN + '" id="alF_' + al.id + '"></div>' +
+      '<div class="field"><label>Sexo</label><select id="alS_' + al.id + '"><option value="">Sin especificar</option><option>Masculino</option><option>Femenino</option><option>Otro</option></select></div>' +
+      '</div>' +
+      '<div class="two-col" style="margin-top:14px;">' +
+      '<div class="field"><label>Etapa *</label><select id="alE_' + al.id + '"><option value="">Selecciona...</option>' +
+      Object.keys(CURSOS_POR_ETAPA).map(e => '<option>' + e + '</option>').join('') + '</select></div>' +
+      '<div class="field"><label>Curso *</label><select id="alC_' + al.id + '"><option value="">Elige etapa antes</option></select></div>' +
+      '</div>' +
+      '<div class="field" style="margin-top:14px; max-width:160px;"><label>Aula</label><select id="alU_' + al.id + '"><option value="">Sin especificar</option><option>A</option><option>B</option><option>C</option><option>D</option></select></div>';
+    div.appendChild(body);
+    wrap.appendChild(div);
+    div.querySelector('.btn-danger-link').addEventListener('click', () => { alumnos = alumnos.filter(x => x.id !== al.id); renderAlumnos(); });
+    notaEdad(document.getElementById('alF_' + al.id));
+    document.getElementById('alE_' + al.id).addEventListener('change', (e) => {
+      document.getElementById('alC_' + al.id).innerHTML = '<option value="">Selecciona...</option>' + (CURSOS_POR_ETAPA[e.target.value] || []).map(c => '<option>' + c + '</option>').join('');
+    });
+  });
+}
+document.getElementById('addAlumnoBtn').addEventListener('click', () => { alumnos.push({ id: 'al' + (alumnoCounter++) }); renderAlumnos(); });
+renderAlumnos();
+
+document.getElementById('datosPago').innerHTML = htmlDatosTransferencia();
+// Concepto: Cuota AMPA <año escolar> + nombre y apellidos del adulto principal, al momento.
+function actualizarConcepto() {
+  const nombre = [document.getElementById('a1Nombre').value.trim(), document.getElementById('a1Apellidos').value.trim()].filter(Boolean).join(' ');
+  document.querySelector('#datosPago .concepto-pago').textContent = 'Cuota AMPA ' + anioEscolar() + ' ' + (nombre || '+ nombre y apellidos del adulto principal');
+}
+['a1Nombre', 'a1Apellidos'].forEach(id => document.getElementById(id).addEventListener('input', actualizarConcepto));
+actualizarConcepto();
+
+const $ = (id) => document.getElementById(id);
+const val = (id) => ($(id) ? $(id).value.trim() : '');
+
+function mostrarError(html) {
+  const msg = $('msg');
+  msg.style.display = 'block'; msg.className = 'aviso-error'; msg.innerHTML = html;
+}
+
+function leerAdulto(p) {
+  return {
+    nombre: val(p + 'Nombre'), apellidos: val(p + 'Apellidos'),
+    email: val(p + 'Email').toLowerCase(), dni_nie: val(p + 'Dni'),
+    es_pasaporte: $(p + 'EsPasaporte').checked,
+    direccion: val(p + 'Direccion'), ciudad: val(p + 'Ciudad'), provincia: val(p + 'Provincia'),
+    codigo_postal: val(p + 'Cp'), sexo: $(p + 'Sexo').value || null,
+    telefono_fijo: val(p + 'TelefonoFijo'), movil: val(p + 'Movil'), relacion_alumnos: val(p + 'Relacion')
+  };
+}
+const OBLIGATORIOS_ADULTO = ['Nombre', 'Apellidos', 'Email', 'Dni', 'Direccion', 'Ciudad', 'Provincia', 'Cp', 'Movil'];
+
+document.getElementById('enviarBtn').addEventListener('click', async () => {
+  const msg = $('msg');
+  const btn = $('enviarBtn');
+  msg.style.display = 'none';
+  document.querySelectorAll('.campo-error').forEach(el => el.classList.remove('campo-error'));
+
+  // 1. Todos los campos obligatorios, de una vez: se marcan en rojo
+  const tieneAdulto2 = $('tieneAdulto2').checked;
+  const obligatorios = [];
+  OBLIGATORIOS_ADULTO.forEach(c => obligatorios.push($('a1' + c)));
+  obligatorios.push($('a1Password'), $('a1Password2'));
+  if (tieneAdulto2) OBLIGATORIOS_ADULTO.forEach(c => obligatorios.push($('a2' + c)));
+  alumnos.forEach(al => ['alN_', 'alA_', 'alF_', 'alE_', 'alC_'].forEach(pre => obligatorios.push($(pre + al.id))));
+  obligatorios.push($('comprobanteFile'));
+
+  if (!marcarCamposVacios(obligatorios)) {
+    const faltaComprobante = !$('comprobanteFile').files.length;
+    mostrarError('Faltan datos obligatorios: revisa los campos marcados en rojo.' +
+      (faltaComprobante ? '<br>Recuerda que tienes que <b>hacer la transferencia antes</b> y adjuntar el comprobante.' : ''));
+    return;
+  }
+
+  const adulto1 = leerAdulto('a1');
+  adulto1.password = $('a1Password').value;
+  if (!/^\S+@\S+\.\S+$/.test(adulto1.email)) { $('a1Email').classList.add('campo-error'); mostrarError('El email del adulto principal no es válido.'); return; }
+  if (adulto1.password.length < 6) { $('a1Password').classList.add('campo-error'); mostrarError('La contraseña debe tener al menos 6 caracteres.'); return; }
+  if (adulto1.password !== $('a1Password2').value) {
+    $('a1Password').classList.add('campo-error'); $('a1Password2').classList.add('campo-error');
+    mostrarError('Las dos contraseñas no coinciden.'); return;
+  }
+
+  let adulto2 = null;
+  if (tieneAdulto2) {
+    adulto2 = leerAdulto('a2');
+    if (!/^\S+@\S+\.\S+$/.test(adulto2.email)) { $('a2Email').classList.add('campo-error'); mostrarError('El email del segundo adulto no es válido.'); return; }
+    if (adulto2.email === adulto1.email) { $('a2Email').classList.add('campo-error'); mostrarError('El segundo adulto debe tener un email distinto al principal.'); return; }
+  }
+  for (const [p, ad] of [['a1', adulto1], ['a2', adulto2]]) {
+    if (!ad) continue;
+    if (!movilValido(ad.movil)) { $(p + 'Movil').classList.add('campo-error'); mostrarError(MSG_MOVIL); return; }
+    if (!dniValido(ad.dni_nie, ad.es_pasaporte)) { $(p + 'Dni').classList.add('campo-error'); mostrarError(MSG_DNI); return; }
+  }
+
+  const hoy = new Date().toISOString().slice(0, 10);
+  const alumnosPayload = [];
+  for (const al of alumnos) {
+    const fecha = $('alF_' + al.id).value;
+    if (fecha > hoy) { $('alF_' + al.id).classList.add('campo-error'); mostrarError('La fecha de nacimiento no puede ser futura.'); return; }
+    if (!nacimientoValido(fecha)) { $('alF_' + al.id).classList.add('campo-error'); mostrarError(MSG_NACIMIENTO); return; }
+    alumnosPayload.push({
+      nombre: val('alN_' + al.id), apellidos: val('alA_' + al.id), fecha_nacimiento: fecha,
+      sexo: $('alS_' + al.id).value || null, etapa: $('alE_' + al.id).value,
+      curso: $('alC_' + al.id).value, aula: $('alU_' + al.id).value || null
+    });
+  }
+
+  btn.disabled = true; btn.textContent = 'Subiendo comprobante...';
+
+  try {
+    // 2. Primero el comprobante (así nunca se crea una solicitud sin él)
+    const comprobante = $('comprobanteFile').files[0];
+    const path = `publico/altas/${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${comprobante.name.replace(/[^a-zA-Z0-9.\-_]/g, '_')}`;
+    const { error: upErr } = await sb.storage.from('comprobantes').upload(path, comprobante);
+    if (upErr) throw new Error('No se pudo subir el comprobante: ' + upErr.message);
+
+    // 3. Alta completa en el servidor (todo o nada)
+    btn.textContent = 'Creando tu cuenta...';
+    const resp = await fetch('/.netlify/functions/autoservicio-alta', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ adulto1, adulto2, alumnos: alumnosPayload, forma_pago: $('formaPago').value || null, archivo_path: path })
+    });
+    let data = {};
+    try { data = await resp.json(); } catch (e) {}
+
+    if (!resp.ok) {
+      if (data.codigo === 'cuenta_inactiva') {
+        // Email de una cuenta de baja / impago: se le lleva a reactivarla
+        window.location.href = 'reactivar-cuenta.html?desde=alta&email=' + encodeURIComponent(adulto1.email);
+        return;
+      }
+      if (data.codigo === 'cuenta_activa') {
+        $('a1Email').classList.add('campo-error');
+        throw new Error('Ya existe una cuenta activa con este email. <a href="login.html">Inicia sesión</a> (o usa "¿Has olvidado tu contraseña?").');
+      }
+      if (data.codigo === 'email_segundo_adulto_existente') $('a2Email').classList.add('campo-error');
+      throw new Error(data.error || 'No se pudo completar el alta');
+    }
+
+    // 4. Iniciar sesión con la contraseña que acaba de elegir
+    const { error: loginError } = await sb.auth.signInWithPassword({ email: adulto1.email, password: adulto1.password });
+    if (loginError) throw loginError;
+    window.location.href = 'estado-recien-creada.html';
+  } catch (err) {
+    mostrarError(err.message);
+    btn.disabled = false; btn.textContent = 'Terminar y crear mi cuenta';
+    msg.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+});
+</script>
+<script src="shared/sonido.js"></script>
+<script src="shared/vida.js"></script>
+</body>
+</html>

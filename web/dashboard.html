@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Inicio · AMPA Juan de Valdés</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared/styles.css">
+<style>
+  .wrap{ max-width:1100px; }
+  .familia{ color:#3B4A60; font-size:17px; margin:0 0 28px; }
+
+  /* Pendientes */
+  .pendientes{ background:#fff; border-radius:var(--radius-card); padding:8px; margin-bottom:34px; border:1px solid var(--line); }
+  .pendiente{ display:flex; align-items:center; gap:16px; padding:14px 16px; border-radius:14px; text-decoration:none; color:var(--ink); flex-wrap:wrap; }
+  .pendiente + .pendiente{ border-top:1px solid #EEF1F5; border-radius:0; }
+  .pendiente:hover{ color:var(--ink); background:#F9FAFC; }
+  .pendiente .icono{ flex:0 0 44px; height:44px; border-radius:12px; display:flex; align-items:center; justify-content:center; }
+  .pendiente .txt{ flex:1 1 260px; min-width:0; }
+  .pendiente .txt > span{ display:block; font-size:15px; color:var(--ink-soft); }
+  .pendiente .accion{ flex:0 0 auto; background:var(--cta); color:#fff; font-weight:700; font-size:15px; border-radius:999px; padding:10px 18px; }
+
+  /* Servicios */
+  h2.bloque{ font-family:var(--font-title); font-weight:800; font-size:clamp(28px,3.4vw,38px); letter-spacing:-.02em; margin:0 0 16px; }
+
+  /* Mochila */
+  .mochila{ background:var(--mochila-bg); border-radius:var(--radius-card); padding:22px 24px; margin-bottom:34px; display:flex; gap:18px; flex-wrap:wrap; align-items:flex-start; }
+  .mochila > svg{ flex:0 0 auto; stroke:var(--mochila); }
+  .mochila .cuerpo{ flex:1 1 300px; min-width:0; }
+  .mochila h2{ margin:0 0 4px; }
+  .mochila p{ margin:0; }
+  .mochila-fila{ display:flex; align-items:center; justify-content:space-between; gap:14px 24px; flex-wrap:wrap; margin-top:14px; }
+  .mochila-dato{ display:flex; align-items:center; gap:14px; }
+  .mochila-dato > b{ font-family:var(--font-title); font-weight:800; font-size:52px; line-height:1; color:var(--mochila); }
+  .mochila-dato > span{ font-size:18px; font-weight:700; max-width:22ch; line-height:1.25; }
+  .mochila-grande{ font-family:var(--font-title); font-weight:800; font-size:24px; margin-bottom:6px !important; }
+  .mochila-links{ display:flex; gap:8px 22px; flex-wrap:wrap; margin-top:14px !important; font-size:15px; }
+  .mochila-acciones{ display:flex; gap:12px; flex-wrap:wrap; margin-top:14px; }
+
+  /* Acceso al panel de la Junta */
+  .junta{ display:flex; align-items:center; gap:16px; flex-wrap:wrap; background:#fff; border:2px solid var(--ink); border-radius:var(--radius-card); padding:18px 22px; margin-bottom:34px; text-decoration:none; color:var(--ink); }
+  .junta:hover{ background:#F9FAFC; color:var(--ink); }
+  .junta > span:first-child{ flex:1 1 280px; }
+  .junta b{ font-family:var(--font-title); font-size:20px; display:block; }
+  .junta span span{ color:var(--ink-soft); font-size:15px; }
+  .junta-pend{ background:#FFF3C4; color:#6B4E00; font-weight:700; border-radius:999px; padding:4px 14px; font-size:15px; }
+  .junta-ir{ font-weight:700; }
+  /* Calendario */
+  .calendario{ background:#fff; border:1px solid var(--line); border-radius:var(--radius-card); padding:22px; margin-bottom:34px; display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:28px; }
+  @media (max-width:760px){ .calendario{ grid-template-columns:1fr; gap:18px; padding:18px 14px; } }
+  .cal-cab{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:12px; }
+  .cal-cab h3{ margin:0; font-size:20px; }
+  .cal-cab button{ width:40px; height:40px; border-radius:50%; border:1.5px solid #C9D3DF; background:#fff; color:var(--ink); cursor:pointer; display:flex; align-items:center; justify-content:center; }
+  .cal-cab button:hover{ border-color:var(--ink); }
+  .cal-grid{ display:grid; grid-template-columns:repeat(7,1fr); gap:4px; text-align:center; }
+  .cal-grid .dsem{ font-size:13px; font-weight:700; color:var(--ink-soft); padding:4px 0; }
+  .cal-dia{ aspect-ratio:1; border-radius:12px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; font-size:15px; color:var(--ink); border:0; background:none; font-family:inherit; padding:0; }
+  .cal-dia.vacio{ visibility:hidden; }
+  .cal-dia.hoy{ box-shadow:inset 0 0 0 2px var(--ink); font-weight:700; }
+  .cal-dia.con-evento{ background:var(--d-bg); color:var(--d); font-weight:700; cursor:pointer; }
+  .cal-dia.con-evento:hover, .cal-dia.con-evento[aria-pressed="true"]{ background:var(--d-fuerte); color:#fff; }
+  .cal-dia .puntos{ display:flex; gap:3px; height:6px; }
+  .cal-dia .puntos i{ width:6px; height:6px; border-radius:50%; background:currentColor; }
+  .cal-lista h3{ margin:0 0 12px; font-size:20px; }
+  .cal-ev{ display:flex; gap:14px; align-items:center; padding:10px; margin:0 -10px; border-radius:14px; text-decoration:none; color:var(--ink); }
+  .cal-ev:hover{ background:#F6F8FB; color:var(--ink); }
+  .cal-ev.marcado{ background:var(--d-bg); }
+  .cal-ev .chip{ flex:0 0 52px; height:56px; border-radius:12px; background:var(--d-fuerte); color:#fff; display:flex; flex-direction:column; align-items:center; justify-content:center; line-height:1.05; }
+  .cal-ev .chip > b{ font-family:var(--font-title); font-size:22px; }
+  .cal-ev .chip > span{ font-size:12px; }
+  .cal-ev .txt{ min-width:0; }
+  .cal-ev .txt > b{ display:block; }
+  .cal-ev .txt > span{ font-size:14.5px; color:var(--ink-soft); }
+  .cal-nada{ color:var(--ink-soft); margin:0; }
+  .d-verde{ --d:#3F6E12; --d-bg:#E6F2D8; --d-fuerte:#5E9426; }
+  .d-rosa{ --d:#B0185A; --d-bg:#FDE7F1; --d-fuerte:#D6246E; }
+  .d-amarillo{ --d:#7A5800; --d-bg:#FFF3C4; --d-fuerte:#9A6E00; }
+  .d-cielo{ --d:#006D9C; --d-bg:#DCF0FA; --d-fuerte:#0087C2; }
+  .d-morado{ --d:#6B3FA0; --d-bg:#EFE7FA; --d-fuerte:#8A5CC2; }
+
+  /* Redes del AMPA */
+  .redes{ display:flex; flex-wrap:wrap; gap:12px; margin-bottom:34px; }
+  .redes a{ flex:1 1 230px; display:flex; align-items:center; gap:14px; background:#fff; border:1px solid var(--line); border-radius:var(--radius-card); padding:14px 18px; text-decoration:none; color:var(--ink); }
+  .redes a:hover{ border-color:var(--ink); color:var(--ink); }
+  .redes .ico{ flex:0 0 44px; height:44px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:#fff; }
+  .redes .ico svg{ width:22px; height:22px; }
+  .redes small{ display:block; color:var(--ink-soft); font-size:14px; overflow-wrap:anywhere; }
+  .donar-linea{ color:var(--ink-soft); margin:26px 0 30px; } .donar-linea a{ font-weight:700; color:var(--ink); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="con-polvo">
+    <h1 id="saludo">Hola</h1>
+    <p class="familia" id="familia"></p>
+  </div>
+
+  <!-- Hasta que la familia revisa sus datos -->
+  <a class="aviso-revisar" id="avisoRevisar" href="mis-datos.html" hidden style="display:block; text-decoration:none;">
+    <h2>REVISA LOS DATOS DE TU FAMILIA</h2>
+    <p>ACTUALIZA etapa, curso y aula de cada alumno. Esto es necesario para poder acceder a los eventos.</p>
+    <span class="btn btn-grande">Ir a Mis datos</span>
+  </a>
+
+  <!-- Solo aparece si hay algo pendiente -->
+  <section class="pendientes" id="pendientes" aria-label="Tenéis pendiente" hidden></section>
+
+  <h2 class="bloque">Todo lo del AMPA</h2>
+  <!-- Todas las secciones; si alguna tiene algo en marcha, su tarjeta lo cuenta -->
+  <div class="servicios" id="servicios">
+    <a class="servicio c-libros" href="prestamo.html" id="tLibros">
+      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2V5z"/><path d="M4 19a2 2 0 0 1 2-2h13"/></svg>
+      <h3>Banco de Libros</h3><p>Préstamo de los libros de lectura del curso de cada alumno o alumna.</p>
+    </a>
+    <a class="servicio c-uniformes" href="uniformes.html" id="tUniformes">
+      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3L3 6l2 4 3-1v12h8V9l3 1 2-4-5-3a4 4 0 0 1-8 0z"/></svg>
+      <h3>Banco de Uniformes</h3><p>Donación e intercambio de uniformes: recogida y reparto para darles una segunda vida.</p>
+    </a>
+    <a class="servicio c-eventos" href="eventos.html" id="tEventos">
+      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+      <h3>Eventos</h3><p>Teatros o cuentacuentos, la chocolatada de Navidad y la barbacoa de fin de curso. Talleres de juegos de mesa, rol y ciencias.</p>
+    </a>
+    <a class="servicio blanco" href="encuestas.html" id="tEncuestas" hidden>
+      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 20V10M12 20V4M19 20v-7"/></svg>
+      <h3>Encuestas</h3><p></p>
+    </a>
+    <a class="servicio c-mochila" href="mochila.html" id="tMochila">
+      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9a6 6 0 0 1 12 0v11H6z"/><path d="M9 5V3h6v2M9 14h6"/></svg>
+      <h3>Mochila Jugona Exploradora</h3><p>Una mochila llena de juegos que va pasando por las casas de las familias.</p>
+    </a>
+    <a class="servicio blanco" href="mis-datos.html" id="tFamilia">
+      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M15 20c0-2 1-4 3-4.5 2 .5 3 2.5 3 4.5"/></svg>
+      <h3>Mis datos</h3><p>Adultos, alumnos y alumnas, forma de pago y domiciliación.</p>
+    </a>
+  </div>
+
+  <!-- Solo aparece si hay eventos creados -->
+  <section id="bloqueCalendario" hidden>
+    <h2 class="bloque">Calendario del AMPA</h2>
+    <div class="calendario">
+      <div>
+        <div class="cal-cab">
+          <button type="button" id="calAnt" aria-label="Mes anterior"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button>
+          <h3 id="calMes" aria-live="polite"></h3>
+          <button type="button" id="calSig" aria-label="Mes siguiente"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
+        </div>
+        <div class="cal-grid" id="calGrid"></div>
+      </div>
+      <div class="cal-lista">
+        <h3 id="calListaTit">Este mes</h3>
+        <div id="calLista"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="mochila" aria-labelledby="mochilaTitulo">
+    <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9a6 6 0 0 1 12 0v11H6z"/><path d="M9 5V3h6v2M9 14h6"/></svg>
+    <div class="cuerpo">
+      <h2 id="mochilaTitulo">Mochila Jugona Exploradora</h2>
+      <div id="mochilaWrap"><p class="loading">Cargando...</p></div>
+    </div>
+  </section>
+
+  <a class="junta" id="adminSection" href="admin.html" hidden>
+    <span><b>Panel de la Junta</b><span>Socios, eventos, Banco de Libros, Banco de Uniformes, Mochila Jugona Exploradora, comunicación y lo que está pendiente.</span></span>
+    <span class="junta-pend" id="tileSolicitudes" hidden></span>
+    <span class="junta-ir">Abrir</span>
+  </a>
+
+  <p class="donar-linea">¿Tenéis libros del Banco de Libros, uniformes, carillones, flautas o ropa de extraescolares que ya no uséis? <a href="donar.html">Donar material</a></p>
+
+  <h2 class="bloque">Síguenos</h2>
+  <div class="redes">
+    <a href="https://www.instagram.com/ampacolegiojuandevaldes/" target="_blank" rel="noopener">
+      <span class="ico" style="background:#D6246E;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg></span>
+      <span><b>Instagram</b><small>@ampacolegiojuandevaldes</small></span></a>
+    <a href="https://whatsapp.com/channel/0029Vb5wJn6G8l57tBQ4Oe3K" target="_blank" rel="noopener">
+      <span class="ico" style="background:#1F8F4E;"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.5 15.2L2 22l4.9-1.5A10 10 0 1 0 12 2zm0 18a8 8 0 0 1-4.1-1.1l-.3-.2-3 .9.9-2.9-.2-.3A8 8 0 1 1 12 20zm4.4-6c-.2-.1-1.4-.7-1.6-.8-.2-.1-.4-.1-.5.1-.2.2-.6.8-.8 1-.1.2-.3.2-.5.1-1.4-.7-2.3-1.3-3.2-2.9-.2-.4.2-.4.6-1.2.1-.1 0-.3 0-.4-.1-.1-.5-1.2-.7-1.7-.2-.4-.4-.4-.5-.4h-.5c-.2 0-.4.1-.6.3-.7.7-1 1.5-.9 2.4.2 1.6 1.4 3.1 1.6 3.3.2.2 2.7 4.1 6.5 5.5 3.2 1.2 3.2.8 3.8.7.6-.1 1.8-.7 2-1.4.2-.7.2-1.3.2-1.4-.1-.1-.3-.2-.5-.3z"/></svg></span>
+      <span><b>Canal de WhatsApp</b><small>Avisos del AMPA en el móvil</small></span></a>
+  </div>
+
+  <div class="card">
+    <p class="section-label">¿Algo que decirle al AMPA?</p>
+    <p style="color:var(--ink-soft); margin:-6px 0 12px;">Te contestaremos por email.</p>
+    <textarea id="comentarioTexto" aria-label="Comentario para el AMPA" rows="3" placeholder="Escribe aquí tu comentario o duda"></textarea>
+    <button type="button" class="btn btn-primary" id="comentarioBtn" style="margin-top:12px;">Enviar</button>
+    <p id="comentarioMsg" style="display:none;"></p>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="shared/supabaseClient.js"></script>
+<script src="shared/nav.js"></script>
+<script src="shared/mochila.js"></script>
+<script>
+let ctxGlobal = null;
+const esc = (t) => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const fechaCorta = (f) => new Date(f).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' });
+const ahora = () => new Date();
+const vigente = (conv) => conv && conv.estado === 'abierta' && new Date(conv.fecha_cierre) > ahora();
+const nombres = (lista) => lista.length <= 1 ? lista.join('') : lista.slice(0, -1).join(', ') + ' y ' + lista[lista.length - 1];
+
+const ICONOS = {
+  libros: ['var(--libros-bg)', 'var(--libros)', '<path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2V5z"/><path d="M4 19a2 2 0 0 1 2-2h13"/>'],
+  uniformes: ['var(--uniformes-bg)', 'var(--uniformes)', '<path d="M8 3L3 6l2 4 3-1v12h8V9l3 1 2-4-5-3a4 4 0 0 1-8 0z"/>'],
+  eventos: ['var(--eventos-bg)', 'var(--eventos)', '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>'],
+  encuestas: ['#EEF4FB', 'var(--navy)', '<path d="M5 20V10M12 20V4M19 20v-7"/>'],
+  mochila: ['var(--mochila-bg)', 'var(--mochila)', '<path d="M6 9a6 6 0 0 1 12 0v11H6z"/><path d="M9 5V3h6v2M9 14h6"/>']
+};
+function htmlPendiente(p) {
+  const [bg, tinta, svg] = ICONOS[p.tipo];
+  return `<a class="pendiente" href="${p.href}">
+    <span class="icono" style="background:${bg}"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="${tinta}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${svg}</svg></span>
+    <span class="txt"><b>${esc(p.titulo)}</b><span>${esc(p.detalle)}</span></span>
+    <span class="accion">${esc(p.accion)}</span>
+  </a>`;
+}
+function tarjeta(id, texto) {
+  const t = document.getElementById(id);
+  t.querySelector('p').textContent = texto;
+  t.hidden = false;
+}
+
+/* ---------------- Estado de cada servicio ---------------- */
+async function estadoLibros(socioId, alumnos) {
+  const pend = [];
+  const [{ data: convs }, { data: items }, { data: catalogo }] = await Promise.all([
+    sb.from('prestamo_convocatorias').select('id, estado, fecha_cierre').order('created_at', { ascending: false }).limit(1),
+    sb.from('prestamo_items').select('alumno_id, convocatoria_id, estado, entregado_en, fecha_devolucion').eq('socio_id', socioId).eq('tipo', 'solicitud'),
+    sb.from('libros_catalogo').select('cursos, etapa, curso')
+  ]);
+  const conv = convs && convs[0];
+  const prestados = (items || []).filter(i => i.estado === 'asignado' && i.entregado_en && !i.fecha_devolucion).length;
+  const textos = [];
+  if (vigente(conv)) {
+    // Alumnos con libros en su curso que aún no tienen petición en esta convocatoria
+    const cursosConLibros = new Set();
+    (catalogo || []).forEach(l => (l.cursos && l.cursos.length ? l.cursos : [l.etapa + '|' + l.curso]).forEach(c => cursosConLibros.add(c)));
+    const conPeticion = new Set((items || []).filter(i => i.convocatoria_id === conv.id).map(i => i.alumno_id));
+    const faltan = alumnos.filter(a => a.curso && cursosConLibros.has(a.etapa + '|' + a.curso) && !conPeticion.has(a.id));
+    if (faltan.length) {
+      pend.push({ tipo: 'libros', href: 'prestamo.html', titulo: 'Pedid los libros de lectura', accion: 'Pedir libros',
+        detalle: `El plazo cierra el ${fechaCorta(conv.fecha_cierre)}. Falta la petición de ${nombres(faltan.map(a => a.nombre))}.` });
+      textos.push(`Plazo abierto hasta el ${fechaCorta(conv.fecha_cierre)}.`);
+    } else if (conPeticion.size) {
+      textos.push('Petición enviada.');
+    } else {
+      textos.push(`Plazo abierto hasta el ${fechaCorta(conv.fecha_cierre)}.`);
+    }
+  }
+  if (prestados) textos.push(prestados === 1 ? '1 libro prestado.' : `${prestados} libros prestados.`);
+  if (textos.length) tarjeta('tLibros', textos.join(' '));
+  return pend;
+}
+
+async function estadoUniformes(socioId) {
+  const pend = [];
+  const [{ data: convs }, { data: pedidos }] = await Promise.all([
+    sb.from('uniformes_convocatorias').select('id, estado, fecha_cierre').order('created_at', { ascending: false }).limit(1),
+    sb.from('uniformes_pedidos').select('convocatoria_id, estado').eq('socio_id', socioId)
+  ]);
+  const conv = convs && convs[0];
+  if (!conv || conv.estado === 'cancelada') return pend;
+  const mios = (pedidos || []).filter(p => p.convocatoria_id === conv.id);
+  if (vigente(conv)) {
+    if (!mios.length) {
+      pend.push({ tipo: 'uniformes', href: 'uniformes.html', titulo: 'Pedid prendas de uniforme', accion: 'Pedir uniformes',
+        detalle: `Prendas donadas por otras familias. El plazo cierra el ${fechaCorta(conv.fecha_cierre)}.` });
+      tarjeta('tUniformes', `Plazo abierto hasta el ${fechaCorta(conv.fecha_cierre)}.`);
+    } else {
+      tarjeta('tUniformes', 'Pedido enviado. Veréis el resultado cuando se cierre el reparto.');
+    }
+  } else if (mios.length) {
+    if (conv.estado === 'finalizada') {
+      const n = mios.filter(p => p.estado === 'asignado').length;
+      tarjeta('tUniformes', n ? `Os han tocado ${n} prenda${n > 1 ? 's' : ''}.` : 'Esta vez no ha habido prendas para vuestro pedido.');
+    } else {
+      tarjeta('tUniformes', 'Plazo cerrado. Veréis el resultado cuando se cierre el reparto.');
+    }
+  }
+  return pend;
+}
+
+// ¿Puede alguien de la familia apuntarse de verdad a este evento ahora?
+function alumnoCumple(al, e) {
+  if (e.elegibilidad_modo === 'edad') {
+    const edad = al.fecha_nacimiento ? calcularEdad(al.fecha_nacimiento) : null;
+    return edad != null && (e.edad_min == null || edad >= e.edad_min) && (e.edad_max == null || edad <= e.edad_max);
+  }
+  return (e.cursos_permitidos || []).some(c => c.etapa === al.etapa && c.curso === al.curso);
+}
+
+
+/* ---------- Calendario de eventos ---------- */
+const COLOR_TIPO = { chocolatada: 'rosa', cabalgata: 'cielo', juegos: 'amarillo', taller: 'amarillo', barbacoa: 'verde', comedor: 'morado', concurso: 'rosa', informativo: 'morado', loteria: 'verde' };
+function colorEvento(e) {
+  if (COLOR_TIPO[e.plantilla]) return COLOR_TIPO[e.plantilla];
+  const paleta = ['verde', 'rosa', 'amarillo', 'cielo', 'morado'];
+  return paleta[[...String(e.id)].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7) % paleta.length];
+}
+const claveDia = (d) => d.getFullYear() + '-' + d.getMonth() + '-' + d.getDate();
+
+async function montarCalendario(apuntadosIds) {
+  const { data } = await sb.from('eventos').select('id, titulo, fecha, plantilla').eq('activo', true).not('fecha', 'is', null).order('fecha');
+  const eventos = (data || []).map(e => ({ ...e, f: new Date(e.fecha) }));
+  if (!eventos.length) return;
+  document.getElementById('bloqueCalendario').hidden = false;
+
+  const hoy = new Date();
+  const proximo = eventos.find(e => e.f >= new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate()));
+  const hayEsteMes = eventos.some(e => e.f.getFullYear() === hoy.getFullYear() && e.f.getMonth() === hoy.getMonth());
+  const inicio = hayEsteMes || !proximo ? hoy : proximo.f;
+  let anio = inicio.getFullYear(), mes = inicio.getMonth();
+  let diaMarcado = null;
+
+  function pintar() {
+    const primero = new Date(anio, mes, 1);
+    const nombreMes = primero.toLocaleDateString('es-ES', { month: 'long' });
+    document.getElementById('calMes').textContent = nombreMes[0].toUpperCase() + nombreMes.slice(1) + ' ' + anio;
+    const delMes = eventos.filter(e => e.f.getFullYear() === anio && e.f.getMonth() === mes);
+    const porDia = {};
+    delMes.forEach(e => (porDia[e.f.getDate()] = porDia[e.f.getDate()] || []).push(e));
+
+    const grid = document.getElementById('calGrid');
+    let html = ['L', 'M', 'X', 'J', 'V', 'S', 'D'].map(d => `<span class="dsem" aria-hidden="true">${d}</span>`).join('');
+    const hueco = (primero.getDay() + 6) % 7;
+    for (let i = 0; i < hueco; i++) html += '<span class="cal-dia vacio"></span>';
+    const dias = new Date(anio, mes + 1, 0).getDate();
+    for (let d = 1; d <= dias; d++) {
+      const evs = porDia[d];
+      const esHoy = claveDia(new Date(anio, mes, d)) === claveDia(hoy) ? ' hoy' : '';
+      if (evs) {
+        const etiqueta = `${d}: ${evs.map(e => e.titulo).join(', ')}`;
+        html += `<button type="button" class="cal-dia con-evento d-${colorEvento(evs[0])}${esHoy}" data-dia="${d}" aria-pressed="${diaMarcado === d}" aria-label="${esc(etiqueta)}">${d}<span class="puntos">${evs.slice(0, 3).map(() => '<i></i>').join('')}</span></button>`;
+      } else {
+        html += `<span class="cal-dia${esHoy}">${d}</span>`;
+      }
+    }
+    grid.innerHTML = html;
+    grid.querySelectorAll('.con-evento').forEach(b => b.addEventListener('click', () => {
+      const d = Number(b.dataset.dia);
+      diaMarcado = diaMarcado === d ? null : d;
+      pintar();
+      const el = document.querySelector(`.cal-ev[data-dia="${d}"]`);
+      if (el && diaMarcado) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }));
+
+    document.getElementById('calListaTit').textContent = delMes.length ? 'Eventos de ' + primero.toLocaleDateString('es-ES', { month: 'long' }) : 'Este mes no hay eventos';
+    document.getElementById('calLista').innerHTML = delMes.length ? delMes.map(e => `
+      <a class="cal-ev d-${colorEvento(e)}${diaMarcado === e.f.getDate() ? ' marcado' : ''}" data-dia="${e.f.getDate()}" href="eventos.html#ev-${e.id}">
+        <span class="chip"><b>${e.f.getDate()}</b><span>${e.f.toLocaleDateString('es-ES', { weekday: 'short' }).replace('.', '')}</span></span>
+        <span class="txt"><b>${esc(e.titulo)}</b><span>${e.f.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}${apuntadosIds.has(e.id) ? ' · Estáis apuntados' : ''}</span></span>
+      </a>`).join('') : '<p class="cal-nada">Usa las flechas para ver otros meses.</p>';
+  }
+  document.getElementById('calAnt').onclick = () => { mes--; if (mes < 0) { mes = 11; anio--; } diaMarcado = null; pintar(); };
+  document.getElementById('calSig').onclick = () => { mes++; if (mes > 11) { mes = 0; anio++; } diaMarcado = null; pintar(); };
+  pintar();
+}
+
+async function estadoEventos(socioId, alumnos) {
+  const pend = [];
+  const [{ data: eventos }, { data: insc }, { data: textos }] = await Promise.all([
+    sb.from('eventos').select('*').eq('activo', true).gte('fecha', ahora().toISOString()).order('fecha'),
+    sb.from('evento_inscripciones').select('evento_id').eq('socio_id', socioId),
+    sb.from('concurso_identidades').select('alumno_id, concurso_envios(evento_id)').eq('socio_id', socioId)
+  ]);
+  if (!eventos || !eventos.length) return pend;
+  const apuntados = new Set((insc || []).map(i => i.evento_id));
+  const misEventos = eventos.filter(e => apuntados.has(e.id));
+  for (const e of eventos) {
+    if (e.sin_inscripcion || e.sorteo_realizado || apuntados.has(e.id)) continue;
+    if (e.fecha_apertura_socios && new Date(e.fecha_apertura_socios) > ahora()) continue;
+    if (e.fecha_cierre_inscripcion && new Date(e.fecha_cierre_inscripcion) <= ahora()) continue;
+    // Alguien de la familia tiene que poder ir
+    const alumnosOk = e.tipo_elegibilidad === 'adultos' ? [] : e.tipo_elegibilidad === 'alumnos' ? alumnos.filter(al => alumnoCumple(al, e)) : alumnos;
+    const hayAdultos = e.tipo_elegibilidad !== 'alumnos';
+    if (!alumnosOk.length && !hayAdultos) continue;
+    const cierre = e.fecha_cierre_inscripcion ? `Hasta el ${fechaCorta(e.fecha_cierre_inscripcion)}.` : 'Plazo abierto.';
+    if (e.usa_concurso_texto) {
+      const enviados = new Set((textos || []).filter(t => t.concurso_envios && t.concurso_envios.evento_id === e.id).map(t => t.alumno_id));
+      if (alumnosOk.some(al => !enviados.has(al.id)))
+        pend.push({ tipo: 'eventos', href: 'eventos.html', titulo: e.titulo, accion: 'Enviar texto', detalle: cierre });
+      continue;
+    }
+    // Sin plazas, no se ofrece apuntarse (en los de sorteo no hay límite al apuntarse)
+    if (e.metodo_asignacion !== 'sorteo' && e.aforo_total != null) {
+      const { data: libres } = await sb.rpc('evento_plazas_disponibles', { p_evento_id: e.id });
+      if (libres != null && libres <= 0) continue;
+    }
+    pend.push({ tipo: 'eventos', href: 'eventos.html', titulo: e.titulo, accion: 'Apuntarse',
+      detalle: `${cierre} Es el ${fechaCorta(e.fecha)}.` });
+  }
+  tarjeta('tEventos', misEventos.length
+    ? `Apuntados a ${misEventos[0].titulo} (${fechaCorta(misEventos[0].fecha)})${misEventos.length > 1 ? ` y ${misEventos.length - 1} más` : ''}.`
+    : `Próximo: ${eventos[0].titulo}, el ${fechaCorta(eventos[0].fecha)}.`);
+  return pend;
+}
+
+async function estadoEncuestas(socioId) {
+  const pend = [];
+  const [{ data: encuestas }, { data: hechas }] = await Promise.all([
+    sb.from('encuestas').select('id, titulo, fecha_cierre, estado').eq('estado', 'abierta'),
+    sb.from('encuesta_control_respondidos').select('encuesta_id').eq('socio_id', socioId)
+  ]);
+  const abiertas = (encuestas || []).filter(e => !e.fecha_cierre || new Date(e.fecha_cierre) > ahora());
+  if (!abiertas.length) return pend;
+  const respondidas = new Set((hechas || []).map(h => h.encuesta_id));
+  const faltan = abiertas.filter(e => !respondidas.has(e.id));
+  faltan.forEach(e => pend.push({ tipo: 'encuestas', href: 'encuestas.html', titulo: 'Encuesta: ' + e.titulo, accion: 'Responder',
+    detalle: e.fecha_cierre ? `Abierta hasta el ${fechaCorta(e.fecha_cierre)}.` : 'Abierta.' }));
+  tarjeta('tEncuestas', faltan.length ? `${faltan.length} sin responder.` : 'Todas respondidas.');
+  return pend;
+}
+
+/* ---------------- Mochila Jugona Exploradora ---------------- */
+let pendienteMochila = null;
+async function cargarMochila() {
+  const wrap = document.getElementById('mochilaWrap');
+  pendienteMochila = null;
+  let est;
+  try { est = await mochilaEstado(); }
+  catch (e) { wrap.innerHTML = '<p class="msg-error">No se pudo cargar la Mochila Jugona Exploradora. Recarga la página.</p>'; return; }
+
+  if (!est.apuntada) {
+    wrap.innerHTML = `
+      <p>Una mochila llena de juegos que pasa una semana en cada casa.</p>
+      <div class="mochila-fila">
+        <p class="mochila-dato"><b>${est.esperan}</b><span>${mochilaFamilias(est.esperan)} en la lista de espera</span></p>
+        <a class="btn btn-cta" href="mochila.html">Quiero la mochila</a>
+      </div>`;
+    return;
+  }
+  if (est.estado === 'la_tiene') {
+    wrap.innerHTML = `<p class="mochila-grande">La tenéis en casa.</p>
+      <p>Devolvedla a la Junta el <b>${mochilaFecha(est.fecha_devolucion_prevista)}</b>, ${MOCHILA_HORA_DEVOLUCION}. ¡Que la disfrutéis!</p>`;
+    return;
+  }
+  if (est.estado === 'aceptada') {
+    wrap.innerHTML = `<p class="mochila-grande">¡La semana que viene la tenéis vosotros!</p>
+      <p>Recogedla el <b>${mochilaFecha(est.fecha_entrega)}</b>, ${MOCHILA_HORA_RECOGIDA}.</p>
+      <p class="mochila-links"><a href="mochila.html#carta">${est.carta_firmada_en ? 'Ver la carta de compromiso firmada' : 'Firmar la carta de compromiso'}</a></p>`;
+    return;
+  }
+  if (est.estado === 'asignada') {
+    pendienteMochila = { tipo: 'mochila', href: '#mochilaTitulo', titulo: '¡Os toca la Mochila Jugona Exploradora!', accion: 'Aceptarla',
+      detalle: 'Tenéis hasta el ' + mochilaLimite(est) + ' para aceptarla.' };
+    wrap.innerHTML = `<p class="mochila-grande">¡Os toca la Mochila Jugona Exploradora!</p>
+      <p>Tenéis hasta el <b>${mochilaLimite(est)}</b> para aceptarla. Si no, saldréis de la lista.${est.viernes_recogida ? ` La recogeríais el <b>${mochilaFecha(est.viernes_recogida)}</b>, ${MOCHILA_HORA_RECOGIDA}.` : ''}</p>
+      <div id="mochilaTurno"></div>
+      <p class="mochila-links"><a href="mochila.html">Ver los juegos y cómo funciona</a></p>`;
+    mochilaBotonesTurno(document.getElementById('mochilaTurno'), est, () => location.reload());
+    return;
+  }
+  wrap.innerHTML = `
+    <div class="mochila-fila">
+      <p class="mochila-dato"><b>${est.puesto}º</b><span>Vuestro puesto en la lista de espera${est.esperan > 1 ? ` (de ${est.esperan} ${mochilaFamilias(est.esperan)})` : ''}</span></p>
+    </div>
+    <p class="mochila-links"><a href="mochila.html">Ver los juegos y cómo funciona</a>
+      <button type="button" class="linklike" id="mochilaSalir">Desapuntarnos de la Mochila Jugona Exploradora</button></p>
+    <p class="msg-error" id="mochilaMsg" hidden></p>`;
+  document.getElementById('mochilaSalir').addEventListener('click', async () => {
+    try { if (await mochilaDesapuntarse()) location.reload(); }
+    catch (e) { const m = document.getElementById('mochilaMsg'); m.textContent = e.message; m.hidden = false; }
+  });
+}
+
+/* ---------------- Comentarios ---------------- */
+document.getElementById('comentarioBtn').addEventListener('click', async () => {
+  const texto = document.getElementById('comentarioTexto');
+  const msg = document.getElementById('comentarioMsg');
+  const mensaje = texto.value.trim();
+  if (!mensaje) {
+    msg.style.display = 'block'; msg.className = 'msg-error'; msg.textContent = 'Escribe algo antes de enviar.';
+    return;
+  }
+  const session = await getSession();
+  // Mientras se envía, el botón queda desactivado; al terminar, todo vuelve a empezar
+  const btn = document.getElementById('comentarioBtn'), textoBtn = btn.textContent;
+  btn.disabled = true; btn.textContent = 'Enviando...'; msg.style.display = 'none';
+  try {
+    const resp = await fetch('/.netlify/functions/comentario-socio', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
+      body: JSON.stringify({ mensaje })
+    });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.error || 'No se pudo enviar');
+    texto.value = '';
+    msg.style.display = 'block'; msg.className = 'msg-ok'; msg.textContent = 'Mensaje enviado.';
+  } catch (err) {
+    msg.style.display = 'block'; msg.className = 'msg-error'; msg.textContent = err.message;
+  } finally { btn.disabled = false; btn.textContent = textoBtn; }
+});
+
+/* ---------------- Inicio ---------------- */
+(async () => {
+  const ctx = await requireAuth();
+  if (!ctx) return;
+  ctxGlobal = ctx;
+  renderNav('dashboard', ctx);
+  const socioId = ctx.socio.id;
+  document.getElementById('saludo').textContent = 'Hola, ' + ctx.adulto.nombre;
+  if (!ctx.socio.datos_revisados_en) document.getElementById('avisoRevisar').hidden = false;
+
+  if (ctx.adulto.role === 'admin') {
+    document.getElementById('adminSection').hidden = false;
+    sb.from('socios').select('estado, reactivacion_solicitada_en').neq('estado', 'activa').then(({ data }) => {
+      const n = (data || []).filter(x => x.estado === 'recien_creada' || x.reactivacion_solicitada_en).length;
+      const el = document.getElementById('tileSolicitudes');
+      if (n) { el.textContent = n + (n > 1 ? ' solicitudes de socio' : ' solicitud de socio'); el.hidden = false; }
+    });
+  }
+
+  const { data: alumnos } = await sb.from('alumnos').select('id, nombre, etapa, curso, fecha_nacimiento').eq('socio_id', socioId).order('nombre');
+  const hijos = (alumnos || []).map(a => a.nombre + (a.curso ? ` en ${a.curso} de ${a.etapa}` : ''));
+  const numero = ctx.socio.numero_socio_completo ? `Socio nº ${(n => /^\d{12}$/.test(n) ? n.slice(0, 4) + '.' + n.slice(4, 8) + '.' + n.slice(8) : n)(ctx.socio.numero_socio_completo)}` : 'Socio';
+  document.getElementById('familia').textContent = numero + (hijos.length ? `, con ${nombres(hijos)}.` : '.');
+
+  const resultados = await Promise.all([
+    estadoLibros(socioId, alumnos || []).catch(() => []),
+    estadoUniformes(socioId).catch(() => []),
+    (ctx.socio.datos_revisados_en ? estadoEventos(socioId, alumnos || []) : Promise.resolve([])).catch(() => []),
+    estadoEncuestas(socioId).catch(() => []),
+    cargarMochila().catch(() => {}),
+    sb.from('evento_inscripciones').select('evento_id').eq('socio_id', socioId)
+      .then(({ data }) => montarCalendario(new Set((data || []).map(i => i.evento_id)))).catch(() => {})
+  ]);
+  const pendientes = resultados.slice(0, 4).flat();
+  if (pendienteMochila) pendientes.unshift(pendienteMochila);
+  if (pendientes.length) {
+    const sec = document.getElementById('pendientes');
+    sec.innerHTML = pendientes.map(htmlPendiente).join('');
+    sec.hidden = false;
+  }
+})();
+</script>
+<script src="shared/sonido.js"></script>
+<script src="shared/vida.js"></script>
+</body>
+</html>

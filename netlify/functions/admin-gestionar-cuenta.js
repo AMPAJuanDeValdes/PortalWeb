@@ -149,6 +149,18 @@ exports.handler = async (event) => {
     return json(200, { ok: true, emailEnviado });
   }
 
+  // Lo mismo que hace el reseteo anual del 31 de julio, para una sola cuenta
+  if (accion === 'desactivar') {
+    if (socio.estado !== 'activa') return json(400, { error: 'Solo se puede desactivar una cuenta activa.' });
+    const { count } = await supabaseAdmin.from('adultos').select('id', { count: 'exact', head: true }).eq('socio_id', socioId).eq('role', 'admin');
+    if (count) return json(400, { error: 'Es una cuenta de la Junta: no se desactiva (tampoco lo hace el reseteo del 31 de julio).' });
+    const { error } = await supabaseAdmin.from('socios').update({ estado: 'falta_pago', datos_revisados_en: null }).eq('id', socioId);
+    if (error) return json(500, { error: error.message });
+    const { error: errAl } = await supabaseAdmin.from('alumnos').update({ verificado: false }).eq('socio_id', socioId);
+    if (errAl) return json(500, { error: errAl.message });
+    return json(200, { ok: true });
+  }
+
   if (accion === 'baja') {
     const { error } = await supabaseAdmin.from('socios').update({ estado: 'baja', reactivacion_solicitada_en: null }).eq('id', socioId);
     if (error) return json(500, { error: error.message });

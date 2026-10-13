@@ -3,7 +3,7 @@
 //    → SITE_URL, SUPABASE_SERVICE_ROLE_KEY, EMAIL_PRUEBAS
 //    Está fuera del proyecto a propósito: así la clave secreta nunca puede
 //    acabar subida a GitHub ni publicada en la web por error.
-//  - ../shared/config.js    → SUPABASE_URL y SUPABASE_ANON_KEY (las públicas)
+//  - ../web/shared/config.js   → SUPABASE_URL y SUPABASE_ANON_KEY (las públicas)
 // y fija un identificador de esta ejecución (RUN_ID) para marcar todo lo
 // que se crea y poder borrarlo al final.
 const fs = require('fs');
@@ -23,7 +23,7 @@ function leerEnv(archivo) {
 }
 
 function leerConfigPublica() {
-  const archivo = path.join(__dirname, '..', '..', 'shared', 'config.js');
+  const archivo = path.join(__dirname, '..', '..', 'web', 'shared', 'config.js');
   if (!fs.existsSync(archivo)) return {};
   const txt = fs.readFileSync(archivo, 'utf8');
   const url = txt.match(/SUPABASE_URL\s*=\s*['"]([^'"]+)['"]/);
