@@ -24,7 +24,7 @@ async function getResumenSocios(socioIds) {
   const resumen = {};
   (socios || []).forEach(s => {
     resumen[s.id] = {
-      numero_socio: s.numero_socio_completo,
+      numero_socio: numeroSocioBonito(s.numero_socio_completo),
       nombre: nombrePorSocio[s.id] || '',
       estado: s.estado
     };

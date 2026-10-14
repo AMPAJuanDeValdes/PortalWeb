@@ -94,6 +94,7 @@
 <script src="shared/supabaseClient.js"></script>
 <script src="shared/nav.js"></script>
 <script src="shared/catalogo.js"></script>
+<script src="shared/datos-ampa.js"></script>
 <script src="shared/csv.js"></script>
 <script>
 let ctxGlobal = null;
@@ -217,7 +218,7 @@ async function pintarSolicitudes() {
       <div style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:baseline;">
         <span class="tipo-sol">${reactivacion ? 'Reactivación' : 'Alta nueva'}</span><b style="font-size:17px;">${esc(s.adultos.map(a => a.nombre + ' ' + a.apellidos).join(' / ') || '(sin adultos)')}</b>
         <span class="sub" style="font-size:14px; color:var(--ink-soft);">${reactivacion
-          ? 'Pedida el ' + fecha(s.reactivacion_solicitada_en) + ' · ahora: ' + badge(s.estado) + (s.numero_socio_completo ? ' · nº ' + esc(s.numero_socio_completo) : '')
+          ? 'Pedida el ' + fecha(s.reactivacion_solicitada_en) + ' · ahora: ' + badge(s.estado) + (s.numero_socio_completo ? ' · nº ' + esc(numeroSocioBonito(s.numero_socio_completo)) : '')
           : 'Solicitada el ' + fecha(s.created_at)}</span>
       </div>
       <p class="section-label" style="margin:14px 0 4px;">Comprobante de pago</p>
@@ -274,7 +275,7 @@ async function pintarSolicitudes() {
 
 /* ---------------- Lista de socios ---------------- */
 function textoBusqueda(s) {
-  return [s.numero_socio_completo, s.numero_secuencial, s.iban,
+  return [s.numero_socio_completo, numeroSocioBonito(s.numero_socio_completo), s.numero_secuencial, s.iban,
     ...s.adultos.flatMap(a => [a.nombre, a.apellidos, a.email, a.dni_nie, a.movil]),
     ...s.alumnos.flatMap(al => [al.nombre, al.apellidos])
   ].filter(Boolean).join(' ').toLowerCase();
@@ -301,7 +302,7 @@ function pintarLista() {
     tr.dataset.id = s.id;
     const a1 = s.adultos[0];
     tr.innerHTML = `
-      <td class="mono">${esc(s.numero_socio_completo || '—')}</td>
+      <td class="mono">${esc(numeroSocioBonito(s.numero_socio_completo) || '—')}</td>
       <td>${s.adultos.map(a => esc(a.nombre + ' ' + a.apellidos)).join('<br>') || '<span class="falta">sin adultos</span>'}</td>
       <td>${a1 ? esc(a1.email) + (a1.movil ? '<div class="sub">' + esc(a1.movil) + '</div>' : '') : ''}</td>
       <td>${s.alumnos.length}</td>
@@ -325,7 +326,7 @@ document.getElementById('exportBtn').addEventListener('click', () => {
   const filas = sociosFiltrados().map(s => {
     const [a1 = {}, a2 = {}] = s.adultos;
     return {
-      numero_socio: s.numero_socio_completo || '', estado: ESTADOS[s.estado] || s.estado,
+      numero_socio: numeroSocioBonito(s.numero_socio_completo), estado: ESTADOS[s.estado] || s.estado,
       anio_ultima_cuota: s.anio_ultima_cuota, forma_pago: s.forma_pago || '', iban: s.iban || '', creada: fecha(s.created_at),
       adulto1_nombre: a1.nombre || '', adulto1_apellidos: a1.apellidos || '', adulto1_email: a1.email || '',
       adulto1_dni_nie: a1.dni_nie || '', adulto1_movil: a1.movil || '', adulto1_telefono_fijo: a1.telefono_fijo || '',
@@ -364,7 +365,7 @@ function pintarDetalle(s, td) {
         ${campo('Año última cuota', 'anio_ultima_cuota', s.anio_ultima_cuota, 'number')}
         ${campo('Código asociación', 'codigo_asociacion', s.codigo_asociacion)}
         ${campo('Nº secuencial (4 cifras)', 'numero_secuencial', s.numero_secuencial || '')}
-        <div class="dato-ro"><span>Nº de socio completo</span><b class="mono">${esc(s.numero_socio_completo || '—')}</b></div>
+        <div class="dato-ro"><span>Nº de socio completo</span><b class="mono">${esc(numeroSocioBonito(s.numero_socio_completo) || '—')}</b></div>
         ${select('Forma de pago', 'forma_pago', s.forma_pago, ['Transferencia', 'Domiciliación Bancaria'], 'Sin especificar')}
         <div class="field" style="grid-column: span 2;"><label>IBAN de la familia</label><input type="text" data-f="iban" value="${esc(s.iban || '')}"></div>
         <div class="dato-ro"><span>Cuenta creada</span>${fecha(s.created_at)}</div>
@@ -480,10 +481,11 @@ function pintarDetalle(s, td) {
         ${campo('DNI / NIE / Pasaporte *', 'dni_nie', a.dni_nie)}
         <div class="field"><label>&nbsp;</label><label style="display:flex; gap:6px; align-items:center; font-weight:400;"><input type="checkbox" data-f="es_pasaporte" style="width:auto;" ${a.es_pasaporte ? 'checked' : ''}> Es pasaporte</label></div>
         ${select('Sexo', 'sexo', a.sexo, ['Masculino', 'Femenino', 'Otro'], 'Sin especificar')}
-        ${campo('Móvil', 'movil', a.movil)}${campo('Teléfono fijo', 'telefono_fijo', a.telefono_fijo)}${campo('Relación con alumnos', 'relacion_alumnos', a.relacion_alumnos)}
+        ${campo('Móvil *', 'movil', a.movil)}${campo('Teléfono fijo', 'telefono_fijo', a.telefono_fijo)}${campo('Relación con alumnos', 'relacion_alumnos', a.relacion_alumnos)}
         <div class="field" style="grid-column: span 2;"><label>Dirección *</label><input type="text" data-f="direccion" value="${esc(a.direccion)}"></div>
         ${campo('Código postal *', 'codigo_postal', a.codigo_postal)}
         ${campo('Ciudad *', 'ciudad', a.ciudad)}${campo('Provincia *', 'provincia', a.provincia)}
+        <div class="field"><label>&nbsp;</label><label style="display:flex; gap:6px; align-items:center; font-weight:400;"><input type="checkbox" data-f="ya_visito_comedor" style="width:auto;" ${a.ya_visito_comedor ? 'checked' : ''}> Ya ha visitado el comedor</label></div>
       </div>
       <div class="acciones"><button class="btn btn-primary guardarBtn">Guardar adulto</button></div>
       <p class="msg-linea" style="display:none;"></p>`;
@@ -491,10 +493,12 @@ function pintarDetalle(s, td) {
     const msg = lineaMsg(div);
     div.querySelector('.guardarBtn').addEventListener('click', async (e) => {
       const d = leer(div);
-      const req = ['nombre', 'apellidos', 'email', 'dni_nie', 'direccion', 'codigo_postal', 'ciudad', 'provincia'];
+      const req = ['nombre', 'apellidos', 'email', 'dni_nie', 'movil', 'direccion', 'codigo_postal', 'ciudad', 'provincia'];
       let falta = false;
       req.forEach(f => { const el = div.querySelector(`[data-f="${f}"]`); const v = !el.value.trim(); el.classList.toggle('campo-error', v); falta = falta || v; });
       if (falta) { msg(false, 'Completa los campos marcados en rojo.'); return; }
+      const malo = !movilValido(d.movil) ? ['movil', MSG_MOVIL] : !dniValido(d.dni_nie, d.es_pasaporte) ? ['dni_nie', MSG_DNI] : null;
+      if (malo) { div.querySelector(`[data-f="${malo[0]}"]`).classList.add('campo-error'); msg(false, malo[1]); return; }
       e.target.disabled = true;
       try { await llamarGestion({ accion: 'guardar_adulto', adultoId: a.id, datos: d }); msg(true, d.email.toLowerCase() !== String(a.email).toLowerCase() ? 'Guardado ✓ (el email de acceso también se ha cambiado).' : 'Guardado ✓'); await cargarDatos(); }
       catch (err) { msg(false, err.message); }

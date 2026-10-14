@@ -514,7 +514,7 @@ document.getElementById('comentarioBtn').addEventListener('click', async () => {
 
   const { data: alumnos } = await sb.from('alumnos').select('id, nombre, etapa, curso, fecha_nacimiento').eq('socio_id', socioId).order('nombre');
   const hijos = (alumnos || []).map(a => a.nombre + (a.curso ? ` en ${a.curso} de ${a.etapa}` : ''));
-  const numero = ctx.socio.numero_socio_completo ? `Socio nº ${(n => /^\d{12}$/.test(n) ? n.slice(0, 4) + '.' + n.slice(4, 8) + '.' + n.slice(8) : n)(ctx.socio.numero_socio_completo)}` : 'Socio';
+  const numero = ctx.socio.numero_socio_completo ? `Socio nº ${numeroSocioBonito(ctx.socio.numero_socio_completo)}` : 'Socio';
   document.getElementById('familia').textContent = numero + (hijos.length ? `, con ${nombres(hijos)}.` : '.');
 
   const resultados = await Promise.all([

@@ -1,3 +1,9 @@
+// Número de socio tal como se muestra en todas partes: 2027.0300.0042
+function numeroSocioBonito(n) {
+  n = String(n || '');
+  return /^\d{12}$/.test(n) ? n.slice(0, 4) + '.' + n.slice(4, 8) + '.' + n.slice(8) : n;
+}
+
 // Carga shared/config.js por su cuenta (síncrono), así ninguna página
 // necesita incluir esa etiqueta por separado — solo esta.
 (function cargarConfig() {

@@ -74,9 +74,11 @@ exports.handler = async (event) => {
       sexo: ['Masculino', 'Femenino', 'Otro'].includes(d.sexo) ? d.sexo : null,
       direccion: txt(d.direccion), ciudad: txt(d.ciudad), provincia: txt(d.provincia),
       codigo_postal: txt(d.codigo_postal), telefono_fijo: txt(d.telefono_fijo) || null,
-      movil: txt(d.movil) || null, relacion_alumnos: txt(d.relacion_alumnos) || null
+      movil: txt(d.movil) || null, relacion_alumnos: txt(d.relacion_alumnos) || null,
+      // Visita al comedor: la marca la Junta (por ejemplo, quien fue antes de la web)
+      ya_visito_comedor: !!d.ya_visito_comedor
     };
-    if (!datos.nombre || !datos.apellidos || !datos.email || !datos.dni_nie ||
+    if (!datos.nombre || !datos.apellidos || !datos.email || !datos.dni_nie || !datos.movil ||
         !datos.direccion || !datos.ciudad || !datos.provincia || !datos.codigo_postal) {
       return json(400, { error: 'Faltan datos obligatorios del adulto.' });
     }

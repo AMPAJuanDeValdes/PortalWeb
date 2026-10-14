@@ -181,7 +181,7 @@ document.getElementById('crearEncuestaBtn').addEventListener('click', async () =
 async function cargarEncuestas() {
   const wrap = document.getElementById('listaWrap');
   const { data: encuestas, error } = await sb.from('encuestas').select('*').order('created_at', { ascending: false });
-  if (error) { wrap.innerHTML = '<p class="msg-error">No se pudo cargar.</p>'; return; }
+  if (error) { wrap.innerHTML = '<p class="msg-error">No se pudo cargar: ' + String(error.message).replace(/[<&]/g, c => c === '<' ? '&lt;' : '&amp;') + '</p>'; return; }
   if (!encuestas || encuestas.length === 0) { wrap.innerHTML = '<p class="empty-hint">Todavía no has creado ninguna encuesta.</p>'; return; }
 
   wrap.innerHTML = '';

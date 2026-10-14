@@ -14,6 +14,10 @@
   .cursos-grid label{ font-weight:400; font-size:14px; display:flex; align-items:center; gap:6px; }
   .evento-row{ padding:14px 0; border-bottom:1px solid var(--line); }
   .evento-row:last-child{ border-bottom:none; }
+  .incompat-lista{ display:grid; gap:6px; max-height:240px; overflow:auto; }
+  .incompat-lista label{ display:flex; gap:8px; align-items:flex-start; font-weight:400; }
+  .incompat-lista input{ width:auto; margin-top:4px; }
+  .incompat-lista small{ color:var(--ink-soft); }
   .actividad-item{ border:1px solid var(--line); border-radius:var(--radius); padding:12px; margin-top:10px; }
   .subtitulo{ font-size:18px; margin:24px 0 10px; padding-top:18px; border-top:1px solid var(--line); }
   label.check{ display:flex; align-items:flex-start; gap:10px; font-weight:400; margin:0 0 10px; }
@@ -56,6 +60,11 @@
       <div class="field"><label for="eAforo">Aforo total (vacío = sin límite)</label><input type="number" id="eAforo" min="1"></div>
     </div>
     <div class="field"><label for="eLugar">Lugar (opcional)</label><input type="text" id="eLugar" placeholder="Por ejemplo: entrada del colegio"></div>
+    <div class="field" id="incompatWrap">
+      <p style="font-weight:700; margin:0 0 4px;">Este evento es incompatible con:</p>
+      <p class="ayuda" style="margin:0 0 8px;">Marca los eventos que son a la misma hora. Un alumno o alumna apuntado/a a uno de ellos no podrá apuntarse a los demás.</p>
+      <div id="eIncompat" class="incompat-lista"></div>
+    </div>
     <div class="field" id="masFechasWrap" hidden>
       <p style="font-weight:700; margin:0 0 4px;">Más fechas de venta</p>
       <p class="ayuda" style="margin:0 0 8px;">Cada fecha se crea como un evento aparte, con el mismo título y descripción, y sale por separado en la web y en el calendario. Si no pones lugar, se usa el de arriba.</p>
@@ -404,11 +413,34 @@ function salirDeEdicion() {
   $('ePlantilla').value = '';
   rellenarFormulario({});
   aplicarBloqueos();
+  pintarIncompat([]);
 }
 $('cancelarEdicionBtn').addEventListener('click', () => { salirDeEdicion(); $('crearMsg').style.display = 'none'; });
 
+/* ---- Eventos a la misma hora (incompatibles) ---- */
+let incompatCache = [];   // parejas { evento_a, evento_b }
+const incompatiblesDe = (id) => incompatCache.filter(x => x.evento_a === id || x.evento_b === id).map(x => x.evento_a === id ? x.evento_b : x.evento_a);
+function pintarIncompat(marcados) {
+  const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+  const lista = eventosCache.filter(e => e.id !== editandoId && !e.sin_inscripcion && (marcados.includes(e.id) || (e.activo && (!e.fecha || new Date(e.fecha) >= hoy))));
+  $('eIncompat').innerHTML = lista.length ? lista.map(e => `<label><input type="checkbox" value="${e.id}" ${marcados.includes(e.id) ? 'checked' : ''}>
+      <span>${esc(e.titulo)} <small>${e.fecha ? new Date(e.fecha).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' }) : 'sin fecha'}</small></span></label>`).join('')
+    : '<p class="empty-hint" style="margin:0;">No hay otros eventos próximos.</p>';
+}
+async function guardarIncompat(ids) {
+  const otros = [...document.querySelectorAll('#eIncompat input:checked')].map(c => c.value);
+  let dobles = 0;
+  for (const id of ids) {
+    const { data, error } = await sb.rpc('evento_guardar_incompatibles', { p_evento: id, p_otros: otros });
+    if (error) throw error;
+    dobles = Math.max(dobles, data || 0);
+  }
+  return dobles;
+}
+
 async function editarEvento(ev) {
   editandoId = ev.id;
+  pintarIncompat(incompatiblesDe(ev.id));
   rellenarFormulario(ev);
   $('ePlantilla').value = ev.plantilla || '';
   aplicarBloqueos();
@@ -443,7 +475,10 @@ $('crearEventoBtn').addEventListener('click', async () => {
     }
     const { error } = await sb.from('eventos').update(payload).eq('id', editandoId);
     if (error) { aviso('No se pudo guardar: ' + error.message, false); return; }
-    aviso('Cambios guardados. Las inscripciones se mantienen.', true);
+    let dobles = 0;
+    try { dobles = await guardarIncompat([editandoId]); }
+    catch (e) { aviso('El evento se ha guardado, pero no los eventos incompatibles: ' + e.message, false); return; }
+    aviso('Cambios guardados. Las inscripciones se mantienen.' + (dobles ? ` Ojo: ${dobles} alumno/a(s) ya estaban apuntados también a un evento a la misma hora; revisadlo en Inscritos.` : ''), true);
     salirDeEdicion();
   } else {
     // Venta de lotería con varias fechas: un evento por fecha
@@ -452,12 +487,15 @@ $('crearEventoBtn').addEventListener('click', async () => {
     }));
     if (extras.some(x => !x.fecha)) { aviso('Pon el día y la hora de cada fecha de venta, o quita las que sobren.', false); return; }
     const filas = [payload, ...extras.map(x => ({ ...payload, fecha: x.fecha, lugar: x.lugar }))];
-    const { error } = await sb.from('eventos').insert(filas);
+    const { data: creados, error } = await sb.from('eventos').insert(filas).select('id');
     if (error) { aviso('No se pudo crear: ' + error.message, false); return; }
+    try { await guardarIncompat((creados || []).map(c => c.id)); }
+    catch (e) { aviso('El evento se ha creado, pero no los eventos incompatibles: ' + e.message, false); return; }
     aviso(filas.length > 1 ? `Creados ${filas.length} eventos, uno por fecha.` : 'Evento creado.', true);
     rellenarFormulario({});
     $('ePlantilla').value = '';
     aplicarBloqueos();
+    pintarIncompat([]);
   }
   cargarEventos();
 });
@@ -468,6 +506,8 @@ async function cargarEventos() {
   const { data: eventos, error } = await sb.from('eventos').select('*').order('fecha', { ascending: true });
   if (error) { wrap.innerHTML = '<p class="msg-error">No se pudieron cargar.</p>'; return; }
   eventosCache = eventos || [];
+  incompatCache = (await sb.from('evento_incompatibles').select('evento_a, evento_b')).data || [];
+  pintarIncompat(editandoId ? [...document.querySelectorAll('#eIncompat input:checked')].map(c => c.value) : []);
   if (!eventos || eventos.length === 0) { wrap.innerHTML = '<p class="empty-hint">Todavía no hay eventos.</p>'; return; }
 
   // Ocupación de cada evento con aforo
@@ -490,7 +530,10 @@ async function cargarEventos() {
             (ev.sin_inscripcion ? ', informativo' : ev.usa_concurso_texto ? ', concurso' : ', ' + QUIEN[ev.tipo_elegibilidad]) +
             (ev.aforo_total != null ? (ev.requiere_pareja_adulto_alumno ? `, ${ev.aforo_total} plazas de alumnos` : `, ${ocupacion[ev.id] ?? 0} de ${ev.aforo_total} plazas`) : '') +
             (ev.metodo_asignacion === 'sorteo' ? ', por sorteo' : '') +
-          '</span></div>' +
+          '</span>' +
+          (incompatiblesDe(ev.id).length ? '<br><span style="font-size:14px; color:var(--ink-soft);">A la misma hora que: ' +
+            incompatiblesDe(ev.id).map(id => esc((eventosCache.find(e => e.id === id) || {}).titulo || '')).join(', ') + '</span>' : '') +
+          '</div>' +
         '<div style="display:flex; gap:8px; flex-wrap:wrap;">' +
           '<button class="btn btn-outline editarBtn">Editar</button>' +
           (!ev.sin_inscripcion && !ev.usa_concurso_texto ? '<button class="btn btn-outline toggleInscritosBtn">Inscritos</button>' : '') +
@@ -611,7 +654,7 @@ async function cargarEventos() {
 async function renderInscritos(panel, ev) {
   panel.innerHTML = '<p class="loading">Cargando inscritos...</p>';
   const { data, error } = await sb.from('evento_inscripciones')
-    .select('*, adultos(nombre, apellidos), alumnos(nombre, apellidos, fecha_nacimiento, etapa, curso), evento_actividades(nombre), socios(numero_socio_completo), comprobantes_pago(verificado)')
+    .select('*, adultos!adulto_id(nombre, apellidos), alumnos(nombre, apellidos, fecha_nacimiento, etapa, curso), evento_actividades(nombre), socios(numero_socio_completo), comprobantes_pago(verificado)')
     .eq('evento_id', ev.id).order('created_at');
   if (error) { panel.innerHTML = '<p class="msg-error">No se pudo cargar: ' + esc(error.message) + '</p>'; return; }
   if (!data || !data.length) { panel.innerHTML = '<p class="empty-hint">Todavía no se ha apuntado nadie.</p>'; return; }
@@ -648,7 +691,7 @@ async function renderInscritos(panel, ev) {
       [ev.pregunta_extra || 'Respuesta']: i.respuesta_extra || '',
       'Pago': debePagar ? (comp ? (comp.verificado ? 'Verificado' : 'Justificante por revisar') : 'Sin justificante') : '',
       'Sorteo': ev.metodo_asignacion === 'sorteo' && !i.es_voluntario && !i.actividad_id ? ({ pendiente: 'Pendiente', ganador: 'Con plaza', no_ganador: 'Sin plaza' }[i.estado] || '') : '',
-      'Nº socio': i.socios?.numero_socio_completo || '',
+      'Nº socio': numeroSocioBonito(i.socios?.numero_socio_completo),
       'Email': i.email_contacto || '', 'Teléfono': i.telefono_contacto || ''
     };
   });
@@ -1002,7 +1045,7 @@ async function renderConcursoEvento(panel, evento) {
     .eq('evento_id', evento.id)
     .order('created_at');
 
-  if (error) { panel.innerHTML = '<p class="msg-error">No se pudo cargar.</p>'; return; }
+  if (error) { panel.innerHTML = '<p class="msg-error">No se pudo cargar: ' + String(error.message).replace(/[<&]/g, c => c === '<' ? '&lt;' : '&amp;') + '</p>'; return; }
   if (!envios || envios.length === 0) { panel.innerHTML = '<p class="empty-hint">Todavía no hay ningún envío.</p>'; return; }
 
   panel.innerHTML = `<p class="section-label">${envios.length} envío${envios.length === 1 ? '' : 's'} (anónimos hasta marcar ganador)</p>
@@ -1030,7 +1073,7 @@ async function renderConcursoEvento(panel, evento) {
         .maybeSingle();
       if (identidad) {
         identidadHtml = `<p class="msg-ok" style="margin:6px 0 0;">
-          Ganador — ${identidad.alumnos ? identidad.alumnos.nombre + ' ' + identidad.alumnos.apellidos : 'Nº ' + (identidad.socios?.numero_socio_completo || '?')}
+          Ganador — ${identidad.alumnos ? identidad.alumnos.nombre + ' ' + identidad.alumnos.apellidos : 'Nº ' + (numeroSocioBonito(identidad.socios?.numero_socio_completo) || '?')}
         </p>`;
       }
     }

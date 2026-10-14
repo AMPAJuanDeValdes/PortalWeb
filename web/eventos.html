@@ -45,6 +45,7 @@
   .inv-cab{ display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
   .aviso-vol{ white-space:normal; text-align:right; max-width:30ch; display:inline-block; }
   .precios{ font-size:15px; color:var(--ink-soft); margin:8px 0 0; }
+  .ev-incompat{ font-size:15px; margin:8px 0 0; padding:8px 12px; border-radius:12px; background:#FFF6DA; color:var(--ink); }
   .bloque{ margin-top:16px; padding:16px 18px; background:#F9FAFC; border-radius:18px; }
   .bloque > h3{ font-size:19px; margin:0 0 4px; display:flex; align-items:center; gap:10px; }
   .bloque > h3::before{ content:""; width:10px; height:10px; border-radius:50%; background:var(--t-fuerte); }
@@ -171,7 +172,6 @@ function conceptoPago(evento) {
   const nombre = evento.plantilla === 'chocolatada' ? 'Chocolatada de Navidad' : evento.titulo;
   return nombre + ' - Socio ' + numeroSocioBonito(ctxGlobal.socio.numero_socio_completo);
 }
-function numeroSocioBonito(n) { return /^\d{12}$/.test(n || '') ? n.slice(0, 4) + '.' + n.slice(4, 8) + '.' + n.slice(8) : (n || ''); }
 
 function textoError(error) {
   const m = ((error && error.message) || String(error)).replace(/^.*?ERROR:\s*/, '');
@@ -181,9 +181,26 @@ function textoError(error) {
   return m;
 }
 
+// Eventos a la misma hora: id -> [ids de los incompatibles] y títulos
+let INCOMPAT = {}, TITULO_EVENTO = {};
+const incompatiblesDe = (id) => INCOMPAT[id] || [];
+const listaTitulos = (ids) => {
+  const t = ids.map(id => '«' + TITULO_EVENTO[id] + '»').filter(x => x !== '«undefined»');
+  return t.length > 1 ? t.slice(0, -1).join(', ') + ' y ' + t[t.length - 1] : t[0] || '';
+};
+
 async function cargarEventos() {
   const cont = document.getElementById('eventosContainer');
-  const { data: eventos, error } = await sb.from('eventos').select('*').eq('activo', true).order('fecha', { ascending: true });
+  const [{ data: eventos, error }, { data: parejas }] = await Promise.all([
+    sb.from('eventos').select('*').eq('activo', true).order('fecha', { ascending: true }),
+    sb.from('evento_incompatibles').select('evento_a, evento_b')
+  ]);
+  INCOMPAT = {};
+  (parejas || []).forEach(x => {
+    (INCOMPAT[x.evento_a] = INCOMPAT[x.evento_a] || []).push(x.evento_b);
+    (INCOMPAT[x.evento_b] = INCOMPAT[x.evento_b] || []).push(x.evento_a);
+  });
+  TITULO_EVENTO = Object.fromEntries((eventos || []).map(e => [e.id, e.titulo]));
   document.getElementById('loadingMsg').style.display = 'none';
   if (error) { cont.innerHTML = '<p class="msg-error">No se pudieron cargar los eventos. Recarga la página.</p>'; return; }
 
@@ -235,10 +252,15 @@ function aplicarFiltro(salvo) {
   });
 }
 
-async function repintar(card, evento) {
+async function repintar(card, evento, conIncompatibles = true) {
   const { data } = await sb.from('eventos').select('*').eq('id', evento.id).single();
   const nueva = await renderEvento(data || evento);
   card.replaceWith(nueva);
+  // Lo que se apunta aquí cambia lo que se puede hacer en los eventos a la misma hora
+  if (conIncompatibles) for (const id of incompatiblesDe(evento.id)) {
+    const otra = document.getElementById('ev-' + id);
+    if (otra) await repintar(otra, { id }, false);
+  }
   contarFiltros();
   aplicarFiltro(nueva);
 }
@@ -317,6 +339,7 @@ function cabeceraEvento(evento) {
     <div class="eventoCarrusel ev-fotos"></div>
     ${evento.descripcion ? `<p class="ev-desc">${esc(evento.descripcion)}</p>` : ''}
     ${precios ? `<p class="precios">${esc(precios)}</p>` : ''}
+    ${!evento.sin_inscripcion && listaTitulos(incompatiblesDe(evento.id)) ? `<p class="ev-incompat">Es a la misma hora que ${esc(listaTitulos(incompatiblesDe(evento.id)))}: cada alumno o alumna solo puede apuntarse a uno de ellos.</p>` : ''}
     <div class="ev-premios"></div>
   `;
   sb.from('fotos_carrusel').select('url').eq('evento_id', evento.id).order('orden').then(({ data: fotos }) => {
@@ -418,7 +441,7 @@ function camposPersona(evento, tipo, opciones = {}) {
 function camposAcompanante(id) {
   return `<div class="falta-adulto" style="margin:0;"><p style="margin:0 0 8px; font-weight:700;">Acompaña a otro socio</p>
     <p style="margin:0 0 10px; font-size:15px;">Ningún adulto de tu familia está apuntado. El alumno o alumna puede ir con un adulto socio de otra familia que ya esté apuntado.</p>
-    <div class="dos"><div class="field"><label for="${id}rn">Número de socio</label><input type="text" inputmode="numeric" id="${id}rn" placeholder="Ej. 0007"></div>
+    <div class="dos"><div class="field"><label for="${id}rn">Número de socio</label><input type="text" id="${id}rn" placeholder="Ej. 2027.0300.0007"></div>
     <div class="field"><label for="${id}rnom">Nombre del adulto</label><input type="text" id="${id}rnom" placeholder="Nombre y apellidos"></div></div></div>`;
 }
 // Comprueba el acompañante en la base de datos y devuelve los datos a guardar
@@ -444,11 +467,20 @@ async function renderEventoNormal(evento) {
   const gate = estadoInscripcionSocio(evento);
   const esSorteo = evento.metodo_asignacion === 'sorteo';
 
-  const [{ data: actividades }, { data: exclusiones }, { data: misInscripciones }] = await Promise.all([
+  const simultaneos = incompatiblesDe(evento.id);
+  const [{ data: actividades }, { data: exclusiones }, { data: misInscripciones }, { data: enSimultaneos }] = await Promise.all([
     sb.from('evento_actividades').select('*').eq('evento_id', evento.id).order('created_at'),
     sb.from('actividad_exclusiones').select('*'),
-    sb.from('evento_inscripciones').select('*, comprobantes_pago(verificado)').eq('evento_id', evento.id).eq('socio_id', ctxGlobal.socio.id)
+    sb.from('evento_inscripciones').select('*, comprobantes_pago(verificado)').eq('evento_id', evento.id).eq('socio_id', ctxGlobal.socio.id),
+    simultaneos.length
+      ? sb.from('evento_inscripciones').select('evento_id, alumno_id, estado').in('evento_id', simultaneos).eq('socio_id', ctxGlobal.socio.id).not('alumno_id', 'is', null)
+      : Promise.resolve({ data: [] })
   ]);
+  // Evento a la misma hora en el que ya está apuntado/a este alumno/a
+  const ocupadoEn = (alumnoId) => {
+    const x = (enSimultaneos || []).find(i => i.alumno_id === alumnoId && i.estado !== 'no_ganador');
+    return x ? (TITULO_EVENTO[x.evento_id] || 'otro evento') : null;
+  };
   const ins = misInscripciones || [];
   const principales = ins.filter(i => !i.actividad_id && !i.es_voluntario);
   const card = cabeceraEvento(evento);
@@ -542,6 +574,8 @@ async function renderEventoNormal(evento) {
       accion.innerHTML = gate.abierta ? `<span class="estado-gris aviso-vol">${AVISO_ES_VOLUNTARIO}</span>` : '<span class="estado-gris">Va como voluntario/a</span>';
     } else if (!gate.abierta) {
       accion.innerHTML = '<span class="estado-gris">No apuntado/a</span>';
+    } else if (m.tipo === 'alumno' && ocupadoEn(m.id)) {
+      accion.innerHTML = `<span class="estado-gris aviso-vol">Ya está apuntado/a a «${esc(ocupadoEn(m.id))}», que es a la misma hora</span>`;
     } else if (plazasLibres != null && plazasLibres <= 0) {
       accion.innerHTML = '<span class="estado-no">Completo</span>';
     } else if (evento.plantilla === 'comedor' && m.tipo === 'adulto' && principales.some(x => x.tipo_miembro === 'adulto')) {

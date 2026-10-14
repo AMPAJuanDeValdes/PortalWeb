@@ -224,7 +224,7 @@ async function refrescarCatalogo() {
 async function cargarConvocatoria() {
   const card = document.getElementById('convocatoriaCard');
   const { data, error } = await sb.from('uniformes_convocatorias').select('*').order('created_at', { ascending: false }).limit(1);
-  if (error) { card.innerHTML = '<p class="msg-error">No se pudo cargar.</p>'; return; }
+  if (error) { card.innerHTML = '<p class="msg-error">No se pudo cargar: ' + String(error.message).replace(/[<&]/g, c => c === '<' ? '&lt;' : '&amp;') + '</p>'; return; }
   convocatoria = data && data[0] ? data[0] : null;
 
   const c = convocatoria;

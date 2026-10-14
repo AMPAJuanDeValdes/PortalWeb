@@ -176,7 +176,7 @@ function mostrarResultados(resultados) {
   wrap.innerHTML = '<table><thead><tr><th>Titular</th><th>Nº socio</th><th>Estado</th></tr></thead><tbody>' +
     resultados.map(r => '<tr>' +
       '<td>' + r.nombre_titular + '</td>' +
-      '<td>' + (r.numero_secuencial || '') + '</td>' +
+      '<td>' + (r.numero_socio || r.numero_secuencial || '') + '</td>' +
       '<td>' + (r.ok
         ? '<span class="badge badge-socio">Creado</span> (' + r.alumnos_creados + ' alumno/s, email a ' + r.emails + ')' + (r.aviso ? '<br><small>' + r.aviso + '</small>' : '')
         : '<span class="msg-error" style="margin:0;">' + r.error + '</span>') + '</td>' +
@@ -252,12 +252,23 @@ document.getElementById('manualBtn').addEventListener('click', async () => {
   const adulto1 = leerAdultoDelForm('a1');
   const obligatorios = ['mAnio', ...['Nombre', 'Apellidos', 'Email', 'Dni', 'Direccion', 'Ciudad', 'Provincia', 'Cp', 'Movil'].map(c => 'a1' + c)];
   if (document.getElementById('tieneAdulto2').checked) {
-    obligatorios.push(...['Nombre', 'Apellidos', 'Email', 'Dni', 'Direccion', 'Ciudad', 'Provincia', 'Cp'].map(c => 'a2' + c));
+    obligatorios.push(...['Nombre', 'Apellidos', 'Email', 'Dni', 'Direccion', 'Ciudad', 'Provincia', 'Cp', 'Movil'].map(c => 'a2' + c));
   }
   if (!marcarCamposVacios(obligatorios.map(id => document.getElementById(id)))) {
     msg.style.display = 'block'; msg.className = 'msg-error';
     msg.textContent = 'Completa los campos obligatorios marcados en rojo.';
     return;
+  }
+  // Mismo formato que en «Hazte socio» y «Mis datos»
+  for (const p of document.getElementById('tieneAdulto2').checked ? ['a1', 'a2'] : ['a1']) {
+    const movil = document.getElementById(p + 'Movil'), dni = document.getElementById(p + 'Dni');
+    const malo = !movilValido(movil.value) ? [movil, MSG_MOVIL]
+      : !dniValido(dni.value, document.getElementById(p + 'EsPasaporte').checked) ? [dni, MSG_DNI] : null;
+    if (malo) {
+      malo[0].classList.add('campo-error');
+      msg.style.display = 'block'; msg.className = 'msg-error'; msg.textContent = malo[1];
+      return;
+    }
   }
   const fila = {
     anio_ultima_cuota: document.getElementById('mAnio').value.trim(),
@@ -315,7 +326,7 @@ document.getElementById('manualBtn').addEventListener('click', async () => {
     const r = resultados[0];
     if (!r.ok) throw new Error(r.error);
     msg.style.display = 'block'; msg.className = 'msg-ok';
-    msg.textContent = 'Alta completada ✓ (Nº socio ' + r.numero_secuencial + ', ' + r.alumnos_creados + ' alumno/s). Emails enviados a: ' + r.emails + (r.aviso ? '. Aviso: ' + r.aviso : '');
+    msg.textContent = 'Alta completada ✓ (Nº socio ' + (r.numero_socio || r.numero_secuencial) + ', ' + r.alumnos_creados + ' alumno/s). Emails enviados a: ' + r.emails + (r.aviso ? '. Aviso: ' + r.aviso : '');
   } catch (err) {
     msg.style.display = 'block'; msg.className = 'msg-error';
     msg.textContent = err.message;

@@ -1703,6 +1703,10 @@ begin
   if new.email is distinct from old.email then
     raise exception 'Para cambiar el email de acceso, pídeselo al AMPA.';
   end if;
+  -- Si ya fue al comedor lo marca la Junta (o el sorteo): da prioridad en el sorteo
+  if new.ya_visito_comedor is distinct from old.ya_visito_comedor then
+    raise exception 'Solo la Junta puede cambiar si un adulto ya ha visitado el comedor.';
+  end if;
   return new;
 end;
 $$;
@@ -4274,3 +4278,75 @@ create policy "familia ve sus donaciones" on donaciones for select
 alter table comprobantes_pago add column if not exists pago_id uuid;
 alter table comprobantes_pago add column if not exists importe numeric(8,2);
 create index if not exists comprobantes_pago_pago_idx on comprobantes_pago (pago_id);
+
+-- ==================================================================
+-- EVENTOS A LA MISMA HORA (incompatibles). La Junta marca, al crear o
+-- editar un evento, con qué otros eventos coincide. Un alumno o alumna
+-- apuntado/a a uno no puede apuntarse a otro de ellos (si no salió en
+-- un sorteo, sí puede). Cada pareja se guarda una vez (a < b).
+-- Se puede ejecutar varias veces.
+-- ==================================================================
+create table if not exists evento_incompatibles (
+  evento_a uuid not null references eventos(id) on delete cascade,
+  evento_b uuid not null references eventos(id) on delete cascade,
+  primary key (evento_a, evento_b),
+  check (evento_a < evento_b)
+);
+alter table evento_incompatibles enable row level security;
+drop policy if exists "todos ven las incompatibilidades" on evento_incompatibles;
+create policy "todos ven las incompatibilidades" on evento_incompatibles for select using (true);
+drop policy if exists "admins gestionan las incompatibilidades" on evento_incompatibles;
+create policy "admins gestionan las incompatibilidades" on evento_incompatibles for all
+  using (is_admin()) with check (is_admin());
+
+-- Junta: guarda la lista de eventos a la misma hora que p_evento. Todos los
+-- del grupo quedan incompatibles entre sí (quitar uno de la lista solo lo
+-- separa de p_evento).
+-- Devuelve cuántos alumnos/as ya estaban apuntados a la vez a este evento
+-- y a alguno de esos (para avisar).
+create or replace function evento_guardar_incompatibles(p_evento uuid, p_otros uuid[])
+returns integer language plpgsql security definer set search_path = public as $$
+declare n integer;
+begin
+  if not is_admin() then raise exception 'Solo la Junta puede hacer esto.'; end if;
+  p_otros := coalesce(p_otros, '{}');
+  delete from evento_incompatibles where (evento_a = p_evento or evento_b = p_evento);
+  -- Son a la misma hora entre todos: cada pareja del grupo queda marcada
+  insert into evento_incompatibles (evento_a, evento_b)
+  select x, y from unnest(array_append(p_otros, p_evento)) x, unnest(array_append(p_otros, p_evento)) y
+  where x < y and exists (select 1 from eventos e where e.id = x) and exists (select 1 from eventos e where e.id = y)
+  on conflict do nothing;
+  select count(distinct i.alumno_id) into n
+  from evento_inscripciones i join evento_inscripciones j
+    on j.alumno_id = i.alumno_id and j.evento_id = any(p_otros) and j.evento_id <> p_evento
+  where i.evento_id = p_evento and i.alumno_id is not null
+    and i.estado <> 'no_ganador' and j.estado <> 'no_ganador';
+  return n;
+end;
+$$;
+grant execute on function evento_guardar_incompatibles(uuid, uuid[]) to authenticated;
+
+-- Al apuntar a un alumno/a: no puede estar ya en un evento a la misma hora
+create or replace function eventos_validar_incompatibles()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare v_titulo text; v_nombre text;
+begin
+  if new.alumno_id is null or new.estado = 'no_ganador' then return new; end if;
+  select e.titulo into v_titulo
+  from evento_incompatibles x
+  join eventos e on e.id = case when x.evento_a = new.evento_id then x.evento_b else x.evento_a end
+  where (x.evento_a = new.evento_id or x.evento_b = new.evento_id)
+    and exists (select 1 from evento_inscripciones i
+                where i.evento_id = e.id and i.alumno_id = new.alumno_id
+                  and i.estado <> 'no_ganador' and i.id is distinct from new.id)
+  limit 1;
+  if v_titulo is not null then
+    select nombre into v_nombre from alumnos where id = new.alumno_id;
+    raise exception '% ya está apuntado/a a «%», que es a la misma hora.', coalesce(v_nombre, 'Este alumno/a'), v_titulo;
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists trg_eventos_validar_incompatibles on evento_inscripciones;
+create trigger trg_eventos_validar_incompatibles before insert or update of alumno_id, evento_id on evento_inscripciones
+  for each row execute function eventos_validar_incompatibles();

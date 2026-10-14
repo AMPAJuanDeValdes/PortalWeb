@@ -252,7 +252,7 @@ function pintarLista() {
       <button type="button" class="${x.quitada ? 'linklike' : 'btn-danger-link'}" data-q="${i}">${x.quitada ? 'Deshacer' : 'Quitar'}</button>`;
     return `<div class="fila ${x.estado === 'la_tiene' ? 'tiene' : x.estado !== 'espera' ? 'turno' : ''} ${x.quitada ? 'quitada' : ''}">
       <span class="num">${puesto}</span>
-      <span class="quien"><b>${esc(nombreFamilia(x))}</b><small>${x.socios?.numero_socio_completo ? 'Socio nº ' + esc(x.socios.numero_socio_completo) + ' · ' : ''}apuntada el ${fecha(x.created_at)}${cartaTxt(x) ? ' · ' + cartaTxt(x) : ''}</small></span>
+      <span class="quien"><b>${esc(nombreFamilia(x))}</b><small>${x.socios?.numero_socio_completo ? 'Socio nº ' + esc(numeroSocioBonito(x.socios.numero_socio_completo)) + ' · ' : ''}apuntada el ${fecha(x.created_at)}${cartaTxt(x) ? ' · ' + cartaTxt(x) : ''}</small></span>
       ${pill}${controles}
     </div>`;
   }).join('');
@@ -381,7 +381,7 @@ document.getElementById('jGuardar').addEventListener('click', async () => {
 async function cargarHistorial() {
   const { data } = await sb.from('mochila_historial').select('*').order('fecha_devolucion', { ascending: false }).limit(50);
   if (!data || !data.length) return;
-  document.getElementById('historial').innerHTML = data.map(h => `<tr><td>${esc(h.nombre_familia)}</td><td>${esc(h.numero_socio_completo || '')}</td><td>${fecha(h.fecha_entrega)}</td><td>${fecha(h.fecha_devolucion)}</td></tr>`).join('');
+  document.getElementById('historial').innerHTML = data.map(h => `<tr><td>${esc(h.nombre_familia)}</td><td>${esc(numeroSocioBonito(h.numero_socio_completo))}</td><td>${fecha(h.fecha_entrega)}</td><td>${fecha(h.fecha_devolucion)}</td></tr>`).join('');
   document.getElementById('historialCard').hidden = false;
 }
 

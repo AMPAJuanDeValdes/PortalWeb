@@ -86,7 +86,7 @@ document.getElementById('subirBtn').addEventListener('click', async () => {
 async function cargarLista() {
   const wrap = document.getElementById('listaWrap');
   const { data, error } = await sb.from('documentos').select('*').order('created_at', { ascending: false });
-  if (error) { wrap.innerHTML = '<p class="msg-error">No se pudo cargar.</p>'; return; }
+  if (error) { wrap.innerHTML = '<p class="msg-error">No se pudo cargar: ' + String(error.message).replace(/[<&]/g, c => c === '<' ? '&lt;' : '&amp;') + '</p>'; return; }
   if (!data || data.length === 0) { wrap.innerHTML = '<p class="empty-hint">Todavía no has subido ningún documento.</p>'; return; }
 
   wrap.innerHTML = '';

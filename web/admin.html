@@ -187,7 +187,7 @@ async function mochila() {
   const cola = data || [];
   const tiene = cola.find(x => x.estado === 'la_tiene');
   const turno = cola.find(x => x.estado === 'asignada' || x.estado === 'aceptada');
-  const nombre = (x) => x.tipo === 'no_socio' ? (x.nombre_contacto || 'Familia no socia') : 'Socio nº ' + (x.socios?.numero_socio_completo || '?');
+  const nombre = (x) => x.tipo === 'no_socio' ? (x.nombre_contacto || 'Familia no socia') : 'Socio nº ' + (numeroSocioBonito(x.socios?.numero_socio_completo) || '?');
   let html = tiene
     ? `<p class="estado-conv">La tiene: ${esc(nombre(tiene))}</p>${tiene.fecha_devolucion_prevista ? `<div class="linea"><span>Debe devolverla</span><b>${fCorta(tiene.fecha_devolucion_prevista)}</b></div>` : ''}`
     : '<p class="estado-conv">Está en el AMPA</p>';

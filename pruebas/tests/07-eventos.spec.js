@@ -63,12 +63,16 @@ test.describe('Eventos', () => {
     expect(r.error).toBeNull();
   });
 
-  test('Chocolatada: un alumno solo puede ser voluntario con un adulto de su familia', async () => {
-    let r = await cli.from('evento_inscripciones').insert({ ...base(), tipo_miembro: 'alumno', alumno_id: fam.alumnos[1].id, es_voluntario: true });
-    expect(r.error).not.toBeNull();
-    r = await cli.from('evento_inscripciones').insert({ ...base(), tipo_miembro: 'adulto', adulto_id: fam.adultos[1].id, es_voluntario: true });
+  test('Chocolatada: un alumno puede ser voluntario si un adulto de su familia va o es voluntario', async () => {
+    const sola = await crearFamilia({ etiqueta: 'voluntaria', alumnos: 1 });
+    const c3 = (await clienteComo(sola.adultos[0].email)).cliente;
+    const suya = { evento_id: choco.id, socio_id: sola.socio.id };
+    let r = await c3.from('evento_inscripciones').insert({ ...suya, tipo_miembro: 'alumno', alumno_id: sola.alumnos[0].id, es_voluntario: true });
+    expect(r.error?.message).toContain('adulto de la familia');
+    // El adulto va al evento (no como voluntario): basta para que el alumno sea voluntario
+    r = await c3.from('evento_inscripciones').insert({ ...suya, tipo_miembro: 'adulto', adulto_id: sola.adultos[0].id, tiene_alergias: false });
     expect(r.error).toBeNull();
-    r = await cli.from('evento_inscripciones').insert({ ...base(), tipo_miembro: 'alumno', alumno_id: fam.alumnos[1].id, es_voluntario: true });
+    r = await c3.from('evento_inscripciones').insert({ ...suya, tipo_miembro: 'alumno', alumno_id: sola.alumnos[0].id, es_voluntario: true });
     expect(r.error).toBeNull();
   });
 
@@ -76,9 +80,29 @@ test.describe('Eventos', () => {
     // adultos[0] ya está apuntado a la Chocolatada
     let r = await cli.from('evento_inscripciones').insert({ ...base(), tipo_miembro: 'adulto', adulto_id: fam.adultos[0].id, es_voluntario: true });
     expect(r.error?.message).toContain('voluntario');
-    // adultos[1] es voluntario: no puede apuntarse como asistente
+    // adultos[1] se apunta como voluntario: ya no puede apuntarse como asistente
+    r = await cli.from('evento_inscripciones').insert({ ...base(), tipo_miembro: 'adulto', adulto_id: fam.adultos[1].id, es_voluntario: true });
+    expect(r.error).toBeNull();
     r = await cli.from('evento_inscripciones').insert({ ...base(), tipo_miembro: 'adulto', adulto_id: fam.adultos[1].id, tiene_alergias: false });
     expect(r.error?.message).toContain('voluntario');
+  });
+
+  test('Eventos a la misma hora: un alumno apuntado a uno no puede apuntarse al otro', async () => {
+    const [x, y] = [await crearEvento({ titulo: 'Simultaneo 1', tipo_elegibilidad: 'alumnos' }), await crearEvento({ titulo: 'Simultaneo 2', tipo_elegibilidad: 'alumnos' })];
+    try {
+      const [a, b] = [x.id, y.id].sort();
+      let r = await admin.from('evento_incompatibles').insert({ evento_a: a, evento_b: b });
+      expect(r.error).toBeNull();
+      r = await cli.from('evento_inscripciones').insert({ evento_id: x.id, socio_id: fam.socio.id, tipo_miembro: 'alumno', alumno_id: fam.alumnos[0].id });
+      expect(r.error).toBeNull();
+      r = await cli.from('evento_inscripciones').insert({ evento_id: y.id, socio_id: fam.socio.id, tipo_miembro: 'alumno', alumno_id: fam.alumnos[0].id });
+      expect(r.error?.message).toContain('a la misma hora');
+      // Otro alumno de la familia sí puede ir al segundo
+      r = await cli.from('evento_inscripciones').insert({ evento_id: y.id, socio_id: fam.socio.id, tipo_miembro: 'alumno', alumno_id: fam.alumnos[1].id });
+      expect(r.error).toBeNull();
+    } finally {
+      await admin.from('eventos').delete().in('id', [x.id, y.id]);
+    }
   });
 
   test('Visita al comedor: como mucho un adulto por familia', async () => {

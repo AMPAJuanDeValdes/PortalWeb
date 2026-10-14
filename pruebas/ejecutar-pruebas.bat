@@ -65,5 +65,6 @@ if "%RESULTADO%"=="0" (
   echo   dime "revisa el informe de pruebas" y lo leo de tu carpeta.
   echo ============================================
 )
-start "" npx playwright show-report informe
+rem El informe se abre como archivo: no deja ningun servidor ocupando el puerto
+if not "%RESULTADO%"=="0" start "" "%~dp0informe\index.html"
 pause

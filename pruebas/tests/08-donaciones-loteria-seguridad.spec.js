@@ -108,14 +108,14 @@ test.describe('Stock donado (Junta)', () => {
     expect(don.recibida_en).not.toBeNull();
 
     // Una camiseta al Banco de Uniformes y la otra descartada (rota)
-    const camisetas = page.locator('.stock-fila', { hasText: 'Camiseta, talla 20' });
+    const camisetas = page.locator('.stock-fila', { hasText: 'Camiseta del uniforme, talla 20' });
     await camisetas.locator('input.n').fill('1');
     await camisetas.getByRole('button', { name: 'Pasar al Banco de Uniformes' }).click();
     await expect(page.locator('#movs')).toContainText('Pasa al banco', { timeout: 30_000 });
     const { data: p } = await admin.from('prendas_catalogo').select('stock').eq('tipo', 'Camiseta').eq('talla', '20').single();
     expect(p.stock).toBe((stockAntes || 0) + 1);
-    await page.locator('.stock-fila', { hasText: 'Camiseta, talla 20' }).locator('input.n').fill('1');
-    await page.locator('.stock-fila', { hasText: 'Camiseta, talla 20' }).getByRole('button', { name: 'Descartar' }).click();
+    await camisetas.locator('input.n').fill('1');
+    await camisetas.getByRole('button', { name: 'Descartar' }).click();
     await expect(page.locator('#movs')).toContainText('Descartado', { timeout: 30_000 });
 
     if (libro) {

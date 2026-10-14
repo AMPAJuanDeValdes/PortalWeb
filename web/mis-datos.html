@@ -183,6 +183,12 @@ function renderAdultoCard(adulto, esUnoMismo) {
   row3.appendChild(input3);
   body.appendChild(row3);
 
+  // Visita al comedor: solo informativo (lo marca la Junta o el sorteo)
+  const comedor = document.createElement('p');
+  comedor.style.cssText = 'margin:14px 0 0; font-size:15px; color:var(--ink-soft);';
+  comedor.textContent = adulto.ya_visito_comedor ? 'Ya ha visitado el comedor.' : 'Todavía no ha visitado el comedor.';
+  body.appendChild(comedor);
+
   const msg = document.createElement('p');
   msg.style.display = 'none'; msg.style.marginTop = '10px';
 
@@ -493,7 +499,7 @@ document.getElementById('addAlumnoBtn').addEventListener('click', () => {
 
 function cargarCuenta() {
   const socio = ctxGlobal.socio;
-  document.getElementById('numeroSocioValue').textContent = socio.numero_socio_completo ? (n => /^\d{12}$/.test(n) ? n.slice(0, 4) + '.' + n.slice(4, 8) + '.' + n.slice(8) : n)(socio.numero_socio_completo) : '(pendiente de activación)';
+  document.getElementById('numeroSocioValue').textContent = socio.numero_socio_completo ? numeroSocioBonito(socio.numero_socio_completo) : '(pendiente de activación)';
   document.getElementById('anioValue').textContent = socio.anio_ultima_cuota;
   document.getElementById('formaPagoValue').textContent = socio.forma_pago || 'Sin especificar';
   if (socio.forma_pago === 'Domiciliación Bancaria' && socio.iban) {

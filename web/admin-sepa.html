@@ -121,10 +121,10 @@ async function cargarMandatos() {
   const wrap = document.getElementById('mandatosWrap');
   const { data, error } = await sb
     .from('mandatos_sepa')
-    .select('id, iban, vigente, aviso_diferencias, archivo_final_url, created_at, socios(numero_socio_completo), adultos(nombre, apellidos)')
+    .select('id, iban, vigente, aviso_diferencias, archivo_final_url, created_at, socios(numero_socio_completo), adultos!adulto_id(nombre, apellidos)')
     .order('created_at', { ascending: false });
 
-  if (error) { wrap.innerHTML = '<p class="msg-error">No se pudo cargar.</p>'; return; }
+  if (error) { wrap.innerHTML = '<p class="msg-error">No se pudo cargar: ' + String(error.message).replace(/[<&]/g, c => c === '<' ? '&lt;' : '&amp;') + '</p>'; return; }
   if (!data || data.length === 0) { wrap.innerHTML = '<p class="empty-hint">Todavía no hay ningún mandato firmado.</p>'; return; }
 
   wrap.innerHTML = '';
@@ -133,7 +133,7 @@ async function cargarMandatos() {
     div.className = 'fila-mandato';
     const { data: signed } = await sb.storage.from('mandatos-sepa').createSignedUrl(m.archivo_final_url, 300);
     div.innerHTML = `
-      Nº ${m.socios?.numero_socio_completo || '?'} — ${m.adultos?.nombre || ''} ${m.adultos?.apellidos || ''}<br>
+      Nº ${numeroSocioBonito(m.socios?.numero_socio_completo) || '?'} — ${m.adultos?.nombre || ''} ${m.adultos?.apellidos || ''}<br>
       IBAN ${m.iban} — ${new Date(m.created_at).toLocaleDateString('es-ES')}
       ${m.vigente ? '<span class="badge badge-socio">Vigente</span>' : '<span class="badge badge-admin">Sustituido</span>'}
       ${m.aviso_diferencias ? '<span class="badge badge-admin">Datos editados</span>' : ''}

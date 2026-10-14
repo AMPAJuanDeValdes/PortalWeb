@@ -163,6 +163,12 @@ function plantillaDonacion({ items, otros, nombre, email, telefono, esSocio, url
   };
 }
 
+// Número de socio tal como se muestra en todas partes: 2027.0300.0042
+function numeroSocioBonito(n) {
+  n = String(n || '');
+  return /^\d{12}$/.test(n) ? n.slice(0, 4) + '.' + n.slice(4, 8) + '.' + n.slice(8) : n;
+}
+
 // Cuenta activada por el admin: alta nueva (desde "Hazte socio") o
 // reactivación de una cuenta que estaba de baja / pendiente de pago.
 function plantillaBienvenida({ nombre, numeroSocio, reactivacion, urlPortal }) {
@@ -176,7 +182,7 @@ function plantillaBienvenida({ nombre, numeroSocio, reactivacion, urlPortal }) {
       (reactivacion
         ? `Hemos revisado tu pago y tu cuenta del AMPA vuelve a estar activa.\n\n`
         : `Hemos revisado tu solicitud y tu pago: ya formáis parte del AMPA del Colegio Juan de Valdés. ¡Gracias por uniros!\n\n`) +
-      (numeroSocio ? `Vuestro número de socio es: ${numeroSocio}\n\n` : '') +
+      (numeroSocio ? `Vuestro número de socio es: ${numeroSocioBonito(numeroSocio)}\n\n` : '') +
       `Ya podéis entrar en el portal con vuestro email y contraseña: ${url}/login.html\n` +
       `Desde allí podéis apuntaros a eventos, pedir libros en préstamo, uniformes y mucho más.\n\n` +
       `Si no recordáis la contraseña, usad "¿Has olvidado tu contraseña?" en la pantalla de acceso.\n\n`
@@ -236,6 +242,6 @@ function plantillaRecordatorioDevolucion({ nombre, libros }) {
 }
 
 module.exports = {
-  enviarEmail, plantillaCredenciales, plantillaMochilaTurno, plantillaComentario, plantillaDonacion,
+  enviarEmail, numeroSocioBonito, plantillaCredenciales, plantillaMochilaTurno, plantillaComentario, plantillaDonacion,
   plantillaBienvenida, plantillaRechazo, plantillaRecuperarPassword, plantillaRecordatorioDevolucion
 };

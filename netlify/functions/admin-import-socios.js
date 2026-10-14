@@ -3,7 +3,7 @@
 // Solo puede ejecutarla un adulto con role = 'admin'.
 
 const { createClient } = require('@supabase/supabase-js');
-const { enviarEmail, plantillaCredenciales } = require('./_lib/email');
+const { enviarEmail, numeroSocioBonito, plantillaCredenciales } = require('./_lib/email');
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -134,7 +134,7 @@ exports.handler = async (event) => {
 
       const { data: socio, error: socioError } = await supabaseAdmin.from('socios').insert({
         anio_ultima_cuota, numero_secuencial, forma_pago, iban, estado: 'activa'
-      }).select('id').single();
+      }).select('id, numero_socio_completo').single();
       if (socioError) {
         if (socioError.code === '23505') throw new Error('El número de socio ' + numero_secuencial + ' ya está en uso para ese año.');
         throw socioError;
@@ -178,6 +178,7 @@ exports.handler = async (event) => {
         ok: true,
         nombre_titular: adulto1.nombre + ' ' + adulto1.apellidos,
         numero_secuencial,
+        numero_socio: numeroSocioBonito(socio.numero_socio_completo),
         emails: credencialesEnviadas.join(', '),
         alumnos_creados: alumnosValidos.length,
         aviso: descartados ? descartados + ' alumno(s) sin nombre, apellidos o etapa válida no se han creado' : ''

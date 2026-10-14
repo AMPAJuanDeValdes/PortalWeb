@@ -57,7 +57,7 @@ async function cargarPrestamo() {
     .select('tipo, socio_id, created_at, libros_catalogo(titulo), alumnos(nombre, apellidos, curso, etapa)')
     .order('created_at', { ascending: false });
 
-  if (error) { wrap.innerHTML = '<p class="msg-error">No se pudo cargar.</p>'; return; }
+  if (error) { wrap.innerHTML = '<p class="msg-error">No se pudo cargar: ' + String(error.message).replace(/[<&]/g, c => c === '<' ? '&lt;' : '&amp;') + '</p>'; return; }
   if (!data || data.length === 0) { wrap.innerHTML = '<p class="empty-hint">Sin solicitudes todavía.</p>'; return; }
 
   const resumen = await getResumenSocios(data.map(d => d.socio_id));
@@ -99,10 +99,10 @@ async function cargarInscritosDe(eventoId, titulo) {
 
   const { data, error } = await sb
     .from('evento_inscripciones')
-    .select('tipo_miembro, socio_id, nombre_invitado, nombre_contacto, email_contacto, es_voluntario, adultos(nombre, apellidos), alumnos(nombre, apellidos, curso, etapa)')
+    .select('tipo_miembro, socio_id, nombre_invitado, nombre_contacto, email_contacto, es_voluntario, adultos!adulto_id(nombre, apellidos), alumnos(nombre, apellidos, curso, etapa)')
     .eq('evento_id', eventoId);
 
-  if (error) { wrap.innerHTML = '<p class="msg-error">No se pudo cargar.</p>'; return; }
+  if (error) { wrap.innerHTML = '<p class="msg-error">No se pudo cargar: ' + String(error.message).replace(/[<&]/g, c => c === '<' ? '&lt;' : '&amp;') + '</p>'; return; }
   if (!data || data.length === 0) { wrap.innerHTML = '<p class="empty-hint">Nadie inscrito todavía.</p>'; return; }
 
   const resumen = await getResumenSocios(data.filter(d => d.socio_id).map(d => d.socio_id));
@@ -128,7 +128,7 @@ async function cargarInscritosDe(eventoId, titulo) {
 async function cargarAlumnos() {
   const wrap = document.getElementById('wrapAlumnos');
   const { data, error } = await sb.from('alumnos').select('id, nombre, apellidos, fecha_nacimiento, etapa, curso, aula, verificado, socio_id').order('etapa').order('curso');
-  if (error) { wrap.innerHTML = '<p class="msg-error">No se pudo cargar.</p>'; return; }
+  if (error) { wrap.innerHTML = '<p class="msg-error">No se pudo cargar: ' + String(error.message).replace(/[<&]/g, c => c === '<' ? '&lt;' : '&amp;') + '</p>'; return; }
   if (!data || data.length === 0) { wrap.innerHTML = '<p class="empty-hint">Sin alumnos todavía.</p>'; return; }
 
   const resumen = await getResumenSocios(data.map(a => a.socio_id));

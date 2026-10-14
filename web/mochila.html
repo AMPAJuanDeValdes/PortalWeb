@@ -164,7 +164,6 @@ async function pintarLista() {
 }
 
 /* ---------- Carta de compromiso ---------- */
-const numeroBonito = (n) => /^\d{12}$/.test(n || '') ? n.slice(0, 4) + '.' + n.slice(4, 8) + '.' + n.slice(8) : (n || '');
 const fechaCorta = (f) => f ? new Date(f + 'T12:00:00').toLocaleDateString('es-ES') : '';
 async function pintarCarta(forzarFormulario) {
   const zona = document.getElementById('cartaZona');
@@ -190,7 +189,7 @@ async function pintarCarta(forzarFormulario) {
       <div class="dos">
         <div class="field"><label for="cNombre">Nombre y apellidos</label><input type="text" id="cNombre" value="${esc((a.nombre || '') + ' ' + (a.apellidos || ''))}"></div>
         <div class="field"><label for="cDni">DNI / NIE</label><input type="text" id="cDni" value="${esc(a.dni_nie || '')}"></div>
-        <div class="field"><label for="cSocio">Número de socio</label><input type="text" id="cSocio" value="${esc(numeroBonito(ctxGlobal.socio.numero_socio_completo))}"></div>
+        <div class="field"><label for="cSocio">Número de socio</label><input type="text" id="cSocio" value="${esc(numeroSocioBonito(ctxGlobal.socio.numero_socio_completo))}"></div>
         <div class="field"><label for="cTel">Teléfono</label><input type="tel" id="cTel" value="${esc(a.telefono || '')}"></div>
         <div class="field"><label for="cEntrega">Fecha de entrega</label><input type="text" id="cEntrega" value="${esc(fechaCorta(entrega))}" readonly></div>
         <div class="field"><label for="cDevolucion">Fecha de devolución</label><input type="text" id="cDevolucion" value="${esc(fechaCorta(devolucion))}" readonly></div>

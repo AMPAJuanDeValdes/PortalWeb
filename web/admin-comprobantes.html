@@ -74,7 +74,7 @@ async function cargarInvitados() {
     div.className = 'fila-socio';
     div.innerHTML = `
       <b>${esc(ins.eventos?.titulo || '')}</b> — ${g.filas.length === 1 ? '1 persona' : g.filas.length + ' personas'}${importe ? ', <b>' + euros(importe) + '</b>' : ''}
-      ${ins.socios?.numero_socio_completo ? ' · socio nº ' + esc(ins.socios.numero_socio_completo) : ''}<br>
+      ${ins.socios?.numero_socio_completo ? ' · socio nº ' + esc(numeroSocioBonito(ins.socios.numero_socio_completo)) : ''}<br>
       <span style="color:var(--ink-soft);">${nombres.map(esc).join(', ')}</span><br>
       <a href="${await urlComprobante(c.archivo_url)}" target="_blank">Ver justificante</a>
       <div style="margin-top:8px;"><button class="btn btn-primary verificarBtn">Marcar como verificado</button></div>
