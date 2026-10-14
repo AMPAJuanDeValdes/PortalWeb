@@ -91,7 +91,7 @@ async function enviarEmail({ to, bcc, replyTo, subject, text, html, sinFirma }) 
   });
 }
 
-function plantillaCredenciales({ nombre, email, password, urlPortal }) {
+function plantillaCredenciales({ nombre, email, password, urlPortal, inactiva }) {
   const url = urlPortal || (process.env.SITE_URL || '');
   return {
     subject: 'Tu acceso al portal del AMPA',
@@ -100,7 +100,9 @@ function plantillaCredenciales({ nombre, email, password, urlPortal }) {
       `Ya tienes acceso al portal del AMPA.\n\n` +
       `Email: ${email}\n` +
       `Contraseña provisional: ${password}\n\n` +
-      `Entra en ${url}/login.html y cambia la contraseña en tu primer acceso.\n\n`
+      (inactiva
+        ? `Vuestra cuenta está inactiva hasta que paguéis la cuota de este curso. Para activarla, entrad en ${url}/reactivar-cuenta.html con vuestro email y DNI/NIE y subid el justificante del pago. Cuando la Junta lo revise, os llegará un email y podréis entrar en ${url}/login.html con esta contraseña (os pedirá cambiarla).\n\n`
+        : `Entra en ${url}/login.html y cambia la contraseña en tu primer acceso.\n\n`)
   };
 }
 

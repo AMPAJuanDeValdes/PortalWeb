@@ -93,6 +93,8 @@ exports.handler = async (event) => {
     const numeroDado = String(fila.numero_secuencial || '').trim();
     const forma_pago = FORMAS_PAGO_VALIDAS.includes(String(fila.forma_pago || '').trim()) ? String(fila.forma_pago).trim() : null;
     const iban = String(fila.iban || '').trim() || null;
+    // Cuenta inactiva (falta de pago): igual que tras el reseteo del 31 de julio
+    const inactiva = ['inactiva', 'falta_pago', 'falta de pago'].includes(String(fila.estado || '').trim().toLowerCase());
 
     const adulto1 = normalizarAdulto(fila, 'adulto1');
     const adulto2 = normalizarAdulto(fila, 'adulto2');
@@ -133,7 +135,7 @@ exports.handler = async (event) => {
       const numero_secuencial = numeroDado || (await supabaseAdmin.rpc('siguiente_numero_secuencial')).data;
 
       const { data: socio, error: socioError } = await supabaseAdmin.from('socios').insert({
-        anio_ultima_cuota, numero_secuencial, forma_pago, iban, estado: 'activa'
+        anio_ultima_cuota, numero_secuencial, forma_pago, iban, estado: inactiva ? 'falta_pago' : 'activa'
       }).select('id, numero_socio_completo').single();
       if (socioError) {
         if (socioError.code === '23505') throw new Error('El número de socio ' + numero_secuencial + ' ya está en uso para ese año.');
@@ -168,7 +170,7 @@ exports.handler = async (event) => {
       // Los emails, solo cuando todo lo demás ha ido bien
       const credencialesEnviadas = [];
       for (const { adulto, password } of pendientesEmail) {
-        const { subject, text } = plantillaCredenciales({ nombre: adulto.nombre, email: adulto.email, password });
+        const { subject, text } = plantillaCredenciales({ nombre: adulto.nombre, email: adulto.email, password, inactiva });
         try { await enviarEmail({ to: adulto.email, subject, text }); credencialesEnviadas.push(adulto.email); }
         catch (e) { credencialesEnviadas.push(adulto.email + ' (¡el email NO se pudo enviar!)'); }
       }
@@ -179,6 +181,7 @@ exports.handler = async (event) => {
         nombre_titular: adulto1.nombre + ' ' + adulto1.apellidos,
         numero_secuencial,
         numero_socio: numeroSocioBonito(socio.numero_socio_completo),
+        inactiva,
         emails: credencialesEnviadas.join(', '),
         alumnos_creados: alumnosValidos.length,
         aviso: descartados ? descartados + ' alumno(s) sin nombre, apellidos o etapa válida no se han creado' : ''

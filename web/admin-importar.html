@@ -18,13 +18,13 @@
 <div class="wrap">
   <div class="eyebrow">Administración</div>
   <h1>Alta de socios</h1>
-  <p class="lede">Crea la cuenta directamente como <b>Activa</b> (a diferencia del alta autoservicio, que queda "Recién Creada" hasta que se apruebe). Cada adulto recibe su contraseña provisional por email automáticamente.</p>
+  <p class="lede">Crea la cuenta directamente como <b>Activa</b> o como <b>Inactiva</b> (pendiente de la cuota), sin pasar por la aprobación del alta autoservicio. Cada adulto recibe su contraseña provisional por email automáticamente.</p>
 
   <div class="card">
     <p class="section-label">1. Importar por CSV</p>
     <p class="cols-hint">
       Obligatorias: <code>anio_ultima_cuota, adulto1_nombre, adulto1_apellidos, adulto1_dni_nie, adulto1_email, adulto1_direccion, adulto1_ciudad, adulto1_provincia, adulto1_codigo_postal</code><br>
-      Opcionales de cuenta: <code>numero_secuencial</code> (si se deja vacío, se autogenera), <code>forma_pago, iban</code><br>
+      Opcionales de cuenta: <code>numero_secuencial</code> (si se deja vacío, se autogenera), <code>forma_pago, iban</code>, <code>estado</code> (<code>activa</code> o <code>inactiva</code>; si se deja vacío, activa)<br>
       Segundo adulto (opcional): mismas columnas con prefijo <code>adulto2_</code><br>
       Alumnos (opcional, hasta 6): <code>alumno1_nombre, alumno1_apellidos, alumno1_etapa, alumno1_curso, alumno1_aula, alumno1_fecha_nacimiento, alumno1_sexo</code>, luego <code>alumno2_...</code>, etc.<br>
       Un alumno se crea con solo <b>nombre, apellidos y etapa</b> (el resto es opcional). Fecha de nacimiento en formato <code>AAAA-MM-DD</code> o <code>DD/MM/AAAA</code>.
@@ -52,6 +52,11 @@
         <select id="mFormaPago"><option value="">Sin especificar</option><option>Transferencia</option><option>Domiciliación Bancaria</option></select>
       </div>
       <div class="field"><label>IBAN</label><input type="text" id="mIban"></div>
+    </div>
+    <div class="field" style="margin-top:14px; max-width:420px;">
+      <label for="mEstado">Estado de la cuenta</label>
+      <select id="mEstado"><option value="activa">Activa</option><option value="inactiva">Inactiva (falta de pago)</option></select>
+      <p style="margin:6px 0 0; font-size:14px; color:var(--ink-soft);">Inactiva: la familia recibe su acceso, pero no puede usar el portal hasta que pida la reactivación con el justificante de la cuota y la aprobéis.</p>
     </div>
 
     <p class="section-label" style="margin-top:22px;">Adulto 1</p>
@@ -178,7 +183,7 @@ function mostrarResultados(resultados) {
       '<td>' + r.nombre_titular + '</td>' +
       '<td>' + (r.numero_socio || r.numero_secuencial || '') + '</td>' +
       '<td>' + (r.ok
-        ? '<span class="badge badge-socio">Creado</span> (' + r.alumnos_creados + ' alumno/s, email a ' + r.emails + ')' + (r.aviso ? '<br><small>' + r.aviso + '</small>' : '')
+        ? '<span class="badge badge-socio">' + (r.inactiva ? 'Creado inactivo' : 'Creado') + '</span> (' + r.alumnos_creados + ' alumno/s, email a ' + r.emails + ')' + (r.aviso ? '<br><small>' + r.aviso + '</small>' : '')
         : '<span class="msg-error" style="margin:0;">' + r.error + '</span>') + '</td>' +
     '</tr>').join('') +
   '</tbody></table>';
@@ -274,6 +279,7 @@ document.getElementById('manualBtn').addEventListener('click', async () => {
     anio_ultima_cuota: document.getElementById('mAnio').value.trim(),
     numero_secuencial: document.getElementById('mSecuencial').value.trim(),
     forma_pago: document.getElementById('mFormaPago').value,
+    estado: document.getElementById('mEstado').value,
     iban: document.getElementById('mIban').value.trim(),
     adulto1_nombre: adulto1.nombre, adulto1_apellidos: adulto1.apellidos, adulto1_email: adulto1.email,
     adulto1_dni_nie: adulto1.dni_nie, adulto1_es_pasaporte: adulto1.es_pasaporte ? 'si' : 'no',
@@ -326,7 +332,7 @@ document.getElementById('manualBtn').addEventListener('click', async () => {
     const r = resultados[0];
     if (!r.ok) throw new Error(r.error);
     msg.style.display = 'block'; msg.className = 'msg-ok';
-    msg.textContent = 'Alta completada ✓ (Nº socio ' + (r.numero_socio || r.numero_secuencial) + ', ' + r.alumnos_creados + ' alumno/s). Emails enviados a: ' + r.emails + (r.aviso ? '. Aviso: ' + r.aviso : '');
+    msg.textContent = (r.inactiva ? 'Alta completada como inactiva ✓ (Nº socio ' : 'Alta completada ✓ (Nº socio ') + (r.numero_socio || r.numero_secuencial) + ', ' + r.alumnos_creados + ' alumno/s). Emails enviados a: ' + r.emails + (r.aviso ? '. Aviso: ' + r.aviso : '');
   } catch (err) {
     msg.style.display = 'block'; msg.className = 'msg-error';
     msg.textContent = err.message;
