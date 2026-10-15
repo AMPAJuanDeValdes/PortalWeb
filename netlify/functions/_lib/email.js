@@ -16,6 +16,12 @@ function getTransporter() {
     host: process.env.SMTP_HOST,
     port: parseInt(process.env.SMTP_PORT || '465', 10),
     secure: true,
+    // Si el servidor de correo no responde, que falle en un tiempo razonable
+    // (por defecto nodemailer espera minutos y la pantalla se queda en
+    // «Enviando...»). Quien llama decide qué hacer si no se pudo enviar.
+    connectionTimeout: 10000,
+    greetingTimeout: 10000,
+    socketTimeout: 20000,
     auth: {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASSWORD

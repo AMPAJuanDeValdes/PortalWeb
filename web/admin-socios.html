@@ -262,6 +262,7 @@ async function pintarSolicitudes() {
     div.querySelector('.editarBtn').addEventListener('click', () => irALista(s.id));
     div.querySelector('.activarBtn').addEventListener('click', async (e) => {
       if (!confirm('¿Activar esta cuenta? Se enviará el email de bienvenida.')) return;
+      msg.style.display = 'none';
       e.target.disabled = true; e.target.textContent = 'Activando...';
       try {
         const r = await llamarGestion({ accion: 'activar', socioId: s.id });
@@ -276,6 +277,8 @@ async function pintarSolicitudes() {
     div.querySelector('.confirmarRechazoBtn').addEventListener('click', async (e) => {
       const txt = div.querySelector('.motivoTxt');
       if (!txt.value.trim()) { txt.classList.add('campo-error'); aviso(false, 'Escribe el motivo del rechazo.'); return; }
+      txt.classList.remove('campo-error');
+      msg.style.display = 'none';
       e.target.disabled = true; e.target.textContent = 'Enviando...';
       try {
         const r = await llamarGestion({ accion: 'rechazar', socioId: s.id, motivo: txt.value.trim() });
@@ -480,9 +483,10 @@ function pintarDetalle(s, td) {
   const act = bEstado.querySelector('.activarBtn');
   if (act) act.addEventListener('click', async () => {
     if (!confirm('¿Activar esta cuenta? Se enviará el email de bienvenida a la familia.')) return;
-    act.disabled = true;
+    act.disabled = true; act.textContent = 'Activando y enviando el email...';
+    bEstado.querySelector(':scope > .msg-linea').style.display = 'none';
     try { const r = await llamarGestion({ accion: 'activar', socioId: s.id }); msgEstado(true, r.emailEnviado ? 'Cuenta activada ✓ y email enviado.' : 'Cuenta activada ✓ (el email NO se pudo enviar).'); setTimeout(recargar, 1200); }
-    catch (err) { msgEstado(false, err.message); act.disabled = false; }
+    catch (err) { msgEstado(false, err.message); act.disabled = false; act.textContent = 'Activar cuenta y enviar bienvenida'; }
   });
   const desact = bEstado.querySelector('.desactivarBtn');
   if (desact) desact.addEventListener('click', async () => {
@@ -503,9 +507,11 @@ function pintarDetalle(s, td) {
   bEstado.querySelector('.confirmarRechazoBtn').addEventListener('click', async (e) => {
     const txt = bEstado.querySelector('.motivoTxt');
     if (!txt.value.trim()) { txt.classList.add('campo-error'); msgEstado(false, 'Escribe el motivo.'); return; }
-    e.target.disabled = true;
+    txt.classList.remove('campo-error');
+    bEstado.querySelector(':scope > .msg-linea').style.display = 'none';
+    e.target.disabled = true; e.target.textContent = 'Enviando...';
     try { const r = await llamarGestion({ accion: 'rechazar', socioId: s.id, motivo: txt.value.trim() }); msgEstado(true, r.emailEnviado ? 'Rechazada. Email enviado.' : 'Rechazada (el email NO se pudo enviar).'); setTimeout(recargar, 1200); }
-    catch (err) { msgEstado(false, err.message); e.target.disabled = false; }
+    catch (err) { msgEstado(false, err.message); e.target.disabled = false; e.target.textContent = 'Rechazar y enviar email'; }
   });
 
   /* --- adultos --- */

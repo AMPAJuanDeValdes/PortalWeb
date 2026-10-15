@@ -399,6 +399,9 @@ que la respuesta es vacía o un error de permisos, nunca los datos:
 - [ ] Hazte socio sin rellenar nada → todos los campos obligatorios en rojo, incluido el comprobante.
 - [ ] Hazte socio con alumno sin fecha de nacimiento → fecha en rojo, no deja continuar.
 - [ ] Hazte socio con el email de una cuenta de baja → te lleva a "Reactivar mi cuenta".
+- [ ] Hazte socio con **transferencia** → «Tu solicitud está en revisión», sin pedir nada más; en Socios sale «Transferencia» sin IBAN.
+- [ ] Hazte socio con **domiciliación** → al terminar pide firmar la orden SEPA (IBAN, BIC y firma). Al firmar, en Socios sale «Domiciliación Bancaria» con su IBAN y el mandato en Domiciliación SEPA.
+- [ ] Hazte socio con domiciliación y cerrar sin firmar → al volver a entrar se sigue pidiendo; «Prefiero pagar por transferencia» la deja en transferencia.
 - [ ] Hazte socio con el email de una cuenta activa → mensaje con enlace a iniciar sesión; **no** aparece ninguna solicitud vacía en Admin → Socios.
 - [ ] Admin → Socios → Solicitudes: se ven todos los datos y el comprobante. "Activar" → llega email de bienvenida con el nº de socio.
 - [ ] "Rechazar…" sin motivo → no deja. Con motivo → llega email con el motivo y la cuenta pasa a "De baja".

@@ -2,6 +2,9 @@
 const { test, expect } = require('@playwright/test');
 const { admin, crearFamilia, entrar, aceptarDialogos, emailPrueba, siguienteNumeroLibre, PASSWORD } = require('../ayudantes/datos');
 
+// Activar y rechazar envían un email: el servidor de correo a veces tarda
+const EMAIL_TIMEOUT = 45_000;
+
 test.describe.serial('Administración de socios', () => {
   let jefe, pendiente, pendiente2, otra, conNumero;
 
@@ -55,7 +58,7 @@ test.describe.serial('Administración de socios', () => {
     await page.goto('/admin-socios.html');
     const s = solicitudDe(page, pendiente);
     await s.locator('.activarBtn').click();
-    await expect(s.locator('.msg-linea')).toContainText('Cuenta activada');
+    await expect(s.locator('.msg-linea')).toContainText('Cuenta activada', { timeout: EMAIL_TIMEOUT });
     const { data } = await admin.from('socios').select('estado, numero_socio_completo').eq('id', pendiente.socio.id).single();
     expect(data.estado).toBe('activa');
     expect(data.numero_socio_completo).toBeTruthy();
@@ -69,7 +72,7 @@ test.describe.serial('Administración de socios', () => {
     await expect(s.locator('.motivoTxt')).toHaveClass(/campo-error/);
     await s.locator('.motivoTxt').fill('Prueba automática: comprobante ilegible');
     await s.locator('.confirmarRechazoBtn').click();
-    await expect(s.locator('.msg-linea')).toContainText('rechazada');
+    await expect(s.locator('.msg-linea')).toContainText('rechazada', { timeout: EMAIL_TIMEOUT });
     const { data } = await admin.from('socios').select('estado, motivo_rechazo').eq('id', pendiente2.socio.id).single();
     expect(data.estado).toBe('baja');
     expect(data.motivo_rechazo).toContain('ilegible');
@@ -166,7 +169,7 @@ test.describe.serial('Administración de socios', () => {
     await page.waitForTimeout(1500);
     ficha = await abrirFicha(page, otra);
     await ficha.locator('[data-b="estado"] .activarBtn').click();
-    await expect(ficha.locator('[data-b="estado"] .msg-linea')).toContainText('Cuenta activada');
+    await expect(ficha.locator('[data-b="estado"] .msg-linea')).toContainText('Cuenta activada', { timeout: EMAIL_TIMEOUT });
     const { data } = await admin.from('socios').select('estado').eq('id', otra.socio.id).single();
     expect(data.estado).toBe('activa');
   });

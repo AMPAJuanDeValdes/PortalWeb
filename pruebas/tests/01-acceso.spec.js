@@ -77,7 +77,7 @@ test.describe('Acceso y contraseñas', () => {
     await page.click('#resetLink');
     await page.fill('#resetEmail', activa.adultos[0].email);
     await page.click('#resetBtn');
-    await expect(page.locator('#resetMsg')).toContainText('Te hemos enviado un correo');
+    await expect(page.locator('#resetMsg')).toContainText('Te hemos enviado un correo', { timeout: 45_000 });   // el servidor de correo a veces tarda
     await expect(page.locator('#resetBtn')).toBeDisabled();
     const r = await llamarFuncion('recuperar-contrasena', { email: activa.adultos[0].email });
     expect(r.status).toBe(429);

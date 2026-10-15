@@ -38,6 +38,13 @@ module.exports = async function limpiar() {
   await admin.from('eventos').delete().ilike('titulo', `${MARCA}%`);
   if (socios.length) await admin.from('evento_inscripciones').delete().in('socio_id', socios);
 
+  // Mandatos SEPA firmados en las pruebas: el PDF guardado
+  if (socios.length) {
+    const { data: mand } = await admin.from('mandatos_sepa').select('archivo_final_url').in('socio_id', socios);
+    const rutas = (mand || []).map(m => m.archivo_final_url).filter(Boolean);
+    if (rutas.length) await admin.storage.from('mandatos-sepa').remove(rutas);
+  }
+
   // 4. Borrar usuarios (sus fichas de adulto se borran en cascada) y familias
   for (const id of ids) await admin.auth.admin.deleteUser(id);
   if (socios.length) await admin.from('socios').delete().in('id', socios);

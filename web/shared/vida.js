@@ -97,7 +97,9 @@
   const obs = 'IntersectionObserver' in window ? new IntersectionObserver((es) => es.forEach(e => {
     if (!e.isIntersecting) return;
     e.target.classList.add('vida-visto'); obs.unobserve(e.target);
-  }), { rootMargin: '0px 0px -6% 0px', threshold: 0.08 }) : null;
+  // threshold 0: basta con que asome. Con un porcentaje, una tarjeta muy
+  // alta (p. ej. la lista de socios) nunca llegaba a verse y se quedaba invisible.
+  }), { rootMargin: '0px 0px -6% 0px', threshold: 0 }) : null;
   let orden = 0, reloj = null;
   function preparar(raiz) {
     if (!obs || quieto()) return;
