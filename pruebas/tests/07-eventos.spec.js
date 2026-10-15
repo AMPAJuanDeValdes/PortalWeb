@@ -105,6 +105,50 @@ test.describe('Eventos', () => {
     }
   });
 
+  test('Curso de Warhammer: se crea con sus 12 sesiones y el alumno se apunta al curso entero', async () => {
+    const curso = await crearEvento({ titulo: 'Warhammer', plantilla: 'warhammer', cursos_permitidos: [], elegibilidad_modo: null });
+    try {
+      expect(curso.abierto_no_socios).toBe(true);
+      expect(Number(curso.precio_invitado)).toBe(48);
+      const { data: ses } = await admin.from('evento_sesiones').select('numero, fecha').eq('evento_id', curso.id).order('numero');
+      expect(ses.map(s => s.numero)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+      expect(ses.every(s => s.fecha === null)).toBe(true);
+      const alumno = { evento_id: curso.id, socio_id: fam.socio.id, tipo_miembro: 'alumno', alumno_id: fam.alumnos[0].id };
+      // Hay que decir quién lo recoge, o marcar que sale solo/a
+      let r = await cli.from('evento_inscripciones').insert(alumno);
+      expect(r.error?.message).toContain('persona diferente');
+      r = await cli.from('evento_inscripciones').insert({ ...alumno, sale_solo: true });
+      expect(r.error).toBeNull();
+    } finally {
+      await admin.from('eventos').delete().eq('id', curso.id);
+    }
+  });
+
+  test('Talleres: Sí/No a si lo recoge otra persona (y sus datos), e instrucciones especiales', async () => {
+    const t = await crearEvento({ titulo: 'Taller recogida', plantilla: 'taller', cursos_permitidos: [], elegibilidad_modo: null, pide_instrucciones: true });
+    try {
+      const alumno = (k) => ({ evento_id: t.id, socio_id: fam.socio.id, tipo_miembro: 'alumno', alumno_id: fam.alumnos[k].id });
+      let r = await cli.from('evento_inscripciones').insert(alumno(0));
+      expect(r.error?.message).toContain('persona diferente');
+      r = await cli.from('evento_inscripciones').insert({ ...alumno(0), recoge_otra: true, recoge_nombre: 'Ana' });
+      expect(r.error?.message).toContain('móvil');
+      r = await cli.from('evento_inscripciones').insert({ ...alumno(0), recoge_otra: true, recoge_nombre: 'Ana', recoge_apellidos: 'Prueba', recoge_movil: '123' });
+      expect(r.error?.message).toContain('no es válido');
+      // Salir solo/a es solo del Curso de Warhammer: aquí no cuenta
+      r = await cli.from('evento_inscripciones').insert({ ...alumno(0), sale_solo: true });
+      expect(r.error?.message).toContain('persona diferente');
+      r = await cli.from('evento_inscripciones').insert({ ...alumno(0), recoge_otra: true, recoge_nombre: 'Ana', recoge_apellidos: 'Prueba',
+        recoge_movil: '600 000 000', instrucciones: 'Sale a las 17:00' }).select().single();
+      expect(r.error).toBeNull();
+      expect(r.data.instrucciones).toBe('Sale a las 17:00');
+      r = await cli.from('evento_inscripciones').insert({ ...alumno(1), recoge_otra: false, recoge_nombre: 'Se ignora' }).select().single();
+      expect(r.error).toBeNull();
+      expect(r.data.recoge_nombre).toBeNull();
+    } finally {
+      await admin.from('eventos').delete().eq('id', t.id);
+    }
+  });
+
   test('Visita al comedor: como mucho un adulto por familia', async () => {
     const comedor = await crearEvento({ titulo: 'Comedor', plantilla: 'comedor', aforo_total: 2 });
     try {

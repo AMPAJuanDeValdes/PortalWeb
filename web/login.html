@@ -121,7 +121,16 @@
       <h2 id="inactivaTitulo">Cuenta inactiva</h2>
       <p style="font-size:15.5px;" id="inactivaTexto"></p>
       <a class="btn btn-cta btn-block" id="reactivarBtn" href="reactivar-cuenta.html">Sí, quiero reactivar mi cuenta</a>
-      <p class="reset-link"><a href="login.html">‹ Volver a iniciar sesión</a></p>
+      <div id="bajaZona" hidden style="margin-top:16px;">
+        <button type="button" class="linklike" id="bajaAbrir">No queremos seguir en el AMPA: darnos de baja</button>
+        <div id="bajaConfirmar" hidden style="margin-top:10px;">
+          <p style="font-size:15px; margin:0 0 10px;">Se da de baja la cuenta de toda la familia. No podréis entrar en el portal, pero si más adelante queréis volver, podéis reactivarla pagando la cuota.</p>
+          <button type="button" class="btn btn-outline peligro" id="bajaSi">Sí, darnos de baja</button>
+          <button type="button" class="linklike" id="bajaNo">Cancelar</button>
+        </div>
+        <p id="bajaMsg" hidden style="margin-top:10px;"></p>
+      </div>
+      <p class="reset-link"><a href="login.html" id="volverInactiva">‹ Volver a iniciar sesión</a></p>
     </section>
 
     <nav class="otras" aria-label="Si no tienes cuenta">
@@ -176,8 +185,38 @@
       'reactivar-cuenta.html?motivo=' + socio.estado + '&email=' + encodeURIComponent(email);
     document.getElementById('titulo').textContent = 'Tu cuenta no está activa';
     document.getElementById('lede').textContent = '';
+    document.getElementById('bajaZona').hidden = socio.estado !== 'falta_pago';
+    socioInactivo = socio;
     mostrar('inactivaCard');
   }
+
+  // Darse de baja una cuenta inactiva (nunca pidió la baja y ya no quiere seguir)
+  let socioInactivo = null;
+  const salirDeInactiva = (destino) => async (e) => {
+    e.preventDefault();
+    await sb.auth.signOut();
+    window.location.href = destino || e.currentTarget.href;
+  };
+  document.getElementById('reactivarBtn').addEventListener('click', (e) => salirDeInactiva(e.currentTarget.href)(e));
+  document.getElementById('volverInactiva').addEventListener('click', (e) => salirDeInactiva('login.html')(e));
+  document.getElementById('bajaAbrir').addEventListener('click', () => { document.getElementById('bajaConfirmar').hidden = false; });
+  document.getElementById('bajaNo').addEventListener('click', () => { document.getElementById('bajaConfirmar').hidden = true; });
+  document.getElementById('bajaSi').addEventListener('click', async (e) => {
+    const msg = document.getElementById('bajaMsg');
+    e.target.disabled = true;
+    const { data, error } = await sb.from('socios').update({ estado: 'baja' }).eq('id', socioInactivo.id).select('id');
+    if (error || !data || !data.length) {
+      e.target.disabled = false;
+      msg.className = 'msg-error'; msg.textContent = 'No se pudo dar de baja la cuenta' + (error ? ': ' + error.message : '.') + ' Inténtalo de nuevo o escríbenos.';
+      msg.hidden = false; return;
+    }
+    await sb.auth.signOut();
+    document.getElementById('bajaConfirmar').hidden = true;
+    document.getElementById('bajaAbrir').hidden = true;
+    document.getElementById('reactivarBtn').hidden = true;
+    document.getElementById('inactivaTitulo').textContent = 'Cuenta dada de baja';
+    document.getElementById('inactivaTexto').textContent = 'Hemos dado de baja la cuenta de vuestra familia. Gracias por haber sido parte del AMPA. Si algún día queréis volver, podéis reactivarla desde esta misma página.';
+  });
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -206,7 +245,9 @@
     }
 
     if (socio.estado === 'baja' || socio.estado === 'falta_pago') {
-      await sb.auth.signOut();
+      // Inactiva (falta de pago): la sesión se mantiene solo para poder darse
+      // de baja desde aquí; se cierra al salir de esta pantalla
+      if (socio.estado === 'baja') await sb.auth.signOut();
       mostrarCuentaInactiva(socio, email);
       return;
     }

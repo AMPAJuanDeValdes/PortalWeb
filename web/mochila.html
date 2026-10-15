@@ -174,11 +174,11 @@ async function pintarCarta(forzarFormulario) {
     zona.innerHTML = `<p class="msg-ok">La firmasteis el ${new Date(firmada.firmado_en).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })} ✓</p>
       <div class="botones"><button type="button" class="btn btn-outline" id="cVer">Ver la carta firmada</button>
       <button type="button" class="linklike" id="cOtra">Volver a firmarla</button></div>`;
-    document.getElementById('cVer').addEventListener('click', async () => {
+    document.getElementById('cVer').addEventListener('click', () => abrirEnPestana(async () => {
       const { data, error } = await sb.storage.from('mochila-compromisos').createSignedUrl(firmada.archivo_url, 600);
-      if (error) { alert('No se pudo abrir la carta: ' + error.message); return; }
-      window.open(data.signedUrl, '_blank');
-    });
+      if (error) throw error;
+      return data.signedUrl;
+    }).catch(e => alert('No se pudo abrir la carta: ' + e.message)));
     document.getElementById('cOtra').addEventListener('click', () => pintarCarta(true));
     return;
   }

@@ -78,6 +78,20 @@ test.describe('Hazte socio y reactivación', () => {
     expect(al[0].fecha_nacimiento).toBe('2016-09-15');
   });
 
+  test('Hazte socio con domiciliación → al terminar pide firmar la orden SEPA', async ({ page }) => {
+    const email = emailPrueba('altasepa');
+    await rellenarAlta(page, email);
+    await page.selectOption('#formaPago', 'Domiciliación Bancaria');
+    await page.click('#enviarBtn');
+    await expect(page).toHaveURL(/estado-recien-creada\.html/, { timeout: 45_000 });
+    await expect(page.locator('#sepaPendiente')).toContainText('Falta firmar la orden de domiciliación');
+    await expect(page.locator('#sIban')).toBeVisible();
+    const socio = await socioPorEmail(email);
+    expect(socio.forma_pago).toBeNull();
+    expect(socio.iban).toBeNull();
+    expect(socio.sepa_pendiente).toBe(true);
+  });
+
   test('Hazte socio con email de cuenta ACTIVA → error y sin solicitud vacía', async ({ page }) => {
     const { count: antes } = await admin.from('socios').select('id', { count: 'exact', head: true });
     await rellenarAlta(page, activa.adultos[0].email);

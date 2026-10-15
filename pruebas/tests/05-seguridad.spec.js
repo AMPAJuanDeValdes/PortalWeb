@@ -1,6 +1,6 @@
 // 5. Seguridad: una familia no puede ver ni tocar lo que no es suyo
 const { test, expect } = require('@playwright/test');
-const { crearFamilia, clienteComo, llamarFuncion, entrar } = require('../ayudantes/datos');
+const { admin, crearFamilia, clienteComo, llamarFuncion, entrar } = require('../ayudantes/datos');
 
 // Si una prueba falla, las demás del grupo se siguen ejecutando
 test.describe.configure({ mode: 'default' });
@@ -29,6 +29,22 @@ test.describe('Seguridad', () => {
     const { cliente } = await clienteComo(a.adultos[0].email);
     const { error } = await cliente.from('socios').update({ numero_secuencial: '0001' }).eq('id', a.socio.id);
     expect(error).not.toBeNull();
+  });
+
+  test('Domiciliación ⇔ IBAN: la familia no cambia el pago a mano y no hay una cosa sin la otra', async () => {
+    const { cliente } = await clienteComo(a.adultos[0].email);
+    let r = await cliente.from('socios').update({ forma_pago: 'Domiciliación Bancaria', iban: 'ES9121000418450200051332' }).eq('id', a.socio.id);
+    expect(r.error && r.error.message).toMatch(/orden SEPA/);
+    r = await admin.from('socios').update({ forma_pago: 'Domiciliación Bancaria', iban: null }).eq('id', a.socio.id);
+    expect(r.error && r.error.message).toMatch(/hace falta el IBAN/);
+    r = await admin.from('socios').update({ forma_pago: 'Transferencia', iban: 'ES9121000418450200051332' }).eq('id', a.socio.id);
+    expect(r.error && r.error.message).toMatch(/Con IBAN/);
+    // Eligió domiciliación sin firmar: puede pasar a transferencia
+    await admin.from('socios').update({ forma_pago: null, iban: null, sepa_pendiente: true }).eq('id', a.socio.id);
+    r = await cliente.rpc('socio_pagar_por_transferencia');
+    expect(r.error).toBeNull();
+    const { data } = await admin.from('socios').select('forma_pago, iban, sepa_pendiente').eq('id', a.socio.id).single();
+    expect(data).toEqual({ forma_pago: 'Transferencia', iban: null, sepa_pendiente: false });
   });
 
   test('Un socio no ve los datos de otra familia', async () => {

@@ -4,6 +4,20 @@ function numeroSocioBonito(n) {
   return /^\d{12}$/.test(n) ? n.slice(0, 4) + '.' + n.slice(4, 8) + '.' + n.slice(8) : n;
 }
 
+// Abre en otra pestaña algo que hay que pedir antes (un enlace firmado, un
+// PDF generado...). La pestaña se abre en el mismo clic y luego se rellena:
+// si se abriera después de esperar, el iPhone (Safari) la bloquearía.
+async function abrirEnPestana(obtenerUrl) {
+  const w = window.open('', '_blank');
+  try {
+    const url = await obtenerUrl();
+    if (w) w.location.href = url; else location.href = url;
+  } catch (e) {
+    if (w) w.close();
+    throw e;
+  }
+}
+
 // Carga shared/config.js por su cuenta (síncrono), así ninguna página
 // necesita incluir esa etiqueta por separado — solo esta.
 (function cargarConfig() {
@@ -94,6 +108,12 @@ async function requireAuth() {
   }
   const estadoOk = /\/estado-[^/]+$/.test(window.location.pathname) || redirigirPorEstado(socio);
   if (!estadoOk) return null;
+  // Eligió domiciliación y no ha firmado la orden SEPA: tiene que firmarla
+  // (o pasar a transferencia) en Mis datos antes de seguir
+  if (socio.sepa_pendiente && !/\/(mis-datos|cambiar-clave|estado-[^/]+)(\.html)?$/.test(window.location.pathname)) {
+    window.location.href = 'mis-datos.html';
+    return null;
+  }
 
   return { session, adulto, socio };
 }

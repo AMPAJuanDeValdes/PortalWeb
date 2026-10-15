@@ -225,11 +225,11 @@ function pintarAhora() {
   enlazarCartas(caja);
 }
 function enlazarCartas(cont) {
-  cont.querySelectorAll('[data-carta]').forEach(b => b.addEventListener('click', async () => {
+  cont.querySelectorAll('[data-carta]').forEach(b => b.addEventListener('click', () => abrirEnPestana(async () => {
     const { data, error } = await sb.storage.from('mochila-compromisos').createSignedUrl(b.dataset.carta, 600);
-    if (error) { alert('No se pudo abrir la carta: ' + error.message); return; }
-    window.open(data.signedUrl, '_blank');
-  }));
+    if (error) throw error;
+    return data.signedUrl;
+  }).catch(e => alert('No se pudo abrir la carta: ' + e.message))));
 }
 function pintarLista() {
   const wrap = document.getElementById('lista');

@@ -12,7 +12,7 @@ module.exports = async function preparar() {
   if (error) throw new Error('No se puede conectar con Supabase: ' + error.message + '. Revisa SUPABASE_SERVICE_ROLE_KEY en ampa-pruebas.env (tu carpeta de usuario)');
 
   // Comprueba que la base de datos está al día (lo más reciente de schema.sql)
-  const comprobaciones = [['mochila_compromisos', 'socio_id'], ['prestamo_items', 'a_mano'], ['comprobantes_pago', 'pago_id'], ['evento_incompatibles', 'evento_a']];
+  const comprobaciones = [['mochila_compromisos', 'socio_id'], ['prestamo_items', 'a_mano'], ['comprobantes_pago', 'pago_id'], ['evento_incompatibles', 'evento_a'], ['evento_sesiones', 'numero'], ['evento_inscripciones', 'recoge_otra'], ['socios', 'sepa_pendiente']];
   for (const [tabla, columna] of comprobaciones) {
     const { error: errMig } = await admin.from(tabla).select(columna, { head: true });
     if (errMig) throw new Error('La base de datos no está al día: ejecuta en Supabase lo que haya en supabase/pendientes/ (' + errMig.message + ')');

@@ -92,23 +92,24 @@ function tarea(area, num, titulo, detalle, href, ir) { tareas.push({ area, num, 
 const cuenta = async (q) => { const { count } = await q; return count || 0; };
 
 async function socios() {
-  const { data } = await sb.from('socios').select('estado, reactivacion_solicitada_en');
+  const { data } = await sb.from('socios').select('id, estado, forma_pago, iban, reactivacion_solicitada_en');
   const s = data || [];
   const activas = s.filter(x => x.estado === 'activa').length;
   const faltaPago = s.filter(x => x.estado === 'falta_pago').length;
   const solicitudes = s.filter(x => x.estado === 'recien_creada' || (x.reactivacion_solicitada_en && x.estado !== 'activa')).length;
   if (solicitudes) tarea('socios', solicitudes, solicitudes === 1 ? 'Solicitud de alta o reactivación' : 'Solicitudes de alta o reactivación', 'Revisa el justificante y activa o rechaza.', 'admin-socios.html', 'Revisar');
-  const [alumnos, domiciliadas, comprobantes] = await Promise.all([
+  const [alumnos, comprobantes] = await Promise.all([
     cuenta(sb.from('alumnos').select('id, socios!inner(estado)', { count: 'exact', head: true }).eq('socios.estado', 'activa')),
-    cuenta(sb.from('mandatos_sepa').select('id', { count: 'exact', head: true }).eq('vigente', true)),
     cuenta(sb.from('comprobantes_pago').select('id', { count: 'exact', head: true }).eq('tipo', 'invitado_evento').eq('verificado', false).eq('reembolsado', false))
   ]);
+  // Familias con domiciliación: las que tienen IBAN (firmar el mandato en la web también lo guarda)
+  const domiciliadas = s.filter(x => x.estado !== 'baja' && String(x.iban || '').trim()).length;
   if (comprobantes) tarea('socios', comprobantes, comprobantes === 1 ? 'Justificante de pago por revisar' : 'Justificantes de pago por revisar', 'Personas no socias apuntadas a eventos y talleres.', 'admin-comprobantes.html', 'Revisar');
   document.getElementById('cifras').innerHTML = [
     ['admin-socios.html', activas, 'familias socias'],
     ['admin-respuestas.html', alumnos, 'alumnos de familias socias'],
     ['admin-socios.html', faltaPago, 'pendientes de pagar la cuota'],
-    ['admin-sepa.html', domiciliadas, 'familias con domiciliación']
+    ['admin-socios.html', domiciliadas, 'familias con domiciliación']
   ].map(([h, n, t]) => `<a class="cifra" href="${h}"><b>${n}</b><span>${t}</span></a>`).join('');
 }
 

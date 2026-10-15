@@ -443,7 +443,7 @@ Los voluntarios no ocupan plaza; los invitados no socios sí.
 |---|---|
 | **Chocolatada** | Toda la familia, sin aforo. `pide_alergias`; `alumnos_requieren_adulto` (si la familia apunta solo niños, indica con qué adulto socio van: `responsable_nombre`); `permite_invitados` + `precio_invitado` (el socio apunta a no socios con nombre, apellidos, edad, alergias y justificante); `voluntariado_modo = 'adultos_y_ninos'`. No aparece en la web pública. Listado con nombre, apellidos, edad y alergias en «Inscritos». |
 | **Cabalgata** | `metodo_asignacion = 'sorteo'`, `requiere_pareja_adulto_alumno` (cada niño con un adulto; adultos solos también, sin ocupar plaza; el acompañante puede ser no socio con DNI), aforo en NIÑOS (12 o 20). Dos documentos (adulto y alumno) que firma cada persona apuntada; tras el sorteo, solo quien tiene plaza. |
-| **Talleres** (juegos de mesa, rol, ciencias, Warhammer) | Solo alumnos de ciertos cursos, aforo por orden de llegada. Socios gratis; externos por la web pública (`abierto_no_socios`) con alumno, curso en rango, adulto responsable, teléfono, email y justificante (`precio_invitado`). Pregunta opcional (`pregunta_extra`/`pregunta_opciones`): Patines solo en juegos de mesa. Torneos = subactividades elegibles en el mismo formulario. `voluntariado_modo = 'adultos'`. |
+| **Talleres** (juegos de mesa, rol, ciencias, Warhammer) | Solo alumnos de ciertos cursos, aforo por orden de llegada. Socios gratis; externos por la web pública (`abierto_no_socios`) con alumno, curso en rango, adulto responsable, teléfono, email y justificante (`precio_invitado`). Pregunta opcional (`pregunta_extra`/`pregunta_opciones`): Patines solo en juegos de mesa. Torneos = subactividades elegibles en el mismo formulario. `voluntariado_modo = 'adultos'`. Al apuntar a un alumno/a socio (plantillas `juegos`, `taller` y `warhammer`) se pregunta si lo recoge una persona diferente (Sí/No; si es Sí, nombre, apellidos y móvil, y esa persona sale como adulto responsable en Inscritos y en el Excel); a los no socios no, porque ya escriben el adulto responsable. En Warhammer se puede marcar que sale solo/a. Con `pide_instrucciones` se piden además instrucciones especiales (sale antes, llega tarde...). Lo comprueba el trigger `eventos_validar_recogida` ; salir solo/a y las instrucciones van en la columna Notas del listado en Excel (`shared/recogida.js`). |
 | **Barbacoa** | Solo alumnos (gratis); los adultos no se apuntan y pagan en la entrada (`precio_adulto`, informativo). Subactividades con aforo, solo para alumnos apuntados al evento. Externos solo a subactividades (`publico_solo_actividades`) con `aviso_no_socios`. Voluntarios como en la Chocolatada. |
 | **Visita al comedor** | Solo adultos, `sorteo` + `usa_prioridad_historial`: primero entre quienes nunca fueron; si sobran plazas, entre los que ya fueron. |
 | **Concurso literario** | `usa_concurso_texto`: un texto por alumno en Word (.docx, bucket privado `concursos`, nombre al azar) o escrito; anónimo hasta elegir ganador. El texto del Word se extrae en el navegador con mammoth para leerlo en el panel. `concurso_envios.metadatos` guarda datos del Word (minutos de edición, revisiones, fechas, programa; nunca el autor) o, si se escribe en la web, tiempo y caracteres pegados; el panel muestra «Revisar» como pista orientativa para el jurado. |
@@ -503,6 +503,16 @@ La inscripción pública va por `evento_inscribir_publico()` (todo o nada).
     Al firmar, el documento se rellena con los datos del adulto que firma
     (releídos con `getAdulto()`, sin "PENDIENTE"; `localidad` = su ciudad)
     y el IBAN de la familia precargado.
+  - **Domiciliación ⇔ IBAN**: una cuenta con domiciliación tiene IBAN y
+    al revés (trigger `socios_normalizar_pago` + restricción
+    `socios_domiciliacion_iban`). La familia no cambia `forma_pago` ni
+    `iban` a mano (`proteger_campos_socio`): solo firmando el mandato.
+    Si elige domiciliación en el alta queda `sepa_pendiente` (sin forma
+    de pago) y la web le pide firmar: en `estado-recien-creada.html`
+    mientras se revisa el alta y, ya activa, `requireAuth` la lleva a
+    Mis datos hasta que firma o elige transferencia
+    (`socio_pagar_por_transferencia()`). El formulario de firma es
+    `montarFirmaSepa()` de `shared/mandatoSepa.js`.
   - `admin-sepa.html`: pestañas "Plantilla y acreedor" / "Mandatos
     firmados". `mis-datos.html` ya no muestra el aviso de "pendiente" —
     el botón "Domiciliar / cambiar cuenta bancaria" abre el formulario

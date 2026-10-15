@@ -107,12 +107,11 @@ document.getElementById('ejemploBtn').addEventListener('click', async () => {
   const msg = document.getElementById('ejemploMsg');
   msg.style.display = 'block'; msg.className = ''; msg.textContent = 'Generando...';
   try {
-    const blob = await generarMandatoSepaPdf({
+    await abrirEnPestana(async () => URL.createObjectURL(await generarMandatoSepaPdf({
       referencia: '2026-0000', titular: 'Nombre Apellido Apellido', direccion: 'Calle Ejemplo 12, 3º A',
       cpPoblacion: '28022 - Madrid - Madrid', pais: 'España', bic: 'CAIXESBB',
       iban: 'ES9121000418450200051332', fechaLugar: new Date().toLocaleDateString('es-ES') + ' – Madrid'
-    });
-    window.open(URL.createObjectURL(blob), '_blank');
+    })));
     msg.style.display = 'none';
   } catch (err) { msg.className = 'msg-error'; msg.textContent = 'No se pudo generar: ' + err.message; }
 });

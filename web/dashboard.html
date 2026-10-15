@@ -191,12 +191,13 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="shared/supabaseClient.js"></script>
+<script src="shared/sesiones.js"></script>
 <script src="shared/nav.js"></script>
 <script src="shared/mochila.js"></script>
 <script>
 let ctxGlobal = null;
 const esc = (t) => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const fechaCorta = (f) => new Date(f).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' });
+const fechaCorta = (f) => f ? new Date(f).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' }) : 'fecha por publicar';
 const ahora = () => new Date();
 const vigente = (conv) => conv && conv.estado === 'abierta' && new Date(conv.fecha_cierre) > ahora();
 const nombres = (lista) => lista.length <= 1 ? lista.join('') : lista.slice(0, -1).join(', ') + ' y ' + lista[lista.length - 1];
@@ -293,7 +294,7 @@ function alumnoCumple(al, e) {
 
 
 /* ---------- Calendario de eventos ---------- */
-const COLOR_TIPO = { chocolatada: 'rosa', cabalgata: 'cielo', juegos: 'amarillo', taller: 'amarillo', barbacoa: 'verde', comedor: 'morado', concurso: 'rosa', informativo: 'morado', loteria: 'verde' };
+const COLOR_TIPO = { warhammer: 'morado', chocolatada: 'rosa', cabalgata: 'cielo', juegos: 'amarillo', taller: 'amarillo', barbacoa: 'verde', comedor: 'morado', concurso: 'rosa', informativo: 'morado', loteria: 'verde' };
 function colorEvento(e) {
   if (COLOR_TIPO[e.plantilla]) return COLOR_TIPO[e.plantilla];
   const paleta = ['verde', 'rosa', 'amarillo', 'cielo', 'morado'];
@@ -302,8 +303,14 @@ function colorEvento(e) {
 const claveDia = (d) => d.getFullYear() + '-' + d.getMonth() + '-' + d.getDate();
 
 async function montarCalendario(apuntadosIds) {
-  const { data } = await sb.from('eventos').select('id, titulo, fecha, plantilla').eq('activo', true).not('fecha', 'is', null).order('fecha');
-  const eventos = (data || []).map(e => ({ ...e, f: new Date(e.fecha) }));
+  const { data } = await sb.from('eventos').select('id, titulo, fecha, plantilla').eq('activo', true).order('fecha');
+  // Los cursos por sesiones salen en el calendario sesión a sesión
+  const cursos = (data || []).filter(ES_CURSO);
+  const sesiones = await cargarSesiones(cursos.map(e => e.id));
+  const eventos = [
+    ...(data || []).filter(e => !ES_CURSO(e) && e.fecha),
+    ...cursos.flatMap(e => (sesiones[e.id] || []).filter(s => s.fecha).map(s => ({ ...e, titulo: `${e.titulo} · Sesión ${s.numero}`, fecha: s.fecha })))
+  ].map(e => ({ ...e, f: new Date(e.fecha) })).sort((a, b) => a.f - b.f);
   if (!eventos.length) return;
   document.getElementById('bloqueCalendario').hidden = false;
 
@@ -361,11 +368,21 @@ async function montarCalendario(apuntadosIds) {
 async function estadoEventos(socioId, alumnos) {
   const pend = [];
   const [{ data: eventos }, { data: insc }, { data: textos }] = await Promise.all([
-    sb.from('eventos').select('*').eq('activo', true).gte('fecha', ahora().toISOString()).order('fecha'),
+    sb.from('eventos').select('*').eq('activo', true).or(`fecha.gte.${ahora().toISOString()},plantilla.eq.warhammer`).order('fecha'),
     sb.from('evento_inscripciones').select('evento_id').eq('socio_id', socioId),
     sb.from('concurso_identidades').select('alumno_id, concurso_envios(evento_id)').eq('socio_id', socioId)
   ]);
   if (!eventos || !eventos.length) return pend;
+  // Cursos por sesiones: cuentan mientras no hayan terminado, con la fecha de la próxima sesión
+  const ses = await cargarSesiones(eventos.filter(ES_CURSO).map(e => e.id));
+  for (let k = eventos.length - 1; k >= 0; k--) {
+    const e = eventos[k];
+    if (!ES_CURSO(e)) continue;
+    if (cursoTerminado(ses[e.id])) { eventos.splice(k, 1); continue; }
+    e.fecha = fechaVisibleCurso(e, ses[e.id]);
+  }
+  eventos.sort((a, b) => (a.fecha ? new Date(a.fecha) : Infinity) - (b.fecha ? new Date(b.fecha) : Infinity));
+  if (!eventos.length) return pend;
   const apuntados = new Set((insc || []).map(i => i.evento_id));
   const misEventos = eventos.filter(e => apuntados.has(e.id));
   for (const e of eventos) {
@@ -389,7 +406,7 @@ async function estadoEventos(socioId, alumnos) {
       if (libres != null && libres <= 0) continue;
     }
     pend.push({ tipo: 'eventos', href: 'eventos.html', titulo: e.titulo, accion: 'Apuntarse',
-      detalle: `${cierre} Es el ${fechaCorta(e.fecha)}.` });
+      detalle: `${cierre} ${ES_CURSO(e) ? (e.fecha ? 'Próxima sesión: ' + fechaCorta(e.fecha) : 'Las fechas de las sesiones se irán publicando') : 'Es el ' + fechaCorta(e.fecha)}.` });
   }
   tarjeta('tEventos', misEventos.length
     ? `Apuntados a ${misEventos[0].titulo} (${fechaCorta(misEventos[0].fecha)})${misEventos.length > 1 ? ` y ${misEventos.length - 1} más` : ''}.`

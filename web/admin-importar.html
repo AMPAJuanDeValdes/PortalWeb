@@ -51,7 +51,7 @@
         <label>Forma de pago</label>
         <select id="mFormaPago"><option value="">Sin especificar</option><option>Transferencia</option><option>Domiciliación Bancaria</option></select>
       </div>
-      <div class="field"><label>IBAN</label><input type="text" id="mIban"></div>
+      <div class="field"><label>IBAN</label><input type="text" id="mIban"><small class="campo-ayuda">Con IBAN, la forma de pago es domiciliación. Domiciliación sin IBAN: la familia firmará la orden SEPA al entrar.</small></div>
     </div>
     <div class="field" style="margin-top:14px; max-width:420px;">
       <label for="mEstado">Estado de la cuenta</label>
@@ -275,6 +275,13 @@ document.getElementById('manualBtn').addEventListener('click', async () => {
       return;
     }
   }
+  // Domiciliación ⇔ IBAN
+  if (document.getElementById('mIban').value.trim() && document.getElementById('mFormaPago').value === 'Transferencia') {
+    document.getElementById('mIban').classList.add('campo-error');
+    msg.style.display = 'block'; msg.className = 'msg-error';
+    msg.textContent = 'Con IBAN, la forma de pago es domiciliación bancaria. Cámbiala o borra el IBAN.';
+    return;
+  }
   const fila = {
     anio_ultima_cuota: document.getElementById('mAnio').value.trim(),
     numero_secuencial: document.getElementById('mSecuencial').value.trim(),
@@ -345,6 +352,13 @@ document.getElementById('manualBtn').addEventListener('click', async () => {
   if (!ctx) return;
   renderNav('admin-importar', ctx);
 })();
+</script>
+<script>
+// Al escribir un IBAN, la forma de pago pasa a domiciliación
+document.getElementById('mIban').addEventListener('input', (e) => {
+  e.target.classList.remove('campo-error');
+  if (e.target.value.trim()) document.getElementById('mFormaPago').value = 'Domiciliación Bancaria';
+});
 </script>
 <script src="shared/sonido.js"></script>
 <script src="shared/vida.js"></script>

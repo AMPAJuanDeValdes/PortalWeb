@@ -91,6 +91,8 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="shared/supabaseClient.js"></script>
+<script src="shared/sesiones.js"></script>
+<script src="shared/recogida.js"></script>
 <script src="shared/datos-ampa.js"></script>
 <script src="shared/carrusel.js"></script>
 <script src="shared/documentoRellenable.js"></script>
@@ -182,7 +184,7 @@ function textoError(error) {
 }
 
 // Eventos a la misma hora: id -> [ids de los incompatibles] y títulos
-let INCOMPAT = {}, TITULO_EVENTO = {};
+let INCOMPAT = {}, TITULO_EVENTO = {}, SESIONES = {};
 const incompatiblesDe = (id) => INCOMPAT[id] || [];
 const listaTitulos = (ids) => {
   const t = ids.map(id => '«' + TITULO_EVENTO[id] + '»').filter(x => x !== '«undefined»');
@@ -201,6 +203,7 @@ async function cargarEventos() {
     (INCOMPAT[x.evento_b] = INCOMPAT[x.evento_b] || []).push(x.evento_a);
   });
   TITULO_EVENTO = Object.fromEntries((eventos || []).map(e => [e.id, e.titulo]));
+  SESIONES = await cargarSesiones((eventos || []).filter(ES_CURSO).map(e => e.id));
   document.getElementById('loadingMsg').style.display = 'none';
   if (error) { cont.innerHTML = '<p class="msg-error">No se pudieron cargar los eventos. Recarga la página.</p>'; return; }
 
@@ -275,6 +278,7 @@ async function renderEvento(evento) {
 
 function textoPrecios(ev) {
   const partes = [];
+  if (ES_CURSO(ev)) return 'Gratis para los alumnos socios.' + (Number(ev.precio_invitado) > 0 ? ` No socios: ${euros(ev.precio_invitado)} el curso completo.` : '');
   const pAlumno = Number(ev.precio_alumno) || 0, pAdulto = Number(ev.precio_adulto) || 0;
   if (ev.tipo_elegibilidad !== 'adultos' && (pAlumno || pAdulto)) partes.push(pAlumno ? `Alumnos socios: ${euros(pAlumno)}.` : 'Alumnos socios: gratis.');
   if (pAdulto) partes.push(ev.tipo_elegibilidad === 'alumnos'
@@ -307,6 +311,7 @@ const TIPOS_VISUAL = {
   comedor: ['morado', '<path d="M7 3v8M5 3v5a2 2 0 0 0 4 0V3M7 11v10M17 3c-2 0-3 2-3 6h3v12"/>'],
   concurso: ['rosa', '<path d="M4 20l4-1 11-11-3-3L5 16z"/><path d="M14 6l3 3"/>'],
   loteria: ['verde', '<path d="M3 8a2 2 0 0 0 0 4v4h18v-4a2 2 0 0 0 0-4V4H3z"/><path d="M14 4v12" stroke-dasharray="2 2"/>'],
+  warhammer: ['morado', '<path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/>'],
   informativo: ['morado', '<path d="M8 4h8v5a4 4 0 0 1-8 0zM5 5h3v2a3 3 0 0 1-3-2zM19 5h-3v2a3 3 0 0 0 3-2zM12 13v4M8 20h8"/>']
 };
 const ICONO_EVENTO = '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>';
@@ -325,13 +330,15 @@ function cabeceraEvento(evento) {
   card.className = 'card evento-card t-' + color;
   card.id = 'ev-' + evento.id;
   const precios = textoPrecios(evento);
-  const f = evento.fecha ? new Date(evento.fecha) : null;
+  // Curso por sesiones: se muestra la próxima sesión, no la fecha del evento
+  const curso = ES_CURSO(evento), prox = curso ? proximaSesion(SESIONES[evento.id]) : null;
+  const f = curso ? (prox ? new Date(prox.fecha) : null) : evento.fecha ? new Date(evento.fecha) : null;
   card.innerHTML = `
     <header class="ev-cab">
       ${f ? `<div class="ev-fecha"><span>${f.toLocaleDateString('es-ES', { month: 'short' }).replace('.', '')}</span><b>${f.getDate()}</b><span>${f.toLocaleDateString('es-ES', { weekday: 'short' }).replace('.', '')}</span></div>` : '<div class="ev-fecha"><b>?</b><span>fecha</span></div>'}
       <div class="ev-tit">
         <h2>${esc(evento.titulo)}</h2>
-        <p class="ev-hora">${f ? f.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }) + ', a las ' + f.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : 'Fecha por confirmar'}${evento.lugar ? '. Lugar: ' + esc(evento.lugar) : ''}</p>
+        <p class="ev-hora">${curso ? (prox ? 'Próxima sesión: ' : (cursoTerminado(SESIONES[evento.id]) ? 'Curso terminado' : 'Las fechas de las sesiones se irán publicando')) : ''}${f ? f.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }) + ', a las ' + f.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : curso ? '' : 'Fecha por confirmar'}${evento.lugar ? '. Lugar: ' + esc(evento.lugar) : ''}</p>
         <div class="etiquetas"></div>
       </div>
       <svg class="ev-icono" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icono}</svg>
@@ -339,6 +346,7 @@ function cabeceraEvento(evento) {
     <div class="eventoCarrusel ev-fotos"></div>
     ${evento.descripcion ? `<p class="ev-desc">${esc(evento.descripcion)}</p>` : ''}
     ${precios ? `<p class="precios">${esc(precios)}</p>` : ''}
+    ${curso && SESIONES[evento.id] ? `<div class="bloque-sesiones"><h3>Las ${SESIONES[evento.id].length} sesiones del curso</h3><p class="ayuda">Al apuntarse, el alumno o alumna va a todas las sesiones, aunque el curso ya haya empezado. Pulsa una sesión para ver qué se hace.</p>${htmlSesiones(SESIONES[evento.id])}</div>` : ''}
     ${!evento.sin_inscripcion && listaTitulos(incompatiblesDe(evento.id)) ? `<p class="ev-incompat">Es a la misma hora que ${esc(listaTitulos(incompatiblesDe(evento.id)))}: cada alumno o alumna solo puede apuntarse a uno de ellos.</p>` : ''}
     <div class="ev-premios"></div>
   `;
@@ -388,10 +396,12 @@ function camposPersona(evento, tipo, opciones = {}) {
     html += `<div class="field"><label for="${id}p">${esc(evento.pregunta_extra)}</label>
       <select id="${id}p"><option value="">Elige una opción</option>${evento.pregunta_opciones.map(o => `<option>${esc(o)}</option>`).join('')}</select></div>`;
   }
+  if (tipo === 'alumno') html += htmlRecogida(evento, id);   // talleres: quién lo recoge, instrucciones
   if (opciones.pideResponsable) {
     html += camposAcompanante(id);
   }
   wrap.innerHTML = html;
+  activarRecogida(wrap, id);
   const q = (s) => wrap.querySelector('#' + id + s);
   wrap.querySelectorAll('input').forEach(i => i.addEventListener('input', () => i.classList.remove('campo-error')));
   wrap.querySelectorAll(`input[name="${id}al"]`).forEach(r => r.addEventListener('change', () => { q('alt').hidden = r.value !== 'si' || !r.checked; }));
@@ -427,6 +437,11 @@ function camposPersona(evento, tipo, opciones = {}) {
       datos.respuesta_extra = q('p').value;
       if (!datos.respuesta_extra) return { error: 'Responde: ' + evento.pregunta_extra };
     }
+    if (tipo === 'alumno') {
+      const r = leerRecogida(evento, wrap, id);
+      if (r.error) return r;
+      Object.assign(datos, r.datos);
+    }
     if (q('rn')) {
       datos._acomp = { numero: q('rn').value.trim(), nombre: q('rnom').value.trim() };
       if (!datos._acomp.numero || !datos._acomp.nombre) return { error: 'Escribe el número de socio y el nombre del adulto que le acompaña.' };
@@ -458,6 +473,11 @@ function detalleInscripcion(i, evento) {
   if (evento.pide_alergias) partes.push(i.tiene_alergias ? 'Alergias: ' + (i.alergias || 'sí') : 'Sin alergias');
   if (i.respuesta_extra) partes.push(i.respuesta_extra);
   if (i.responsable_nombre) partes.push('Va con ' + i.responsable_nombre);
+  if (i.tipo_miembro === 'alumno') {
+    const r = textoRecogida(i);
+    if (r) partes.push(r);
+    else if (i.recoge_otra === false) partes.push('Lo recoge la familia');
+  }
   return partes.join('. ');
 }
 

@@ -10,7 +10,6 @@ const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 const ETAPAS_VALIDAS = ['Infantil', 'Primaria', 'ESO', 'Bachillerato'];
 const AULAS_VALIDAS = ['A', 'B', 'C', 'D'];
-const FORMAS_PAGO_VALIDAS = ['Transferencia', 'Domiciliación Bancaria'];
 
 function generarPassword() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
@@ -91,8 +90,23 @@ exports.handler = async (event) => {
   for (const fila of filas) {
     const anio_ultima_cuota = parseInt(String(fila.anio_ultima_cuota || '').trim(), 10);
     const numeroDado = String(fila.numero_secuencial || '').trim();
-    const forma_pago = FORMAS_PAGO_VALIDAS.includes(String(fila.forma_pago || '').trim()) ? String(fila.forma_pago).trim() : null;
-    const iban = String(fila.iban || '').trim() || null;
+    // Admite «domiciliación», «Domiciliacion bancaria», «transferencia»...
+    const fp = String(fila.forma_pago || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    let forma_pago = fp.startsWith('domicili') ? 'Domiciliación Bancaria' : fp.startsWith('transfer') ? 'Transferencia' : null;
+    const iban = String(fila.iban || '').replace(/[\s-]/g, '').toUpperCase() || null;
+    // Domiciliación ⇔ IBAN. Con IBAN la forma de pago es domiciliación; con
+    // domiciliación pero sin IBAN, la familia firmará la orden SEPA al entrar.
+    let sepa_pendiente = false;
+    if (iban && !/^[A-Z]{2}[0-9]{2}[A-Z0-9]{10,30}$/.test(iban)) {
+      resultados.push({ ok: false, error: 'El IBAN no es válido: ' + fila.iban, nombre_titular: fila.adulto1_nombre || '' });
+      continue;
+    }
+    if (iban && forma_pago === 'Transferencia') {
+      resultados.push({ ok: false, error: 'Tiene IBAN pero la forma de pago es transferencia: con IBAN es domiciliación (o quita el IBAN)', nombre_titular: fila.adulto1_nombre || '' });
+      continue;
+    }
+    if (iban) forma_pago = 'Domiciliación Bancaria';
+    else if (forma_pago === 'Domiciliación Bancaria') { forma_pago = null; sepa_pendiente = true; }
     // Cuenta inactiva (falta de pago): igual que tras el reseteo del 31 de julio
     const inactiva = ['inactiva', 'falta_pago', 'falta de pago'].includes(String(fila.estado || '').trim().toLowerCase());
 
@@ -135,7 +149,7 @@ exports.handler = async (event) => {
       const numero_secuencial = numeroDado || (await supabaseAdmin.rpc('siguiente_numero_secuencial')).data;
 
       const { data: socio, error: socioError } = await supabaseAdmin.from('socios').insert({
-        anio_ultima_cuota, numero_secuencial, forma_pago, iban, estado: inactiva ? 'falta_pago' : 'activa'
+        anio_ultima_cuota, numero_secuencial, forma_pago, iban, sepa_pendiente, estado: inactiva ? 'falta_pago' : 'activa'
       }).select('id, numero_socio_completo').single();
       if (socioError) {
         if (socioError.code === '23505') throw new Error('El número de socio ' + numero_secuencial + ' ya está en uso para ese año.');

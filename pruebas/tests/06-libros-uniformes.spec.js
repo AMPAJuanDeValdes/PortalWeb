@@ -64,9 +64,12 @@ test.describe('Libros y uniformes', () => {
   });
 
   test('Libros: registrar una compra la suma a los totales y al gasto', async ({ page }) => {
+    // Un libro de vuestro catálogo real (los títulos cambian con los cursos)
+    const { data: libros } = await admin.from('libros_catalogo').select('titulo').order('titulo').limit(1);
+    test.skip(!libros || !libros.length, 'El catálogo está vacío');
     await page.goto('/admin-libros.html');
     await page.click('.tab-btn[data-tab="demanda"]');
-    const fila = page.locator('#dTablaWrap tr', { hasText: 'Tales from Camelot' });
+    const fila = page.locator('#dTablaWrap tr', { hasText: libros[0].titulo }).first();
     await expect(fila).toBeVisible();
     await fila.locator('.cCant').fill('2');
     await fila.locator('.cEstado').selectOption('reservado');

@@ -117,7 +117,7 @@
   /* ---------- Qué hacemos: los servicios pasan de lado mientras bajas (dos a la vez) ---------- */
   .que-intro{ padding-top:110px; padding-bottom:20px; }
   .carril{ position:relative; height:calc(100vh + (var(--n, 4) - 2) * 55vh); }
-  .carril-pin{ position:sticky; top:0; height:100vh; overflow:hidden; display:flex; align-items:center; }
+  .carril-pin{ position:sticky; top:0; height:100vh; height:100svh; overflow:hidden; display:flex; align-items:center; }
   .pista{ display:flex; gap:24px; padding-left:max(24px, calc((100vw - 1152px) / 2)); padding-right:max(24px, calc((100vw - 1152px) / 2)); will-change:transform; }
   /* Cada panel: icono junto al título y el texto debajo */
   .panel{ flex:0 0 auto; width:calc((min(100vw, 1200px) - 48px - 24px) / 2); border-radius:36px; padding:clamp(26px,3vw,40px); position:relative; overflow:hidden;
@@ -475,6 +475,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="shared/supabaseClient.js"></script>
+<script src="shared/sesiones.js"></script>
 <script src="shared/datos-ampa.js"></script>
 <script src="shared/sonido.js"></script>
 <script src="shared/vida.js"></script>
@@ -520,9 +521,14 @@ async function cargarFotos() {
 
 /* ---------- Próximos eventos (oculto si no hay) ---------- */
 async function cargarEventos() {
-  const { data, error } = await sb.from('eventos').select('id, titulo, fecha, abierto_no_socios, sin_inscripcion, lugar')
-    .eq('activo', true).gte('fecha', new Date().toISOString()).order('fecha').limit(4);
-  if (error || !data || !data.length) return;
+  const { data: todos, error } = await sb.from('eventos').select('id, titulo, fecha, plantilla, abierto_no_socios, sin_inscripcion, lugar')
+    .eq('activo', true).or(`fecha.gte.${new Date().toISOString()},plantilla.eq.warhammer`).order('fecha');
+  if (error || !todos || !todos.length) return;
+  // Cursos por sesiones: con la fecha de su próxima sesión (si ya está publicada)
+  const ses = await cargarSesiones(todos.filter(ES_CURSO).map(e => e.id));
+  const data = todos.map(e => ES_CURSO(e) ? { ...e, fecha: fechaVisibleCurso(e, ses[e.id]) } : e)
+    .filter(e => e.fecha).sort((a, b) => new Date(a.fecha) - new Date(b.fecha)).slice(0, 4);
+  if (!data.length) return;
   const socio = document.body.classList.contains('es-socio');
   document.getElementById('eventosLista').innerHTML = data.map((ev, k) => {
     const f = new Date(ev.fecha);

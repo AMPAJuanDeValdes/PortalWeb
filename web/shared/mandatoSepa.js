@@ -187,3 +187,162 @@ function montarPadFirma(contenedor) {
 
   return { vacio: () => trazos === 0, dataUrl, borrar: ajustar };
 }
+
+/* ---------- Formulario para firmar el mandato (Mis datos y alta) ----------
+   Rellena el mandato con los datos del adulto que firma, lo enseña para
+   revisarlo y, al confirmar, lo guarda y domicilia la cuota de la familia
+   (rpc mandato_sepa_firmar). alCancelar: si no se pasa, no hay «Cancelar»
+   (cuando la familia tiene que firmar sí o sí). */
+function montarFirmaSepa(zona, { socio, adulto, mandatoVigente = null, alCancelar = null, alFirmar = null }) {
+  const limpio = (v) => (v === 'PENDIENTE' || v === '00000' || v == null) ? '' : String(v).trim();
+  const esc = (v) => String(v || '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+  const original = {
+    titular: [limpio(adulto.nombre), limpio(adulto.apellidos)].filter(Boolean).join(' '),
+    direccion: limpio(adulto.direccion),
+    cpPoblacion: [limpio(adulto.codigo_postal), limpio(adulto.ciudad), limpio(adulto.provincia)].filter(Boolean).join(' - '),
+    pais: 'España',
+    localidad: limpio(adulto.ciudad)
+  };
+  const ibanInicial = (mandatoVigente && mandatoVigente.iban) || socio.iban || '';
+
+  zona.innerHTML = `
+    <div class="sepa-form">
+      <div class="aviso" style="margin-top:0;">El mandato es de <b>toda la familia</b>: uno por socio.${mandatoVigente ? ' Si firmas uno nuevo, <b>sustituye al actual</b>.' : ''}
+        Revisa tus datos y firma: el documento se rellena solo.</div>
+
+      <div class="field"><label for="sTitular">Titular de la cuenta</label><input type="text" id="sTitular" autocomplete="name" value="${esc(original.titular)}"></div>
+      <div class="field"><label for="sDireccion">Dirección</label><input type="text" id="sDireccion" autocomplete="street-address" value="${esc(original.direccion)}"></div>
+      <div class="two-col">
+        <div class="field"><label for="sCp">Código postal, población y provincia</label><input type="text" id="sCp" value="${esc(original.cpPoblacion)}"></div>
+        <div class="field"><label for="sPais">País</label><input type="text" id="sPais" value="${esc(original.pais)}"></div>
+      </div>
+      <div class="two-col">
+        <div class="field"><label for="sIban">IBAN</label><input type="text" id="sIban" inputmode="text" autocomplete="off" spellcheck="false" placeholder="ES00 0000 0000 0000 0000 0000" value="${esc(ibanInicial ? formatearIban(ibanInicial) : '')}" style="font-family:ui-monospace,Menlo,Consolas,monospace; letter-spacing:.02em;"><small class="campo-ayuda" id="sIbanAyuda"></small></div>
+        <div class="field"><label for="sBic">Código BIC del banco</label><input type="text" id="sBic" autocomplete="off" spellcheck="false" style="text-transform:uppercase;"><small class="campo-ayuda">Se rellena solo con los bancos más habituales. Si no, viene en tu extracto o en la web de tu banco.</small></div>
+      </div>
+      <div class="field"><label for="sLocalidad">Localidad donde firmas</label><input type="text" id="sLocalidad" value="${esc(original.localidad)}"></div>
+
+      <div class="field"><label>Firma</label><div id="sFirma"></div></div>
+
+      <div class="acciones-sepa">
+        <button type="button" class="btn btn-primary" id="sRevisar">Ver el documento</button>
+        ${alCancelar ? '<button type="button" class="linklike" id="sCancelar">Cancelar</button>' : ''}
+      </div>
+      <p id="sMsg" class="msg-error" hidden></p>
+    </div>
+    <div class="sepa-preview" hidden>
+      <p style="margin:0 0 10px;">Así queda tu mandato. Si todo está bien, confírmalo.</p>
+      <img id="sPreviewImg" alt="Vista previa del mandato firmado">
+      <div class="acciones-sepa">
+        <button type="button" class="btn btn-primary" id="sConfirmar">Confirmar y domiciliar</button>
+        <button type="button" class="btn btn-outline" id="sCorregir">Corregir</button>
+      </div>
+      <p id="sMsg2" hidden></p>
+    </div>`;
+
+  const $ = (id) => document.getElementById(id);
+  const pad = montarPadFirma($('sFirma'));
+  const iban = $('sIban'), bic = $('sBic'), ayuda = $('sIbanAyuda');
+  let bicTocado = false;
+  function revisarIban() {
+    const v = validarIban(iban.value);
+    if (!bicTocado) bic.value = v.ok ? bicDesdeIban(v.limpio) : '';
+    ayuda.textContent = !iban.value.trim() ? '' : v.ok ? 'IBAN correcto ✓' : v.mensaje;
+    ayuda.className = 'campo-ayuda ' + (!iban.value.trim() ? '' : v.ok ? 'ok' : 'error');
+    return v;
+  }
+  iban.addEventListener('input', revisarIban);
+  iban.addEventListener('blur', () => { if (validarIban(iban.value).ok) iban.value = formatearIban(iban.value); });
+  bic.addEventListener('input', () => { bicTocado = true; });
+  revisarIban();
+  if (alCancelar) $('sCancelar').addEventListener('click', alCancelar);
+
+  let pdfBlob = null, datos = null;
+  $('sRevisar').addEventListener('click', async () => {
+    const msg = $('sMsg'); msg.hidden = true;
+    const v = revisarIban();
+    const val = (id) => $(id).value.trim();
+    const falta = [['sTitular', 'el titular'], ['sDireccion', 'la dirección'], ['sCp', 'el código postal y la población'], ['sPais', 'el país'], ['sLocalidad', 'la localidad']]
+      .filter(([id]) => !val(id)).map(([, n]) => n);
+    let error = '';
+    if (falta.length) error = 'Falta ' + falta.join(', ') + '.';
+    else if (!v.ok) error = v.mensaje;
+    else if (!/^[A-Z0-9]{8}([A-Z0-9]{3})?$/.test(val('sBic').toUpperCase())) error = 'El BIC tiene 8 u 11 letras y números.';
+    else if (pad.vacio()) error = 'Falta tu firma.';
+    if (error) { msg.textContent = error; msg.hidden = false; return; }
+
+    datos = {
+      referencia: socio.numero_socio_completo || '',
+      titular: val('sTitular'), direccion: val('sDireccion'), cpPoblacion: val('sCp'), pais: val('sPais'),
+      bic: val('sBic').toUpperCase(), iban: v.limpio,
+      fechaLugar: new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' – ' + val('sLocalidad'),
+      firmaPng: pad.dataUrl()
+    };
+    const btn = $('sRevisar'); btn.disabled = true; btn.textContent = 'Preparando el documento...';
+    try {
+      pdfBlob = await generarMandatoSepaPdf(datos);
+      const url = URL.createObjectURL(pdfBlob);
+      const { dataUrl } = await renderizarPaginaPDF(url, 1);
+      URL.revokeObjectURL(url);
+      $('sPreviewImg').src = dataUrl;
+      hacerAmpliable($('sPreviewImg'));
+      zona.querySelector('.sepa-form').hidden = true;
+      zona.querySelector('.sepa-preview').hidden = false;
+      zona.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } catch (err) {
+      msg.textContent = 'No se pudo preparar el documento: ' + err.message; msg.hidden = false;
+    } finally { btn.disabled = false; btn.textContent = 'Ver el documento'; }
+  });
+
+  $('sCorregir').addEventListener('click', () => {
+    zona.querySelector('.sepa-preview').hidden = true;
+    zona.querySelector('.sepa-form').hidden = false;
+  });
+
+  $('sConfirmar').addEventListener('click', async () => {
+    const btn = $('sConfirmar'), msg = $('sMsg2');
+    btn.disabled = true; btn.textContent = 'Guardando...';
+    const fallo = (t) => { msg.className = 'msg-error'; msg.textContent = t; msg.hidden = false; btn.disabled = false; btn.textContent = 'Confirmar y domiciliar'; };
+
+    const path = `${socio.id}/${Date.now()}.pdf`;
+    const { error: upErr } = await sb.storage.from('mandatos-sepa').upload(path, pdfBlob, { contentType: 'application/pdf' });
+    if (upErr) return fallo('No se pudo guardar el documento: ' + upErr.message);
+
+    const { firmaPng, ...datosFinales } = datos;
+    const avisoDiferencias = ['titular', 'direccion', 'cpPoblacion', 'pais'].some(k => datos[k] !== original[k]);
+    const { error } = await sb.rpc('mandato_sepa_firmar', {
+      p_iban: datos.iban, p_archivo_url: path, p_datos_finales: datosFinales, p_aviso_diferencias: avisoDiferencias
+    });
+    if (error) return fallo('No se pudo registrar el mandato: ' + error.message);
+
+    zona.innerHTML = '<p class="msg-ok">Mandato firmado ✓. La cuota de la familia ya está domiciliada en esta cuenta.</p>';
+    if (alFirmar) alFirmar();
+  });
+}
+
+/* ---------- Domiciliación elegida en el alta y todavía sin firmar ----------
+   (socios.sepa_pendiente). Hasta que se firme la orden SEPA, la cuenta no
+   tiene domiciliación (sin IBAN no hay domiciliación). La familia firma
+   aquí o, si lo prefiere, pasa a pagar por transferencia. */
+function montarSepaPendiente(contenedor, { socio, adulto, alTerminar }) {
+  contenedor.innerHTML = `
+    <p class="section-label">Falta firmar la orden de domiciliación</p>
+    <p style="margin:0 0 6px;">Elegisteis pagar las cuotas por <b>domiciliación bancaria</b>. Para que se pueda cobrar, firma la orden SEPA con la cuenta de la familia.</p>
+    <p style="margin:0;"><button type="button" class="linklike sepaTransferencia">Prefiero pagar por transferencia</button></p>
+    <p class="msg-error sepaPendMsg" hidden></p>
+    <div class="sepaPendForm" style="margin-top:12px;"></div>`;
+  montarFirmaSepa(contenedor.querySelector('.sepaPendForm'), {
+    socio, adulto, alFirmar: () => setTimeout(alTerminar, 1400)
+  });
+  contenedor.querySelector('.sepaTransferencia').addEventListener('click', async (e) => {
+    if (!confirm('¿Pagar las cuotas por transferencia en vez de domiciliación?')) return;
+    e.target.disabled = true;
+    const { error } = await sb.rpc('socio_pagar_por_transferencia');
+    if (error) {
+      const m = contenedor.querySelector('.sepaPendMsg');
+      m.textContent = 'No se pudo cambiar: ' + error.message; m.hidden = false; e.target.disabled = false; return;
+    }
+    alTerminar();
+  });
+}

@@ -278,6 +278,8 @@ img[src*="logo-ampa"]{ mix-blend-mode:multiply; }
 input:disabled, select:disabled, textarea:disabled{ background:#F3F5F9; color:var(--ink-soft); cursor:not-allowed; }
 
 /* ---------- Mandato SEPA: formulario + firma ---------- */
+.sepa-form .two-col{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+@media (max-width:560px){ .sepa-form .two-col{ grid-template-columns:1fr; } }
 .sepa-form .field, .sepa-form .two-col{ margin-top:14px; }
 .sepa-form .two-col .field{ margin-top:0; }
 .campo-ayuda{ display:block; margin-top:5px; font-size:13.5px; color:var(--ink-soft); }
@@ -631,3 +633,29 @@ body > .wrap, body > main{ position:relative; z-index:0; isolation:isolate; }
 .sepa-preview img{ background:#fff; }
 
 .nota-edad{ margin:8px 0 0; display:inline-block; background:#E6F2D8; color:#2E5A0A; border-radius:999px; padding:4px 14px; font-size:15px; font-weight:700; }
+
+/* Cursos por sesiones (Curso de Warhammer 40,000) */
+.bloque-sesiones{ margin-top:14px; }
+.bloque-sesiones h3{ margin:0 0 4px; }
+.sesiones{ list-style:none; margin:10px 0 0; padding:0; display:grid; gap:6px; }
+.sesion details{ border:1px solid var(--line); border-radius:14px; background:#fff; }
+.sesion summary{ display:flex; gap:12px; align-items:center; padding:10px 12px; cursor:pointer; list-style:none; }
+.sesion summary::-webkit-details-marker{ display:none; }
+.sesion .s-num{ flex:0 0 30px; height:30px; border-radius:50%; display:grid; place-items:center; font-weight:800; background:#EEF1F6; color:var(--ink); font-size:15px; }
+.sesion .s-tit{ font-weight:700; line-height:1.25; }
+.sesion .s-tit small{ display:block; font-weight:400; color:var(--ink-soft); font-size:14px; margin-top:2px; }
+.sesion .s-cont{ margin:0; padding:0 14px 12px 54px; white-space:pre-line; font-size:15px; color:var(--ink-soft); }
+.sesion.pasada .s-num{ background:#E3F1E6; color:#2E6B3A; }
+.sesion.proxima details{ border-color:var(--navy); }
+.sesion.proxima .s-num{ background:var(--navy); color:#fff; }
+.btn-outline.peligro{ border-color:var(--red) !important; color:var(--red) !important; }
+
+/* Talleres: quién recoge al alumno/a e instrucciones especiales (shared/recogida.js) */
+.recogida{ display:grid; gap:10px; }
+.recogida .check{ display:flex; align-items:center; gap:8px; font-weight:700; margin:0; cursor:pointer; }
+.recogida input[type="radio"], .recogida input[type="checkbox"]{ width:auto; }
+.recogida .check input{ width:20px; height:20px; flex:none; }
+.recogida .radios{ display:flex; gap:18px; flex-wrap:wrap; }
+.recogida .radios label{ font-weight:400; display:flex; gap:6px; align-items:center; margin:0; }
+.recogida .dos{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+@media (max-width:560px){ .recogida .dos{ grid-template-columns:1fr; } }

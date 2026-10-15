@@ -4350,3 +4350,400 @@ $$;
 drop trigger if exists trg_eventos_validar_incompatibles on evento_inscripciones;
 create trigger trg_eventos_validar_incompatibles before insert or update of alumno_id, evento_id on evento_inscripciones
   for each row execute function eventos_validar_incompatibles();
+
+-- ==================================================================
+-- CURSO DE WARHAMMER 40,000 (12 sesiones). Tipo de evento «warhammer»:
+--  · Los alumnos socios se apuntan una vez y quedan en las 12 sesiones,
+--    aunque se apunten después de la primera. Gratis para socios.
+--  · No socios: pagan el curso completo (48 € por defecto).
+--  · Las fechas de las sesiones se publican poco a poco (evento_sesiones).
+-- Se puede ejecutar varias veces.
+-- ==================================================================
+alter table eventos drop constraint if exists eventos_plantilla_check;
+alter table eventos add constraint eventos_plantilla_check check (plantilla is null or plantilla in
+  ('chocolatada', 'cabalgata', 'juegos', 'taller', 'barbacoa', 'comedor', 'concurso', 'informativo', 'loteria', 'warhammer'));
+
+create or replace function eventos_aplicar_tipo()
+returns trigger language plpgsql as $$
+begin
+  if new.plantilla is null then return new; end if;
+  -- Por defecto, con inscripción normal
+  if new.plantilla not in ('concurso', 'informativo', 'loteria') then
+    new.sin_inscripcion := false; new.usa_concurso_texto := false;
+  end if;
+  if new.plantilla in ('juegos', 'taller', 'barbacoa', 'concurso', 'warhammer') then
+    new.tipo_elegibilidad := 'alumnos';
+    if new.elegibilidad_modo is null then new.elegibilidad_modo := 'curso'; end if;
+  end if;
+  case new.plantilla
+    when 'chocolatada' then
+      new.tipo_elegibilidad := 'toda_familia'; new.pide_alergias := true; new.alumnos_requieren_adulto := true;
+      new.permite_invitados := true; new.abierto_no_socios := false; new.publico_solo_actividades := false;
+      new.metodo_asignacion := 'aforo'; new.requiere_pareja_adulto_alumno := false;
+    when 'cabalgata' then
+      new.tipo_elegibilidad := 'toda_familia'; new.metodo_asignacion := 'sorteo';
+      new.requiere_pareja_adulto_alumno := true; new.usa_prioridad_historial := false;
+      -- Solo alumnos de 6 a 12 años (edad el día de la cabalgata), no por curso
+      new.elegibilidad_modo := 'edad'; new.edad_min := 6; new.edad_max := 12; new.cursos_permitidos := null;
+    when 'juegos', 'taller' then
+      new.metodo_asignacion := 'aforo'; new.requiere_pareja_adulto_alumno := false;
+      if new.voluntariado_modo = 'adultos_y_ninos' then new.voluntariado_modo := 'adultos'; end if;
+    when 'barbacoa' then
+      new.metodo_asignacion := 'aforo'; new.requiere_pareja_adulto_alumno := false;
+      new.voluntariado_modo := 'adultos_y_ninos'; new.voluntariado_habilitado := true;
+      new.permite_invitados := false;
+      if new.abierto_no_socios then new.publico_solo_actividades := true; end if;
+      -- Sin cursos marcados = todos los alumnos del colegio
+      if new.elegibilidad_modo = 'curso' and (new.cursos_permitidos is null or jsonb_array_length(new.cursos_permitidos) = 0) then
+        new.cursos_permitidos := (select jsonb_agg(jsonb_build_object('etapa', e, 'curso', c)) from (values
+          ('Infantil','0 años'),('Infantil','1 año'),('Infantil','2 años'),('Infantil','3 años'),('Infantil','4 años'),('Infantil','5 años'),
+          ('Primaria','1º'),('Primaria','2º'),('Primaria','3º'),('Primaria','4º'),('Primaria','5º'),('Primaria','6º'),
+          ('ESO','1º'),('ESO','2º'),('ESO','3º'),('ESO','4º'),('Bachillerato','1º'),('Bachillerato','2º')) v(e, c));
+      end if;
+    when 'warhammer' then
+      -- Curso de 12 sesiones: los alumnos socios se apuntan al curso entero
+      -- (gratis) en cualquier momento; los no socios pagan el curso completo
+      new.metodo_asignacion := 'aforo'; new.requiere_pareja_adulto_alumno := false;
+      new.permite_invitados := false; new.abierto_no_socios := true; new.publico_solo_actividades := false;
+      new.voluntariado_modo := 'no'; new.voluntariado_habilitado := false;
+      new.precio_invitado := coalesce(new.precio_invitado, 48);
+    when 'comedor' then
+      new.tipo_elegibilidad := 'adultos'; new.metodo_asignacion := 'sorteo';
+      new.usa_prioridad_historial := true; new.requiere_pareja_adulto_alumno := false;
+    when 'concurso' then
+      new.usa_concurso_texto := true; new.sin_inscripcion := false;
+    when 'informativo' then
+      new.sin_inscripcion := true; new.usa_concurso_texto := false;
+    when 'loteria' then
+      -- Venta de Lotería: día, hora y lugar. Nadie se apunta y la ve todo el mundo
+      new.sin_inscripcion := true; new.usa_concurso_texto := false;
+      new.abierto_no_socios := true; new.publico_solo_actividades := false;
+      new.voluntariado_modo := 'no'; new.voluntariado_habilitado := false; new.permite_invitados := false;
+    else null;
+  end case;
+  return new;
+end;
+$$;
+
+create table if not exists evento_sesiones (
+  id uuid primary key default gen_random_uuid(),
+  evento_id uuid not null references eventos(id) on delete cascade,
+  numero integer not null,
+  titulo text not null,
+  contenido text,
+  fecha timestamptz,          -- vacía hasta que la Junta la publica
+  created_at timestamptz not null default now(),
+  unique (evento_id, numero)
+);
+alter table evento_sesiones enable row level security;
+drop policy if exists "todos ven las sesiones" on evento_sesiones;
+create policy "todos ven las sesiones" on evento_sesiones for select using (true);
+drop policy if exists "admins gestionan las sesiones" on evento_sesiones;
+create policy "admins gestionan las sesiones" on evento_sesiones for all using (is_admin()) with check (is_admin());
+
+-- Al crear un curso de Warhammer se crean sus 12 sesiones (sin fecha)
+create or replace function eventos_crear_sesiones_warhammer()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if new.plantilla = 'warhammer' and not exists (select 1 from evento_sesiones where evento_id = new.id) then
+    insert into evento_sesiones (evento_id, numero, titulo, contenido)
+    select new.id, v.n, v.t, v.c from (values
+    (1,'Bienvenida, Montaje y Perfiles de Atributos','Pintura / Montaje (Teoría): Introducción al universo de Warhammer 40,000, tipos de plástico/resina y herramientas básicas (alicates de corte, cuchilla de modelismo, lima, pegamento de plástico y cianoacrilato).
+Pintura / Montaje (Práctica): Retirada segura de piezas de las matrices, eliminación de líneas de molde y montaje de las miniaturas con las que se trabajará durante el curso.
+Reglas Básicas (30 min): Introducción a las hojas de datos y explicación detallada de los atributos clave.'),
+    (2,'Imprimación, Peanas y Tiradas de Dados','Pintura / Montaje (Teoría): Función de la imprimación en aerosol, selección de tonos base y factores ambientales para un pulverizado correcto. Introducción a la textura en peanas.
+Pintura / Montaje (Práctica): Preparación de peanas y aplicación de aerosol de imprimación a las miniaturas.
+Reglas Básicas (30 min): Mecánica básica de tiradas de D6: chequeos de atributos, concepto de ''impactar a X+'', ''herir a X+'' (tabla de Fuerza vs Resistencia) y tiradas de salvación.'),
+    (3,'Técnica BSL (Base) y la Fase de Movimiento','Pintura / Montaje (Teoría): Uso de la paleta húmeda, dilución adecuada de la pintura acrílica y definición del esquema de color.
+Pintura / Montaje (Práctica): Aplicación de la capa base sobre todo el modelo, sin tapar detalles.
+Reglas Básicas (30 min): Fase de Movimiento: distancia de movimiento, avanzar, cohesión de unidad y tipos de terreno básico.'),
+    (4,'Técnica BSL (Sombras y Luces) y Fase de Disparo','Pintura / Montaje (Teoría): Teoría de la luz cenital, sombras con tintas y luces con pincel seco y perfilado.
+Pintura / Montaje (Práctica): Aplicación de sombras y luces sobre la capa base para completar la técnica BSL.
+Reglas Básicas (30 min): Fase de Disparo: alcance de armas, tipos de armas, línea de Visión y cobertura.'),
+    (5,'Escenografía Casera y Fases de Carga y Combate','Pintura / Montaje (Teoría): Uso de materiales caseros cotidianos y económicos. Diseño de estructuras y edificios.
+Pintura / Montaje (Práctica): Creación de ruinas y elementos de cobertura.
+Reglas Básicas (30 min): Fase de Carga y Combate: declarar cargas, distancia de carga, intervención heroica, orden de combate, ataques y consolidación.'),
+    (6,'Pintado de Escenografía y Fase de Mando / Moral','Pintura / Montaje (Teoría): Técnicas de pintura rápida para escenografía (pincel seco masivo y lavados de gran volumen).
+Pintura / Montaje (Práctica): Pintado de las ruinas construidas en la sesión anterior y acabado de las peanas de las miniaturas.
+Reglas Básicas (30 min): Fase de Mando y Chequeos de Moral / Acobardamiento: impacto de las bajas en el control de objetivos.'),
+    (7,'Speedpainting (Slapchop) y Objetivos / Misiones','Pintura / Montaje (Teoría): Concepto de contraste rápido, pre-sombreado en escala de grises y uso de pinturas Contrast / Speedpaint / Xpress Color.
+Pintura / Montaje (Práctica): Pintado completo de una unidad utilizando la técnica Slapchop de principio a fin en una sola sesión.
+Reglas Básicas (30 min): Marcadores de objetivo, puntuación de Objetivos Primarios y tipos de misiones.'),
+    (8,'Veladuras / Transiciones Suaves y Estratagemas','Pintura / Montaje (Teoría): Consistencia Glaze (veladura), control de la carga del pincel y dirección de la pincelada para degradados suaves sin aerógrafo.
+Pintura / Montaje (Práctica): Degradados en capas, telas o armaduras destacadas de un personaje o héroe del ejército.
+Reglas Básicas (30 min): Puntos de Mando (CP), uso de Estratagemas básicas (Repetición de tirada, etc.).'),
+    (9,'Simulación Completa de Turno (Partida de Prueba)','Pintura / Montaje: Retoques finales de pintura y preparación de las fuerzas para la liga. Protección de miniaturas (barniz mate/satinado en aerosol) y aplicación de calcomanías.
+Teoría / Estrategia: Cómo construir una lista de ejército equilibrada a puntos reducidos.
+Reglas (Práctica Integrada - 1h 30min): Partida de simulación a pequeña escala (1-2 unidades por lado) aplicando la secuencia completa del turno (Mando, Movimiento, Disparo, Carga, Combate) y resolución de dudas antes del comienzo de la liga.'),
+    (10,'Creación de Listas a Puntos Reducidos y Jornada 1 de Liga','Liga - Ronda 1: Primeros emparejamientos entre los participantes con supervisión directa del instructor para resolver dudas de reglas.'),
+    (11,'Jornada 2 de Liga – Objetivos Secundarios','Liga - Ronda 2: Partidas de la liga incorporando Objetivos Secundarios para aumentar la profundidad táctica del juego.'),
+    (12,'Jornada 3 de Liga – Integración de Escenografía Casera','Liga - Ronda 3: Partidas utilizando la escenografía creada por los propios alumnos, aplicando reglas de cobertura pesada, terrenos impasables y ruinas.')
+
+    ) v(n, t, c);
+  end if;
+  return null;
+end;
+$$;
+drop trigger if exists trg_eventos_crear_sesiones on eventos;
+create trigger trg_eventos_crear_sesiones after insert or update of plantilla on eventos
+  for each row execute function eventos_crear_sesiones_warhammer();
+
+-- ==================================================================
+-- TALLERES: QUIÉN RECOGE AL ALUMNO/A E INSTRUCCIONES ESPECIALES
+--  · En los talleres (juegos de mesa, talleres y Curso de Warhammer), al
+--    apuntar a un alumno/a socio hay que decir si lo recoge una persona
+--    diferente (Sí/No, obligatorio). Si es que sí: nombre, apellidos y móvil,
+--    y esa persona sale como adulto responsable en los listados. Los no
+--    socios no: ya escriben a mano el adulto responsable.
+--  · En el Curso de Warhammer la familia puede marcar que sale solo/a; en
+--    ese caso no hace falta decir quién lo recoge.
+--  · Al crear un evento se puede activar «Instrucciones especiales»: una
+--    nota opcional al apuntar a un alumno/a (sale antes, llega tarde...).
+-- Las inscripciones anteriores no se tocan.
+-- Se puede ejecutar varias veces.
+-- ==================================================================
+alter table eventos add column if not exists pide_instrucciones boolean not null default false;
+
+alter table evento_inscripciones add column if not exists instrucciones text;
+alter table evento_inscripciones add column if not exists sale_solo boolean;
+alter table evento_inscripciones add column if not exists recoge_otra boolean;
+alter table evento_inscripciones add column if not exists recoge_nombre text;
+alter table evento_inscripciones add column if not exists recoge_apellidos text;
+alter table evento_inscripciones add column if not exists recoge_movil text;
+
+create or replace function eventos_validar_recogida()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare
+  ev eventos%rowtype;
+  v_movil text;
+begin
+  -- Solo para el alumno/a que va al evento (no subactividades ni voluntarios)
+  if new.actividad_id is not null or new.es_voluntario
+     or not (new.tipo_miembro = 'alumno' or (new.tipo_miembro = 'publico' and new.alumno_nombre is not null)) then
+    new.instrucciones := null; new.sale_solo := null; new.recoge_otra := null;
+    new.recoge_nombre := null; new.recoge_apellidos := null; new.recoge_movil := null;
+    return new;
+  end if;
+
+  select * into ev from eventos where id = new.evento_id;
+  if not found then return new; end if;
+
+  new.instrucciones := case when ev.pide_instrucciones then nullif(btrim(new.instrucciones), '') end;
+
+  if ev.plantilla is null or ev.plantilla not in ('juegos', 'taller', 'warhammer') then
+    new.sale_solo := null; new.recoge_otra := null;
+    new.recoge_nombre := null; new.recoge_apellidos := null; new.recoge_movil := null;
+    return new;
+  end if;
+
+  if ev.plantilla = 'warhammer' then
+    new.sale_solo := coalesce(new.sale_solo, false);
+  else
+    new.sale_solo := null;
+  end if;
+  -- Los no socios ya escriben a mano el adulto responsable: no se les pregunta
+  if coalesce(new.sale_solo, false) or new.tipo_miembro = 'publico' then
+    new.recoge_otra := null; new.recoge_nombre := null; new.recoge_apellidos := null; new.recoge_movil := null;
+    return new;
+  end if;
+
+  if new.recoge_otra is null then
+    raise exception 'Indica si recoge al alumno/a una persona diferente.';
+  end if;
+  if new.recoge_otra then
+    new.recoge_nombre := nullif(btrim(new.recoge_nombre), '');
+    new.recoge_apellidos := nullif(btrim(new.recoge_apellidos), '');
+    new.recoge_movil := nullif(btrim(new.recoge_movil), '');
+    if new.recoge_nombre is null or new.recoge_apellidos is null or new.recoge_movil is null then
+      raise exception 'Escribe el nombre, los apellidos y el móvil de la persona que recoge al alumno/a.';
+    end if;
+    v_movil := regexp_replace(regexp_replace(new.recoge_movil, '[\s.()-]', '', 'g'), '^(\+34|0034)', '');
+    if v_movil !~ '^[0-9]{9}$' then
+      raise exception 'El móvil de la persona que recoge al alumno/a no es válido (9 cifras).';
+    end if;
+  else
+    new.recoge_nombre := null; new.recoge_apellidos := null; new.recoge_movil := null;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_eventos_validar_recogida on evento_inscripciones;
+create trigger trg_eventos_validar_recogida
+before insert or update of instrucciones, sale_solo, recoge_otra, recoge_nombre, recoge_apellidos, recoge_movil
+on evento_inscripciones
+for each row execute function eventos_validar_recogida();
+
+-- Inscripción pública (no socios): guarda también las instrucciones y si sale solo/a
+create or replace function evento_inscribir_publico(p_evento_id uuid, p_datos jsonb, p_actividades uuid[] default '{}')
+returns uuid language plpgsql security definer set search_path = public as $$
+declare
+  v_grupo uuid := gen_random_uuid();
+  v_primera uuid;
+  v_id uuid;
+  v_act uuid;
+  v_solo boolean;
+begin
+  select publico_solo_actividades into v_solo from eventos where id = p_evento_id;
+  if not found then raise exception 'El evento no existe.'; end if;
+  if coalesce(btrim(p_datos->>'nombre_contacto'), '') = '' or coalesce(btrim(p_datos->>'email_contacto'), '') = '' then
+    raise exception 'Faltan el nombre y el email del adulto responsable.';
+  end if;
+  if v_solo and coalesce(array_length(p_actividades, 1), 0) = 0 then
+    raise exception 'Elige al menos una actividad.';
+  end if;
+
+  if not v_solo then
+    insert into evento_inscripciones (evento_id, tipo_miembro, grupo_id, nombre_contacto, email_contacto, telefono_contacto,
+      alumno_nombre, alumno_apellidos, alumno_etapa, alumno_curso, edad, tiene_alergias, alergias, respuesta_extra,
+      instrucciones, sale_solo)
+    values (p_evento_id, 'publico', v_grupo, p_datos->>'nombre_contacto', p_datos->>'email_contacto', p_datos->>'telefono_contacto',
+      p_datos->>'alumno_nombre', p_datos->>'alumno_apellidos', p_datos->>'alumno_etapa', p_datos->>'alumno_curso',
+      nullif(p_datos->>'edad', '')::integer, (p_datos->>'tiene_alergias')::boolean, p_datos->>'alergias', p_datos->>'respuesta_extra',
+      p_datos->>'instrucciones', (p_datos->>'sale_solo')::boolean)
+    returning id into v_primera;
+  end if;
+
+  foreach v_act in array coalesce(p_actividades, '{}') loop
+    insert into evento_inscripciones (evento_id, actividad_id, tipo_miembro, grupo_id, nombre_contacto, email_contacto, telefono_contacto,
+      alumno_nombre, alumno_apellidos, alumno_etapa, alumno_curso, edad, respuesta_extra)
+    values (p_evento_id, v_act, 'publico', v_grupo, p_datos->>'nombre_contacto', p_datos->>'email_contacto', p_datos->>'telefono_contacto',
+      p_datos->>'alumno_nombre', p_datos->>'alumno_apellidos', p_datos->>'alumno_etapa', p_datos->>'alumno_curso',
+      nullif(p_datos->>'edad', '')::integer, p_datos->>'respuesta_extra')
+    returning id into v_id;
+    v_primera := coalesce(v_primera, v_id);
+  end loop;
+  return v_primera;
+end;
+$$;
+grant execute on function evento_inscribir_publico(uuid, jsonb, uuid[]) to anon, authenticated;
+
+-- ==================================================================
+-- DOMICILIACIÓN ⇔ IBAN
+--  · Una cuenta con domiciliación bancaria tiene IBAN, y una cuenta con
+--    IBAN tiene domiciliación bancaria. La base de datos ya no deja guardar
+--    una cosa sin la otra.
+--  · La familia que elige domiciliación en el alta queda «pendiente de
+--    firmar» (sepa_pendiente) hasta que firma la orden SEPA: la web se la
+--    pide al entrar. También puede pasar a pagar por transferencia.
+--  · Las familias ya no pueden cambiar la forma de pago ni el IBAN a mano:
+--    solo firmando la orden SEPA (o la Junta desde el panel).
+--  · Arregla los datos que ya hay:
+--      - con IBAN y sin domiciliación → domiciliación;
+--      - con domiciliación y sin IBAN → pendiente de firmar la orden.
+-- Se puede ejecutar varias veces.
+-- ==================================================================
+alter table socios add column if not exists sepa_pendiente boolean not null default false;
+
+-- 1. Normaliza el IBAN (sin espacios, en mayúsculas) y aplica la regla
+create or replace function socios_normalizar_pago()
+returns trigger language plpgsql set search_path = public as $$
+begin
+  new.iban := nullif(upper(regexp_replace(coalesce(new.iban, ''), '[\s-]', '', 'g')), '');
+  if new.forma_pago = 'Domiciliación Bancaria' and new.iban is null then
+    raise exception 'Con domiciliación bancaria hace falta el IBAN.';
+  end if;
+  if new.iban is not null and new.forma_pago is distinct from 'Domiciliación Bancaria' then
+    raise exception 'Con IBAN, la forma de pago es domiciliación bancaria (o borra el IBAN).';
+  end if;
+  -- Ya hay forma de pago: no queda nada pendiente de firmar
+  if new.forma_pago is not null then new.sepa_pendiente := false; end if;
+  return new;
+end;
+$$;
+
+-- 2. Arregla los datos actuales (antes del trigger y de la restricción)
+drop trigger if exists trg_socios_normalizar_pago on socios;
+alter table socios drop constraint if exists socios_domiciliacion_iban;
+update socios set iban = nullif(upper(regexp_replace(coalesce(iban, ''), '[\s-]', '', 'g')), '')
+  where iban is distinct from nullif(upper(regexp_replace(coalesce(iban, ''), '[\s-]', '', 'g')), '');
+update socios set forma_pago = 'Domiciliación Bancaria', sepa_pendiente = false
+  where iban is not null and forma_pago is distinct from 'Domiciliación Bancaria';
+update socios set forma_pago = null, sepa_pendiente = true
+  where forma_pago = 'Domiciliación Bancaria' and iban is null;
+
+create trigger trg_socios_normalizar_pago before insert or update on socios
+  for each row execute function socios_normalizar_pago();
+alter table socios add constraint socios_domiciliacion_iban
+  check ((coalesce(forma_pago, '') = 'Domiciliación Bancaria') = (iban is not null));
+
+-- 3. La familia no cambia la forma de pago ni el IBAN a mano
+create or replace function proteger_campos_socio()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is null or is_admin() then return new; end if;
+  if new.estado is distinct from old.estado and new.estado <> 'baja' then
+    raise exception 'Solo el AMPA puede cambiar el estado de la cuenta.';
+  end if;
+  if new.numero_secuencial is distinct from old.numero_secuencial
+     or new.anio_ultima_cuota is distinct from old.anio_ultima_cuota
+     or new.codigo_asociacion is distinct from old.codigo_asociacion
+     or new.motivo_rechazo is distinct from old.motivo_rechazo
+     or new.reactivacion_solicitada_en is distinct from old.reactivacion_solicitada_en then
+    raise exception 'Solo el AMPA puede cambiar el número de socio o la cuota.';
+  end if;
+  if new.datos_revisados_en is distinct from old.datos_revisados_en
+     and coalesce(current_setting('ampa.confirmando_datos', true), '') <> 'si' then
+    raise exception 'Para confirmar los datos de la familia usa el botón de Mis datos.';
+  end if;
+  if (new.forma_pago is distinct from old.forma_pago or new.iban is distinct from old.iban
+      or new.sepa_pendiente is distinct from old.sepa_pendiente)
+     and coalesce(current_setting('ampa.cambiando_pago', true), '') <> 'si' then
+    raise exception 'Para domiciliar la cuota firma la orden SEPA en Mis datos.';
+  end if;
+  return new;
+end;
+$$;
+
+-- 4. Firmar la orden SEPA: domicilia la cuota con ese IBAN
+create or replace function mandato_sepa_firmar(
+  p_iban text, p_archivo_url text, p_datos_finales jsonb, p_aviso_diferencias boolean
+)
+returns uuid
+language plpgsql security definer set search_path = public as $$
+declare
+  v_socio_id uuid := mi_socio_id();
+  v_iban text := upper(regexp_replace(coalesce(p_iban, ''), '[\s-]', '', 'g'));
+  v_id uuid;
+begin
+  if v_socio_id is null then
+    raise exception 'No se pudo identificar tu cuenta de socio.';
+  end if;
+  if v_iban !~ '^[A-Z]{2}[0-9]{2}[A-Z0-9]{10,30}$' then
+    raise exception 'Falta el IBAN o no es válido.';
+  end if;
+
+  update mandatos_sepa set vigente = false where socio_id = v_socio_id and vigente = true;
+
+  insert into mandatos_sepa (socio_id, adulto_id, iban, archivo_final_url, datos_finales, aviso_diferencias, vigente)
+  values (v_socio_id, auth.uid(), v_iban, p_archivo_url, p_datos_finales, p_aviso_diferencias, true)
+  returning id into v_id;
+
+  perform set_config('ampa.cambiando_pago', 'si', true);
+  update socios set forma_pago = 'Domiciliación Bancaria', iban = v_iban, sepa_pendiente = false where id = v_socio_id;
+  perform set_config('ampa.cambiando_pago', '', true);
+
+  return v_id;
+end;
+$$;
+grant execute on function mandato_sepa_firmar(text, text, jsonb, boolean) to authenticated;
+
+-- 5. Eligió domiciliación pero prefiere pagar por transferencia
+create or replace function socio_pagar_por_transferencia()
+returns void
+language plpgsql security definer set search_path = public as $$
+declare
+  v_socio_id uuid := mi_socio_id();
+begin
+  if v_socio_id is null then
+    raise exception 'No se pudo identificar tu cuenta de socio.';
+  end if;
+  if not exists (select 1 from socios where id = v_socio_id and sepa_pendiente) then
+    raise exception 'Para dejar la domiciliación, escribe a la Junta del AMPA.';
+  end if;
+  perform set_config('ampa.cambiando_pago', 'si', true);
+  update socios set forma_pago = 'Transferencia', iban = null, sepa_pendiente = false where id = v_socio_id;
+  perform set_config('ampa.cambiando_pago', '', true);
+end;
+$$;
+grant execute on function socio_pagar_por_transferencia() to authenticated;

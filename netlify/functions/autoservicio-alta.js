@@ -49,7 +49,11 @@ exports.handler = async (event) => {
   const adulto1 = payload.adulto1;
   const adulto2 = payload.adulto2 || null;
   const alumnos = Array.isArray(payload.alumnos) ? payload.alumnos : [];
-  const forma_pago = FORMAS_PAGO_VALIDAS.includes(payload.forma_pago) ? payload.forma_pago : null;
+  // Domiciliación: no hay IBAN hasta que la familia firma la orden SEPA, así
+  // que la cuenta queda «pendiente de firmar» (sepa_pendiente) y la forma de
+  // pago se pone al firmar (sin IBAN no hay domiciliación).
+  const eligeDomiciliacion = payload.forma_pago === 'Domiciliación Bancaria';
+  const forma_pago = eligeDomiciliacion ? null : FORMAS_PAGO_VALIDAS.includes(payload.forma_pago) ? payload.forma_pago : null;
   // El comprobante lo sube antes el navegador a comprobantes/publico/...
   // y aquí se registra junto con el resto: así nunca puede quedar una
   // solicitud de alta sin comprobante.
@@ -127,7 +131,7 @@ exports.handler = async (event) => {
 
     // 3) Ahora sí, el socio
     const { data: socio, error: socioError } = await supabaseAdmin.from('socios').insert({
-      anio_ultima_cuota: new Date().getFullYear(), estado: 'recien_creada', forma_pago
+      anio_ultima_cuota: new Date().getFullYear(), estado: 'recien_creada', forma_pago, sepa_pendiente: eligeDomiciliacion
     }).select('id').single();
     if (socioError) throw socioError;
     socioId = socio.id;

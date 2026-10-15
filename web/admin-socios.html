@@ -17,6 +17,9 @@
   .tabla-socios th{ text-align:left; font-size:14px; color:var(--ink-soft); font-weight:600; padding:8px 6px; border-bottom:1px solid var(--line); }
   .tabla-socios td{ padding:9px 6px; border-bottom:1px solid var(--line); vertical-align:top; }
   .tabla-socios tr.fila:hover td{ background:#FAF8F2; cursor:pointer; }
+  .tabla-socios td.web{ font-size:13px; white-space:nowrap; }
+  .tabla-socios td.web .si{ color:var(--green); }
+  .tabla-socios td.web .no{ color:var(--red); font-weight:700; }
   .tabla-socios tr.abierta td{ background:#F3F7FC; }
   .tabla-socios .sub{ color:var(--ink-soft); font-size:14px; }
   .mono{ font-family:ui-monospace, Menlo, Consolas, monospace; font-size:14px; }
@@ -76,13 +79,23 @@
             <option value="baja">De baja</option>
           </select>
         </div>
+        <div class="field" style="max-width:260px;">
+          <label for="filtroWeb">Uso de la web</label>
+          <select id="filtroWeb">
+            <option value="">Todos</option>
+            <option value="nadie">Nadie de la familia ha entrado</option>
+            <option value="falta">Falta algún adulto por entrar</option>
+            <option value="sin_confirmar">Datos sin confirmar</option>
+            <option value="confirmados">Datos confirmados</option>
+          </select>
+        </div>
         <button type="button" class="btn btn-outline" id="exportBtn">Exportar CSV</button>
       </div>
       <p class="sub" id="contador" style="font-size:14px; color:var(--ink-soft); margin:0 0 6px;"></p>
       <div style="overflow-x:auto;">
         <table class="tabla-socios">
-          <thead><tr><th>Nº socio</th><th>Familia</th><th>Contacto</th><th>Alumnos</th><th>Estado</th></tr></thead>
-          <tbody id="tbodySocios"><tr><td colspan="5" class="loading">Cargando...</td></tr></tbody>
+          <thead><tr><th>Nº socio</th><th>Familia</th><th>Contacto</th><th>Alumnos</th><th>Web</th><th>Estado</th></tr></thead>
+          <tbody id="tbodySocios"><tr><td colspan="6" class="loading">Cargando...</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -281,10 +294,20 @@ function textoBusqueda(s) {
   ].filter(Boolean).join(' ').toLowerCase();
 }
 
+// Ha entrado en la web = ya cambió la contraseña provisional (o eligió la suya al darse de alta)
+const haEntrado = (a) => !a.force_password_change;
+function cumpleFiltroWeb(s, f) {
+  if (f === 'nadie') return !s.adultos.some(haEntrado);
+  if (f === 'falta') return s.adultos.some(a => !haEntrado(a));
+  if (f === 'sin_confirmar') return !s.datos_revisados_en;
+  if (f === 'confirmados') return !!s.datos_revisados_en;
+  return true;
+}
 function sociosFiltrados() {
   const t = document.getElementById('filtroTexto').value.trim().toLowerCase();
   const e = document.getElementById('filtroEstado').value;
-  return SOCIOS.filter(s => (!e || s.estado === e) && (!t || textoBusqueda(s).includes(t)))
+  const w = document.getElementById('filtroWeb').value;
+  return SOCIOS.filter(s => (!e || s.estado === e) && cumpleFiltroWeb(s, w) && (!t || textoBusqueda(s).includes(t)))
     .sort((a, b) => String(a.numero_socio_completo || 'zzz').localeCompare(String(b.numero_socio_completo || 'zzz')));
 }
 
@@ -292,8 +315,9 @@ function pintarLista() {
   const tbody = document.getElementById('tbodySocios');
   const lista = sociosFiltrados();
   document.getElementById('contador').textContent =
-    `${lista.length} cuenta(s) · ${SOCIOS.filter(s => s.estado === 'activa').length} activas en total`;
-  if (!lista.length) { tbody.innerHTML = '<tr><td colspan="5" class="empty-hint">Ninguna cuenta coincide con el filtro.</td></tr>'; return; }
+    `${lista.length} cuenta(s) · ${SOCIOS.filter(s => s.estado === 'activa').length} activas en total · ` +
+    `${SOCIOS.filter(s => !s.adultos.some(haEntrado)).length} sin entrar a la web · ${SOCIOS.filter(s => s.datos_revisados_en).length} con los datos confirmados`;
+  if (!lista.length) { tbody.innerHTML = '<tr><td colspan="6" class="empty-hint">Ninguna cuenta coincide con el filtro.</td></tr>'; return; }
 
   tbody.innerHTML = '';
   for (const s of lista) {
@@ -306,13 +330,15 @@ function pintarLista() {
       <td>${s.adultos.map(a => esc(a.nombre + ' ' + a.apellidos)).join('<br>') || '<span class="falta">sin adultos</span>'}</td>
       <td>${a1 ? esc(a1.email) + (a1.movil ? '<div class="sub">' + esc(a1.movil) + '</div>' : '') : ''}</td>
       <td>${s.alumnos.length}</td>
+      <td class="web">${s.adultos.map(a => haEntrado(a) ? '<div class="si">✓ Ha entrado</div>' : '<div class="no">No ha entrado</div>').join('')}
+        ${s.datos_revisados_en ? `<div class="si">✓ Datos confirmados el ${fecha(s.datos_revisados_en)}</div>` : '<div class="no">Datos sin confirmar</div>'}</td>
       <td>${badge(s.estado)}${esSolicitud(s) && s.estado !== 'recien_creada' ? '<div class="sub">pide reactivar</div>' : ''}</td>`;
     tr.addEventListener('click', () => { abierto = abierto === s.id ? null : s.id; pintarLista(); });
     tbody.appendChild(tr);
 
     if (abierto === s.id) {
       const trDet = document.createElement('tr');
-      trDet.innerHTML = '<td colspan="5" class="detalle"></td>';
+      trDet.innerHTML = '<td colspan="6" class="detalle"></td>';
       tbody.appendChild(trDet);
       pintarDetalle(s, trDet.firstElementChild);
     }
@@ -321,13 +347,17 @@ function pintarLista() {
 
 document.getElementById('filtroTexto').addEventListener('input', pintarLista);
 document.getElementById('filtroEstado').addEventListener('change', pintarLista);
+document.getElementById('filtroWeb').addEventListener('change', pintarLista);
 
 document.getElementById('exportBtn').addEventListener('click', () => {
   const filas = sociosFiltrados().map(s => {
     const [a1 = {}, a2 = {}] = s.adultos;
     return {
       numero_socio: numeroSocioBonito(s.numero_socio_completo), estado: ESTADOS[s.estado] || s.estado,
-      anio_ultima_cuota: s.anio_ultima_cuota, forma_pago: s.forma_pago || '', iban: s.iban || '', creada: fecha(s.created_at),
+      anio_ultima_cuota: s.anio_ultima_cuota, forma_pago: s.forma_pago || (s.sepa_pendiente ? 'Domiciliación (falta firmar la orden)' : ''), iban: s.iban || '', creada: fecha(s.created_at),
+      adulto1_ha_entrado: s.adultos[0] ? (haEntrado(s.adultos[0]) ? 'sí' : 'no') : '',
+      adulto2_ha_entrado: s.adultos[1] ? (haEntrado(s.adultos[1]) ? 'sí' : 'no') : '',
+      datos_confirmados: s.datos_revisados_en ? fecha(s.datos_revisados_en) : 'no',
       adulto1_nombre: a1.nombre || '', adulto1_apellidos: a1.apellidos || '', adulto1_email: a1.email || '',
       adulto1_dni_nie: a1.dni_nie || '', adulto1_movil: a1.movil || '', adulto1_telefono_fijo: a1.telefono_fijo || '',
       adulto1_direccion: a1.direccion || '', adulto1_cp: a1.codigo_postal || '', adulto1_ciudad: a1.ciudad || '', adulto1_provincia: a1.provincia || '',
@@ -367,9 +397,10 @@ function pintarDetalle(s, td) {
         ${campo('Nº secuencial (4 cifras)', 'numero_secuencial', s.numero_secuencial || '')}
         <div class="dato-ro"><span>Nº de socio completo</span><b class="mono">${esc(numeroSocioBonito(s.numero_socio_completo) || '—')}</b></div>
         ${select('Forma de pago', 'forma_pago', s.forma_pago, ['Transferencia', 'Domiciliación Bancaria'], 'Sin especificar')}
-        <div class="field" style="grid-column: span 2;"><label>IBAN de la familia</label><input type="text" data-f="iban" value="${esc(s.iban || '')}"></div>
+        <div class="field" style="grid-column: span 2;"><label>IBAN de la familia</label><input type="text" data-f="iban" value="${esc(s.iban || '')}"><small class="campo-ayuda">Con domiciliación hace falta el IBAN, y con IBAN la forma de pago es domiciliación.</small></div>
         <div class="dato-ro"><span>Cuenta creada</span>${fecha(s.created_at)}</div>
       </div>
+      ${s.sepa_pendiente ? '<p class="aviso" style="font-size:14px; margin:10px 0 0;">Eligió <b>domiciliación</b> y todavía no ha firmado la orden SEPA: se le pide al entrar en la web.</p>' : ''}
       ${s.motivo_rechazo ? `<p style="font-size:14px; margin:10px 0 0;"><b>Motivo de rechazo:</b> ${esc(s.motivo_rechazo)}</p>` : ''}
       <div class="acciones"><button class="btn btn-primary guardarCuentaBtn">Guardar cuenta</button></div>
       <p class="msg-linea" style="display:none;"></p>
@@ -380,7 +411,7 @@ function pintarDetalle(s, td) {
       <div class="acciones" style="margin-top:0;">
         ${s.estado !== 'activa' ? '<button class="btn btn-primary activarBtn">Activar cuenta y enviar bienvenida</button>' : ''}
         ${s.estado === 'activa' ? '<button class="btn btn-outline desactivarBtn">Desactivar cuenta</button>' : ''}
-        ${s.estado !== 'baja' ? '<button class="btn btn-outline bajaBtn" style="border-color:var(--red); color:var(--red);">Dar de baja</button>' : ''}
+        ${s.estado !== 'baja' ? '<button class="btn btn-outline peligro bajaBtn">Dar de baja</button>' : ''}
         ${s.estado !== 'activa' && s.estado !== 'baja' ? '<button class="linklike rechazarAbrirBtn" style="font-size:14px;">Rechazar con motivo…</button>' : ''}
       </div>
       <div class="rechazoZona" style="display:none; margin-top:12px;">
@@ -423,6 +454,10 @@ function pintarDetalle(s, td) {
     if (!Number.isFinite(anio) || anio < 1990 || anio > 2100) { msg(false, 'El año de última cuota no es válido.'); return; }
     if (d.numero_secuencial && !/^[0-9]{4}$/.test(d.numero_secuencial)) { msg(false, 'El número secuencial debe tener exactamente 4 cifras (ej. 0042).'); return; }
     if (!d.codigo_asociacion) { msg(false, 'El código de asociación no puede quedar vacío.'); return; }
+    d.iban = String(d.iban || '').replace(/[\s-]/g, '').toUpperCase();
+    if (d.forma_pago === 'Domiciliación Bancaria' && !d.iban) { msg(false, 'Con domiciliación bancaria hace falta el IBAN.'); return; }
+    if (d.iban && d.forma_pago !== 'Domiciliación Bancaria') { msg(false, 'Con IBAN, la forma de pago es domiciliación bancaria (o borra el IBAN).'); return; }
+    if (d.iban && !/^[A-Z]{2}[0-9]{2}[A-Z0-9]{10,30}$/.test(d.iban)) { msg(false, 'El IBAN no es válido.'); return; }
     const { error } = await sb.from('socios').update({
       anio_ultima_cuota: anio, codigo_asociacion: d.codigo_asociacion, numero_secuencial: d.numero_secuencial || null,
       forma_pago: d.forma_pago || null, iban: d.iban || null
@@ -432,6 +467,11 @@ function pintarDetalle(s, td) {
     // mensaje en la ficha ya repintada
     mensajePendiente = { bloque: 'cuenta', ok: true, texto: 'Guardado ✓' };
     await cargarDatos(); pintarLista();
+  });
+
+  // Al escribir un IBAN, la forma de pago pasa a domiciliación
+  bCuenta.querySelector('[data-f="iban"]').addEventListener('input', (e) => {
+    if (e.target.value.trim()) bCuenta.querySelector('[data-f="forma_pago"]').value = 'Domiciliación Bancaria';
   });
 
   /* --- estado --- */

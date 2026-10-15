@@ -7,7 +7,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="shared/styles.css">
-<style>.center-wrap{ max-width:480px; margin:0 auto; padding:60px 20px; text-align:center; }</style>
+<style>.center-wrap{ max-width:480px; margin:0 auto; padding:60px 20px; text-align:center; }
+.center-wrap:has(#sepaPendiente:not([hidden])){ max-width:680px; }</style>
 </head>
 <body>
 <header class="pub-head">
@@ -32,17 +33,27 @@
       a la Junta del AMPA.
     </p>
   </div>
+  <!-- Eligieron domiciliación en el alta: firman aquí la orden SEPA -->
+  <div class="card" id="sepaPendiente" style="text-align:left;" hidden></div>
   <button class="btn btn-outline" id="signOutBtn" style="margin-top:20px;">Cerrar sesión</button>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="shared/supabaseClient.js"></script>
+<script src="shared/documentoRellenable.js"></script>
+<script src="shared/mandatoSepa.js"></script>
 <script>
   (async () => {
     const ctx = await requireAuth();
     if (!ctx) return;
     if (ctx.socio && ctx.socio.estado !== 'recien_creada') {
       window.location.href = ctx.socio.estado === 'falta_pago' ? 'reactivar-cuenta.html?motivo=falta_pago' : 'dashboard.html';
+      return;
+    }
+    if (ctx.socio.sepa_pendiente) {
+      const caja = document.getElementById('sepaPendiente');
+      caja.hidden = false;
+      montarSepaPendiente(caja, { socio: ctx.socio, adulto: ctx.adulto, alTerminar: () => location.reload() });
     }
   })();
   document.getElementById('signOutBtn').addEventListener('click', signOut);
