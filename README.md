@@ -85,6 +85,8 @@ ejecutados, borra los archivos de `pendientes/`: su contenido ya está en
 | `SMTP_PASSWORD` | la contraseña de ese buzón |
 | `SMTP_FROM_NAME` | `AMPA Colegio Juan de Valdés` |
 | `SITE_URL` | la URL de la web, sin barra al final |
+| `VAPID_PUBLIC_KEY` | clave pública de los avisos en el móvil (ver abajo) |
+| `VAPID_PRIVATE_KEY` | clave privada de los avisos. Solo aquí, nunca en el proyecto |
 
 **Desplegar:** el sitio está conectado al repositorio de GitHub; cada
 subida se publica sola. La configuración (carpeta `web`, funciones, tarea
@@ -102,6 +104,22 @@ No se puede desplegar arrastrando la carpeta: las funciones necesitan
   `C:\Users\<tú>\ampa-pruebas.env`.
 - **Pruebas automáticas:** `pruebas\ejecutar-pruebas.bat` (contra la web
   publicada) o `pruebas\ejecutar-pruebas-local.bat` (contra tu ordenador).
+
+## Avisos en el móvil y el ordenador
+
+Las familias activan los avisos en **Mis datos** (o desde el aviso de
+Inicio). La Junta avisa de una actividad con el botón **«Avisar a las
+familias»** de cada evento: llega a las familias socias activas con algún
+alumno/a que puede apuntarse.
+
+- **Claves (una sola vez):** doble clic en
+  `herramientas\generar-claves-avisos.bat`, copia `VAPID_PUBLIC_KEY` y
+  `VAPID_PRIVATE_KEY` en las variables de entorno de Netlify y vuelve a
+  publicar. Si se cambian, las familias tienen que volver a activarlos.
+- **Android y Windows/Mac (Chrome, Edge, Firefox):** directamente desde la web.
+- **iPhone/iPad:** solo con la web añadida a la pantalla de inicio
+  (Compartir → «Añadir a pantalla de inicio») e iOS 16.4 o posterior. La web
+  lo explica a quien entra desde un iPhone.
 
 ## Recuperar contraseña
 

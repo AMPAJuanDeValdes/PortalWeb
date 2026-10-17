@@ -3,6 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<meta name="theme-color" content="#16233A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="AMPA">
 <title>Eventos (admin) · AMPA Juan de Valdés</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
@@ -31,6 +36,7 @@
   .incompat-lista{ display:grid; gap:6px; max-height:240px; overflow:auto; }
   .incompat-lista label{ display:flex; gap:8px; align-items:flex-start; font-weight:400; }
   .incompat-lista input{ width:auto; margin-top:4px; }
+  .incompat-lista .incompat-curso{ margin:8px 0 0; font-weight:700; font-size:14px; }
   .incompat-lista small{ color:var(--ink-soft); }
   .actividad-item{ border:1px solid var(--line); border-radius:var(--radius); padding:12px; margin-top:10px; }
   .subtitulo{ font-size:18px; margin:24px 0 10px; padding-top:18px; border-top:1px solid var(--line); }
@@ -77,7 +83,8 @@
     <div class="field"><label for="eLugar">Lugar (opcional)</label><input type="text" id="eLugar" placeholder="Por ejemplo: entrada del colegio"></div>
     <div class="field" id="incompatWrap">
       <p style="font-weight:700; margin:0 0 4px;">Este evento es incompatible con:</p>
-      <p class="ayuda" style="margin:0 0 8px;">Marca los eventos que son a la misma hora. Un alumno o alumna apuntado/a a uno de ellos no podrá apuntarse a los demás.</p>
+      <p class="ayuda" style="margin:0 0 8px;">Marca los eventos que son a la misma hora. Un alumno o alumna apuntado/a a uno de ellos no podrá apuntarse a los demás.
+        Del Curso de Warhammer se marca la sesión que coincide: quien va al curso no puede apuntarse a este evento, y quien va a este evento no puede apuntarse al curso hasta que haya pasado.</p>
       <div id="eIncompat" class="incompat-lista"></div>
     </div>
     <div class="field" id="masFechasWrap" hidden>
@@ -445,27 +452,57 @@ $('cancelarEdicionBtn').addEventListener('click', () => { salirDeEdicion(); $('c
 /* ---- Eventos a la misma hora (incompatibles) ---- */
 let incompatCache = [];   // parejas { evento_a, evento_b }
 const incompatiblesDe = (id) => incompatCache.filter(x => x.evento_a === id || x.evento_b === id).map(x => x.evento_a === id ? x.evento_b : x.evento_a);
+// Sesiones de los cursos (Warhammer) con las que coincide cada evento
+let sesIncCache = [];          // { evento_id, sesion_id }
+let sesionesCursos = {};       // curso_id -> [sesiones]
+const sesionesIncDe = (id) => sesIncCache.filter(x => x.evento_id === id).map(x => x.sesion_id);
+const marcadosIncompat = () => [...document.querySelectorAll('#eIncompat input:checked')].map(c => c.value);
 function pintarIncompat(marcados) {
   const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
-  const lista = eventosCache.filter(e => e.id !== editandoId && !e.sin_inscripcion && (marcados.includes(e.id) || (e.activo && (!e.fecha || new Date(e.fecha) >= hoy))));
-  $('eIncompat').innerHTML = lista.length ? lista.map(e => `<label><input type="checkbox" value="${e.id}" ${marcados.includes(e.id) ? 'checked' : ''}>
-      <span>${esc(e.titulo)} <small>${e.fecha ? new Date(e.fecha).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' }) : 'sin fecha'}</small></span></label>`).join('')
-    : '<p class="empty-hint" style="margin:0;">No hay otros eventos próximos.</p>';
+  const editando = eventosCache.find(e => e.id === editandoId);
+  const esCurso = ES_CURSO(editando) || $('ePlantilla').value === 'warhammer';
+  // Los cursos no se marcan enteros: se marcan sus sesiones (más abajo)
+  const lista = eventosCache.filter(e => e.id !== editandoId && !e.sin_inscripcion && (marcados.includes(e.id)
+    || (!ES_CURSO(e) && e.activo && (!e.fecha || new Date(e.fecha) >= hoy))));
+  let html = lista.map(e => `<label><input type="checkbox" value="${e.id}" ${marcados.includes(e.id) ? 'checked' : ''}>
+      <span>${esc(e.titulo)} <small>${e.fecha ? new Date(e.fecha).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' }) : 'sin fecha'}</small></span></label>`).join('');
+  if (!esCurso) {
+    const fechaEv = $('eFecha').value ? new Date($('eFecha').value) : null;
+    const mismoDia = (f) => fechaEv && f && new Date(f).toDateString() === fechaEv.toDateString();
+    eventosCache.filter(e => ES_CURSO(e) && e.activo).forEach(c => {
+      const ses = (sesionesCursos[c.id] || []).filter(x => marcados.includes('s:' + x.id) || (x.fecha && new Date(x.fecha) >= hoy));
+      if (!ses.length) return;
+      html += `<p class="incompat-curso">${esc(c.titulo)}: sesiones</p>` + ses.map(x => `<label><input type="checkbox" value="s:${x.id}" ${marcados.includes('s:' + x.id) ? 'checked' : ''}>
+        <span>Sesión ${x.numero} · ${esc(x.titulo)} <small>${new Date(x.fecha).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' })}${mismoDia(x.fecha) ? ' · <b>el mismo día</b>' : ''}</small></span></label>`).join('');
+    });
+  }
+  $('eIncompat').innerHTML = html || '<p class="empty-hint" style="margin:0;">No hay otros eventos próximos.</p>';
 }
+// La fecha marca las sesiones «del mismo día»; un curso no se marca con sesiones
+$('eFecha').addEventListener('change', () => pintarIncompat(marcadosIncompat()));
+$('ePlantilla').addEventListener('change', () => pintarIncompat(marcadosIncompat()));
 async function guardarIncompat(ids) {
-  const otros = [...document.querySelectorAll('#eIncompat input:checked')].map(c => c.value);
+  const marcados = marcadosIncompat();
+  const otros = marcados.filter(v => !v.startsWith('s:'));
+  const sesiones = marcados.filter(v => v.startsWith('s:')).map(v => v.slice(2));
   let dobles = 0;
   for (const id of ids) {
     const { data, error } = await sb.rpc('evento_guardar_incompatibles', { p_evento: id, p_otros: otros });
     if (error) throw error;
     dobles = Math.max(dobles, data || 0);
+    // Un curso no coincide con sus propias sesiones: solo los demás eventos
+    if (!ES_CURSO(eventosCache.find(e => e.id === id)) && $('ePlantilla').value !== 'warhammer') {
+      const r = await sb.rpc('evento_guardar_sesiones_incompatibles', { p_evento: id, p_sesiones: sesiones });
+      if (r.error) throw r.error;
+      dobles = Math.max(dobles, r.data || 0);
+    }
   }
   return dobles;
 }
 
 async function editarEvento(ev) {
   editandoId = ev.id;
-  pintarIncompat(incompatiblesDe(ev.id));
+  pintarIncompat([...incompatiblesDe(ev.id), ...sesionesIncDe(ev.id).map(id => 's:' + id)]);
   rellenarFormulario(ev);
   $('ePlantilla').value = ev.plantilla || '';
   aplicarBloqueos();
@@ -532,8 +569,13 @@ async function cargarEventos() {
   const { data: eventos, error } = await sb.from('eventos').select('*').order('fecha', { ascending: true });
   if (error) { wrap.innerHTML = '<p class="msg-error">No se pudieron cargar.</p>'; return; }
   eventosCache = eventos || [];
-  incompatCache = (await sb.from('evento_incompatibles').select('evento_a, evento_b')).data || [];
-  pintarIncompat(editandoId ? [...document.querySelectorAll('#eIncompat input:checked')].map(c => c.value) : []);
+  const [{ data: parejas }, { data: sesInc }, ses] = await Promise.all([
+    sb.from('evento_incompatibles').select('evento_a, evento_b'),
+    sb.from('evento_sesion_incompatibles').select('evento_id, sesion_id'),
+    cargarSesiones(eventosCache.filter(ES_CURSO).map(e => e.id))
+  ]);
+  incompatCache = parejas || []; sesIncCache = sesInc || []; sesionesCursos = ses || {};
+  pintarIncompat(editandoId ? marcadosIncompat() : []);
   if (!eventos || eventos.length === 0) { wrap.innerHTML = '<p class="empty-hint">Todavía no hay eventos.</p>'; return; }
 
   // Ocupación de cada evento con aforo
@@ -557,6 +599,7 @@ async function cargarEventos() {
             (ev.aforo_total != null ? (ev.requiere_pareja_adulto_alumno ? `, ${ev.aforo_total} plazas de alumnos` : `, ${ocupacion[ev.id] ?? 0} de ${ev.aforo_total} plazas`) : '') +
             (ev.metodo_asignacion === 'sorteo' ? ', por sorteo' : '') +
           '</span>' +
+          (ev.aviso_push_en ? `<br><span style="font-size:14px; color:var(--ink-soft);">Avisadas ${ev.aviso_push_familias ?? 0} familias en el móvil el ${new Date(ev.aviso_push_en).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })}</span>` : '') +
           (incompatiblesDe(ev.id).length ? '<br><span style="font-size:14px; color:var(--ink-soft);">A la misma hora que: ' +
             incompatiblesDe(ev.id).map(id => esc((eventosCache.find(e => e.id === id) || {}).titulo || '')).join(', ') + '</span>' : '') +
           '</div>' +
@@ -571,6 +614,7 @@ async function cargarEventos() {
           (!ev.sin_inscripcion && !ev.usa_concurso_texto ? '<button class="btn btn-outline toggleDocsBtn">Documentos</button>' : '') +
           (inscripcionCerrada(ev, ocupacion[ev.id]) && ev.tipo_elegibilidad !== 'adultos' && !ev.sin_inscripcion && !ev.usa_concurso_texto ? '<button class="btn btn-outline listadoBtn">Listado (Excel)</button>' : '') +
           (ev.metodo_asignacion === 'sorteo' && !ev.sorteo_realizado ? '<button class="btn btn-outline sortearBtn">Sortear</button>' : '') +
+          (ev.activo ? '<button class="btn btn-outline avisarBtn">Avisar a las familias</button>' : '') +
           (ev.metodo_asignacion === 'sorteo' && ev.sorteo_realizado ? '<span class="badge badge-socio">Ya sorteado</span>' : '') +
           '<button class="btn-danger-link toggleActivoBtn">' + (ev.activo ? 'Ocultar' : 'Reactivar') + '</button>' +
           '<button class="btn-danger-link borrarBtn">Borrar</button>' +
@@ -664,6 +708,41 @@ async function cargarEventos() {
         if (!visible) await renderConcursoEvento(concursoPanel, ev);
       });
     }
+
+    // Aviso en el móvil a las familias con algún alumno/a que puede apuntarse
+    const avisarBtn = row.querySelector('.avisarBtn');
+    if (avisarBtn) avisarBtn.addEventListener('click', async () => {
+      const msg = row.querySelector('.sortearMsg');
+      const llamar = async (soloContar) => {
+        const session = await getSession();
+        const resp = await fetch('/.netlify/functions/push-avisar-evento', {
+          method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
+          body: JSON.stringify({ eventoId: ev.id, soloContar })
+        });
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok) throw new Error(data.error || 'No se pudo avisar.');
+        return data;
+      };
+      avisarBtn.disabled = true;
+      try {
+        const c = await llamar(true);
+        if (!c.dispositivos) {
+          msg.style.display = 'block'; msg.className = 'msg-error';
+          msg.textContent = `De las ${c.familias} familias que pueden apuntarse, ninguna tiene los avisos activados todavía.`;
+          avisarBtn.disabled = false; return;
+        }
+        const yaAvisado = ev.aviso_push_en ? `\n\nOjo: ya se avisó el ${new Date(ev.aviso_push_en).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })}; les llegará otra vez.` : '';
+        if (!confirm(`Pueden apuntarse ${c.familias} familias; ${c.familiasConAviso} tienen los avisos activados (${c.dispositivos} dispositivos).\n\n¿Enviar ahora el aviso de «${ev.titulo}»?${yaAvisado}`)) { avisarBtn.disabled = false; return; }
+        avisarBtn.textContent = 'Enviando...';
+        const r = await llamar(false);
+        msg.style.display = 'block'; msg.className = r.fallidos ? 'msg-error' : 'msg-ok';
+        msg.textContent = `Aviso enviado a ${r.enviados} dispositivos (${r.familiasConAviso} familias)` + (r.fallidos ? `; ${r.fallidos} no se pudieron enviar${r.caducadas ? ' (' + r.caducadas + ' ya no tenían los avisos activados y se han quitado)' : ''}.` : '.');
+        setTimeout(cargarEventos, 2500);
+      } catch (e) {
+        msg.style.display = 'block'; msg.className = 'msg-error'; msg.textContent = e.message;
+      }
+      avisarBtn.disabled = false; avisarBtn.textContent = 'Avisar a las familias';
+    });
 
     const sortearBtn = row.querySelector('.sortearBtn');
     if (sortearBtn) {
@@ -961,7 +1040,8 @@ async function renderSesiones(panel, ev) {
     <p class="ayuda" style="margin:0 0 10px;">Pon la fecha de cada sesión cuando se sepa; las que quedan vacías salen como «Fecha por publicar». Pulsa el título para ver o cambiar lo que se hace.</p>
     <div class="ses-admin">${data.map(s => `<div class="ses-fila" data-id="${s.id}">
         <span class="s-num">${s.numero}</span>
-        <details><summary>${esc(s.titulo)}</summary>
+        <details><summary>${esc(s.titulo)}${(() => { const t = sesIncCache.filter(x => x.sesion_id === s.id).map(x => (eventosCache.find(e => e.id === x.evento_id) || {}).titulo).filter(Boolean);
+          return t.length ? `<small style="display:block; color:var(--ink-soft); font-weight:400;">Coincide con ${esc(t.map(x => '«' + x + '»').join(', '))}</small>` : ''; })()}</summary>
           <div class="field"><label>Título</label><input type="text" class="sTit" value="${esc(s.titulo)}"></div>
           <div class="field"><label>Qué se hace</label><textarea class="sCont" rows="4">${esc(s.contenido || '')}</textarea></div>
         </details>
@@ -1209,11 +1289,11 @@ async function renderDocsEvento(panel, evento) {
     const path = `${evento.id}/${Date.now()}-${archivo.name.replace(/[^a-zA-Z0-9.\-_]/g, '_')}`;
     const { error: upErr } = await sb.storage.from('documentos-evento').upload(path, archivo);
     if (upErr) { msg.style.display = 'block'; msg.className = 'msg-error'; msg.textContent = 'Error al subir: ' + upErr.message; return; }
-    const { data: urlData } = sb.storage.from('documentos-evento').getPublicUrl(path);
 
+    // Se guarda la ruta: el bucket es privado y se abre con un enlace temporal
     const nuevoDoc = {
       evento_id: evento.id, titulo, aplica_a, tipo_documento: 'plantilla_firma',
-      pagina_rellenable: pagina, archivo_base_url: urlData.publicUrl, campos: []
+      pagina_rellenable: pagina, archivo_base_url: path, campos: []
     };
     if (aplica_a === 'alumno') {
       nuevoDoc.elegibilidad_modo = modo;
@@ -1227,7 +1307,7 @@ async function renderDocsEvento(panel, evento) {
 
     msg.style.display = 'block'; msg.className = 'msg-ok'; msg.textContent = 'Renderizando la página ' + pagina + '...';
     try {
-      const { dataUrl } = await renderizarPaginaPDF(urlData.publicUrl, pagina);
+      const { dataUrl } = await renderizarPaginaPDF(await urlArchivo('documentos-evento', path), pagina);
       const editorWrap = panel.querySelector('.nDocEditorWrap');
       abrirEditorPlantilla(editorWrap, dataUrl, [], async (campos) => {
         nuevoDoc.campos = campos;
@@ -1267,7 +1347,7 @@ async function renderDocsEvento(panel, evento) {
       const wrap = item.querySelector('.docEditorEdicion');
       wrap.innerHTML = '<p class="loading">Cargando...</p>';
       try {
-        const { dataUrl } = await renderizarPaginaPDF(doc.archivo_base_url, doc.pagina_rellenable);
+        const { dataUrl } = await renderizarPaginaPDF(await urlArchivo('documentos-evento', doc.archivo_base_url), doc.pagina_rellenable);
         abrirEditorPlantilla(wrap, dataUrl, doc.campos || [], async (campos) => {
           await sb.from('documentos_evento').update({ campos }).eq('id', doc.id);
           alert('Plantilla actualizada ✓');

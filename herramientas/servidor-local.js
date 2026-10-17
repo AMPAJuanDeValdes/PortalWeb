@@ -44,6 +44,7 @@ if (!process.env.SUPABASE_SERVICE_ROLE_KEY || /\.\.\./.test(process.env.SUPABASE
   console.log('    Las páginas se verán, pero las altas, donaciones, Mochila... darán error.\n');
 }
 if (!process.env.SMTP_HOST) console.log('[i] Sin SMTP_* en ampa-pruebas.env: los emails no se enviarán (todo lo demás funciona).');
+if (!process.env.VAPID_PUBLIC_KEY) console.log('[i] Sin VAPID_* en ampa-pruebas.env: los avisos en el móvil no funcionan en local (todo lo demás sí).');
 
 /* ---------- Funciones de Netlify ---------- */
 function cargarFuncion(nombre) {
@@ -77,7 +78,7 @@ async function ejecutarFuncion(nombre, req, res, url) {
 /* ---------- Archivos ---------- */
 const TIPOS = { '.html': 'text/html; charset=utf-8', '.js': 'application/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
   '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.svg': 'image/svg+xml', '.pdf': 'application/pdf',
-  '.json': 'application/json', '.ico': 'image/x-icon', '.webp': 'image/webp', '.csv': 'text/csv; charset=utf-8' };
+  '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.ico': 'image/x-icon', '.webp': 'image/webp', '.csv': 'text/csv; charset=utf-8' };
 function servirArchivo(url, res) {
   let ruta = decodeURIComponent(url.pathname);
   if (ruta.endsWith('/')) ruta += 'index.html';

@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<meta name="theme-color" content="#16233A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="AMPA">
+<title>Lotería (admin) · AMPA Juan de Valdés</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared/styles.css">
+<style>
+  .camp-cab{ display:flex; flex-wrap:wrap; gap:10px 14px; align-items:center; }
+  .camp-cab select{ width:auto; min-width:240px; }
+  .camp-datos{ color:var(--ink-soft); margin:8px 0 0; }
+  .camp-estado{ display:flex; flex-wrap:wrap; gap:10px 14px; align-items:center; background:#F6F8FB; border-radius:14px; padding:12px 16px; margin:14px 0 0; }
+  .camp-estado .chip{ font-size:15px; }
+  .camp-estado label{ display:flex; gap:8px; align-items:center; font-weight:700; font-size:15px; }
+  .camp-estado input[type=date]{ width:auto; }
+  .msj{ border-bottom:1px solid var(--line); padding:14px 0; display:grid; gap:6px; }
+  .msj:last-child{ border-bottom:0; }
+  .msj-cab{ display:flex; flex-wrap:wrap; gap:4px 12px; align-items:baseline; }
+  .msj-cab small{ color:var(--ink-soft); }
+  .msj p{ margin:0; white-space:pre-wrap; }
+  .msj-acc{ display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+  .msj-acc input{ flex:1 1 240px; width:auto; }
+  .msj.atendido{ opacity:.65; }
+  .form-grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); gap:12px 16px; margin:12px 0; }
+  .form-grid label{ display:grid; gap:4px; font-weight:700; font-size:15px; }
+  .resumen{ display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:12px; margin:0; }
+  .resumen div{ background:#F6F8FB; border-radius:14px; padding:12px 14px; }
+  .resumen dt{ font-size:14px; color:var(--ink-soft); }
+  .resumen dd{ margin:2px 0 0; font-size:24px; font-weight:800; font-family:'Bricolage Grotesque', sans-serif; }
+  .resumen small{ display:block; font-size:14px; font-weight:400; color:var(--ink-soft); font-family:inherit; }
+  .resumen .pendiente dd{ color:#B3261E; }
+  .filtros{ display:flex; flex-wrap:wrap; gap:8px; margin:0 0 12px; align-items:center; }
+  .filtros button{ border:2px solid var(--line); background:#fff; border-radius:999px; padding:8px 14px; font:inherit; font-weight:700; cursor:pointer; color:var(--ink); }
+  .filtros button[aria-pressed="true"]{ border-color:var(--ink); background:var(--ink); color:#fff; }
+  .filtros input{ flex:1 1 220px; width:auto; }
+  .tal{ border-bottom:1px solid var(--line); }
+  .tal:last-child{ border-bottom:0; }
+  .tal-fila{ display:grid; grid-template-columns:64px minmax(0,1.6fr) 110px 150px 140px; gap:12px; align-items:center; width:100%; padding:12px 4px; background:none; border:0; font:inherit; color:inherit; text-align:left; cursor:pointer; }
+  .tal-fila:hover{ background:#F6F8FB; }
+  .tal-n{ font-family:'Bricolage Grotesque', sans-serif; font-weight:800; font-size:22px; }
+  .tal-n small{ display:block; font-family:inherit; font-size:13px; font-weight:400; color:var(--ink-soft); }
+  .tal-quien b{ display:block; }
+  .tal-quien span{ font-size:14px; color:var(--ink-soft); }
+  .tal-sin{ color:var(--ink-soft); font-style:italic; }
+  .tal-vend b{ font-size:18px; }
+  .tal-barra{ height:6px; border-radius:3px; background:var(--line); margin-top:4px; overflow:hidden; }
+  .tal-barra i{ display:block; height:100%; background:var(--ink); }
+  .tal-dinero{ font-size:15px; }
+  .chip{ display:inline-block; border-radius:999px; padding:3px 10px; font-weight:700; font-size:14px; }
+  .chip.sin{ background:#EEF0F3; color:#4A5566; }
+  .chip.venta{ background:#FFF4D6; color:#7A5A00; }
+  .chip.debe{ background:#FDE7E5; color:#B3261E; }
+  .chip.ok{ background:#E2F4E8; color:#1D6B3A; }
+  .chip.dev{ background:#E8EEF8; color:#24477A; }
+  .tal-edit{ background:#F6F8FB; border-radius:14px; padding:14px 16px; margin:0 0 14px; display:grid; gap:14px; }
+  .tal-edit h4{ margin:0 0 6px; font-size:16px; }
+  .tal-edit .fila{ display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end; }
+  .tal-edit .fila label{ display:grid; gap:4px; font-weight:700; font-size:14px; }
+  .tal-edit input.n{ width:90px; }
+  .ingreso{ display:flex; justify-content:space-between; gap:12px; padding:6px 0; border-bottom:1px solid var(--line); font-size:15px; }
+  .ingreso small{ color:var(--ink-soft); }
+  .grupo-pista{ margin:0 0 12px; color:var(--ink-soft); min-height:1.4em; }
+  .grupo-pista.mal{ color:#B3261E; }
+  .grupo-aviso{ background:#FFF4D6; border-radius:14px; padding:14px 16px; margin:14px 0 0; }
+  .grupo-aviso ul{ margin:8px 0 12px; padding-left:20px; }
+  .grupo-aviso .botones{ display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+  .mov{ display:flex; justify-content:space-between; gap:12px; padding:8px 0; border-bottom:1px solid var(--line); font-size:15px; }
+  .mov small{ color:var(--ink-soft); white-space:nowrap; }
+  @media (max-width:760px){
+    .tal-fila{ grid-template-columns:52px minmax(0,1fr) auto; }
+    .tal-vend{ grid-column:2; }
+    .tal-dinero{ grid-column:2 / 4; }
+    .tal-estado{ grid-column:3; grid-row:1; }
+    .mov{ flex-direction:column; gap:2px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">Administración</div>
+  <h1>Lotería</h1>
+  <p class="lede">Los talonarios de lotería: quién tiene cada uno, cuántas participaciones ha vendido y cuándo se ha ingresado su dinero en la cuenta del AMPA.</p>
+
+  <div class="card">
+    <p class="section-label">Campaña</p>
+    <div class="camp-cab">
+      <select id="campSel" aria-label="Campaña"></select>
+      <button type="button" class="btn btn-outline" id="campNuevaBtn">+ Nueva campaña</button>
+      <button type="button" class="btn btn-outline" id="campEditarBtn" hidden>Editar campaña</button>
+      <button type="button" class="btn btn-outline" id="excelBtn" hidden>Descargar Excel</button>
+    </div>
+    <p class="camp-datos" id="campDatos"></p>
+    <div class="camp-estado" id="campEstado" hidden></div>
+    <form id="campForm" hidden>
+      <div class="form-grid">
+        <label>Nombre<input type="text" name="nombre" required placeholder="Lotería de Navidad 2026"></label>
+        <label>Número(s) que jugamos<input type="text" name="numeros" placeholder="12345"></label>
+        <label>Precio de la participación (€)<input type="number" name="precio" min="0.5" step="0.5" value="5" required></label>
+        <label>Participaciones por talonario<input type="number" name="ppt" min="1" max="500" value="25" required></label>
+        <label class="solo-nueva">Talonarios<input type="number" name="cuantos" min="1" max="1000" value="40"></label>
+      </div>
+      <button type="submit" class="btn btn-primary">Guardar</button>
+      <button type="button" class="linklike" id="campCancelar">Cancelar</button>
+      <p class="msg-error" id="campMsg" hidden></p>
+    </form>
+  </div>
+
+  <div id="conCampana" hidden>
+    <div class="card">
+      <p class="section-label">Resumen</p>
+      <dl class="resumen" id="resumen"></dl>
+    </div>
+
+    <div class="card" id="mensajesCard">
+      <p class="section-label" id="mensajesTit">Mensajes de «Quiero comprar Lotería» <span id="mensajesN" style="color:#B3261E;"></span></p>
+      <div id="mensajes"><p class="loading">Cargando...</p></div>
+      <button type="button" class="linklike" id="verAtendidos" hidden style="margin-top:10px;"></button>
+    </div>
+
+    <div class="card">
+      <p class="section-label">Asignar talonarios</p>
+      <p style="color:var(--ink-soft); margin:-4px 0 10px;">Por participaciones: de la 1 a la 300 son los talonarios 1 a 12. Solo talonarios enteros.</p>
+      <form id="grupoForm" novalidate>
+        <div class="form-grid">
+          <label>Desde la participación<input type="number" name="desde" min="1" inputmode="numeric" required></label>
+          <label>Hasta la participación<input type="number" name="hasta" min="1" inputmode="numeric" required></label>
+          <label style="grid-column:span 2;">Familia socia (opcional)<input type="text" name="familia" list="familias" placeholder="Busca por nombre o nº de socio"></label>
+          <label>Nombre<input type="text" name="nombre" required></label>
+          <label>Móvil<input type="tel" name="movil"></label>
+          <label>Entregado el<input type="date" name="entregado"></label>
+        </div>
+        <p class="grupo-pista" id="grupoPista"></p>
+        <button type="submit" class="btn btn-primary">Asignar</button>
+        <div class="grupo-aviso" id="grupoAviso" hidden></div>
+        <p class="msg-error" id="grupoMsg" hidden></p>
+        <p class="msg-ok" id="grupoOk" hidden></p>
+      </form>
+    </div>
+
+    <div class="card">
+      <p class="section-label">Talonarios</p>
+      <div class="filtros" id="filtros">
+        <button type="button" data-f="" aria-pressed="true">Todos</button>
+        <button type="button" data-f="sin" aria-pressed="false">Sin asignar</button>
+        <button type="button" data-f="venta" aria-pressed="false">Vendiéndose</button>
+        <button type="button" data-f="debe" aria-pressed="false">Dinero por ingresar</button>
+        <button type="button" data-f="ok" aria-pressed="false">Ingresados</button>
+        <input type="search" id="buscar" placeholder="Buscar por número o nombre" aria-label="Buscar talonario">
+      </div>
+      <div id="talonarios"><p class="loading">Cargando...</p></div>
+      <div class="fila" style="display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-top:14px;">
+        <input type="number" id="masN" min="1" max="1000" value="5" style="width:90px;" aria-label="Cuántos talonarios añadir">
+        <button type="button" class="btn btn-outline" id="masBtn">Añadir talonarios</button>
+      </div>
+      <p class="msg-error" id="talMsg" hidden></p>
+    </div>
+
+    <div class="card">
+      <p class="section-label">Historial</p>
+      <div id="movs"><p class="loading">Cargando...</p></div>
+    </div>
+  </div>
+  <datalist id="familias"></datalist>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="shared/supabaseClient.js"></script>
+<script src="shared/helpers.js"></script>
+<script src="shared/nav.js"></script>
+<script src="shared/xlsx.js"></script>
+<script>
+const esc = (t) => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const eur = (n) => Number(n || 0).toLocaleString('es-ES', { minimumFractionDigits: Number(n) % 1 ? 2 : 0, maximumFractionDigits: 2 }) + ' €';
+const fecha = (f) => f ? new Date(String(f).length === 10 ? f + 'T12:00:00' : f).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+const hoy = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
+const ESTADOS = { sin: 'Sin asignar', venta: 'Vendiéndose', debe: 'Dinero por ingresar', ok: 'Ingresado', dev: 'Devuelto' };
+
+let campanas = [], camp = null, talonarios = [], ingresos = {}, familias = [], abierto = null, filtro = '';
+
+/* ---------- Cálculos de cada talonario ---------- */
+function cuentas(t) {
+  const ingresado = (ingresos[t.id] || []).reduce((s, i) => s + Number(i.importe), 0);
+  const vendido = t.vendidas * Number(camp.precio);
+  const pendiente = vendido - ingresado;
+  let estado;
+  if (!t.titular_nombre) estado = 'sin';
+  else if (pendiente > 0) estado = 'debe';
+  else if (t.devuelto_en || t.vendidas >= camp.participaciones_por_talonario) estado = t.vendidas >= camp.participaciones_por_talonario ? 'ok' : 'dev';
+  else estado = 'venta';
+  return { ingresado, vendido, pendiente, estado };
+}
+const rango = (t) => { const p = camp.participaciones_por_talonario; return `${(t.numero - 1) * p + 1}–${t.numero * p}`; };
+
+/* ---------- Campañas ---------- */
+async function cargarCampanas(elegir) {
+  const { data, error } = await sb.from('loteria_campanas').select('*').order('created_at', { ascending: false });
+  if (error) { document.getElementById('campDatos').textContent = 'No se pudo cargar: ' + error.message; return; }
+  campanas = data;
+  const sel = document.getElementById('campSel');
+  sel.innerHTML = data.length ? data.map(c => `<option value="${c.id}">${esc(c.nombre)}${estadoCampana(c) === 'cerrada' ? ' (cerrada)' : estadoCampana(c) === 'abierta' ? ' (abierta)' : ''}</option>`).join('') : '<option value="">Todavía no hay ninguna campaña</option>';
+  sel.disabled = !data.length;
+  if (elegir) sel.value = elegir;
+  await elegirCampana(sel.value);
+}
+async function elegirCampana(id) {
+  camp = campanas.find(c => c.id === id) || null;
+  abierto = null;
+  document.getElementById('conCampana').hidden = !camp;
+  document.getElementById('campEditarBtn').hidden = !camp;
+  document.getElementById('excelBtn').hidden = !camp;
+  document.getElementById('campDatos').textContent = camp
+    ? `${camp.numeros ? 'Número ' + camp.numeros + '. ' : ''}Participaciones de ${eur(camp.precio)}, ${camp.participaciones_por_talonario} por talonario (${eur(camp.precio * camp.participaciones_por_talonario)} el talonario entero).`
+    : 'Crea la campaña de este año para empezar a repartir talonarios.';
+  pintarEstado();
+  if (camp) await Promise.all([cargarTalonarios(), cargarMovs(), cargarMensajes()]);
+}
+document.getElementById('campSel').addEventListener('change', (e) => elegirCampana(e.target.value));
+
+function abrirFormCampana(editar) {
+  const f = document.getElementById('campForm');
+  f.hidden = false; f.dataset.editar = editar ? '1' : '';
+  f.querySelectorAll('.solo-nueva').forEach(x => x.hidden = !!editar);
+  f.querySelectorAll('.solo-editar').forEach(x => x.hidden = !editar);
+  f.nombre.value = editar ? camp.nombre : 'Lotería de Navidad ' + new Date().getFullYear();
+  f.numeros.value = editar ? (camp.numeros || '') : '';
+  f.precio.value = editar ? camp.precio : 5;
+  f.ppt.value = editar ? camp.participaciones_por_talonario : 25;
+  document.getElementById('campMsg').hidden = true;
+  f.nombre.focus();
+}
+document.getElementById('campNuevaBtn').addEventListener('click', () => abrirFormCampana(false));
+document.getElementById('campEditarBtn').addEventListener('click', () => abrirFormCampana(true));
+document.getElementById('campCancelar').addEventListener('click', () => { document.getElementById('campForm').hidden = true; });
+document.getElementById('campForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const f = e.target, msg = document.getElementById('campMsg'); msg.hidden = true;
+  const datos = { nombre: f.nombre.value.trim(), numeros: f.numeros.value.trim() || null, precio: Number(f.precio.value), participaciones_por_talonario: Math.trunc(Number(f.ppt.value)) };
+  const fallo = (t) => { msg.textContent = t; msg.hidden = false; };
+  let id;
+  if (f.dataset.editar) {
+    const { error } = await sb.from('loteria_campanas').update(datos).eq('id', camp.id);
+    if (error) return fallo(error.message);
+    id = camp.id;
+  } else {
+    const cuantos = Math.trunc(Number(f.cuantos.value));
+    if (!(cuantos >= 1 && cuantos <= 1000)) return fallo('Indica cuántos talonarios (de 1 a 1000).');
+    const { data, error } = await sb.from('loteria_campanas').insert(datos).select('id').single();
+    if (error) return fallo(error.message);
+    id = data.id;
+    const r = await sb.rpc('loteria_crear_talonarios', { p_campana: id, p_cuantos: cuantos });
+    if (r.error) return fallo('La campaña se ha creado, pero no los talonarios: ' + r.error.message);
+  }
+  f.hidden = true;
+  await cargarCampanas(id);
+});
+
+/* ---------- Talonarios ---------- */
+async function cargarTalonarios() {
+  const [t, i] = await Promise.all([
+    todasLasFilas(() => sb.from('loteria_talonarios').select('*').eq('campana_id', camp.id).order('numero')),
+    todasLasFilas(() => sb.from('loteria_ingresos').select('*, loteria_talonarios!inner(campana_id)').eq('loteria_talonarios.campana_id', camp.id).order('fecha'))
+  ]).catch(e => [null, null]);
+  if (!t) { document.getElementById('talonarios').innerHTML = '<p class="msg-error">No se pudieron cargar los talonarios.</p>'; return; }
+  talonarios = t;
+  ingresos = {};
+  (i || []).forEach(x => (ingresos[x.talonario_id] = ingresos[x.talonario_id] || []).push(x));
+  pintarResumen();
+  pintarTalonarios();
+}
+
+function pintarResumen() {
+  const ppt = camp.participaciones_por_talonario;
+  let asignados = 0, vendidas = 0, ingresado = 0, pendiente = 0, devueltos = 0;
+  talonarios.forEach(t => { const c = cuentas(t); if (t.titular_nombre) asignados++; if (t.devuelto_en) devueltos++; vendidas += t.vendidas; ingresado += c.ingresado; pendiente += c.pendiente; });
+  const total = talonarios.length * ppt;
+  document.getElementById('resumen').innerHTML = `
+    <div><dt>Talonarios repartidos</dt><dd>${asignados} de ${talonarios.length}<small>${talonarios.length - asignados} sin asignar${devueltos ? `, ${devueltos} devuelto${devueltos === 1 ? '' : 's'}` : ''}</small></dd></div>
+    <div><dt>Participaciones vendidas</dt><dd>${vendidas} de ${total}<small>${total ? Math.round(vendidas * 100 / total) : 0} %</small></dd></div>
+    <div><dt>Vendido</dt><dd>${eur(vendidas * camp.precio)}</dd></div>
+    <div><dt>Ingresado en la cuenta</dt><dd>${eur(ingresado)}</dd></div>
+    <div class="${pendiente > 0 ? 'pendiente' : ''}"><dt>Por ingresar</dt><dd>${eur(pendiente)}</dd></div>`;
+}
+
+function pintarTalonarios() {
+  const q = document.getElementById('buscar').value.trim().toLowerCase();
+  const ppt = camp.participaciones_por_talonario;
+  const lista = talonarios.filter(t => {
+    if (filtro && cuentas(t).estado !== filtro && !(filtro === 'ok' && cuentas(t).estado === 'dev')) return false;
+    if (!q) return true;
+    return String(t.numero) === q || (t.titular_nombre || '').toLowerCase().includes(q) || (t.titular_movil || '').replace(/\s/g, '').includes(q.replace(/\s/g, ''));
+  });
+  const wrap = document.getElementById('talonarios');
+  if (!lista.length) { wrap.innerHTML = `<p class="nada">${talonarios.length ? 'Ningún talonario coincide.' : 'Esta campaña no tiene talonarios: añádelos abajo.'}</p>`; return; }
+  wrap.innerHTML = lista.map(t => {
+    const c = cuentas(t);
+    const fam = familias.find(f => f.id === t.socio_id);
+    return `<div class="tal" data-id="${t.id}">
+      <button type="button" class="tal-fila" aria-expanded="${abierto === t.id}">
+        <span class="tal-n">${t.numero}<small>${rango(t)}</small></span>
+        <span class="tal-quien">${t.titular_nombre ? `<b>${esc(t.titular_nombre)}</b><span>${esc(t.titular_movil || '')}${fam ? (t.titular_movil ? ', ' : '') + 'socio ' + esc(fam.numero) : ''}</span>` : '<span class="tal-sin">Sin asignar</span>'}</span>
+        <span class="tal-vend"><b>${t.vendidas}</b> / ${ppt}<span class="tal-barra"><i style="width:${t.vendidas * 100 / ppt}%"></i></span></span>
+        <span class="tal-dinero">${c.vendido ? `Ingresado ${eur(c.ingresado)}${c.pendiente > 0 ? `<br>Falta ${eur(c.pendiente)}` : ''}` : ''}</span>
+        <span class="tal-estado"><span class="chip ${c.estado}">${ESTADOS[c.estado]}</span></span>
+      </button>
+      ${abierto === t.id ? editorHtml(t, c) : ''}
+    </div>`;
+  }).join('');
+}
+
+function editorHtml(t, c) {
+  const ppt = camp.participaciones_por_talonario;
+  const ings = ingresos[t.id] || [];
+  const fam = familias.find(f => f.id === t.socio_id);
+  return `<div class="tal-edit">
+    <div>
+      <h4>Quién lo tiene</h4>
+      <div class="fila">
+        <label style="flex:1 1 260px;">Familia socia (opcional)<input type="text" class="e-familia" list="familias" value="${fam ? esc(fam.texto) : ''}" placeholder="Busca por nombre o nº de socio"></label>
+        <label style="flex:1 1 200px;">Nombre<input type="text" class="e-nombre" value="${esc(t.titular_nombre || '')}"></label>
+        <label>Móvil<input type="tel" class="e-movil" value="${esc(t.titular_movil || '')}" style="width:150px;"></label>
+        <label>Entregado el<input type="date" class="e-entregado" value="${t.entregado_en || ''}"></label>
+      </div>
+    </div>
+    <div>
+      <h4>Ventas</h4>
+      <div class="fila">
+        <label>Vendidas (de ${ppt})<input type="number" class="n e-vendidas" min="0" max="${ppt}" value="${t.vendidas}"></label>
+        <button type="button" class="btn btn-outline" data-a="entero">Vendido entero</button>
+        <label style="flex-direction:row; display:flex; gap:8px; align-items:center; font-weight:400;"><input type="checkbox" class="e-devuelto" style="width:auto;" ${t.devuelto_en ? 'checked' : ''}> Ha devuelto el talonario con las que no ha vendido</label>
+      </div>
+    </div>
+    <label style="display:grid; gap:4px; font-weight:700; font-size:14px;">Nota<input type="text" class="e-nota" value="${esc(t.nota || '')}"></label>
+    <div><button type="button" class="btn btn-primary" data-a="guardar">Guardar</button> ${t.titular_nombre && !t.vendidas && !ings.length ? '<button type="button" class="linklike" data-a="liberar">Dejar sin asignar</button>' : ''}</div>
+    <div>
+      <h4>Ingresos en la cuenta</h4>
+      ${ings.length ? ings.map(i => `<div class="ingreso"><span>${eur(i.importe)} el ${fecha(i.fecha)}${i.nota ? ' <small>(' + esc(i.nota) + ')</small>' : ''}</span><span><small>${esc(i.creado_por_nombre || '')}</small> <button type="button" class="btn-danger-link" data-a="borrarIngreso" data-ing="${i.id}">Borrar</button></span></div>`).join('') : '<p class="nada" style="margin:0;">Todavía no se ha ingresado nada.</p>'}
+      ${c.pendiente > 0 ? `<div class="fila" style="margin-top:10px;">
+        <label>Importe (€)<input type="number" class="n e-importe" min="0.5" step="0.5" max="${c.pendiente}" value="${c.pendiente}"></label>
+        <label>Fecha<input type="date" class="e-fecha" value="${hoy()}"></label>
+        <label style="flex:1 1 200px;">Nota (opcional)<input type="text" class="e-inota" placeholder="Por ejemplo: transferencia de Ana"></label>
+        <button type="button" class="btn btn-primary" data-a="ingresar">Apuntar ingreso</button>
+      </div>` : (t.vendidas ? '<p style="margin:8px 0 0; color:var(--ink-soft);">Todo lo vendido está ingresado.</p>' : '<p style="margin:8px 0 0; color:var(--ink-soft);">Apunta antes las ventas.</p>')}
+    </div>
+    <p class="msg-error e-msg" hidden></p>
+  </div>`;
+}
+
+const talonario = (id) => talonarios.find(t => t.id === id);
+document.getElementById('talonarios').addEventListener('input', (e) => {
+  // Al elegir una familia, se rellenan el nombre y el móvil del adulto principal
+  if (!e.target.classList.contains('e-familia')) return;
+  const f = familias.find(x => x.texto === e.target.value);
+  if (!f) return;
+  const ed = e.target.closest('.tal-edit');
+  ed.querySelector('.e-nombre').value = f.nombre;
+  ed.querySelector('.e-movil').value = f.movil;
+});
+document.getElementById('talonarios').addEventListener('click', async (e) => {
+  const fila = e.target.closest('.tal-fila');
+  if (fila) { const id = fila.closest('.tal').dataset.id; abierto = abierto === id ? null : id; pintarTalonarios(); return; }
+  const b = e.target.closest('button[data-a]'); if (!b) return;
+  const caja = b.closest('.tal'), t = talonario(caja.dataset.id), ed = caja.querySelector('.tal-edit'), msg = ed.querySelector('.e-msg');
+  msg.hidden = true;
+  const fallo = (m) => { msg.textContent = m; msg.hidden = false; };
+  const v = (c) => ed.querySelector(c).value.trim();
+  if (b.dataset.a === 'entero') { ed.querySelector('.e-vendidas').value = camp.participaciones_por_talonario; return; }
+
+  let res;
+  if (b.dataset.a === 'guardar') {
+    const famTxt = v('.e-familia'), fam = familias.find(f => f.texto === famTxt);
+    if (famTxt && !fam) return fallo('Elige la familia de la lista (o deja el campo vacío si no es una familia socia).');
+    const vendidas = Math.trunc(Number(v('.e-vendidas')));
+    if (!(vendidas >= 0 && vendidas <= camp.participaciones_por_talonario)) return fallo(`Las vendidas van de 0 a ${camp.participaciones_por_talonario}.`);
+    const nombre = v('.e-nombre');
+    if (!nombre && (fam || vendidas || v('.e-movil'))) return fallo('Escribe el nombre de quien tiene el talonario.');
+    const devuelto = ed.querySelector('.e-devuelto').checked;
+    res = await sb.from('loteria_talonarios').update({
+      socio_id: fam ? fam.id : null, titular_nombre: nombre || null, titular_movil: v('.e-movil') || null,
+      entregado_en: v('.e-entregado') || (nombre && !t.titular_nombre ? hoy() : t.entregado_en) || null,
+      vendidas, devuelto_en: devuelto ? (t.devuelto_en || hoy()) : null, nota: v('.e-nota') || null
+    }).eq('id', t.id);
+  } else if (b.dataset.a === 'liberar') {
+    if (!confirm(`¿Dejar el talonario ${t.numero} sin asignar?`)) return;
+    res = await sb.from('loteria_talonarios').update({ socio_id: null, titular_nombre: null, titular_movil: null, entregado_en: null, devuelto_en: null }).eq('id', t.id);
+  } else if (b.dataset.a === 'ingresar') {
+    const importe = Number(v('.e-importe'));
+    if (!(importe > 0)) return fallo('Escribe el importe ingresado.');
+    if (!v('.e-fecha')) return fallo('Indica la fecha del ingreso.');
+    res = await sb.from('loteria_ingresos').insert({ talonario_id: t.id, importe, fecha: v('.e-fecha'), nota: v('.e-inota') || null });
+  } else if (b.dataset.a === 'borrarIngreso') {
+    if (!confirm('¿Borrar este ingreso? Quedará en el historial.')) return;
+    res = await sb.from('loteria_ingresos').delete().eq('id', b.dataset.ing);
+  }
+  if (res && res.error) return fallo(res.error.message);
+  await Promise.all([cargarTalonarios(), cargarMovs()]);
+});
+document.getElementById('filtros').addEventListener('click', (e) => {
+  const b = e.target.closest('button'); if (!b) return;
+  filtro = b.dataset.f;
+  document.querySelectorAll('#filtros button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+  pintarTalonarios();
+});
+document.getElementById('buscar').addEventListener('input', pintarTalonarios);
+document.getElementById('masBtn').addEventListener('click', async () => {
+  const n = Math.trunc(Number(document.getElementById('masN').value)), msg = document.getElementById('talMsg'); msg.hidden = true;
+  if (!confirm(`¿Añadir ${n} talonario${n === 1 ? '' : 's'} más a «${camp.nombre}»?`)) return;
+  const { error } = await sb.rpc('loteria_crear_talonarios', { p_campana: camp.id, p_cuantos: n });
+  if (error) { msg.textContent = error.message; msg.hidden = false; return; }
+  await Promise.all([cargarTalonarios(), cargarMovs()]);
+});
+
+/* ---------- Comenzar y cerrar la campaña ---------- */
+// preparacion: sin comenzar · programada: comienza más adelante · abierta · cerrada
+function estadoCampana(c) {
+  if (c.cerrada_en) return 'cerrada';
+  if (!c.inicio) return 'preparacion';
+  return c.inicio > hoy() ? 'programada' : 'abierta';
+}
+function pintarEstado() {
+  const cont = document.getElementById('campEstado');
+  cont.hidden = !camp;
+  if (!camp) return;
+  const e = estadoCampana(camp);
+  const otraAbierta = campanas.find(c => c.id !== camp.id && ['abierta', 'programada'].includes(estadoCampana(c)));
+  if (e === 'preparacion') {
+    cont.innerHTML = `<span class="chip sin">Sin comenzar</span>
+      <label>Participaciones disponibles desde <input type="date" id="inicioFecha" value="${hoy()}"></label>
+      <button type="button" class="btn btn-primary" data-c="comenzar">Comenzar la campaña</button>
+      <span style="color:var(--ink-soft); font-size:15px; flex-basis:100%;">${otraAbierta ? `Antes hay que cerrar «${esc(otraAbierta.nombre)}».` : 'Desde esa fecha sale «Quiero comprar Lotería» en la página principal y en el portal de socios.'}</span>`;
+  } else if (e === 'programada' || e === 'abierta') {
+    cont.innerHTML = `<span class="chip ${e === 'abierta' ? 'ok' : 'venta'}">${e === 'abierta' ? 'Abierta' : 'Programada'}</span>
+      <span>Participaciones disponibles desde el ${fecha(camp.inicio)}.${e === 'abierta' ? ' Se ve «Quiero comprar Lotería».' : ''}</span>
+      <button type="button" class="btn btn-outline" data-c="cerrar">Cerrar la campaña</button>
+      ${e === 'programada' ? '<button type="button" class="linklike" data-c="anular">Anular el comienzo</button>' : ''}`;
+  } else {
+    cont.innerHTML = `<span class="chip dev">Cerrada</span>
+      <span>Cerrada el ${fecha(camp.cerrada_en)}. Ya no sale «Quiero comprar Lotería». Se pueden seguir apuntando ventas e ingresos.</span>
+      <button type="button" class="linklike" data-c="reabrir">Reabrir</button>`;
+  }
+  cont.insertAdjacentHTML('beforeend', '<p class="msg-error" id="estadoMsg" hidden style="flex-basis:100%; margin:0;"></p>');
+}
+document.getElementById('campEstado').addEventListener('click', async (e) => {
+  const b = e.target.closest('button[data-c]'); if (!b) return;
+  const msg = document.getElementById('estadoMsg'); msg.hidden = true;
+  let cambios;
+  if (b.dataset.c === 'comenzar') {
+    const f = document.getElementById('inicioFecha').value;
+    if (!f) { msg.textContent = 'Indica desde qué fecha hay participaciones.'; msg.hidden = false; return; }
+    if (!confirm(`¿Comenzar «${camp.nombre}» con participaciones disponibles desde el ${fecha(f)}?`)) return;
+    cambios = { inicio: f, cerrada_en: null };
+  } else if (b.dataset.c === 'cerrar') {
+    if (!confirm(`¿Cerrar «${camp.nombre}»? Dejará de salir «Quiero comprar Lotería».`)) return;
+    cambios = { cerrada_en: new Date().toISOString() };
+  } else if (b.dataset.c === 'reabrir') {
+    if (!confirm(`¿Reabrir «${camp.nombre}»? Volverá a salir «Quiero comprar Lotería».`)) return;
+    cambios = { cerrada_en: null };
+  } else if (b.dataset.c === 'anular') {
+    cambios = { inicio: null };
+  }
+  const { error } = await sb.from('loteria_campanas').update(cambios).eq('id', camp.id);
+  if (error) { msg.textContent = error.message; msg.hidden = false; return; }
+  await cargarCampanas(camp.id);
+});
+
+/* ---------- Mensajes de «Quiero comprar Lotería» ---------- */
+let verAtendidos = false;
+async function cargarMensajes() {
+  const wrap = document.getElementById('mensajes');
+  const { data, error } = await sb.from('loteria_mensajes').select('*').eq('campana_id', camp.id).order('created_at', { ascending: false });
+  if (error) { wrap.innerHTML = '<p class="msg-error">No se pudieron cargar los mensajes.</p>'; return; }
+  const pendientes = data.filter(m => !m.atendido_en);
+  document.getElementById('mensajesN').textContent = pendientes.length ? `(${pendientes.length} sin atender)` : '';
+  const lista = verAtendidos ? data : pendientes;
+  document.getElementById('verAtendidos').textContent = verAtendidos ? 'Ocultar los atendidos' : `Ver también los atendidos (${data.length - pendientes.length})`;
+  document.getElementById('verAtendidos').hidden = data.length === pendientes.length && !verAtendidos;
+  if (!lista.length) { wrap.innerHTML = '<p class="nada">No hay mensajes sin atender.</p>'; return; }
+  wrap.innerHTML = lista.map(m => `<div class="msj${m.atendido_en ? ' atendido' : ''}" data-id="${m.id}">
+    <div class="msj-cab"><b>${esc(m.nombre)} ${esc(m.apellidos)}</b>${m.socio_id ? '<small>Familia socia</small>' : ''}<small>${new Date(m.created_at).toLocaleString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</small>${m.atendido_en ? `<small>Atendido el ${fecha(m.atendido_en)}</small>` : ''}</div>
+    <p>${esc(m.mensaje)}</p>
+    <div><a href="mailto:${esc(m.email)}?subject=${encodeURIComponent('Lotería del AMPA')}">${esc(m.email)}</a> · <a href="tel:${esc(String(m.movil).replace(/\s/g, ''))}">${esc(m.movil)}</a></div>
+    <div class="msj-acc">
+      <input type="text" placeholder="Nota de la Junta (solo la veis vosotros)" aria-label="Nota de la Junta" value="${esc(m.nota_junta || '')}">
+      <button type="button" class="btn ${m.atendido_en ? 'btn-outline' : 'btn-primary'}" data-m="${m.atendido_en ? 'pendiente' : 'atendido'}">${m.atendido_en ? 'Marcar sin atender' : 'Marcar como atendido'}</button>
+    </div>
+  </div>`).join('');
+}
+document.getElementById('mensajes').addEventListener('click', async (e) => {
+  const b = e.target.closest('button[data-m]'); if (!b) return;
+  const caja = b.closest('.msj');
+  const { error } = await sb.from('loteria_mensajes').update({
+    atendido_en: b.dataset.m === 'atendido' ? new Date().toISOString() : null,
+    nota_junta: caja.querySelector('input').value.trim() || null
+  }).eq('id', caja.dataset.id);
+  if (error) { alert('No se pudo guardar: ' + error.message); return; }
+  cargarMensajes();
+});
+document.getElementById('verAtendidos').addEventListener('click', () => { verAtendidos = !verAtendidos; cargarMensajes(); });
+
+/* ---------- Asignar un grupo de talonarios ---------- */
+const grupoForm = document.getElementById('grupoForm');
+// Lee el rango y devuelve { t1, t2 } o { error }
+function leerGrupo() {
+  const ppt = camp.participaciones_por_talonario;
+  const d = Math.trunc(Number(grupoForm.desde.value)), h = Math.trunc(Number(grupoForm.hasta.value));
+  if (!grupoForm.desde.value || !grupoForm.hasta.value) return { vacio: true };
+  if (!(d >= 1) || !(h >= d)) return { error: 'La última participación tiene que ser igual o mayor que la primera.' };
+  if ((d - 1) % ppt) return { error: `No se puede asignar parte de un talonario: la primera participación tiene que ser ${Math.floor((d - 1) / ppt) * ppt + 1} o ${Math.ceil((d - 1) / ppt) * ppt + 1}.` };
+  if (h % ppt) return { error: `No se puede asignar parte de un talonario: la última participación tiene que ser ${Math.floor(h / ppt) * ppt || ppt} o ${Math.ceil(h / ppt) * ppt}.` };
+  const t1 = (d - 1) / ppt + 1, t2 = h / ppt, max = talonarios.reduce((m, t) => Math.max(m, t.numero), 0);
+  if (t2 > max) return { error: `Solo hay ${max} talonarios (participaciones 1 a ${max * ppt}).` };
+  return { d, h, t1, t2, n: t2 - t1 + 1 };
+}
+function pistaGrupo() {
+  const g = leerGrupo(), el = document.getElementById('grupoPista');
+  el.classList.toggle('mal', !!g.error);
+  el.textContent = g.vacio ? '' : g.error || (g.n === 1 ? `Talonario ${g.t1}` : `Talonarios ${g.t1} a ${g.t2} (${g.n} talonarios)`) + `: ${g.h - g.d + 1} participaciones, ${eur((g.h - g.d + 1) * camp.precio)}.`;
+}
+grupoForm.addEventListener('input', (e) => {
+  document.getElementById('grupoAviso').hidden = true;
+  document.getElementById('grupoOk').hidden = true;
+  if (e.target.name === 'familia') {
+    const f = familias.find(x => x.texto === e.target.value);
+    if (f) { grupoForm.nombre.value = f.nombre; grupoForm.movil.value = f.movil; }
+  }
+  pistaGrupo();
+});
+const mismoTitular = (t, nombre, socio) => (t.titular_nombre || '').toLowerCase() === nombre.toLowerCase() && (t.socio_id || null) === (socio || null);
+let grupoPendiente = null;
+async function asignarGrupo(g, reasignar) {
+  const msg = document.getElementById('grupoMsg'), ok = document.getElementById('grupoOk');
+  const { data, error } = await sb.rpc('loteria_asignar', {
+    p_campana: camp.id, p_desde: g.d, p_hasta: g.h, p_socio: g.socio, p_nombre: g.nombre, p_movil: g.movil,
+    p_entregado: g.entregado, p_reasignar: reasignar
+  });
+  if (error) { msg.textContent = error.message; msg.hidden = false; return; }
+  document.getElementById('grupoAviso').hidden = true;
+  const n = Number(data) || 0;
+  ok.textContent = `Asignado${n === 1 ? '' : 's'} ${n} talonario${n === 1 ? '' : 's'} a ${g.nombre}.`;
+  ok.hidden = false;
+  grupoForm.desde.value = ''; grupoForm.hasta.value = ''; pistaGrupo();
+  await Promise.all([cargarTalonarios(), cargarMovs()]);
+}
+grupoForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const msg = document.getElementById('grupoMsg'), aviso = document.getElementById('grupoAviso');
+  msg.hidden = true; aviso.hidden = true; document.getElementById('grupoOk').hidden = true;
+  const g = leerGrupo();
+  if (g.vacio) { msg.textContent = 'Indica de qué participación a qué participación.'; msg.hidden = false; return; }
+  if (g.error) { msg.textContent = g.error; msg.hidden = false; return; }
+  const famTxt = grupoForm.familia.value.trim(), fam = familias.find(f => f.texto === famTxt);
+  if (famTxt && !fam) { msg.textContent = 'Elige la familia de la lista (o deja el campo vacío si no es una familia socia).'; msg.hidden = false; return; }
+  g.nombre = grupoForm.nombre.value.trim(); g.movil = grupoForm.movil.value.trim() || null;
+  g.socio = fam ? fam.id : null; g.entregado = grupoForm.entregado.value || null;
+  if (!g.nombre) { msg.textContent = 'Escribe el nombre de quien recibe los talonarios.'; msg.hidden = false; return; }
+
+  // ¿Alguno lo tiene ya otra persona?
+  const ocupados = talonarios.filter(t => t.numero >= g.t1 && t.numero <= g.t2 && t.titular_nombre && !mismoTitular(t, g.nombre, g.socio));
+  if (!ocupados.length) return asignarGrupo(g, false);
+  grupoPendiente = g;
+  const libres = g.n - ocupados.length;
+  aviso.innerHTML = `<b>${ocupados.length === 1 ? 'Este talonario ya está asignado' : 'Estos talonarios ya están asignados'}:</b>
+    <ul>${ocupados.map(t => { const c = cuentas(t); return `<li>Talonario ${t.numero} (${rango(t)}): ${esc(t.titular_nombre)}${t.vendidas ? `, con ${t.vendidas} vendidas${c.ingresado ? ' y ' + eur(c.ingresado) + ' ingresados' : ''}` : ''}</li>`; }).join('')}</ul>
+    <div class="botones">
+      ${libres ? `<button type="button" class="btn btn-primary" data-g="libres">Asignar solo los libres (${libres})</button>` : ''}
+      <button type="button" class="btn btn-outline" data-g="todos">Asignarlos también a ${esc(g.nombre)}</button>
+      <button type="button" class="linklike" data-g="modificar">Modificar la selección</button>
+    </div>
+    ${ocupados.some(t => t.vendidas) ? '<p style="margin:10px 0 0; font-size:15px;">Si los reasignas, las ventas e ingresos ya apuntados se quedan en el talonario.</p>' : ''}`;
+  aviso.hidden = false;
+});
+document.getElementById('grupoAviso').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-g]'); if (!b || !grupoPendiente) return;
+  if (b.dataset.g === 'modificar') { e.currentTarget.hidden = true; grupoForm.desde.focus(); return; }
+  if (b.dataset.g === 'todos' && !confirm('¿Pasar también esos talonarios a ' + grupoPendiente.nombre + '?')) return;
+  asignarGrupo(grupoPendiente, b.dataset.g === 'todos');
+});
+
+/* ---------- Historial ---------- */
+async function cargarMovs() {
+  const wrap = document.getElementById('movs');
+  const { data, error } = await sb.from('loteria_movimientos').select('*').eq('campana_id', camp.id).order('created_at', { ascending: false }).limit(60);
+  if (error) { wrap.innerHTML = ''; return; }
+  if (!data.length) { wrap.innerHTML = '<p class="nada">Todavía no hay movimientos.</p>'; return; }
+  wrap.innerHTML = data.map(m => `<div class="mov"><span>${m.talonario_numero ? `<b>Talonario ${m.talonario_numero}:</b> ` : ''}${esc(m.texto)}</span><small>${new Date(m.created_at).toLocaleString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}${m.creado_por_nombre ? ', ' + esc(m.creado_por_nombre) : ''}</small></div>`).join('');
+}
+
+/* ---------- Familias socias (para asignar) ---------- */
+async function cargarFamilias() {
+  const filas = await todasLasFilas(() => sb.from('socios').select('id, numero_socio_completo, estado, adultos!adultos_socio_id_fkey(nombre, apellidos, movil, created_at)').order('numero_socio_completo')).catch(() => []);
+  familias = filas.filter(s => s.adultos && s.adultos.length).map(s => {
+    const a = [...s.adultos].sort((x, y) => String(x.created_at).localeCompare(String(y.created_at)))[0];
+    const nombre = `${a.nombre} ${a.apellidos || ''}`.trim();
+    return { id: s.id, numero: s.numero_socio_completo || '', nombre, movil: a.movil || '', texto: `${nombre} (socio ${s.numero_socio_completo || 'sin número'})` };
+  });
+  document.getElementById('familias').innerHTML = familias.map(f => `<option value="${esc(f.texto)}"></option>`).join('');
+}
+
+/* ---------- Excel ---------- */
+document.getElementById('excelBtn').addEventListener('click', () => {
+  const ppt = camp.participaciones_por_talonario;
+  const filas = [
+    { celdas: [{ v: camp.nombre + (camp.numeros ? ' · número ' + camp.numeros : ''), e: 'titulo' }], alto: 28 },
+    { celdas: ['Talonario', 'Participaciones', 'Tiene el talonario', 'Móvil', 'Entregado', 'Vendidas', 'Vendido (€)', 'Ingresado (€)', 'Por ingresar (€)', 'Devuelto', 'Estado', 'Nota'].map(v => ({ v, e: 'cabecera' })) }
+  ];
+  talonarios.forEach(t => {
+    const c = cuentas(t);
+    filas.push({ celdas: [t.numero, rango(t), t.titular_nombre || '', t.titular_movil || '', t.entregado_en ? fecha(t.entregado_en) : '', `${t.vendidas} / ${ppt}`, c.vendido, c.ingresado, c.pendiente, t.devuelto_en ? fecha(t.devuelto_en) : '', ESTADOS[c.estado], t.nota || ''].map(v => ({ v: String(v) })) });
+  });
+  const blob = crearXlsx({ hoja: 'Talonarios', filas, unir: ['A1:L1'], anchos: [10, 14, 26, 13, 13, 10, 11, 12, 13, 13, 18, 30] });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = camp.nombre.replace(/[\\/:*?"<>|]+/g, '-') + '.xlsx';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+});
+
+(async () => {
+  const ctx = await requireAdmin();
+  if (!ctx) return;
+  renderNav('admin-loteria', ctx);
+  await cargarFamilias();
+  await cargarCampanas();
+})();
+</script>
+<script src="shared/sonido.js"></script>
+<script src="shared/vida.js"></script>
+</body>
+</html>

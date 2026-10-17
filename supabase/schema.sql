@@ -4747,3 +4747,575 @@ begin
 end;
 $$;
 grant execute on function socio_pagar_por_transferencia() to authenticated;
+
+-- ==================================================================
+-- DOCUMENTOS FIRMADOS DE EVENTOS: PRIVADOS
+--  · Los documentos que firman las familias en los eventos (autorizaciones
+--    y similares) solo los ven esa familia y la Junta. Antes cualquiera que
+--    supiera la ruta podía leerlos.
+--  · Las plantillas en blanco de cada evento las pueden leer todos (las
+--    familias las necesitan para rellenarlas).
+--  · La web abre los archivos con enlaces temporales; los documentos que ya
+--    estaban guardados siguen abriéndose igual.
+-- Se puede ejecutar varias veces.
+-- ==================================================================
+update storage.buckets set public = false where id = 'documentos-evento';
+
+-- Leer: la plantilla de un evento (carpeta = id del evento), los documentos
+-- de tu familia (carpeta = tu nº de cuenta) o todo si eres de la Junta
+drop policy if exists "todos leen documentos de evento visibles" on storage.objects;
+drop policy if exists "leer documentos de evento: plantillas, los tuyos y la Junta" on storage.objects;
+create policy "leer documentos de evento: plantillas, los tuyos y la Junta" on storage.objects for select
+  using (bucket_id = 'documentos-evento' and (
+    is_admin()
+    or (storage.foldername(name))[1] = mi_socio_id()::text
+    or exists (select 1 from eventos e where e.id::text = (storage.foldername(name))[1])
+  ));
+
+-- Subir: la familia solo en su carpeta; la Junta las plantillas
+drop policy if exists "usuarios suben documentos de evento" on storage.objects;
+drop policy if exists "subir documentos de evento: familia en su carpeta y la Junta" on storage.objects;
+create policy "subir documentos de evento: familia en su carpeta y la Junta" on storage.objects for insert
+  with check (bucket_id = 'documentos-evento' and (
+    is_admin() or (storage.foldername(name))[1] = mi_socio_id()::text
+  ));
+
+-- ==================================================================
+-- CURSO DE WARHAMMER: TALLERES Y EVENTOS QUE COINCIDEN CON UNA SESIÓN
+--  · La Junta marca, en cada taller o evento, con qué sesiones del curso
+--    coincide (evento_sesion_incompatibles).
+--  · Un alumno/a del curso no puede apuntarse a un taller o evento que
+--    coincide con una de sus sesiones.
+--  · Un alumno/a apuntado a un taller o evento que coincide con una sesión
+--    no puede apuntarse al curso mientras ese taller no haya pasado. Cuando
+--    ya ha pasado, sí puede (y entonces queda limitado para los siguientes).
+--  · Un alumno/a puede salir del curso cuando quiera, pero ya no puede volver
+--    a apuntarse (curso_bajas). La Junta sí puede volver a apuntarlo.
+-- Se puede ejecutar varias veces.
+-- ==================================================================
+create table if not exists evento_sesion_incompatibles (
+  evento_id uuid not null references eventos(id) on delete cascade,
+  sesion_id uuid not null references evento_sesiones(id) on delete cascade,
+  primary key (evento_id, sesion_id)
+);
+alter table evento_sesion_incompatibles enable row level security;
+drop policy if exists "todos ven las coincidencias con sesiones" on evento_sesion_incompatibles;
+create policy "todos ven las coincidencias con sesiones" on evento_sesion_incompatibles for select using (true);
+drop policy if exists "admins gestionan las coincidencias con sesiones" on evento_sesion_incompatibles;
+create policy "admins gestionan las coincidencias con sesiones" on evento_sesion_incompatibles for all
+  using (is_admin()) with check (is_admin());
+
+create table if not exists curso_bajas (
+  evento_id uuid not null references eventos(id) on delete cascade,
+  alumno_id uuid not null references alumnos(id) on delete cascade,
+  socio_id uuid references socios(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (evento_id, alumno_id)
+);
+alter table curso_bajas enable row level security;
+drop policy if exists "familia ve sus bajas de cursos" on curso_bajas;
+create policy "familia ve sus bajas de cursos" on curso_bajas for select
+  using (socio_id = mi_socio_id() or is_admin());
+drop policy if exists "admins gestionan las bajas de cursos" on curso_bajas;
+create policy "admins gestionan las bajas de cursos" on curso_bajas for all
+  using (is_admin()) with check (is_admin());
+
+-- Junta: guarda las sesiones con las que coincide p_evento. Devuelve cuántos
+-- alumnos/as ya estaban a la vez en el taller y en el curso (para avisar).
+create or replace function evento_guardar_sesiones_incompatibles(p_evento uuid, p_sesiones uuid[])
+returns integer language plpgsql security definer set search_path = public as $$
+declare n integer;
+begin
+  if not is_admin() then raise exception 'Solo la Junta puede hacer esto.'; end if;
+  delete from evento_sesion_incompatibles where evento_id = p_evento;
+  insert into evento_sesion_incompatibles (evento_id, sesion_id)
+  select p_evento, s.id from evento_sesiones s
+  where s.id = any(coalesce(p_sesiones, '{}')) and s.evento_id <> p_evento
+  on conflict do nothing;
+  select count(distinct i.alumno_id) into n
+  from evento_sesion_incompatibles x
+  join evento_sesiones s on s.id = x.sesion_id
+  join evento_inscripciones i on i.evento_id = p_evento and i.alumno_id is not null and i.estado <> 'no_ganador'
+  join evento_inscripciones c on c.evento_id = s.evento_id and c.alumno_id = i.alumno_id and c.actividad_id is null and c.estado <> 'no_ganador'
+  where x.evento_id = p_evento;
+  return n;
+end;
+$$;
+grant execute on function evento_guardar_sesiones_incompatibles(uuid, uuid[]) to authenticated;
+
+-- Al apuntar a un alumno/a: comprueba las coincidencias con las sesiones
+create or replace function eventos_validar_sesiones()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare
+  v_plantilla text; v_titulo text; v_curso text; v_num integer; v_nombre text;
+begin
+  if new.alumno_id is null or new.actividad_id is not null or new.estado = 'no_ganador' then return new; end if;
+  select plantilla, titulo into v_plantilla, v_curso from eventos where id = new.evento_id;
+  select nombre into v_nombre from alumnos where id = new.alumno_id;
+  v_nombre := coalesce(v_nombre, 'Este alumno/a');
+
+  if v_plantilla = 'warhammer' then
+    -- Salió del curso: no puede volver (la Junta sí puede apuntarlo)
+    if not coalesce(is_admin(), false)
+       and exists (select 1 from curso_bajas b where b.evento_id = new.evento_id and b.alumno_id = new.alumno_id) then
+      raise exception '% se desapuntó de «%» y ya no puede volver a apuntarse.', v_nombre, v_curso;
+    end if;
+    -- Apuntado/a a un taller que coincide con una sesión y que todavía no ha pasado
+    select e.titulo, s.numero into v_titulo, v_num
+    from evento_sesion_incompatibles x
+    join evento_sesiones s on s.id = x.sesion_id
+    join eventos e on e.id = x.evento_id
+    where s.evento_id = new.evento_id
+      and coalesce(e.fecha, s.fecha, now() + interval '1 day') > now()
+      and exists (select 1 from evento_inscripciones i
+                  where i.evento_id = x.evento_id and i.alumno_id = new.alumno_id and i.estado <> 'no_ganador')
+    order by s.numero limit 1;
+    if v_titulo is not null then
+      raise exception '% está apuntado/a a «%», que coincide con la sesión % del curso. Cuando haya pasado podrá apuntarse.', v_nombre, v_titulo, v_num;
+    end if;
+  else
+    -- Alumno/a del curso: no puede ir a algo que coincide con una de sus sesiones
+    select c.titulo, s.numero into v_titulo, v_num
+    from evento_sesion_incompatibles x
+    join evento_sesiones s on s.id = x.sesion_id
+    join eventos c on c.id = s.evento_id
+    where x.evento_id = new.evento_id
+      and exists (select 1 from evento_inscripciones i
+                  where i.evento_id = c.id and i.alumno_id = new.alumno_id and i.actividad_id is null and i.estado <> 'no_ganador')
+    order by s.numero limit 1;
+    if v_titulo is not null then
+      raise exception '% está apuntado/a a «%» y la sesión % es a la misma hora.', v_nombre, v_titulo, v_num;
+    end if;
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists trg_eventos_validar_sesiones on evento_inscripciones;
+create trigger trg_eventos_validar_sesiones before insert on evento_inscripciones
+  for each row execute function eventos_validar_sesiones();
+
+-- Cuando la familia saca a un alumno/a del curso, queda apuntado que salió
+create or replace function eventos_registrar_baja_curso()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if old.alumno_id is not null and old.actividad_id is null and not old.es_voluntario
+     and auth.uid() is not null and not coalesce(is_admin(), false)
+     and exists (select 1 from eventos e where e.id = old.evento_id and e.plantilla = 'warhammer') then
+    insert into curso_bajas (evento_id, alumno_id, socio_id) values (old.evento_id, old.alumno_id, old.socio_id)
+    on conflict do nothing;
+  end if;
+  return old;
+end;
+$$;
+drop trigger if exists trg_eventos_registrar_baja_curso on evento_inscripciones;
+create trigger trg_eventos_registrar_baja_curso after delete on evento_inscripciones
+  for each row execute function eventos_registrar_baja_curso();
+
+-- ==================================================================
+-- AVISOS EN EL MÓVIL Y EL ORDENADOR (notificaciones push)
+--  · Cada adulto puede activar los avisos en sus dispositivos (móvil,
+--    ordenador). Se guarda la «suscripción» que da el navegador.
+--  · La Junta, desde Eventos, avisa de una actividad nueva a las familias
+--    que tienen algún alumno/a que puede apuntarse. Se guarda cuándo se
+--    avisó y a cuántas familias.
+-- Se puede ejecutar varias veces.
+-- ==================================================================
+create table if not exists push_suscripciones (
+  endpoint text primary key,
+  p256dh text not null,
+  auth text not null,
+  adulto_id uuid not null references adultos(id) on delete cascade,
+  socio_id uuid not null references socios(id) on delete cascade,
+  dispositivo text,
+  created_at timestamptz not null default now()
+);
+alter table push_suscripciones enable row level security;
+drop policy if exists "cada adulto ve sus dispositivos con avisos" on push_suscripciones;
+create policy "cada adulto ve sus dispositivos con avisos" on push_suscripciones for select
+  using (adulto_id = auth.uid() or is_admin());
+
+-- Activar los avisos en este dispositivo (si el dispositivo era de otro
+-- adulto, pasa a ser de quien lo activa ahora)
+create or replace function push_guardar_suscripcion(p_endpoint text, p_p256dh text, p_auth text, p_dispositivo text default null)
+returns void language plpgsql security definer set search_path = public as $$
+declare v_socio uuid := mi_socio_id();
+begin
+  if auth.uid() is null or v_socio is null then raise exception 'Inicia sesión para activar los avisos.'; end if;
+  if coalesce(p_endpoint, '') !~ '^https://' or coalesce(p_p256dh, '') = '' or coalesce(p_auth, '') = '' then
+    raise exception 'El navegador no ha dado los datos de los avisos.';
+  end if;
+  insert into push_suscripciones (endpoint, p256dh, auth, adulto_id, socio_id, dispositivo)
+  values (p_endpoint, p_p256dh, p_auth, auth.uid(), v_socio, left(p_dispositivo, 200))
+  on conflict (endpoint) do update set p256dh = excluded.p256dh, auth = excluded.auth,
+    adulto_id = excluded.adulto_id, socio_id = excluded.socio_id, dispositivo = excluded.dispositivo, created_at = now();
+end;
+$$;
+grant execute on function push_guardar_suscripcion(text, text, text, text) to authenticated;
+
+-- Desactivar los avisos en este dispositivo
+create or replace function push_quitar_suscripcion(p_endpoint text)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  delete from push_suscripciones where endpoint = p_endpoint and (adulto_id = auth.uid() or is_admin());
+end;
+$$;
+grant execute on function push_quitar_suscripcion(text) to authenticated;
+
+-- Último aviso de cada evento
+alter table eventos add column if not exists aviso_push_en timestamptz;
+alter table eventos add column if not exists aviso_push_familias integer;
+-- ==================================================================
+-- MIS DATOS: LA FAMILIA PUEDE BORRAR A UN ALUMNO/A
+--  · Cuando quiera (por ejemplo, si deja el colegio). Se borran también sus
+--    inscripciones y peticiones pendientes.
+--  · No si tiene libros del Banco de Libros entregados y sin devolver: así no
+--    se pierde la constancia de que los tiene (la Junta sí puede borrarlo,
+--    p. ej. después de marcarlos como perdidos).
+-- Se puede ejecutar varias veces.
+-- ==================================================================
+create or replace function alumnos_antes_de_borrar()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare v_n integer;
+begin
+  if auth.uid() is null or coalesce(is_admin(), false) then return old; end if;
+  select count(*) into v_n from prestamo_items
+  where alumno_id = old.id and entregado_en is not null and fecha_devolucion is null and not coalesce(perdido, false);
+  if v_n > 0 then
+    raise exception '% tiene % libro(s) del Banco de Libros sin devolver. Devolvedlos antes de borrarlo/a (o hablad con la Junta).', old.nombre, v_n;
+  end if;
+  return old;
+end;
+$$;
+drop trigger if exists trg_alumnos_antes_de_borrar on alumnos;
+create trigger trg_alumnos_antes_de_borrar before delete on alumnos
+  for each row execute function alumnos_antes_de_borrar();
+-- ==================================================================
+-- LOTERÍA (panel de la Junta)
+--  · Cada año, una campaña (por ejemplo «Lotería de Navidad 2026») con
+--    sus talonarios. Cada talonario tiene 25 participaciones de 5 € (125 €
+--    el talonario entero); las participaciones van numeradas seguidas:
+--    talonario 1 → 1-25, talonario 2 → 26-50...
+--  · De cada talonario se apunta quién lo tiene (una familia socia o
+--    cualquier otra persona), cuántas participaciones ha vendido, si lo ha
+--    devuelto y cada ingreso de su dinero en la cuenta del AMPA.
+--  · No se puede ingresar más de lo vendido, ni vender más participaciones
+--    de las que tiene el talonario.
+--  · Todo cambio queda en el historial (quién lo hizo y cuándo).
+--  · La campaña se comienza (fecha desde la que hay participaciones) y se
+--    cierra cuando ya no se venden más. Mientras está abierta, en la página
+--    principal y en el portal sale «Quiero comprar Lotería» (loteria.html):
+--    las fechas de venta y un mensaje para la Junta (loteria_mensajes).
+--  · Solo la Junta lo ve y lo toca.
+-- Se puede ejecutar varias veces.
+-- ==================================================================
+create table if not exists loteria_campanas (
+  id uuid primary key default gen_random_uuid(),
+  nombre text not null,
+  numeros text,                                   -- número(s) que juega el AMPA
+  precio numeric(6,2) not null default 5 check (precio > 0),
+  participaciones_por_talonario integer not null default 25 check (participaciones_por_talonario between 1 and 500),
+  inicio date,                                    -- desde cuándo hay participaciones (campaña comenzada)
+  cerrada_en timestamptz,                         -- ya no se venden más
+  created_at timestamptz not null default now()
+);
+
+create table if not exists loteria_talonarios (
+  id uuid primary key default gen_random_uuid(),
+  campana_id uuid not null references loteria_campanas(id) on delete cascade,
+  numero integer not null check (numero > 0),
+  socio_id uuid references socios(id) on delete set null,
+  titular_nombre text,
+  titular_movil text,
+  entregado_en date,
+  vendidas integer not null default 0 check (vendidas >= 0),
+  devuelto_en date,                               -- devuelve las que no ha vendido
+  nota text,
+  updated_at timestamptz not null default now(),
+  unique (campana_id, numero)
+);
+create index if not exists loteria_talonarios_socio on loteria_talonarios(socio_id);
+
+create table if not exists loteria_ingresos (
+  id uuid primary key default gen_random_uuid(),
+  talonario_id uuid not null references loteria_talonarios(id) on delete cascade,
+  importe numeric(8,2) not null check (importe > 0),
+  fecha date not null default current_date,
+  nota text,
+  creado_por_nombre text,
+  created_at timestamptz not null default now()
+);
+create index if not exists loteria_ingresos_talonario on loteria_ingresos(talonario_id);
+
+create table if not exists loteria_movimientos (
+  id bigint generated always as identity primary key,
+  campana_id uuid not null references loteria_campanas(id) on delete cascade,
+  talonario_numero integer,
+  texto text not null,
+  creado_por_nombre text,
+  created_at timestamptz not null default now()
+);
+create index if not exists loteria_movimientos_campana on loteria_movimientos(campana_id, created_at desc);
+
+alter table loteria_campanas enable row level security;
+alter table loteria_talonarios enable row level security;
+alter table loteria_ingresos enable row level security;
+alter table loteria_movimientos enable row level security;
+drop policy if exists "la junta gestiona la loteria" on loteria_campanas;
+create policy "la junta gestiona la loteria" on loteria_campanas for all using (is_admin()) with check (is_admin());
+drop policy if exists "la junta gestiona los talonarios" on loteria_talonarios;
+create policy "la junta gestiona los talonarios" on loteria_talonarios for all using (is_admin()) with check (is_admin());
+drop policy if exists "la junta gestiona los ingresos de loteria" on loteria_ingresos;
+create policy "la junta gestiona los ingresos de loteria" on loteria_ingresos for all using (is_admin()) with check (is_admin());
+drop policy if exists "la junta ve el historial de loteria" on loteria_movimientos;
+create policy "la junta ve el historial de loteria" on loteria_movimientos for select using (is_admin());
+
+create or replace function _loteria_quien() returns text language sql stable security definer set search_path = public as $$
+  select coalesce((select trim(nombre || ' ' || coalesce(apellidos, '')) from adultos where id = auth.uid()), 'Sistema');
+$$;
+
+create or replace function _loteria_ingresado(p_talonario uuid) returns numeric language sql stable security definer set search_path = public as $$
+  select coalesce(sum(importe), 0) from loteria_ingresos where talonario_id = p_talonario;
+$$;
+
+-- 125 → «125 €», 12.5 → «12,50 €»
+create or replace function _eur(p numeric) returns text language sql immutable as $$
+  select case when p = trunc(p) then trunc(p)::text else replace(to_char(p, 'FM999999990.00'), '.', ',') end || ' €';
+$$;
+
+-- Reglas de cada talonario e historial de cambios
+create or replace function loteria_talonario_cambia() returns trigger language plpgsql security definer set search_path = public as $$
+declare
+  c loteria_campanas;
+  v_quien text := _loteria_quien();
+  v_tit text;
+begin
+  select * into c from loteria_campanas where id = new.campana_id;
+  if new.vendidas > c.participaciones_por_talonario then
+    raise exception 'Un talonario tiene % participaciones: no se pueden vender %.', c.participaciones_por_talonario, new.vendidas;
+  end if;
+  new.titular_nombre := nullif(trim(new.titular_nombre), '');
+  new.titular_movil := nullif(trim(new.titular_movil), '');
+  if new.socio_id is not null and new.titular_nombre is null then
+    raise exception 'Escribe el nombre de quien tiene el talonario %.', new.numero;
+  end if;
+  if new.vendidas > 0 and new.titular_nombre is null and tg_op = 'UPDATE' and old.titular_nombre is not null then
+    raise exception 'El talonario % tiene % vendidas: no se puede dejar sin nadie (si lo tiene otra persona, cámbiale el nombre).', new.numero, new.vendidas;
+  end if;
+  if new.vendidas > 0 and new.titular_nombre is null then
+    raise exception 'El talonario % no lo tiene nadie: asígnalo antes de apuntar ventas.', new.numero;
+  end if;
+  if tg_op = 'UPDATE' then
+    if new.vendidas * c.precio < _loteria_ingresado(new.id) then
+      raise exception 'Del talonario % ya se han ingresado %: no puede tener menos de % vendidas.',
+        new.numero, _eur(_loteria_ingresado(new.id)), ceil(_loteria_ingresado(new.id) / c.precio);
+    end if;
+    if new.titular_nombre is null and old.titular_nombre is not null and _loteria_ingresado(new.id) > 0 then
+      raise exception 'El talonario % ya tiene ingresos: no se puede dejar sin nadie.', new.numero;
+    end if;
+    new.updated_at := now();
+    v_tit := coalesce(new.titular_nombre, 'nadie');
+    if coalesce(new.titular_nombre, '') is distinct from coalesce(old.titular_nombre, '') then
+      insert into loteria_movimientos (campana_id, talonario_numero, texto, creado_por_nombre)
+      values (new.campana_id, new.numero, case when new.titular_nombre is null then 'Queda sin asignar (lo tenía ' || old.titular_nombre || ')'
+        when old.titular_nombre is null then 'Se entrega a ' || new.titular_nombre
+        else 'Pasa de ' || old.titular_nombre || ' a ' || new.titular_nombre end, v_quien);
+    end if;
+    if new.vendidas <> old.vendidas then
+      insert into loteria_movimientos (campana_id, talonario_numero, texto, creado_por_nombre)
+      values (new.campana_id, new.numero, 'Vendidas: ' || old.vendidas || ' → ' || new.vendidas || ' (' || v_tit || ')', v_quien);
+    end if;
+    if new.devuelto_en is distinct from old.devuelto_en then
+      insert into loteria_movimientos (campana_id, talonario_numero, texto, creado_por_nombre)
+      values (new.campana_id, new.numero, case when new.devuelto_en is null then 'Se anula la devolución'
+        else 'Devuelto con ' || (c.participaciones_por_talonario - new.vendidas) || ' sin vender (' || v_tit || ')' end, v_quien);
+    end if;
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists loteria_talonario_cambia on loteria_talonarios;
+create trigger loteria_talonario_cambia before insert or update on loteria_talonarios
+  for each row execute function loteria_talonario_cambia();
+
+create or replace function loteria_ingreso_cambia() returns trigger language plpgsql security definer set search_path = public as $$
+declare
+  t loteria_talonarios;
+  c loteria_campanas;
+  v_otros numeric;
+begin
+  select * into t from loteria_talonarios where id = coalesce(new.talonario_id, old.talonario_id);
+  select * into c from loteria_campanas where id = t.campana_id;
+  if tg_op = 'DELETE' then
+    if t.id is null then return old; end if;   -- se está borrando el talonario o la campaña entera
+    insert into loteria_movimientos (campana_id, talonario_numero, texto, creado_por_nombre)
+    values (t.campana_id, t.numero, 'Se borra el ingreso de ' || _eur(old.importe) || ' del ' || to_char(old.fecha, 'DD/MM/YYYY'), _loteria_quien());
+    return old;
+  end if;
+  v_otros := coalesce((select sum(importe) from loteria_ingresos where talonario_id = t.id and id <> new.id), 0);
+  if v_otros + new.importe > t.vendidas * c.precio then
+    raise exception 'Del talonario % hay % vendidas (%) y ya se han ingresado %: como mucho se pueden ingresar % más. Si se han vendido más, apúntalo antes.',
+      t.numero, t.vendidas, _eur(t.vendidas * c.precio), _eur(v_otros), _eur(t.vendidas * c.precio - v_otros);
+  end if;
+  if tg_op = 'INSERT' then
+    new.creado_por_nombre := _loteria_quien();
+    insert into loteria_movimientos (campana_id, talonario_numero, texto, creado_por_nombre)
+    values (t.campana_id, t.numero, 'Ingreso de ' || _eur(new.importe) || ' en la cuenta el ' || to_char(new.fecha, 'DD/MM/YYYY') || coalesce(' (' || t.titular_nombre || ')', ''), new.creado_por_nombre);
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists loteria_ingreso_cambia on loteria_ingresos;
+create trigger loteria_ingreso_cambia before insert or update or delete on loteria_ingresos
+  for each row execute function loteria_ingreso_cambia();
+
+-- Crear los talonarios de una campaña (o añadir más): del siguiente número
+-- libre en adelante
+create or replace function loteria_crear_talonarios(p_campana uuid, p_cuantos integer)
+returns integer language plpgsql security definer set search_path = public as $$
+declare v_desde integer;
+begin
+  if not is_admin() then raise exception 'Solo la Junta.'; end if;
+  if p_cuantos is null or p_cuantos < 1 or p_cuantos > 1000 then raise exception 'Indica cuántos talonarios (de 1 a 1000).'; end if;
+  select coalesce(max(numero), 0) + 1 into v_desde from loteria_talonarios where campana_id = p_campana;
+  insert into loteria_talonarios (campana_id, numero) select p_campana, g from generate_series(v_desde, v_desde + p_cuantos - 1) g;
+  insert into loteria_movimientos (campana_id, texto, creado_por_nombre)
+  values (p_campana, 'Se crean los talonarios ' || v_desde || ' a ' || (v_desde + p_cuantos - 1), _loteria_quien());
+  return p_cuantos;
+end;
+$$;
+grant execute on function loteria_crear_talonarios(uuid, integer) to authenticated;
+
+-- Las reglas de la campaña no cambian si ya hay ventas
+create or replace function loteria_campana_cambia() returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if (new.precio <> old.precio or new.participaciones_por_talonario <> old.participaciones_por_talonario)
+     and exists (select 1 from loteria_talonarios where campana_id = new.id and vendidas > 0) then
+    raise exception 'Ya hay participaciones vendidas: no se puede cambiar el precio ni las participaciones por talonario.';
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists loteria_campana_cambia on loteria_campanas;
+create trigger loteria_campana_cambia before update on loteria_campanas
+  for each row execute function loteria_campana_cambia();
+
+-- Asignar un grupo de talonarios enteros a la misma persona, dando las
+-- participaciones (de la 1 a la 300 → talonarios 1 a 12). No se puede
+-- asignar parte de un talonario.
+-- p_reasignar = false: los que ya tiene otra persona no se tocan.
+-- p_reasignar = true:  pasan también a la nueva persona.
+-- Devuelve cuántos talonarios se han asignado.
+create or replace function loteria_asignar(p_campana uuid, p_desde integer, p_hasta integer,
+  p_socio uuid, p_nombre text, p_movil text, p_entregado date default null, p_reasignar boolean default false)
+returns integer language plpgsql security definer set search_path = public as $$
+declare
+  c loteria_campanas;
+  v_t1 integer; v_t2 integer; v_hay integer; v_n integer;
+  v_nombre text := nullif(trim(p_nombre), '');
+begin
+  if not is_admin() then raise exception 'Solo la Junta.'; end if;
+  select * into c from loteria_campanas where id = p_campana;
+  if c.id is null then raise exception 'La campaña no existe.'; end if;
+  if v_nombre is null then raise exception 'Escribe el nombre de quien recibe los talonarios.'; end if;
+  if p_desde is null or p_hasta is null or p_desde < 1 or p_hasta < p_desde then
+    raise exception 'Indica de qué participación a qué participación.';
+  end if;
+  if (p_desde - 1) % c.participaciones_por_talonario <> 0 or p_hasta % c.participaciones_por_talonario <> 0 then
+    raise exception 'Solo se pueden asignar talonarios enteros: la primera participación tiene que ser 1, %, %… y la última %, %, %…',
+      c.participaciones_por_talonario + 1, 2 * c.participaciones_por_talonario + 1,
+      c.participaciones_por_talonario, 2 * c.participaciones_por_talonario, 3 * c.participaciones_por_talonario;
+  end if;
+  v_t1 := (p_desde - 1) / c.participaciones_por_talonario + 1;
+  v_t2 := p_hasta / c.participaciones_por_talonario;
+  select count(*) into v_hay from loteria_talonarios where campana_id = p_campana and numero between v_t1 and v_t2;
+  if v_hay < v_t2 - v_t1 + 1 then
+    raise exception 'Hay talonarios entre el % y el % que no existen en esta campaña: añádelos antes.', v_t1, v_t2;
+  end if;
+  update loteria_talonarios
+     set socio_id = p_socio, titular_nombre = v_nombre, titular_movil = nullif(trim(p_movil), ''),
+         entregado_en = coalesce(p_entregado, current_date)
+   where campana_id = p_campana and numero between v_t1 and v_t2
+     and (p_reasignar or titular_nombre is null
+          or (lower(titular_nombre) = lower(v_nombre) and socio_id is not distinct from p_socio));
+  get diagnostics v_n = row_count;
+  return v_n;
+end;
+$$;
+grant execute on function loteria_asignar(uuid, integer, integer, uuid, text, text, date, boolean) to authenticated;
+
+-- Comenzar y cerrar la campaña (si se ejecutó una versión anterior de
+-- esta migración, «cerrada» pasa a «cerrada_en»)
+alter table loteria_campanas add column if not exists inicio date;
+alter table loteria_campanas add column if not exists cerrada_en timestamptz;
+do $$ begin
+  if exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'loteria_campanas' and column_name = 'cerrada') then
+    execute 'update loteria_campanas set cerrada_en = coalesce(cerrada_en, now()) where cerrada';
+    execute 'alter table loteria_campanas drop column cerrada';
+  end if;
+end $$;
+-- Solo una campaña abierta (comenzada y sin cerrar) a la vez
+create unique index if not exists loteria_una_campana_abierta on loteria_campanas ((true)) where inicio is not null and cerrada_en is null;
+
+-- La campaña abierta hoy, para la web pública (sin datos de la Junta)
+create or replace function loteria_publica()
+returns table (id uuid, nombre text, numeros text, precio numeric, inicio date)
+language sql stable security definer set search_path = public as $$
+  select id, nombre, numeros, precio, inicio from loteria_campanas
+   where inicio is not null and inicio <= (now() at time zone 'Europe/Madrid')::date and cerrada_en is null
+   limit 1;
+$$;
+grant execute on function loteria_publica() to anon, authenticated;
+
+-- Mensajes de «Quiero comprar Lotería». Los guarda la función
+-- netlify/functions/loteria-mensaje.js (que también avisa por email).
+create table if not exists loteria_mensajes (
+  id uuid primary key default gen_random_uuid(),
+  campana_id uuid references loteria_campanas(id) on delete cascade,
+  socio_id uuid references socios(id) on delete set null,
+  nombre text not null,
+  apellidos text not null,
+  email text not null,
+  movil text not null,
+  mensaje text not null,
+  atendido_en timestamptz,
+  nota_junta text,
+  created_at timestamptz not null default now()
+);
+create index if not exists loteria_mensajes_campana on loteria_mensajes(campana_id, created_at desc);
+alter table loteria_mensajes enable row level security;
+drop policy if exists "la junta gestiona los mensajes de loteria" on loteria_mensajes;
+create policy "la junta gestiona los mensajes de loteria" on loteria_mensajes for all using (is_admin()) with check (is_admin());
+
+-- Historial: comenzar, cerrar y reabrir la campaña
+create or replace function loteria_campana_historial() returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if new.inicio is distinct from old.inicio then
+    insert into loteria_movimientos (campana_id, texto, creado_por_nombre)
+    values (new.id, case when new.inicio is null then 'Se anula el comienzo de la campaña'
+      else 'Campaña comenzada: participaciones disponibles desde el ' || to_char(new.inicio, 'DD/MM/YYYY') end, _loteria_quien());
+  end if;
+  if new.cerrada_en is distinct from old.cerrada_en then
+    insert into loteria_movimientos (campana_id, texto, creado_por_nombre)
+    values (new.id, case when new.cerrada_en is null then 'Campaña reabierta' else 'Campaña cerrada' end, _loteria_quien());
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists loteria_campana_historial on loteria_campanas;
+create trigger loteria_campana_historial after update on loteria_campanas
+  for each row execute function loteria_campana_historial();
+
+-- Mensaje claro si ya hay otra campaña abierta
+create or replace function loteria_campana_una_abierta() returns trigger language plpgsql security definer set search_path = public as $$
+declare v_otra text;
+begin
+  if new.inicio is not null and new.cerrada_en is null then
+    select nombre into v_otra from loteria_campanas where id <> new.id and inicio is not null and cerrada_en is null limit 1;
+    if v_otra is not null then raise exception 'Ya hay otra campaña abierta («%»): ciérrala antes de comenzar esta.', v_otra; end if;
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists loteria_campana_una_abierta on loteria_campanas;
+create trigger loteria_campana_una_abierta before insert or update on loteria_campanas
+  for each row execute function loteria_campana_una_abierta();

@@ -91,6 +91,12 @@
 - [ ] Editar un alumno existente (cambiar de curso) → se refleja en
       Préstamo/Eventos (los libros/eventos que ve cambian según el
       nuevo curso).
+- [ ] Borrar un alumno/a → pide confirmación y desaparece. Si tiene
+      libros del Banco de Libros sin devolver, no deja y lo explica.
+- [ ] El primer adulto sale como «Adulto principal» y no se puede
+      quitar. El segundo adulto sale con «Quitar a este adulto» (o
+      «Quitarme de la familia» si eres tú): tras confirmar desaparece
+      y ya no puede entrar con su email.
 - [ ] "Dar de baja mi cuenta" → pide confirmación → tras confirmar, el
       socio pasa a `baja` y no puede volver a entrar (ver 1.1).
 
@@ -423,6 +429,31 @@ que la respuesta es vacía o un error de permisos, nunca los datos:
 
 ---
 
+## Lotería (panel de la Junta)
+
+- [ ] Crear una campaña con 10 talonarios → salen numerados 1-10 con
+      sus participaciones (1-25, 26-50...).
+- [ ] «Asignar talonarios» de la participación 1 a la 300 → asigna los
+      talonarios 1 a 12. Con 10 a 300 avisa de que no se puede asignar
+      parte de un talonario. Si alguno ya lo tiene otra persona, avisa
+      de quién y deja elegir: solo los libres, reasignarlos también o
+      modificar la selección.
+- [ ] Asignar un talonario a una familia socia (se rellenan nombre y
+      móvil) y otro a una persona que no es socia.
+- [ ] Apuntar 25 vendidas → «Dinero por ingresar 125 €». Apuntar el
+      ingreso de 125 € → «Ingresado». Intentar ingresar más de lo
+      vendido → no deja.
+- [ ] Intentar bajar las vendidas por debajo de lo ingresado → no deja.
+- [ ] «Comenzar la campaña» con la fecha de hoy → en la página principal
+      y en Mi perfil sale «Quiero comprar Lotería». Con una fecha futura
+      no sale hasta ese día. «Cerrar la campaña» → deja de salir.
+- [ ] En «Quiero comprar Lotería» sin sesión: salen las fechas de venta,
+      pide nombre, apellidos, email y móvil; «Soy socio» lleva a entrar y
+      vuelve a la misma página. Con sesión de socio no pide datos. El
+      mensaje llega por email y aparece en Lotería → Mensajes.
+- [ ] El resumen y el Excel cuadran con la lista; el historial recoge
+      cada cambio con quién lo hizo.
+
 ## Cómo reportar lo que falle
 
 Por cada caso marcado como fallido, apunta:
@@ -433,3 +464,11 @@ Por cada caso marcado como fallido, apunta:
 
 Con eso puedo diagnosticar y corregir sin tener que volver a pedirte
 que reproduzcas el problema paso a paso.
+
+## Avisos en el móvil
+
+- [ ] Android (Chrome): Mis datos → «Activar avisos en este dispositivo» → aceptar el permiso → sale «Los avisos están activados».
+- [ ] iPhone: en Safari, sin añadir la web a la pantalla de inicio → explica cómo añadirla. Añadida y abierta desde el icono → se pueden activar.
+- [ ] Panel → Eventos → «Avisar a las familias» → dice cuántas familias pueden apuntarse y cuántas tienen avisos; al enviar, llega el aviso «Nueva actividad: …» solo a quien tiene un alumno/a del curso del evento.
+- [ ] Tocar el aviso abre la web en la tarjeta del evento.
+- [ ] Desactivar en Mis datos → ya no llegan avisos a ese dispositivo.

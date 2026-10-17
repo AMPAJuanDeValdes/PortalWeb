@@ -443,7 +443,7 @@ Los voluntarios no ocupan plaza; los invitados no socios sí.
 |---|---|
 | **Chocolatada** | Toda la familia, sin aforo. `pide_alergias`; `alumnos_requieren_adulto` (si la familia apunta solo niños, indica con qué adulto socio van: `responsable_nombre`); `permite_invitados` + `precio_invitado` (el socio apunta a no socios con nombre, apellidos, edad, alergias y justificante); `voluntariado_modo = 'adultos_y_ninos'`. No aparece en la web pública. Listado con nombre, apellidos, edad y alergias en «Inscritos». |
 | **Cabalgata** | `metodo_asignacion = 'sorteo'`, `requiere_pareja_adulto_alumno` (cada niño con un adulto; adultos solos también, sin ocupar plaza; el acompañante puede ser no socio con DNI), aforo en NIÑOS (12 o 20). Dos documentos (adulto y alumno) que firma cada persona apuntada; tras el sorteo, solo quien tiene plaza. |
-| **Talleres** (juegos de mesa, rol, ciencias, Warhammer) | Solo alumnos de ciertos cursos, aforo por orden de llegada. Socios gratis; externos por la web pública (`abierto_no_socios`) con alumno, curso en rango, adulto responsable, teléfono, email y justificante (`precio_invitado`). Pregunta opcional (`pregunta_extra`/`pregunta_opciones`): Patines solo en juegos de mesa. Torneos = subactividades elegibles en el mismo formulario. `voluntariado_modo = 'adultos'`. Al apuntar a un alumno/a socio (plantillas `juegos`, `taller` y `warhammer`) se pregunta si lo recoge una persona diferente (Sí/No; si es Sí, nombre, apellidos y móvil, y esa persona sale como adulto responsable en Inscritos y en el Excel); a los no socios no, porque ya escriben el adulto responsable. En Warhammer se puede marcar que sale solo/a. Con `pide_instrucciones` se piden además instrucciones especiales (sale antes, llega tarde...). Lo comprueba el trigger `eventos_validar_recogida` ; salir solo/a y las instrucciones van en la columna Notas del listado en Excel (`shared/recogida.js`). |
+| **Talleres** (juegos de mesa, rol, ciencias, Warhammer) | Solo alumnos de ciertos cursos, aforo por orden de llegada. Socios gratis; externos por la web pública (`abierto_no_socios`) con alumno, curso en rango, adulto responsable, teléfono, email y justificante (`precio_invitado`). Pregunta opcional (`pregunta_extra`/`pregunta_opciones`): Patines solo en juegos de mesa. Torneos = subactividades elegibles en el mismo formulario. `voluntariado_modo = 'adultos'`. Al apuntar a un alumno/a socio (plantillas `juegos`, `taller` y `warhammer`) se pregunta si lo recoge una persona diferente (Sí/No; si es Sí, nombre, apellidos y móvil, y esa persona sale como adulto responsable en Inscritos y en el Excel); a los no socios no, porque ya escriben el adulto responsable. En Warhammer se puede marcar que sale solo/a. Con `pide_instrucciones` se piden además instrucciones especiales (sale antes, llega tarde...). Curso de Warhammer: en «Este evento es incompatible con» se marcan las sesiones del curso que coinciden con un taller (`evento_sesion_incompatibles`). Quien va al curso no puede apuntarse a ese taller; quien va al taller no puede entrar al curso hasta que el taller haya pasado; quien sale del curso no puede volver (`curso_bajas`, solo la Junta puede volver a apuntarlo). Trigger `eventos_validar_sesiones`. Lo comprueba el trigger `eventos_validar_recogida` ; salir solo/a y las instrucciones van en la columna Notas del listado en Excel (`shared/recogida.js`). |
 | **Barbacoa** | Solo alumnos (gratis); los adultos no se apuntan y pagan en la entrada (`precio_adulto`, informativo). Subactividades con aforo, solo para alumnos apuntados al evento. Externos solo a subactividades (`publico_solo_actividades`) con `aviso_no_socios`. Voluntarios como en la Chocolatada. |
 | **Visita al comedor** | Solo adultos, `sorteo` + `usa_prioridad_historial`: primero entre quienes nunca fueron; si sobran plazas, entre los que ya fueron. |
 | **Concurso literario** | `usa_concurso_texto`: un texto por alumno en Word (.docx, bucket privado `concursos`, nombre al azar) o escrito; anónimo hasta elegir ganador. El texto del Word se extrae en el navegador con mammoth para leerlo en el panel. `concurso_envios.metadatos` guarda datos del Word (minutos de edición, revisiones, fechas, programa; nunca el autor) o, si se escribe en la web, tiempo y caracteres pegados; el panel muestra «Revisar» como pista orientativa para el jurado. |
@@ -662,9 +662,23 @@ web/                      → Lo que se publica (Netlify publish = "web").
   admin-libros.html       → Banco de Libros: catálogo, ejemplares, reparto, entregas.
   admin-uniformes.html    → Banco de Uniformes: catálogo, convocatoria y reparto.
   admin-donaciones.html   → Donaciones anunciadas y stock donado.
+  loteria.html            → «Quiero comprar Lotería» (pública y para socios) mientras la campaña está
+                            abierta: fechas de venta (eventos con plantilla «loteria») y un mensaje para
+                            la Junta (netlify/functions/loteria-mensaje.js → loteria_mensajes + email).
+  admin-loteria.html      → Lotería: campañas, talonarios (de 25 participaciones de 5 €), quién tiene
+                            cada uno, ventas, ingresos en la cuenta e historial; comenzar y cerrar la campaña; mensajes. Tablas loteria_*;
+                            las reglas (no ingresar más de lo vendido, etc.) están en la base de datos.
   admin-encuestas.html    → Crear encuestas / resultados.
   admin-respuestas.html   → Préstamo / Eventos / Alumnos.
   admin-sepa.html         → Mandatos SEPA.
+  sw.js, manifest.webmanifest → Avisos en el móvil (service worker solo para las notificaciones) y
+                            datos para instalar la web en la pantalla de inicio. shared/avisos.js:
+                            activar/desactivar por dispositivo (push_suscripciones). La Junta avisa
+                            con netlify/functions/push-avisar-evento.js (Web Push propio, sin
+                            librerías: netlify/functions/_lib/webpush.js).
+  admin-firmados.html     → Documentos firmados y justificantes, por tipo (altas y cuotas, SEPA,
+                            eventos, Mochila). Abre los archivos privados con enlaces temporales
+                            (urlArchivo() de shared/supabaseClient.js).
   admin-carrusel.html     → Fotos y vídeos de portada.
   admin-documentos.html   → Newsletters/documentos públicos.
   admin-email.html        → Email masivo (BCC) → enviar-email-masivo.js.

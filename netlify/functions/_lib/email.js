@@ -171,6 +171,21 @@ function plantillaDonacion({ items, otros, nombre, email, telefono, esSocio, url
   };
 }
 
+// «Quiero comprar Lotería» (loteria.html)
+function plantillaLoteria({ campana, nombre, apellidos, email, movil, mensaje, esSocio, urlAdmin }) {
+  return {
+    subject: `Lotería: mensaje de ${nombre} ${apellidos}`,
+    text:
+      `Han escrito desde «Quiero comprar Lotería» (${campana}).\n\n` +
+      `${mensaje}\n\n` +
+      `De: ${nombre} ${apellidos}${esSocio ? ' (familia socia)' : ''}\n` +
+      `Email: ${email}\n` +
+      `Móvil: ${movil}\n` +
+      `\nResponde a este email para contestar directamente.\n` +
+      (urlAdmin ? `Todos los mensajes: ${urlAdmin}\n` : '')
+  };
+}
+
 // Número de socio tal como se muestra en todas partes: 2027.0300.0042
 function numeroSocioBonito(n) {
   n = String(n || '');
@@ -250,6 +265,7 @@ function plantillaRecordatorioDevolucion({ nombre, libros }) {
 }
 
 module.exports = {
+  plantillaLoteria,
   enviarEmail, numeroSocioBonito, plantillaCredenciales, plantillaMochilaTurno, plantillaComentario, plantillaDonacion,
   plantillaBienvenida, plantillaRechazo, plantillaRecuperarPassword, plantillaRecordatorioDevolucion
 };

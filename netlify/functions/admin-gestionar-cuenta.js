@@ -19,6 +19,8 @@
 
 const { createClient } = require('@supabase/supabase-js');
 const { enviarEmail, plantillaBienvenida, plantillaRechazo } = require('./_lib/email');
+const { anioCuotaActual } = require('./_lib/cuota');
+const { esAdultoPrincipal } = require('./_lib/familia');
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -51,6 +53,9 @@ exports.handler = async (event) => {
 
     const { data: adulto } = await supabaseAdmin.from('adultos').select('id, socio_id').eq('id', adultoId).single();
     if (!adulto) return json(404, { error: 'Ese adulto no existe.' });
+    if (await esAdultoPrincipal(supabaseAdmin, adulto)) {
+      return json(400, { error: 'Es el adulto principal: tiene que existir siempre mientras exista la cuenta. Si se cierra la cuenta, dala de baja.' });
+    }
 
     const { count } = await supabaseAdmin.from('adultos').select('id', { count: 'exact', head: true }).eq('socio_id', adulto.socio_id);
     if ((count || 0) <= 1) {
@@ -127,7 +132,7 @@ exports.handler = async (event) => {
     }
 
     const cambios = { estado: 'activa', numero_secuencial: numero, motivo_rechazo: null, reactivacion_solicitada_en: null };
-    if (eraNuevaOReactivacion) cambios.anio_ultima_cuota = new Date().getFullYear();
+    if (eraNuevaOReactivacion) cambios.anio_ultima_cuota = anioCuotaActual();   // la cuota del curso que se paga (2026-2027 → 2027)
 
     const { data: actualizado, error } = await supabaseAdmin.from('socios').update(cambios).eq('id', socioId).select('numero_socio_completo').single();
     if (error) return json(500, { error: error.message });

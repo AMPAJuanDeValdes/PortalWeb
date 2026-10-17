@@ -3,6 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<meta name="theme-color" content="#16233A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="AMPA">
 <title>Mis datos · AMPA Juan de Valdés</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
@@ -40,6 +45,11 @@
       <button type="button" class="btn-danger-link" id="bajaBtn">Dar de baja mi cuenta</button>
     </div>
     <div id="sepaZona" style="margin-top:16px; display:none;"></div>
+  </div>
+
+  <div class="card">
+    <p class="section-label">Avisos en el móvil o el ordenador</p>
+    <div id="avisosZona"><p class="loading">Cargando...</p></div>
   </div>
 
   <div class="card">
@@ -96,6 +106,7 @@
 <script src="shared/documentoRellenable.js"></script>
 <script src="shared/mandatoSepa.js"></script>
 <script src="shared/datos-ampa.js"></script>
+<script src="shared/avisos.js"></script>
 <script>
 let ctxGlobal = null;
 
@@ -112,10 +123,12 @@ function campoTexto(label, valor, onInput, required = false, tipo = 'text') {
   return wrap;
 }
 
-function renderAdultoCard(adulto, esUnoMismo) {
+// esPrincipal: el primer adulto de la familia, que tiene que existir siempre
+function renderAdultoCard(adulto, esUnoMismo, esPrincipal) {
   const card = document.createElement('div');
   card.className = 'hijo-card';
-  card.innerHTML = `<div class="hijo-head"><span class="hijo-tag">${adulto.nombre} ${adulto.apellidos} ${esUnoMismo ? '(tú)' : ''}</span></div>`;
+  card.innerHTML = `<div class="hijo-head"><span class="hijo-tag">${escHtml(adulto.nombre)} ${escHtml(adulto.apellidos)} ${esUnoMismo ? '(tú)' : ''}</span>
+    <span class="hijo-rol">${esPrincipal ? 'Adulto principal' : 'Segundo adulto'}</span></div>`;
   const body = document.createElement('div');
   body.className = 'hijo-body';
 
@@ -226,6 +239,35 @@ function renderAdultoCard(adulto, esUnoMismo) {
   });
 
   body.appendChild(saveBtn);
+  // El segundo adulto se puede quitar (también él mismo); el principal, nunca
+  if (!esPrincipal) {
+    const quitar = document.createElement('button');
+    quitar.type = 'button'; quitar.className = 'btn-danger-link quitar-persona';
+    quitar.textContent = esUnoMismo ? 'Quitarme de la familia' : 'Quitar a este adulto';
+    quitar.addEventListener('click', async () => {
+      const aviso = esUnoMismo
+        ? '¿Quitarte de la familia? Se borrará tu usuario de acceso y ya no podrás entrar en la web con este email. No se puede deshacer.'
+        : `¿Quitar a ${adulto.nombre} ${adulto.apellidos} de la familia? Se borrará su usuario de acceso y sus inscripciones. No se puede deshacer.`;
+      if (!confirm(aviso)) return;
+      quitar.disabled = true;
+      try {
+        const session = await getSession();
+        const resp = await fetch('/.netlify/functions/familia-quitar-adulto', {
+          method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
+          body: JSON.stringify({ adultoId: adulto.id })
+        });
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok) throw new Error(data.error || 'No se pudo quitar.');
+        if (data.eraYo) { await signOut(); return; }
+        await cargarAdultos();
+      } catch (e) {
+        msg.style.display = 'block'; msg.className = 'msg-error'; msg.textContent = e.message; quitar.disabled = false;
+      }
+    });
+    body.appendChild(quitar);
+  } else {
+    body.insertAdjacentHTML('beforeend', '<p class="nota-principal">Es el adulto principal de la cuenta: no se puede quitar. Si queréis dejar el AMPA, usad «Dar de baja mi cuenta».</p>');
+  }
   body.appendChild(msg);
   card.appendChild(body);
   return card;
@@ -233,10 +275,10 @@ function renderAdultoCard(adulto, esUnoMismo) {
 
 async function cargarAdultos() {
   const wrap = document.getElementById('adultosWrap');
-  const { data, error } = await sb.from('adultos').select('*').eq('socio_id', ctxGlobal.socio.id);
+  const { data, error } = await sb.from('adultos').select('*').eq('socio_id', ctxGlobal.socio.id).order('created_at').order('id');
   if (error) { wrap.innerHTML = '<p class="msg-error">No se pudo cargar.</p>'; return; }
   wrap.innerHTML = '';
-  data.forEach(a => wrap.appendChild(renderAdultoCard(a, a.id === ctxGlobal.adulto.id)));
+  data.forEach((a, i) => wrap.appendChild(renderAdultoCard(a, a.id === ctxGlobal.adulto.id, i === 0)));
   document.getElementById('addAdultoBtn').style.display = data.length < 2 ? 'block' : 'none';
 }
 
@@ -435,6 +477,24 @@ function renderAlumnoCard(alumno, esNuevo = false) {
   });
 
   body.appendChild(saveBtn);
+  // Borrar al alumno/a (por ejemplo, si deja el colegio)
+  if (!esNuevo) {
+    const borrar = document.createElement('button');
+    borrar.type = 'button'; borrar.className = 'btn-danger-link quitar-persona';
+    borrar.textContent = 'Borrar alumno/a';
+    borrar.addEventListener('click', async () => {
+      if (!confirm(`¿Borrar a ${alumno.nombre} ${alumno.apellidos}? Se quitará también de los eventos y peticiones en los que esté apuntado/a. No se puede deshacer.`)) return;
+      borrar.disabled = true;
+      const { data, error } = await sb.from('alumnos').delete().eq('id', alumno.id).select('id');
+      if (error || !data || !data.length) {
+        msg.style.display = 'block'; msg.className = 'msg-error';
+        msg.textContent = error ? textoErrorBD(error) : 'No se ha podido borrar (sin permiso). Avisa al AMPA.';
+        borrar.disabled = false; return;
+      }
+      await cargarAlumnos();
+    });
+    body.appendChild(borrar);
+  }
   body.appendChild(msg);
   if (!esNuevo && alumno.id && alumno.id === alumnoRecienGuardado) {
     msg.style.display = 'block'; msg.className = 'msg-ok'; msg.textContent = 'Guardado ✓';
@@ -476,7 +536,7 @@ function pintarAvisoRevisar(alumnos) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   });
 }
-const escHtml = (v) => String(v || '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+function escHtml(v) { return String(v || '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 const textoErrorBD = (e) => String((e && e.message) || e).replace(/^.*?ERROR:\s*/, '');
 
 async function cargarAlumnos() {
@@ -590,6 +650,7 @@ document.getElementById('confirmarBajaBtn').addEventListener('click', async () =
     document.getElementById('avisoRevisar').after(cardAlumnos);
   }
   cargarCuenta();
+  montarAvisos(document.getElementById('avisosZona'));
   if (ctx.socio.sepa_pendiente) {
     const caja = document.getElementById('sepaPendiente');
     caja.hidden = false;

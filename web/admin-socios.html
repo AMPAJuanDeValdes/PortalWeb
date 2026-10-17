@@ -3,6 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<meta name="theme-color" content="#16233A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="AMPA">
 <title>Socios · Admin AMPA</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
@@ -13,15 +18,56 @@
   .panel{ display:none; } .panel.active{ display:block; }
   .filtros{ display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; margin-bottom:14px; }
   .filtros .field{ margin:0; flex:1; min-width:180px; }
-  .tabla-socios{ width:100%; border-collapse:collapse; font-size:14px; }
-  .tabla-socios th{ text-align:left; font-size:14px; color:var(--ink-soft); font-weight:600; padding:8px 6px; border-bottom:1px solid var(--line); }
-  .tabla-socios td{ padding:9px 6px; border-bottom:1px solid var(--line); vertical-align:top; }
-  .tabla-socios tr.fila:hover td{ background:#FAF8F2; cursor:pointer; }
-  .tabla-socios td.web{ font-size:13px; white-space:nowrap; }
-  .tabla-socios td.web .si{ color:var(--green); }
-  .tabla-socios td.web .no{ color:var(--red); font-weight:700; }
-  .tabla-socios tr.abierta td{ background:#F3F7FC; }
-  .tabla-socios .sub{ color:var(--ink-soft); font-size:14px; }
+  /* Lista de socios: una línea por familia; lo que no cabe se corta con «…»
+     y se ve entero al pasar el ratón o abriendo la ficha */
+  .tabla-socios{ width:100%; border-collapse:separate; border-spacing:0; font-size:14px; table-layout:fixed; }
+  /* Sin overflow en la tarjeta: si no, la cabecera de la tabla no se queda fija */
+  .card.card-lista{ overflow:visible; }
+  .tabla-socios col.c-num{ width:146px; } .tabla-socios col.c-al{ width:64px; }
+  .tabla-socios col.c-web{ width:60px; } .tabla-socios col.c-datos{ width:60px; } .tabla-socios col.c-estado{ width:112px; }
+  .tabla-socios col.c-contacto{ width:28%; }
+  .tabla-socios td.t-contacto .tel{ font-variant-numeric:tabular-nums; }
+  .tabla-socios td.t-contacto .mail{ color:var(--ink-soft); }
+  .tabla-socios th{ position:sticky; top:84px; z-index:2; background:#fff; text-align:left; font-size:13px; color:var(--ink-soft); font-weight:700;
+    padding:9px 8px; border-bottom:2px solid var(--line); white-space:nowrap; }
+  .tabla-socios td{ padding:0 8px; height:44px; border-bottom:1px solid var(--line); vertical-align:middle;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .tabla-socios th.c, .tabla-socios td.c{ text-align:center; }
+  .tabla-socios tr.fila{ cursor:pointer; }
+  .tabla-socios tr.fila:hover td{ background:#F7F9FC; }
+  .tabla-socios tr.fila:focus-visible{ outline:2px solid var(--navy); outline-offset:-2px; }
+  .tabla-socios tr.abierta td{ background:#EEF4FB; border-bottom-color:transparent; }
+  .tabla-socios td.mono{ font-size:13.5px; }
+  .tabla-socios .otro{ color:var(--ink-soft); }
+  .tabla-socios .falta{ color:var(--red); }
+  .tabla-socios .cnt{ display:inline-block; min-width:38px; padding:2px 8px; border-radius:999px; font-size:13px; font-weight:700; }
+  .tabla-socios .cnt.si{ background:#E5F3EA; color:var(--green); }
+  .tabla-socios .cnt.algo{ background:var(--gold-soft); color:var(--gold); }
+  .tabla-socios .cnt.no{ background:#FBE4E1; color:var(--red); }
+  .tabla-socios td.detalle{ white-space:normal; overflow:visible; height:auto; background:#EEF4FB; padding:0 12px 14px; }
+  .tabla-socios .estado-badge{ font-size:12.5px; padding:2px 9px; }
+  /* Móvil: cada familia en tres líneas cortas (nombre y estado; nº y
+     contacto; alumnos, web y datos) */
+  @media (max-width:760px){
+    .tabla-socios, .tabla-socios tbody{ display:block; }
+    .tabla-socios thead, .tabla-socios colgroup{ display:none; }
+    .tabla-socios tr.fila{ display:grid; grid-template-columns:max-content max-content minmax(0,1fr) max-content; gap:4px 12px; align-items:center;
+      grid-template-areas:"fam fam fam est" "num con con con" "al web datos datos"; padding:10px 4px; border-bottom:1px solid var(--line); }
+    .tabla-socios tr.fila td{ display:block; height:auto; padding:0; border:0; background:none !important; min-width:0; }
+    .tabla-socios td.t-fam{ grid-area:fam; font-weight:700; }
+    .tabla-socios td.t-estado{ grid-area:est; justify-self:end; }
+    .tabla-socios td.t-num{ grid-area:num; color:var(--ink-soft); overflow:visible; }
+    .tabla-socios td.t-contacto{ grid-area:con; color:var(--ink-soft); font-size:13.5px; }
+    .tabla-socios td.t-al{ grid-area:al; font-size:13.5px; text-align:left; }
+    .tabla-socios td.t-web{ grid-area:web; font-size:13.5px; }
+    .tabla-socios td.t-datos{ grid-area:datos; font-size:13.5px; }
+    .tabla-socios td.t-al::before{ content:"Alumnos: "; color:var(--ink-soft); }
+    .tabla-socios td.t-web::before{ content:"Web "; color:var(--ink-soft); }
+    .tabla-socios td.t-datos::before{ content:"Datos "; color:var(--ink-soft); }
+    .tabla-socios tr.fila.abierta{ background:#EEF4FB; }
+    .tabla-socios tr:not(.fila){ display:block; } .tabla-socios td.detalle{ display:block; padding:0 0 14px; }
+  }
+
   .mono{ font-family:ui-monospace, Menlo, Consolas, monospace; font-size:14px; }
   .detalle{ padding:6px 2px 18px; }
   .bloque{ border:1px solid var(--line); border-radius:var(--radius); background:#fff; padding:16px; margin-top:14px; }
@@ -63,7 +109,7 @@
   </div>
 
   <div class="panel" id="panel-socios">
-    <div class="card">
+    <div class="card card-lista">
       <div class="filtros">
         <div class="field">
           <label for="filtroTexto">Buscar</label>
@@ -92,10 +138,13 @@
         <button type="button" class="btn btn-outline" id="exportBtn">Exportar CSV</button>
       </div>
       <p class="sub" id="contador" style="font-size:14px; color:var(--ink-soft); margin:0 0 6px;"></p>
-      <div style="overflow-x:auto;">
+      <div>
         <table class="tabla-socios">
-          <thead><tr><th>Nº socio</th><th>Familia</th><th>Contacto</th><th>Alumnos</th><th>Web</th><th>Estado</th></tr></thead>
-          <tbody id="tbodySocios"><tr><td colspan="6" class="loading">Cargando...</td></tr></tbody>
+          <colgroup><col class="c-num"><col class="c-fam"><col class="c-contacto"><col class="c-al"><col class="c-web"><col class="c-datos"><col class="c-estado"></colgroup>
+          <thead><tr><th>Nº socio</th><th>Familia</th><th>Contacto</th><th class="c" title="Número de alumnos y alumnas">Alumnos</th>
+            <th class="c" title="Adultos de la familia que ya han entrado en la web (han cambiado la contraseña provisional)">Web</th>
+            <th class="c" title="La familia ha confirmado sus datos en Mis datos">Datos</th><th>Estado</th></tr></thead>
+          <tbody id="tbodySocios"><tr><td colspan="7" class="loading">Cargando...</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -121,6 +170,9 @@ const ESTADOS = {
 const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fecha = (f) => f ? new Date(f).toLocaleDateString('es-ES') : '';
 const badge = (estado) => `<span class="estado-badge estado-${estado}">${ESTADOS[estado] || estado}</span>`;
+// En la lista, el estado en una palabra (el completo sale al pasar el ratón)
+const ESTADOS_CORTOS = { activa: 'Activa', recien_creada: 'Pendiente', falta_pago: 'Inactiva', baja: 'Baja' };
+const badgeCorto = (estado) => `<span class="estado-badge estado-${estado}">${ESTADOS_CORTOS[estado] || estado}</span>`;
 
 /* ---------------- Pestañas ---------------- */
 document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -145,7 +197,7 @@ function irALista(socioId) {
 async function cargarDatos() {
   const [s, a, al] = await Promise.all([
     sb.from('socios').select('*').order('created_at', { ascending: false }),
-    sb.from('adultos').select('*').order('created_at'),
+    sb.from('adultos').select('*').order('created_at').order('id'),
     sb.from('alumnos').select('*').order('fecha_nacimiento', { ascending: true, nullsFirst: false })
   ]);
   if (s.error || a.error || al.error) throw new Error((s.error || a.error || al.error).message);
@@ -320,7 +372,7 @@ function pintarLista() {
   document.getElementById('contador').textContent =
     `${lista.length} cuenta(s) · ${SOCIOS.filter(s => s.estado === 'activa').length} activas en total · ` +
     `${SOCIOS.filter(s => !s.adultos.some(haEntrado)).length} sin entrar a la web · ${SOCIOS.filter(s => s.datos_revisados_en).length} con los datos confirmados`;
-  if (!lista.length) { tbody.innerHTML = '<tr><td colspan="6" class="empty-hint">Ninguna cuenta coincide con el filtro.</td></tr>'; return; }
+  if (!lista.length) { tbody.innerHTML = '<tr><td colspan="7" class="empty-hint">Ninguna cuenta coincide con el filtro.</td></tr>'; return; }
 
   tbody.innerHTML = '';
   for (const s of lista) {
@@ -328,20 +380,31 @@ function pintarLista() {
     tr.className = 'fila' + (abierto === s.id ? ' abierta' : '');
     tr.dataset.id = s.id;
     const a1 = s.adultos[0];
+    const nombres = s.adultos.map(a => (a.nombre + ' ' + a.apellidos).trim());
+    const entrados = s.adultos.filter(haEntrado).length;
+    const web = !s.adultos.length ? '' : `<span class="cnt ${entrados === s.adultos.length ? 'si' : entrados ? 'algo' : 'no'}"
+      title="${esc(s.adultos.map(a => (a.nombre + ' ' + a.apellidos).trim() + (haEntrado(a) ? ': ha entrado' : ': no ha entrado')).join('\n'))}">${entrados}/${s.adultos.length}</span>`;
+    const datos = s.datos_revisados_en
+      ? `<span class="cnt si" title="Datos confirmados el ${fecha(s.datos_revisados_en)}">Sí</span>`
+      : '<span class="cnt no" title="Todavía no ha confirmado los datos de la familia">No</span>';
+    const reactivar = esSolicitud(s) && s.estado !== 'recien_creada';
+    tr.tabIndex = 0;
     tr.innerHTML = `
-      <td class="mono">${esc(numeroSocioBonito(s.numero_socio_completo) || '—')}</td>
-      <td>${s.adultos.map(a => esc(a.nombre + ' ' + a.apellidos)).join('<br>') || '<span class="falta">sin adultos</span>'}</td>
-      <td>${a1 ? esc(a1.email) + (a1.movil ? '<div class="sub">' + esc(a1.movil) + '</div>' : '') : ''}</td>
-      <td>${s.alumnos.length}</td>
-      <td class="web">${s.adultos.map(a => haEntrado(a) ? '<div class="si">✓ Ha entrado</div>' : '<div class="no">No ha entrado</div>').join('')}
-        ${s.datos_revisados_en ? `<div class="si">✓ Datos confirmados el ${fecha(s.datos_revisados_en)}</div>` : '<div class="no">Datos sin confirmar</div>'}</td>
-      <td>${badge(s.estado)}${esSolicitud(s) && s.estado !== 'recien_creada' ? '<div class="sub">pide reactivar</div>' : ''}</td>`;
+      <td class="mono t-num">${esc(numeroSocioBonito(s.numero_socio_completo) || '—')}</td>
+      <td class="t-fam" title="${esc(nombres.join(' y '))}">${nombres.length ? esc(nombres[0]) + (nombres[1] ? `<span class="otro"> y ${esc(nombres[1])}</span>` : '') : '<span class="falta">sin adultos</span>'}</td>
+      <td class="t-contacto" title="${esc([a1?.movil, a1?.email].filter(Boolean).join(' · '))}">${a1 ? `<span class="tel">${esc(a1.movil || '')}</span>${a1.movil && a1.email ? ' · ' : ''}<span class="mail">${esc(a1.email || '')}</span>` : ''}</td>
+      <td class="c t-al">${s.alumnos.length}</td>
+      <td class="c t-web">${web}</td>
+      <td class="c t-datos">${datos}</td>
+      <td class="t-estado" title="${esc((ESTADOS[s.estado] || s.estado) + (reactivar ? ' · pide reactivar' : ''))}">${reactivar
+        ? '<span class="estado-badge estado-recien_creada">Pide reactivar</span>' : badgeCorto(s.estado)}</td>`;
+    tr.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); tr.click(); } });
     tr.addEventListener('click', () => { abierto = abierto === s.id ? null : s.id; pintarLista(); });
     tbody.appendChild(tr);
 
     if (abierto === s.id) {
       const trDet = document.createElement('tr');
-      trDet.innerHTML = '<td colspan="6" class="detalle"></td>';
+      trDet.innerHTML = '<td colspan="7" class="detalle"></td>';
       tbody.appendChild(trDet);
       pintarDetalle(s, trDet.firstElementChild);
     }
@@ -521,7 +584,7 @@ function pintarDetalle(s, td) {
     div.className = 'persona';
     div.innerHTML = `
       <div class="persona-head"><span>${i === 0 ? 'Adulto principal' : 'Segundo adulto'} ${a.role === 'admin' ? '<span class="badge badge-admin">admin</span>' : ''}</span>
-        ${s.adultos.length > 1 && a.id !== ctxGlobal.adulto.id ? '<button class="btn-danger-link quitarBtn">Quitar este adulto</button>' : ''}</div>
+        ${i > 0 && a.id !== ctxGlobal.adulto.id ? '<button class="btn-danger-link quitarBtn">Quitar este adulto</button>' : ''}</div>
       <div class="grid3">
         ${campo('Nombre *', 'nombre', a.nombre)}${campo('Apellidos *', 'apellidos', a.apellidos)}${campo('Email (usuario de acceso) *', 'email', a.email, 'email')}
         ${campo('DNI / NIE / Pasaporte *', 'dni_nie', a.dni_nie)}

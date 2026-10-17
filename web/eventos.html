@@ -3,6 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<meta name="theme-color" content="#16233A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="AMPA">
 <title>Eventos · AMPA Juan de Valdés</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
@@ -33,6 +38,10 @@
   .filtros{ display:flex; gap:8px; flex-wrap:wrap; margin:0 0 22px; }
   .filtros button{ font:inherit; font-weight:700; font-size:15px; min-height:42px; padding:0 18px; border-radius:999px; border:1.5px solid #C9D3DF; background:#fff; color:var(--ink); cursor:pointer; }
   .filtros button[aria-pressed="true"]{ background:var(--ink); border-color:var(--ink); color:#fff; }
+  .filtros .f-terminados{ color:var(--ink-soft); border-style:dashed; }
+  .filtros .f-terminados[aria-pressed="true"]{ background:#7A8494; border-color:#7A8494; border-style:solid; color:#fff; }
+  /* Eventos que ya han pasado: solo en «Eventos terminados» y en gris */
+  .evento-card.terminado{ filter:grayscale(1); opacity:.72; }
   @media (max-width:560px){
     .evento-card{ padding:0 16px 18px; }
     .ev-cab{ margin:0 -16px 14px; padding:18px 16px; gap:12px; }
@@ -84,9 +93,11 @@
     <button type="button" data-f="todos" aria-pressed="true">Todos</button>
     <button type="button" data-f="abierto" aria-pressed="false">Puedes apuntarte</button>
     <button type="button" data-f="apuntado" aria-pressed="false">Ya apuntados</button>
+    <button type="button" data-f="terminado" aria-pressed="false" class="f-terminados" hidden>Eventos terminados</button>
   </div>
   <p id="loadingMsg" class="loading">Cargando eventos...</p>
   <div id="eventosContainer"></div>
+  <p class="empty-hint" id="sinActivos" hidden>Ahora mismo no hay eventos en marcha. Los que ya han pasado están en «Eventos terminados».</p>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -186,6 +197,11 @@ function textoError(error) {
 // Eventos a la misma hora: id -> [ids de los incompatibles] y títulos
 let INCOMPAT = {}, TITULO_EVENTO = {}, SESIONES = {};
 const incompatiblesDe = (id) => INCOMPAT[id] || [];
+// Talleres y eventos que coinciden con una sesión de un curso (Warhammer):
+// { evento_id, curso_id, numero, fecha } y alumnos/as que salieron de un curso
+let CHOQUES = [], BAJAS_CURSO = new Set(), eventosPorId = {};
+const choquesDe = (id) => CHOQUES.filter(c => c.evento_id === id || c.curso_id === id);
+const relacionadosDe = (id) => [...new Set(choquesDe(id).map(c => c.evento_id === id ? c.curso_id : c.evento_id))];
 const listaTitulos = (ids) => {
   const t = ids.map(id => '«' + TITULO_EVENTO[id] + '»').filter(x => x !== '«undefined»');
   return t.length > 1 ? t.slice(0, -1).join(', ') + ' y ' + t[t.length - 1] : t[0] || '';
@@ -203,7 +219,16 @@ async function cargarEventos() {
     (INCOMPAT[x.evento_b] = INCOMPAT[x.evento_b] || []).push(x.evento_a);
   });
   TITULO_EVENTO = Object.fromEntries((eventos || []).map(e => [e.id, e.titulo]));
+  eventosPorId = Object.fromEntries((eventos || []).map(e => [e.id, e]));
   SESIONES = await cargarSesiones((eventos || []).filter(ES_CURSO).map(e => e.id));
+  const [{ data: sesInc }, { data: bajas }] = await Promise.all([
+    sb.from('evento_sesion_incompatibles').select('evento_id, sesion_id'),
+    sb.from('curso_bajas').select('evento_id, alumno_id').eq('socio_id', ctxGlobal.socio.id)
+  ]);
+  const sesionPorId = {};
+  Object.entries(SESIONES).forEach(([curso, lista]) => lista.forEach(x => { sesionPorId[x.id] = { ...x, curso_id: curso }; }));
+  CHOQUES = (sesInc || []).filter(x => sesionPorId[x.sesion_id]).map(x => ({ ...sesionPorId[x.sesion_id], evento_id: x.evento_id }));
+  BAJAS_CURSO = new Set((bajas || []).map(b => b.evento_id + '|' + b.alumno_id));
   document.getElementById('loadingMsg').style.display = 'none';
   if (error) { cont.innerHTML = '<p class="msg-error">No se pudieron cargar los eventos. Recarga la página.</p>'; return; }
 
@@ -214,18 +239,38 @@ async function cargarEventos() {
   });
   if (!visibles.length) { cont.innerHTML = '<p class="empty-hint">No hay eventos para tu familia ahora mismo.</p>'; return; }
 
+  // Primero los que están en marcha (por fecha); los terminados, al final (el más reciente primero)
+  const enMarcha = visibles.filter(ev => !eventoTerminado(ev));
+  const terminados = visibles.filter(eventoTerminado).sort((a, b) => fechaFin(b) - fechaFin(a));
   cont.innerHTML = '';
-  for (const ev of visibles) cont.appendChild(await renderEvento(ev));
+  for (const ev of [...enMarcha, ...terminados]) cont.appendChild(await renderEvento(ev));
   activarFiltros();
-  // Desde el calendario de Inicio se llega con #ev-<id>
+  // Desde el calendario de Inicio se llega con #ev-<id> (si ya ha pasado, en «Eventos terminados»)
   const destino = location.hash && document.getElementById(location.hash.slice(1));
+  if (destino && destino.dataset.terminado) {
+    document.querySelectorAll('#filtros button').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.f === 'terminado')));
+    aplicarFiltro();
+  }
   if (destino) destino.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// Un evento ha terminado cuando empezó hace más de 3 horas (los cursos por
+// sesiones, cuando ha pasado la última sesión)
+function fechaFin(ev) {
+  if (ES_CURSO(ev)) { const f = (SESIONES[ev.id] || []).map(x => new Date(x.fecha).getTime()).filter(Boolean); return f.length ? Math.max(...f) : 0; }
+  return ev.fecha ? new Date(ev.fecha).getTime() : 0;
+}
+function eventoTerminado(ev) {
+  if (ES_CURSO(ev)) return cursoTerminado(SESIONES[ev.id]);
+  return !!ev.fecha && new Date(ev.fecha).getTime() + 3 * 3600e3 < Date.now();
 }
 
 function activarFiltros() {
   const caja = document.getElementById('filtros');
   const tarjetas = () => [...document.querySelectorAll('#eventosContainer .evento-card')];
-  if (tarjetas().length < 2) { caja.hidden = true; return; }
+  const nTerm = tarjetas().filter(t => t.dataset.terminado).length;
+  caja.querySelector('.f-terminados').hidden = !nTerm;
+  if (tarjetas().length - nTerm < 2 && !nTerm) { caja.hidden = true; aplicarFiltro(); return; }
   caja.hidden = false;
   caja.querySelectorAll('button').forEach(b => {
     b.onclick = () => {
@@ -234,6 +279,7 @@ function activarFiltros() {
     };
   });
   contarFiltros();
+  aplicarFiltro();
 }
 
 // Los números de cada filtro se recalculan cada vez que cambia una tarjeta.
@@ -241,7 +287,9 @@ function contarFiltros() {
   const caja = document.getElementById('filtros');
   const tarjetas = [...document.querySelectorAll('#eventosContainer .evento-card')];
   caja.querySelectorAll('button').forEach(b => {
-    const n = b.dataset.f === 'todos' ? tarjetas.length : tarjetas.filter(t => t.dataset[b.dataset.f]).length;
+    // Los terminados solo cuentan en «Eventos terminados»
+    const f = b.dataset.f;
+    const n = tarjetas.filter(t => f === 'terminado' ? t.dataset.terminado : !t.dataset.terminado && (f === 'todos' || t.dataset[f])).length;
     b.textContent = b.textContent.replace(/ \(\d+\)$/, '') + ` (${n})`;
   });
 }
@@ -249,10 +297,14 @@ function contarFiltros() {
 function aplicarFiltro(salvo) {
   const activo = document.querySelector('#filtros button[aria-pressed="true"]');
   const f = activo ? activo.dataset.f : 'todos';
+  let visibles = 0;
   document.querySelectorAll('#eventosContainer .evento-card').forEach(t => {
+    const toca = f === 'terminado' ? !!t.dataset.terminado : !t.dataset.terminado && (f === 'todos' || !!t.dataset[f]);
     // La tarjeta en la que se acaba de actuar no desaparece de golpe
-    t.hidden = t !== salvo && f !== 'todos' && !t.dataset[f];
+    t.hidden = t !== salvo && !toca;
+    if (!t.hidden) visibles++;
   });
+  document.getElementById('sinActivos').hidden = !(f === 'todos' && !visibles && document.querySelector('#eventosContainer .evento-card[data-terminado="1"]'));
 }
 
 async function repintar(card, evento, conIncompatibles = true) {
@@ -260,7 +312,7 @@ async function repintar(card, evento, conIncompatibles = true) {
   const nueva = await renderEvento(data || evento);
   card.replaceWith(nueva);
   // Lo que se apunta aquí cambia lo que se puede hacer en los eventos a la misma hora
-  if (conIncompatibles) for (const id of incompatiblesDe(evento.id)) {
+  if (conIncompatibles) for (const id of [...incompatiblesDe(evento.id), ...relacionadosDe(evento.id)]) {
     const otra = document.getElementById('ev-' + id);
     if (otra) await repintar(otra, { id }, false);
   }
@@ -270,6 +322,11 @@ async function repintar(card, evento, conIncompatibles = true) {
 
 /* ==================== Router según el tipo de evento ==================== */
 async function renderEvento(evento) {
+  const card = await renderEventoSegunTipo(evento);
+  if (eventoTerminado(evento)) { card.dataset.terminado = '1'; card.classList.add('terminado'); }
+  return card;
+}
+async function renderEventoSegunTipo(evento) {
   if (evento.sin_inscripcion) return cabeceraEvento(evento);
   if (evento.usa_concurso_texto) return renderEventoConcurso(evento);
   if (evento.requiere_pareja_adulto_alumno) return renderEventoPareja(evento);
@@ -346,7 +403,9 @@ function cabeceraEvento(evento) {
     <div class="eventoCarrusel ev-fotos"></div>
     ${evento.descripcion ? `<p class="ev-desc">${esc(evento.descripcion)}</p>` : ''}
     ${precios ? `<p class="precios">${esc(precios)}</p>` : ''}
-    ${curso && SESIONES[evento.id] ? `<div class="bloque-sesiones"><h3>Las ${SESIONES[evento.id].length} sesiones del curso</h3><p class="ayuda">Al apuntarse, el alumno o alumna va a todas las sesiones, aunque el curso ya haya empezado. Pulsa una sesión para ver qué se hace.</p>${htmlSesiones(SESIONES[evento.id])}</div>` : ''}
+    ${curso && SESIONES[evento.id] ? `<div class="bloque-sesiones"><h3>Las ${SESIONES[evento.id].length} sesiones del curso</h3><p class="ayuda">Al apuntarse, el alumno o alumna va a todas las sesiones, aunque el curso ya haya empezado. Pulsa una sesión para ver qué se hace.</p>${htmlSesiones(SESIONES[evento.id], Object.fromEntries(choquesDe(evento.id).map(c => [c.id, (CHOQUES.filter(x => x.id === c.id).map(x => '«' + (TITULO_EVENTO[x.evento_id] || 'otro taller') + '»').join(', '))])))}</div>` : ''}
+    ${!curso && choquesDe(evento.id).length ? `<p class="ev-incompat">Coincide con ${esc(choquesDe(evento.id).map(c => 'la sesión ' + c.numero + ' de «' + (TITULO_EVENTO[c.curso_id] || 'el curso') + '»').join(' y '))}: quien va al curso no puede apuntarse a este evento.</p>` : ''}
+    ${curso && choquesDe(evento.id).length ? `<p class="ev-incompat">Algunas sesiones coinciden con otros talleres: quien va al curso no puede apuntarse a ellos, y quien esté apuntado/a a uno de ellos podrá apuntarse al curso cuando ese taller haya pasado. Quien sale del curso ya no puede volver a apuntarse.</p>` : ''}
     ${!evento.sin_inscripcion && listaTitulos(incompatiblesDe(evento.id)) ? `<p class="ev-incompat">Es a la misma hora que ${esc(listaTitulos(incompatiblesDe(evento.id)))}: cada alumno o alumna solo puede apuntarse a uno de ellos.</p>` : ''}
     <div class="ev-premios"></div>
   `;
@@ -488,18 +547,34 @@ async function renderEventoNormal(evento) {
   const esSorteo = evento.metodo_asignacion === 'sorteo';
 
   const simultaneos = incompatiblesDe(evento.id);
-  const [{ data: actividades }, { data: exclusiones }, { data: misInscripciones }, { data: enSimultaneos }] = await Promise.all([
+  const relacionados = relacionadosDe(evento.id);   // cursos o talleres que coinciden con una sesión
+  const otrosIds = [...new Set([...simultaneos, ...relacionados])];
+  const [{ data: actividades }, { data: exclusiones }, { data: misInscripciones }, { data: enOtros }] = await Promise.all([
     sb.from('evento_actividades').select('*').eq('evento_id', evento.id).order('created_at'),
     sb.from('actividad_exclusiones').select('*'),
     sb.from('evento_inscripciones').select('*, comprobantes_pago(verificado)').eq('evento_id', evento.id).eq('socio_id', ctxGlobal.socio.id),
-    simultaneos.length
-      ? sb.from('evento_inscripciones').select('evento_id, alumno_id, estado').in('evento_id', simultaneos).eq('socio_id', ctxGlobal.socio.id).not('alumno_id', 'is', null)
+    otrosIds.length
+      ? sb.from('evento_inscripciones').select('evento_id, alumno_id, estado, actividad_id').in('evento_id', otrosIds).eq('socio_id', ctxGlobal.socio.id).not('alumno_id', 'is', null)
       : Promise.resolve({ data: [] })
   ]);
-  // Evento a la misma hora en el que ya está apuntado/a este alumno/a
-  const ocupadoEn = (alumnoId) => {
-    const x = (enSimultaneos || []).find(i => i.alumno_id === alumnoId && i.estado !== 'no_ganador');
-    return x ? (TITULO_EVENTO[x.evento_id] || 'otro evento') : null;
+  const apuntadoA = (alumnoId, eventoId, soloPrincipal) => (enOtros || []).some(i => i.alumno_id === alumnoId && i.evento_id === eventoId
+    && i.estado !== 'no_ganador' && (!soloPrincipal || !i.actividad_id));
+  // Por qué no se puede apuntar a este alumno/a (eventos a la misma hora o
+  // sesiones del curso), o null. La base de datos comprueba lo mismo.
+  const bloqueo = (alumnoId) => {
+    const sim = simultaneos.find(id => apuntadoA(alumnoId, id));
+    if (sim) return `Ya está apuntado/a a «${TITULO_EVENTO[sim] || 'otro evento'}», que es a la misma hora`;
+    if (ES_CURSO(evento)) {
+      if (BAJAS_CURSO.has(evento.id + '|' + alumnoId)) return 'Se desapuntó de este curso y ya no puede volver a apuntarse';
+      const ahora = new Date();
+      const c = choquesDe(evento.id).find(x => x.curso_id === evento.id && apuntadoA(alumnoId, x.evento_id)
+        && new Date((eventosPorId[x.evento_id] || {}).fecha || x.fecha || Date.now() + 864e5) > ahora);
+      if (c) return `Está apuntado/a a «${TITULO_EVENTO[c.evento_id] || 'otro taller'}», que coincide con la sesión ${c.numero}. Cuando haya pasado podrá apuntarse`;
+    } else {
+      const c = choquesDe(evento.id).find(x => x.evento_id === evento.id && apuntadoA(alumnoId, x.curso_id, true));
+      if (c) return `Va al «${TITULO_EVENTO[c.curso_id] || 'curso'}» y la sesión ${c.numero} es a la misma hora`;
+    }
+    return null;
   };
   const ins = misInscripciones || [];
   const principales = ins.filter(i => !i.actividad_id && !i.es_voluntario);
@@ -535,6 +610,9 @@ async function renderEventoNormal(evento) {
   }
   async function quitar(i) {
     if (dejaAlumnosSinAdulto(ins, i, evento)) { alert(AVISO_ULTIMO_ADULTO); return; }
+    // Quien sale del curso ya no puede volver a apuntarse
+    if (ES_CURSO(evento) && i.tipo_miembro === 'alumno' && !i.actividad_id && !i.es_voluntario
+        && !confirm('Si lo quitas del curso, ya no podrá volver a apuntarse más adelante. ¿Quitarlo?')) return;
     const { error } = await sb.from('evento_inscripciones').delete().eq('id', i.id);
     if (error) { alert(textoError(error)); return; }
     repintar(card, evento);
@@ -594,8 +672,8 @@ async function renderEventoNormal(evento) {
       accion.innerHTML = gate.abierta ? `<span class="estado-gris aviso-vol">${AVISO_ES_VOLUNTARIO}</span>` : '<span class="estado-gris">Va como voluntario/a</span>';
     } else if (!gate.abierta) {
       accion.innerHTML = '<span class="estado-gris">No apuntado/a</span>';
-    } else if (m.tipo === 'alumno' && ocupadoEn(m.id)) {
-      accion.innerHTML = `<span class="estado-gris aviso-vol">Ya está apuntado/a a «${esc(ocupadoEn(m.id))}», que es a la misma hora</span>`;
+    } else if (m.tipo === 'alumno' && bloqueo(m.id)) {
+      accion.innerHTML = `<span class="estado-gris aviso-vol">${esc(bloqueo(m.id))}</span>`;
     } else if (plazasLibres != null && plazasLibres <= 0) {
       accion.innerHTML = '<span class="estado-no">Completo</span>';
     } else if (evento.plantilla === 'comedor' && m.tipo === 'adulto' && principales.some(x => x.tipo_miembro === 'adulto')) {
@@ -949,15 +1027,15 @@ async function abrirRellenoDocumento(doc, persona, clave, box) {
   const zona = box.querySelector('.docRellenoZona');
   zona.innerHTML = '<p class="loading">Cargando documento...</p>';
   try {
-    const { dataUrl } = await renderizarPaginaPDF(doc.archivo_base_url, doc.pagina_rellenable);
+    const { dataUrl } = await renderizarPaginaPDF(await urlArchivo('documentos-evento', doc.archivo_base_url), doc.pagina_rellenable);
     abrirFormularioRelleno(zona, dataUrl, doc.campos || [], persona, async (blob, datosFinales, avisoDiferencias) => {
       const path = `${ctxGlobal.socio.id}/${doc.id}/${Date.now()}.png`;
       const { error: upErr } = await sb.storage.from('documentos-evento').upload(path, blob);
       if (upErr) { alert('No se pudo subir el documento: ' + upErr.message); return; }
-      const { data: urlData } = sb.storage.from('documentos-evento').getPublicUrl(path);
+      // Se guarda la ruta (el archivo es privado: solo lo ven la familia y la Junta)
       const { error: insErr } = await sb.from('documentos_evento_respuestas').insert({
         documento_evento_id: doc.id, socio_id: ctxGlobal.socio.id, ...clave,
-        archivo_final_url: urlData.publicUrl, datos_finales: datosFinales, aviso_diferencias: avisoDiferencias
+        archivo_final_url: path, datos_finales: datosFinales, aviso_diferencias: avisoDiferencias
       });
       if (insErr) { alert('No se pudo guardar: ' + insErr.message); return; }
       zona.innerHTML = '<p class="msg-ok">Documento firmado y guardado.</p>';

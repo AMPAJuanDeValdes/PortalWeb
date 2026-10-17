@@ -3,6 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<meta name="theme-color" content="#16233A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="AMPA">
 <title>Panel de la Junta · AMPA Juan de Valdés</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
@@ -227,6 +232,10 @@ async function mensajes() {
     const { data: donado } = await sb.from('donado_stock').select('cantidad').gt('cantidad', 0);
     const nDonado = (donado || []).reduce((t, x) => t + x.cantidad, 0);
     if (nDonado) tarea('eventos', nDonado, 'En el stock donado sin revisar', 'Pasadlo al banco si está bien o descartadlo.', 'admin-donaciones.html', 'Revisar');
+  } catch (e) { /* tabla aún sin crear */ }
+  try {
+    const { count: nLot } = await sb.from('loteria_mensajes').select('id', { count: 'exact', head: true }).is('atendido_en', null);
+    if (nLot) tarea('eventos', nLot, nLot === 1 ? 'Mensaje de lotería sin atender' : 'Mensajes de lotería sin atender', 'Desde «Quiero comprar Lotería».', 'admin-loteria.html#mensajesCard', 'Leer');
   } catch (e) { /* tabla aún sin crear */ }
   if (sinAtender) tarea('comunicacion', sinAtender, sinAtender === 1 ? 'Mensaje de una familia sin atender' : 'Mensajes de familias sin atender', 'Desde la web pública o desde el portal de socios.', '#mensajes', 'Leer');
   if (!lista.length) { wrap.innerHTML = '<p class="nada">No ha llegado ningún mensaje.</p>'; return; }

@@ -3,6 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<meta name="theme-color" content="#16233A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="AMPA">
 <title>Inicio · AMPA Juan de Valdés</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
@@ -72,6 +77,12 @@
   .cal-ev .txt{ min-width:0; }
   .cal-ev .txt > b{ display:block; }
   .cal-ev .txt > span{ font-size:14.5px; color:var(--ink-soft); }
+  /* Eventos que ya han pasado: en gris y al final de la lista */
+  .cal-dia.con-evento.pasado{ --d:#7A8494; --d-bg:#EEF0F3; --d-fuerte:#9AA3B0; font-weight:400; }
+  .cal-ev.pasado{ color:var(--ink-soft); }
+  .cal-ev.pasado .chip{ background:#C5CBD4; }
+  .cal-ev.pasado .txt > b{ font-weight:400; }
+  .cal-pasados{ font-size:14px; font-weight:700; color:var(--ink-soft); margin:14px 0 4px; }
   .cal-nada{ color:var(--ink-soft); margin:0; }
   .d-verde{ --d:#3F6E12; --d-bg:#E6F2D8; --d-fuerte:#5E9426; }
   .d-rosa{ --d:#B0185A; --d-bg:#FDE7F1; --d-fuerte:#D6246E; }
@@ -101,6 +112,15 @@
     <h2>REVISA LOS DATOS DE TU FAMILIA</h2>
     <p>ACTUALIZA etapa, curso y aula de cada alumno. Esto es necesario para poder acceder a los eventos.</p>
     <span class="btn btn-grande">Ir a Mis datos</span>
+  </a>
+
+  <!-- Invitación a activar los avisos en el móvil (hasta que se activan o se dice «Ahora no») -->
+  <section class="aviso-avisos" id="avisoAvisos" hidden aria-live="polite"></section>
+
+  <!-- Solo mientras la campaña de lotería está abierta -->
+  <a class="aviso-loteria" id="avisoLoteria" href="loteria.html" hidden>
+    <span><b id="avisoLoteriaTit">Lotería</b><span id="avisoLoteriaTxt"></span></span>
+    <span class="btn btn-outline">Quiero comprar Lotería</span>
   </a>
 
   <!-- Solo aparece si hay algo pendiente -->
@@ -194,6 +214,7 @@
 <script src="shared/sesiones.js"></script>
 <script src="shared/nav.js"></script>
 <script src="shared/mochila.js"></script>
+<script src="shared/avisos.js"></script>
 <script>
 let ctxGlobal = null;
 const esc = (t) => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -301,6 +322,8 @@ function colorEvento(e) {
   return paleta[[...String(e.id)].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7) % paleta.length];
 }
 const claveDia = (d) => d.getFullYear() + '-' + d.getMonth() + '-' + d.getDate();
+// Ya ha pasado: empezó hace más de 3 horas
+const yaPasado = (e) => e.f.getTime() + 3 * 3600e3 < Date.now();
 
 async function montarCalendario(apuntadosIds) {
   const { data } = await sb.from('eventos').select('id, titulo, fecha, plantilla').eq('activo', true).order('fecha');
@@ -337,9 +360,11 @@ async function montarCalendario(apuntadosIds) {
     for (let d = 1; d <= dias; d++) {
       const evs = porDia[d];
       const esHoy = claveDia(new Date(anio, mes, d)) === claveDia(hoy) ? ' hoy' : '';
-      if (evs) {
-        const etiqueta = `${d}: ${evs.map(e => e.titulo).join(', ')}`;
-        html += `<button type="button" class="cal-dia con-evento d-${colorEvento(evs[0])}${esHoy}" data-dia="${d}" aria-pressed="${diaMarcado === d}" aria-label="${esc(etiqueta)}">${d}<span class="puntos">${evs.slice(0, 3).map(() => '<i></i>').join('')}</span></button>`;
+ if (evs) {
+        const activos = evs.filter(e => !yaPasado(e));
+        const pasado = activos.length ? '' : ' pasado';
+        const etiqueta = `${d}: ${evs.map(e => e.titulo).join(', ')}${pasado ? ' (ya pasado)' : ''}`;
+        html += `<button type="button" class="cal-dia con-evento d-${colorEvento(activos[0] || evs[0])}${pasado}${esHoy}" data-dia="${d}" aria-pressed="${diaMarcado === d}" aria-label="${esc(etiqueta)}">${d}<span class="puntos">${evs.slice(0, 3).map(() => '<i></i>').join('')}</span></button>`;
       } else {
         html += `<span class="cal-dia${esHoy}">${d}</span>`;
       }
@@ -354,11 +379,16 @@ async function montarCalendario(apuntadosIds) {
     }));
 
     document.getElementById('calListaTit').textContent = delMes.length ? 'Eventos de ' + primero.toLocaleDateString('es-ES', { month: 'long' }) : 'Este mes no hay eventos';
-    document.getElementById('calLista').innerHTML = delMes.length ? delMes.map(e => `
-      <a class="cal-ev d-${colorEvento(e)}${diaMarcado === e.f.getDate() ? ' marcado' : ''}" data-dia="${e.f.getDate()}" href="eventos.html#ev-${e.id}">
+    // Primero los que están por venir; los que ya han pasado, al final y en gris
+    const fila = (e) => `
+      <a class="cal-ev d-${colorEvento(e)}${yaPasado(e) ? ' pasado' : ''}${diaMarcado === e.f.getDate() ? ' marcado' : ''}" data-dia="${e.f.getDate()}" href="eventos.html#ev-${e.id}">
         <span class="chip"><b>${e.f.getDate()}</b><span>${e.f.toLocaleDateString('es-ES', { weekday: 'short' }).replace('.', '')}</span></span>
-        <span class="txt"><b>${esc(e.titulo)}</b><span>${e.f.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}${apuntadosIds.has(e.id) ? ' · Estáis apuntados' : ''}</span></span>
-      </a>`).join('') : '<p class="cal-nada">Usa las flechas para ver otros meses.</p>';
+        <span class="txt"><b>${esc(e.titulo)}</b><span>${e.f.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}${yaPasado(e) ? ' · Ya pasado' : apuntadosIds.has(e.id) ? ' · Estáis apuntados' : ''}</span></span>
+      </a>`;
+    const proximos = delMes.filter(e => !yaPasado(e)), pasados = delMes.filter(yaPasado).reverse();
+    document.getElementById('calLista').innerHTML = delMes.length
+      ? proximos.map(fila).join('') + (pasados.length ? `<p class="cal-pasados">${proximos.length ? 'Ya pasados' : 'Ya han pasado todos'}</p>` + pasados.map(fila).join('') : '')
+      : '<p class="cal-nada">Usa las flechas para ver otros meses.</p>';
   }
   document.getElementById('calAnt').onclick = () => { mes--; if (mes < 0) { mes = 11; anio--; } diaMarcado = null; pintar(); };
   document.getElementById('calSig').onclick = () => { mes++; if (mes > 11) { mes = 0; anio++; } diaMarcado = null; pintar(); };
@@ -519,6 +549,9 @@ document.getElementById('comentarioBtn').addEventListener('click', async () => {
   const socioId = ctx.socio.id;
   document.getElementById('saludo').textContent = 'Hola, ' + ctx.adulto.nombre;
   if (!ctx.socio.datos_revisados_en) document.getElementById('avisoRevisar').hidden = false;
+  // Al entrar: pantalla breve para activar los avisos; si no se muestra, la invitación en Inicio
+  preguntarAvisosAlEntrar().then(mostrado => { if (!mostrado) montarAvisoInicio(document.getElementById('avisoAvisos')); });
+  refrescarAvisos();
 
   if (ctx.adulto.role === 'admin') {
     document.getElementById('adminSection').hidden = false;
@@ -554,5 +587,18 @@ document.getElementById('comentarioBtn').addEventListener('click', async () => {
 </script>
 <script src="shared/sonido.js"></script>
 <script src="shared/vida.js"></script>
+<script>
+// «Quiero comprar Lotería», solo mientras la campaña está abierta
+(async () => {
+  try {
+    const { data } = await sb.rpc('loteria_publica');
+    const c = data && data[0];
+    if (!c) return;
+    document.getElementById('avisoLoteriaTit').textContent = c.nombre;
+    document.getElementById('avisoLoteriaTxt').textContent = `Participaciones de ${Number(c.precio).toLocaleString('es-ES')} €${c.numeros ? ' del número ' + c.numeros : ''}.`;
+    document.getElementById('avisoLoteria').hidden = false;
+  } catch (e) { /* sin lotería */ }
+})();
+</script>
 </body>
 </html>

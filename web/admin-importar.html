@@ -3,6 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<meta name="theme-color" content="#16233A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="AMPA">
 <title>Alta de socios · Admin AMPA</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
@@ -43,7 +48,7 @@
   <div class="card">
     <p class="section-label">2. Alta manual (un socio)</p>
     <div class="two-col">
-      <div class="field"><label>Año de última cuota *</label><input type="number" id="mAnio"></div>
+      <div class="field"><label>Año de última cuota *</label><input type="number" id="mAnio"><small class="campo-ayuda">El año en que termina el curso pagado: 2026-2027 → 2027.</small></div>
       <div class="field"><label>Número secuencial (vacío = automático)</label><input type="text" id="mSecuencial" maxlength="4"></div>
     </div>
     <div class="two-col" style="margin-top:14px;">
@@ -354,6 +359,8 @@ document.getElementById('manualBtn').addEventListener('click', async () => {
 })();
 </script>
 <script>
+// Por defecto, la cuota del curso actual (2026-2027 → 2027)
+if (!document.getElementById('mAnio').value) document.getElementById('mAnio').value = anioCuota();
 // Al escribir un IBAN, la forma de pago pasa a domiciliación
 document.getElementById('mIban').addEventListener('input', (e) => {
   e.target.classList.remove('campo-error');

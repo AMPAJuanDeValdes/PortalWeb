@@ -31,7 +31,8 @@ function fechaVisibleCurso(ev, sesiones) {
   return p ? p.fecha : null;
 }
 
-function htmlSesiones(sesiones) {
+// coincide: { sesion_id: 'texto' } con los talleres que son a la misma hora
+function htmlSesiones(sesiones, coincide = {}) {
   if (!sesiones || !sesiones.length) return '';
   const esc = (t) => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
@@ -41,7 +42,7 @@ function htmlSesiones(sesiones) {
     const cuando = f ? f.toLocaleString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }) : 'Fecha por publicar';
     const estado = prox && s.id === prox.id ? ' proxima' : f && f < hoy ? ' pasada' : '';
     return `<li class="sesion${estado}"><details><summary><span class="s-num">${s.numero}</span>
-      <span class="s-tit">${esc(s.titulo)}<small>${esc(cuando)}${estado === ' proxima' ? ' · próxima sesión' : ''}</small></span></summary>
+      <span class="s-tit">${esc(s.titulo)}<small>${esc(cuando)}${estado === ' proxima' ? ' · próxima sesión' : ''}${coincide[s.id] ? ' · coincide con ' + esc(coincide[s.id]) : ''}</small></span></summary>
       ${s.contenido ? `<p class="s-cont">${esc(s.contenido)}</p>` : ''}</details></li>`;
   }).join('')}</ol>`;
 }

@@ -7,6 +7,12 @@ var AMPA_TITULAR_CUENTA = 'APA del Colegio Evangélico Juan de Valdés';
 var AMPA_CUOTA_ANUAL = '25 €';
 
 // Año escolar: del 1 de agosto al 31 de julio. Ej.: 9/10/2026 -> '2026-2027'.
+// Año de la cuota que se paga ahora: la del curso que termina ese año
+// (en octubre de 2026 se paga la 2026-2027 → 2027)
+function anioCuota(fecha) {
+  const d = fecha || new Date();
+  return d.getMonth() >= 7 ? d.getFullYear() + 1 : d.getFullYear();
+}
 function anioEscolar(fecha) {
   const d = fecha || new Date();
   const inicio = d.getMonth() >= 7 ? d.getFullYear() : d.getFullYear() - 1;

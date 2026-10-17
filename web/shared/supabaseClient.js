@@ -18,6 +18,19 @@ async function abrirEnPestana(obtenerUrl) {
   }
 }
 
+// Enlace temporal (firmado) a un archivo privado de Storage. Admite la ruta
+// dentro del bucket o una URL antigua de ese bucket (pública o firmada).
+async function urlArchivo(bucket, ruta, segundos = 600) {
+  if (!ruta) throw new Error('No hay archivo.');
+  let camino = String(ruta);
+  const m = camino.match(new RegExp('/storage/v1/object/(?:public|sign|authenticated)/' + bucket + '/([^?]+)'));
+  if (m) camino = decodeURIComponent(m[1]);
+  else if (/^https?:/.test(camino)) return camino;   // enlace de otro sitio: tal cual
+  const { data, error } = await sb.storage.from(bucket).createSignedUrl(camino, segundos);
+  if (error || !data) throw new Error('No se pudo abrir el archivo' + (error ? ': ' + error.message : '.'));
+  return data.signedUrl;
+}
+
 // Carga shared/config.js por su cuenta (síncrono), así ninguna página
 // necesita incluir esa etiqueta por separado — solo esta.
 (function cargarConfig() {
@@ -109,8 +122,9 @@ async function requireAuth() {
   const estadoOk = /\/estado-[^/]+$/.test(window.location.pathname) || redirigirPorEstado(socio);
   if (!estadoOk) return null;
   // Eligió domiciliación y no ha firmado la orden SEPA: tiene que firmarla
-  // (o pasar a transferencia) en Mis datos antes de seguir
-  if (socio.sepa_pendiente && !/\/(mis-datos|cambiar-clave|estado-[^/]+)(\.html)?$/.test(window.location.pathname)) {
+  // (o pasar a transferencia) en Mis datos antes de seguir. A la Junta no se
+  // la bloquea (tiene que poder usar el panel); lo ve en Mis datos.
+  if (socio.sepa_pendiente && adulto.role !== 'admin' && !/\/(mis-datos|cambiar-clave|estado-[^/]+)(\.html)?$/.test(window.location.pathname)) {
     window.location.href = 'mis-datos.html';
     return null;
   }

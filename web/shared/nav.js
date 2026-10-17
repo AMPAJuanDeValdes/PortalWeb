@@ -8,10 +8,10 @@
 const AREAS_JUNTA = [
   { titulo: 'Socios y cuotas', color: 'socios', enlaces: [
     ['admin-socios', 'Socios'], ['admin-importar', 'Alta de socios'],
-    ['admin-sepa', 'Domiciliación SEPA'], ['admin-comprobantes', 'Comprobantes'] ] },
+    ['admin-sepa', 'Domiciliación SEPA'], ['admin-comprobantes', 'Comprobantes'], ['admin-firmados', 'Documentos firmados'] ] },
   { titulo: 'Actividades', color: 'eventos', enlaces: [
     ['admin-eventos', 'Eventos'], ['admin-libros', 'Banco de Libros'],
-    ['admin-uniformes', 'Banco de Uniformes'], ['admin-mochila', 'Mochila Jugona Exploradora'], ['admin-encuestas', 'Encuestas'], ['admin-donaciones', 'Donaciones'] ] },
+    ['admin-uniformes', 'Banco de Uniformes'], ['admin-mochila', 'Mochila Jugona Exploradora'], ['admin-encuestas', 'Encuestas'], ['admin-donaciones', 'Donaciones'], ['admin-loteria', 'Lotería'] ] },
   { titulo: 'Comunicación', color: 'comunicacion', enlaces: [
     ['admin-email', 'Enviar email'], ['admin-documentos', 'Documentos'],
     ['admin-carrusel', 'Fotos y vídeos de portada'], ['admin-respuestas', 'Listados'] ] }
@@ -76,6 +76,15 @@ function renderNav(activePage, ctx) {
     (document.querySelector('.wrap') || document.body).appendChild(sec);
   }
   document.getElementById('navSignOut').addEventListener('click', signOut);
+  // Botón de los avisos en el móvil (campana), en las páginas con sesión
+  const ponerCampana = () => montarBotonAvisos(topbar.querySelector('.barra-botones'));
+  if (typeof montarBotonAvisos === 'function') ponerCampana();
+  else {
+    const sc = document.createElement('script');
+    sc.src = 'shared/avisos.js';
+    sc.onload = ponerCampana;
+    document.head.appendChild(sc);
+  }
   if (esAdminPage) montarMenuJunta(activePage);
 }
 

@@ -3,6 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<meta name="theme-color" content="#16233A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="AMPA">
 <title>Iniciar sesión · AMPA Juan de Valdés</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
@@ -255,7 +260,11 @@
     if (adulto.force_password_change) { window.location.href = 'cambiar-clave.html'; return; }
     if (socio.estado === 'recien_creada') { window.location.href = 'estado-recien-creada.html'; return; }
     // Familias que aún no han revisado sus datos (p. ej. las importadas): a Mis datos
-    window.location.href = socio.datos_revisados_en ? 'dashboard.html' : 'mis-datos.html';
+    // ?volver=pagina.html: se vuelve a la página desde la que se entró (por
+    // ejemplo, «Soy socio» en loteria.html). Solo páginas de esta web.
+    const volver = new URLSearchParams(location.search).get('volver') || '';
+    const destino = /^[a-z0-9-]+\.html(#[\w-]*)?$/i.test(volver) && volver !== 'login.html' ? volver : 'dashboard.html';
+    window.location.href = socio.datos_revisados_en ? destino : 'mis-datos.html';
   });
 
   /* ---------------- Recuperar contraseña ---------------- */

@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<meta name="theme-color" content="#16233A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="AMPA">
+<title>Lotería · AMPA Juan de Valdés</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared/styles.css">
+<style>
+  .wrap{ max-width:820px; }
+  .dos{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:560px){ .dos{ grid-template-columns:1fr; } }
+  .ventas{ list-style:none; margin:0; padding:0; }
+  .ventas li{ display:grid; grid-template-columns:76px minmax(0,1fr); gap:14px; align-items:center; padding:12px 0; border-bottom:1px solid var(--line); }
+  .ventas li:last-child{ border-bottom:0; }
+  .ventas .dia{ background:var(--eventos-bg); color:#2A4A0C; border-radius:14px; text-align:center; padding:8px 4px; line-height:1.1; }
+  .ventas .dia b{ display:block; font-family:var(--font-title); font-size:26px; }
+  .ventas .dia small{ font-size:13px; font-weight:700; }
+  .ventas .que b{ display:block; }
+  .ventas .que span{ color:var(--ink-soft); }
+  .sin-fechas{ margin:0; color:var(--ink-soft); }
+  .soy-socio{ display:flex; flex-wrap:wrap; gap:6px 12px; align-items:center; justify-content:space-between; margin:0 0 14px; }
+  .soy-socio p{ margin:0; color:var(--ink-soft); }
+  .soy-socio a{ font-size:15px; font-weight:700; border:2px solid var(--line); border-radius:999px; padding:6px 14px; text-decoration:none; color:var(--ink); }
+  .soy-socio a:hover{ border-color:var(--ink); }
+  .tus-datos{ background:#F6F8FB; border-radius:14px; padding:12px 16px; margin:0 0 14px; }
+  .tus-datos p{ margin:0; }
+  .trampa{ position:absolute; left:-9999px; width:1px; height:1px; overflow:hidden; }
+  .hecho{ text-align:center; padding:24px 10px; }
+  .hecho b{ display:block; font-family:var(--font-title); font-size:26px; margin-bottom:8px; }
+</style>
+</head>
+<body>
+<header class="pub-head">
+  <a href="index.html" class="pub-marca"><img src="assets/logo-ampa-transparente.png" alt=""><span><b>AMPA</b><small>Colegio Juan de Valdés</small></span></a>
+  <img class="pub-colegio" src="assets/logo-colegio.png" alt="Colegio Juan de Valdés">
+  <nav class="pub-links" id="navLinks">
+    <a href="index.html">Página principal</a>
+    <a href="publico.html">Eventos</a>
+    <a href="login.html?volver=loteria.html" class="pub-pill">Entrar como socio</a>
+  </nav>
+</header>
+
+<div class="wrap">
+  <header class="cab-servicio cs-eventos" style="margin-top:28px;"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8a2 2 0 0 0 0 4v4h18v-4a2 2 0 0 0 0-4V4H3z"/><path d="M14 4v12" stroke-dasharray="2 2"/></svg><div><nav class="miga" aria-label="Estás en"><a href="index.html" id="migaInicio">Página principal</a><span aria-hidden="true">›</span><span>Lotería</span></nav><h1 id="titulo">Lotería</h1><p id="subtitulo">Cargando...</p></div></header>
+
+  <div id="abierta" hidden>
+    <div class="card">
+      <p class="section-label">Dónde y cuándo comprarla</p>
+      <div id="fechas"><p class="loading">Cargando...</p></div>
+    </div>
+
+    <div class="card" id="formWrap">
+      <p class="section-label">Escríbenos</p>
+      <div class="soy-socio" id="soySocio">
+        <p>Cuéntanos cuántas participaciones quieres o cualquier duda, y te contestamos.</p>
+        <a href="login.html?volver=loteria.html">Soy socio</a>
+      </div>
+      <div class="tus-datos" id="tusDatos" hidden></div>
+      <form id="form" novalidate>
+        <div class="field"><label for="mensaje">Tu mensaje *</label><textarea id="mensaje" rows="4" maxlength="2000" placeholder="Por ejemplo: quiero 4 participaciones"></textarea></div>
+        <div id="datosNoSocio">
+          <div class="dos" style="margin-top:14px;">
+            <div class="field"><label for="nombre">Nombre *</label><input type="text" id="nombre" autocomplete="given-name"></div>
+            <div class="field"><label for="apellidos">Apellidos *</label><input type="text" id="apellidos" autocomplete="family-name"></div>
+            <div class="field"><label for="email">Email *</label><input type="email" id="email" autocomplete="email"></div>
+            <div class="field"><label for="movil">Móvil *</label><input type="tel" id="movil" autocomplete="tel" inputmode="tel"></div>
+          </div>
+        </div>
+        <div class="trampa" aria-hidden="true"><label for="web">No rellenar</label><input type="text" id="web" tabindex="-1" autocomplete="off"></div>
+        <button type="submit" class="btn btn-primary" id="enviarBtn" style="margin-top:18px;">Enviar mensaje</button>
+        <p id="msg" class="msg-error" hidden style="margin-top:14px;"></p>
+      </form>
+    </div>
+  </div>
+
+  <div class="card" id="cerrada" hidden>
+    <p style="margin:0;">Ahora mismo no hay lotería a la venta. Cuando empiece la campaña, la encontrarás aquí.</p>
+    <p style="margin:12px 0 0;"><a href="index.html" id="volverCerrada">Volver a la página principal</a></p>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="shared/supabaseClient.js"></script>
+<script src="shared/datos-ampa.js"></script>
+<script>
+const esc = (t) => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const eur = (n) => Number(n || 0).toLocaleString('es-ES', { minimumFractionDigits: Number(n) % 1 ? 2 : 0, maximumFractionDigits: 2 }) + ' €';
+let token = null, adulto = null;
+
+async function pintarFechas() {
+  const wrap = document.getElementById('fechas');
+  const { data } = await sb.from('eventos').select('id, titulo, fecha, lugar').eq('plantilla', 'loteria').eq('activo', true)
+    .gte('fecha', new Date(Date.now() - 3 * 3600e3).toISOString()).order('fecha');
+  const proximas = (data || []).filter(e => e.fecha && new Date(e.fecha).getTime() > Date.now() - 3 * 3600e3);
+  if (!proximas.length) { wrap.innerHTML = '<p class="sin-fechas">Todavía no hay fechas de venta. Escríbenos y te decimos cómo conseguirla.</p>'; return; }
+  const zona = { timeZone: 'Europe/Madrid' };
+  wrap.innerHTML = '<ul class="ventas">' + proximas.map(e => {
+    const f = new Date(e.fecha);
+    return `<li><span class="dia"><b>${f.toLocaleDateString('es-ES', { ...zona, day: 'numeric' })}</b><small>${f.toLocaleDateString('es-ES', { ...zona, month: 'short' })}</small></span>
+      <span class="que"><b>${esc(f.toLocaleDateString('es-ES', { ...zona, weekday: 'long', day: 'numeric', month: 'long' }))}, a las ${f.toLocaleTimeString('es-ES', { ...zona, hour: '2-digit', minute: '2-digit' })}</b><span>${esc(e.lugar || e.titulo)}</span></span></li>`;
+  }).join('') + '</ul>';
+}
+
+async function socioConSesion() {
+  try {
+    const session = await getSession();
+    if (!session) return;
+    const a = await getAdulto();
+    if (!a) return;
+    token = session.access_token; adulto = a;
+    document.getElementById('navLinks').innerHTML = '<a href="index.html">Página principal</a><a href="dashboard.html" class="pub-pill">Mi perfil</a>';
+    const m = document.getElementById('migaInicio'); m.href = 'dashboard.html'; m.textContent = 'Inicio';
+    const v = document.getElementById('volverCerrada'); v.href = 'dashboard.html'; v.textContent = 'Volver a Mi perfil';
+    document.getElementById('soySocio').hidden = true;
+    document.getElementById('datosNoSocio').hidden = true;
+    const t = document.getElementById('tusDatos');
+    t.innerHTML = `<p>Te contestaremos a <b>${esc(a.email)}</b>${a.movil ? ' o al <b>' + esc(a.movil) + '</b>' : ''}.</p>
+      <p style="font-size:15px; color:var(--ink-soft); margin-top:4px;">${esc(a.nombre)} ${esc(a.apellidos || '')}. Para cambiar estos datos, ve a <a href="mis-datos.html">Mis datos</a>.</p>`;
+    t.hidden = false;
+  } catch (e) { /* sin sesión: se piden los datos */ }
+}
+
+document.getElementById('form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const msg = document.getElementById('msg'), btn = document.getElementById('enviarBtn');
+  const error = (t) => { msg.textContent = t; msg.hidden = false; };
+  msg.hidden = true;
+  const val = (id) => document.getElementById(id).value.trim();
+  const datos = { mensaje: val('mensaje'), web: val('web') };
+  if (datos.mensaje.length < 3) return error('Escribe tu mensaje.');
+  if (!adulto) {
+    Object.assign(datos, { nombre: val('nombre'), apellidos: val('apellidos'), email: val('email'), movil: val('movil') });
+    if (!datos.nombre || !datos.apellidos) return error('Escribe tu nombre y tus apellidos.');
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(datos.email)) return error('Escribe un email válido.');
+    if (!movilValido(datos.movil)) return error('Escribe un móvil válido (9 cifras).');
+  }
+  btn.disabled = true; btn.textContent = 'Enviando...';
+  try {
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) headers.Authorization = 'Bearer ' + token;
+    const r = await fetch('/.netlify/functions/loteria-mensaje', { method: 'POST', headers, body: JSON.stringify(datos) });
+    let d = {}; try { d = await r.json(); } catch (e2) { /* respuesta no JSON */ }
+    if (!r.ok) throw new Error(d.error || 'No se pudo enviar. Inténtalo de nuevo en unos minutos.');
+    document.getElementById('formWrap').innerHTML = `<div class="hecho"><b>Mensaje enviado</b>
+      <p>Te contestaremos a ${esc(d.email || datos.email || '')}.</p>
+      <p><a href="${adulto ? 'dashboard.html' : 'index.html'}">${adulto ? 'Volver a Mi perfil' : 'Volver a la página principal'}</a></p></div>`;
+  } catch (e2) {
+    error(e2.message); btn.disabled = false; btn.textContent = 'Enviar mensaje';
+  }
+});
+
+(async () => {
+  await socioConSesion();
+  const { data, error } = await sb.rpc('loteria_publica');
+  const c = !error && data && data[0];
+  if (!c) {
+    document.getElementById('subtitulo').textContent = 'La lotería del AMPA.';
+    document.getElementById('cerrada').hidden = false;
+    return;
+  }
+  document.getElementById('titulo').textContent = c.nombre;
+  document.title = c.nombre + ' · AMPA Juan de Valdés';
+  document.getElementById('subtitulo').textContent = `Participaciones de ${eur(c.precio)}${c.numeros ? ' del número ' + c.numeros : ''}.`;
+  document.getElementById('abierta').hidden = false;
+  pintarFechas();
+})();
+</script>
+<script src="shared/sonido.js"></script>
+<script src="shared/vida.js"></script>
+</body>
+</html>

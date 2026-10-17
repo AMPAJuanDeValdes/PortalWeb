@@ -3,6 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<meta name="theme-color" content="#16233A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="AMPA">
 <title>Respuestas · Admin AMPA</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
@@ -125,40 +130,88 @@ async function cargarInscritosDe(eventoId, titulo) {
   });
 }
 
+// Alumnos y su matrícula. Filtro «Datos confirmados y sin verificar»: las
+// familias que ya revisaron sus datos y cuyos alumnos falta cotejar con la
+// matrícula del colegio (se exporta tal cual en CSV).
+const ORDEN_ETAPA_AL = { Infantil: 1, Primaria: 2, ESO: 3, Bachillerato: 4 };
+const escA = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+let ALUMNOS = [];
+
 async function cargarAlumnos() {
   const wrap = document.getElementById('wrapAlumnos');
-  const { data, error } = await sb.from('alumnos').select('id, nombre, apellidos, fecha_nacimiento, etapa, curso, aula, verificado, socio_id').order('etapa').order('curso');
-  if (error) { wrap.innerHTML = '<p class="msg-error">No se pudo cargar: ' + String(error.message).replace(/[<&]/g, c => c === '<' ? '&lt;' : '&amp;') + '</p>'; return; }
-  if (!data || data.length === 0) { wrap.innerHTML = '<p class="empty-hint">Sin alumnos todavía.</p>'; return; }
+  const [alumnos, socios, adultos] = await Promise.all([
+    todasLasFilas(() => sb.from('alumnos').select('id, nombre, apellidos, fecha_nacimiento, etapa, curso, aula, verificado, socio_id')),
+    todasLasFilas(() => sb.from('socios').select('id, numero_socio_completo, estado, datos_revisados_en')),
+    todasLasFilas(() => sb.from('adultos').select('socio_id, nombre, apellidos, email, movil, created_at').order('created_at'))
+  ]);
+  const socio = Object.fromEntries(socios.map(x => [x.id, x]));
+  const principal = {};
+  adultos.forEach(x => { if (!principal[x.socio_id]) principal[x.socio_id] = x; });
+  ALUMNOS = alumnos.map(a => {
+    const s = socio[a.socio_id] || {}, ad = principal[a.socio_id] || {};
+    return { ...a, numero: s.numero_socio_completo ? numeroSocioBonito(s.numero_socio_completo) : '', estado: s.estado || '',
+      confirmados: s.datos_revisados_en || null, familia: [ad.nombre, ad.apellidos].filter(Boolean).join(' '), email: ad.email || '', movil: ad.movil || '' };
+  }).sort((x, y) => (ORDEN_ETAPA_AL[x.etapa] || 9) - (ORDEN_ETAPA_AL[y.etapa] || 9)
+    || (parseInt(x.curso, 10) || 99) - (parseInt(y.curso, 10) || 99) || String(x.aula || '').localeCompare(String(y.aula || ''))
+    || (x.apellidos + x.nombre).localeCompare(y.apellidos + y.nombre, 'es'));
 
-  const resumen = await getResumenSocios(data.map(a => a.socio_id));
-
-  wrap.innerHTML = '<table><thead><tr><th>Nombre</th><th>Curso</th><th>Aula</th><th>Familia</th><th>Verificado</th><th></th></tr></thead><tbody>' +
-    data.map((a, idx) => '<tr>' +
-      '<td>' + a.nombre + ' ' + a.apellidos + '</td>' +
-      '<td>' + a.curso + ' ' + a.etapa + '</td>' +
-      '<td>' + (a.aula || '') + '</td>' +
-      '<td>' + (resumen[a.socio_id] ? resumen[a.socio_id].nombre : '') + '</td>' +
-      '<td>' + (a.verificado ? '<span class="badge badge-socio">✓ Verificado</span>' : '<span class="badge badge-admin">Falta verificar</span>') + '</td>' +
-      '<td><button class="btn-danger-link toggleVerificadoBtn" data-idx="' + idx + '">' + (a.verificado ? 'Desmarcar' : 'Marcar verificado') + '</button></td>' +
-    '</tr>').join('') + '</tbody></table>' +
-    '<button class="btn btn-outline" id="descargarAlumnosBtn" style="margin-top:14px;">Descargar CSV (para cotejar matrícula)</button>';
-
-  wrap.querySelectorAll('.toggleVerificadoBtn').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const a = data[parseInt(btn.dataset.idx, 10)];
-      await sb.from('alumnos').update({ verificado: !a.verificado }).eq('id', a.id);
-      cargarAlumnos();
-    });
-  });
-
+  wrap.innerHTML = `
+    <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; margin-bottom:12px;">
+      <div class="field" style="margin:0; min-width:260px;"><label for="filtroMatricula">Mostrar</label>
+        <select id="filtroMatricula">
+          <option value="pendientes">Datos confirmados y matrícula sin verificar</option>
+          <option value="sin">Matrícula sin verificar</option>
+          <option value="ver">Matrícula verificada</option>
+          <option value="">Todos</option>
+        </select></div>
+      <button class="btn btn-outline" id="descargarAlumnosBtn">Descargar CSV de esta lista</button>
+    </div>
+    <p id="contAlumnos" style="font-size:14px; color:var(--ink-soft); margin:0 0 6px;"></p>
+    <div id="tablaAlumnos"></div>`;
+  document.getElementById('filtroMatricula').addEventListener('change', pintarAlumnos);
   document.getElementById('descargarAlumnosBtn').addEventListener('click', () => {
-    descargarCSV(data.map(a => ({
+    const lista = alumnosFiltrados();
+    if (!lista.length) { alert('No hay alumnos en esta lista.'); return; }
+    const filtro = document.getElementById('filtroMatricula').value;
+    descargarCSV(lista.map(a => ({
+      numero_socio: a.numero, familia: a.familia, email: a.email, movil: a.movil,
       nombre: a.nombre, apellidos: a.apellidos, fecha_nacimiento: a.fecha_nacimiento || '',
-      curso: a.curso, etapa: a.etapa, aula: a.aula || '',
-      familia: resumen[a.socio_id] ? resumen[a.socio_id].nombre : '', verificado: a.verificado ? 'si' : 'no'
-    })), 'alumnos-matricula.csv');
+      etapa: a.etapa, curso: a.curso || '', aula: a.aula || '',
+      datos_confirmados: a.confirmados ? new Date(a.confirmados).toLocaleDateString('es-ES') : 'no',
+      matricula_verificada: a.verificado ? 'si' : 'no'
+    })), filtro === 'pendientes' ? 'alumnos-datos-confirmados-sin-verificar.csv' : 'alumnos-matricula.csv');
   });
+  pintarAlumnos();
+}
+
+function alumnosFiltrados() {
+  const f = document.getElementById('filtroMatricula').value;
+  return ALUMNOS.filter(a => f === 'pendientes' ? (a.confirmados && !a.verificado) : f === 'sin' ? !a.verificado : f === 'ver' ? a.verificado : true);
+}
+
+function pintarAlumnos() {
+  const lista = alumnosFiltrados();
+  document.getElementById('contAlumnos').textContent = `${lista.length} alumno${lista.length === 1 ? '' : 's'}`;
+  const t = document.getElementById('tablaAlumnos');
+  if (!lista.length) { t.innerHTML = '<p class="empty-hint">No hay alumnos en esta lista.</p>'; return; }
+  t.innerHTML = '<div style="overflow-x:auto;"><table><thead><tr><th>Nombre</th><th>Curso</th><th>Aula</th><th>Familia</th><th>Datos</th><th>Matrícula</th><th></th></tr></thead><tbody>' +
+    lista.map(a => '<tr>' +
+      `<td>${escA(a.nombre + ' ' + a.apellidos)}</td>` +
+      `<td>${escA([a.curso, a.etapa].filter(Boolean).join(' '))}</td>` +
+      `<td>${escA(a.aula || '')}</td>` +
+      `<td>${a.numero ? `<span style="font-family:ui-monospace,Menlo,Consolas,monospace; font-size:13px; color:var(--ink-soft);">${escA(a.numero)}</span> ` : ''}${escA(a.familia)}</td>` +
+      `<td>${a.confirmados ? '<span class="badge badge-socio">Confirmados</span>' : '<span class="badge badge-admin">Sin confirmar</span>'}</td>` +
+      `<td>${a.verificado ? '<span class="badge badge-socio">✓ Verificada</span>' : '<span class="badge badge-admin">Falta verificar</span>'}</td>` +
+      `<td><button class="btn-danger-link toggleVerificadoBtn" data-id="${escA(a.id)}">${a.verificado ? 'Desmarcar' : 'Marcar verificada'}</button></td>` +
+    '</tr>').join('') + '</tbody></table></div>';
+  t.querySelectorAll('.toggleVerificadoBtn').forEach(btn => btn.addEventListener('click', async () => {
+    const a = ALUMNOS.find(x => x.id === btn.dataset.id);
+    btn.disabled = true;
+    const { error } = await sb.from('alumnos').update({ verificado: !a.verificado }).eq('id', a.id);
+    if (error) { alert('No se pudo guardar: ' + error.message); btn.disabled = false; return; }
+    a.verificado = !a.verificado;
+    pintarAlumnos();
+  }));
 }
 
 (async () => {

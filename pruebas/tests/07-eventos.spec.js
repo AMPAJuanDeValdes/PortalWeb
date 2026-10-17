@@ -149,6 +149,43 @@ test.describe('Eventos', () => {
     }
   });
 
+  test('Curso de Warhammer y talleres que coinciden con una sesión', async () => {
+    const curso = await crearEvento({ titulo: 'Warhammer coincide', plantilla: 'warhammer', cursos_permitidos: [], elegibilidad_modo: null });
+    const futuro = await crearEvento({ titulo: 'Taller coincide', plantilla: 'taller', cursos_permitidos: [], elegibilidad_modo: null });
+    try {
+      const { data: ses } = await admin.from('evento_sesiones').select('id, numero').eq('evento_id', curso.id).order('numero');
+      // La Junta marca que el taller coincide con la sesión 5 (con su cliente, como en el panel)
+      const jefe = await crearFamilia({ etiqueta: 'jefecoincide', esAdmin: true });
+      const cj = (await clienteComo(jefe.adultos[0].email)).cliente;
+      let r = await cj.rpc('evento_guardar_sesiones_incompatibles', { p_evento: futuro.id, p_sesiones: [ses[4].id] });
+      expect(r.error).toBeNull();
+      const al = (k, ev) => ({ evento_id: ev.id, socio_id: fam.socio.id, tipo_miembro: 'alumno', alumno_id: fam.alumnos[k].id, recoge_otra: false });
+
+      // En el taller (que no ha pasado) → no puede entrar al curso
+      r = await cli.from('evento_inscripciones').insert(al(0, futuro));
+      expect(r.error).toBeNull();
+      r = await cli.from('evento_inscripciones').insert({ ...al(0, curso), sale_solo: true });
+      expect(r.error?.message).toContain('coincide con la sesión 5');
+
+      // En el curso → no puede ir al taller
+      r = await cli.from('evento_inscripciones').insert({ ...al(1, curso), sale_solo: true });
+      expect(r.error).toBeNull();
+      r = await cli.from('evento_inscripciones').insert(al(1, futuro));
+      expect(r.error?.message).toContain('sesión 5 es a la misma hora');
+
+      // Sale del curso → ya puede ir al taller, pero no volver al curso
+      r = await cli.from('evento_inscripciones').delete().eq('evento_id', curso.id).eq('alumno_id', fam.alumnos[1].id);
+      expect(r.error).toBeNull();
+      r = await cli.from('evento_inscripciones').insert(al(1, futuro));
+      expect(r.error).toBeNull();
+      await cli.from('evento_inscripciones').delete().eq('evento_id', futuro.id).eq('alumno_id', fam.alumnos[1].id);
+      r = await cli.from('evento_inscripciones').insert({ ...al(1, curso), sale_solo: true });
+      expect(r.error?.message).toContain('ya no puede volver');
+    } finally {
+      await admin.from('eventos').delete().in('id', [curso.id, futuro.id]);
+    }
+  });
+
   test('Visita al comedor: como mucho un adulto por familia', async () => {
     const comedor = await crearEvento({ titulo: 'Comedor', plantilla: 'comedor', aforo_total: 2 });
     try {

@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<meta name="theme-color" content="#16233A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="AMPA">
+<title>Documentos firmados · Admin AMPA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared/styles.css">
+<style>
+  .panel{ display:none; } .panel.active{ display:block; }
+  .tabs .num{ display:inline-block; min-width:20px; padding:0 6px; border-radius:9px; background:#E3E8F0; color:var(--ink); font-size:13px; margin-left:6px; }
+  .tab-btn.active .num{ background:rgba(255,255,255,.22); color:#fff; }
+  .filtros{ display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; margin-bottom:12px; }
+  .filtros .field{ margin:0; flex:1; min-width:200px; }
+  .contador{ font-size:14px; color:var(--ink-soft); margin:0 0 6px; }
+  .card.card-lista{ overflow:visible; }   /* para que la cabecera de la tabla quede fija */
+
+  /* Una línea por documento; lo que no cabe se corta con «…» (entero al pasar el ratón) */
+  .tabla-docs{ width:100%; border-collapse:separate; border-spacing:0; font-size:14px; table-layout:fixed; }
+  .tabla-docs col.c-fecha{ width:96px; } .tabla-docs col.c-quien{ width:28%; } .tabla-docs col.c-estado{ width:132px; } .tabla-docs col.c-ver{ width:76px; }
+  .tabla-docs th{ position:sticky; top:84px; z-index:2; background:#fff; text-align:left; font-size:13px; color:var(--ink-soft); font-weight:700;
+    padding:9px 8px; border-bottom:2px solid var(--line); white-space:nowrap; }
+  .tabla-docs td{ padding:0 8px; height:44px; border-bottom:1px solid var(--line); vertical-align:middle; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .tabla-docs tr:hover td{ background:#F7F9FC; }
+  .tabla-docs .num-socio{ font-family:ui-monospace, Menlo, Consolas, monospace; font-size:13px; color:var(--ink-soft); margin-right:6px; }
+  .tabla-docs .gris{ color:var(--ink-soft); }
+  .tabla-docs .ver{ padding:0 14px; height:32px; min-height:0; min-width:0; font-size:14px; line-height:1; border-width:1.5px; }
+  .chip{ display:inline-block; font-size:12.5px; font-weight:700; padding:2px 9px; border-radius:999px; white-space:nowrap; }
+  .chip.ok{ background:#E5F3EA; color:var(--green); }
+  .chip.pend{ background:var(--gold-soft); color:var(--gold); }
+  .chip.gris{ background:#EEF1F5; color:var(--ink-soft); }
+  .chip.aviso{ background:#FBE4E1; color:var(--red); margin-left:4px; }
+  @media (max-width:760px){
+    .tabla-docs, .tabla-docs tbody{ display:block; }
+    .tabla-docs thead, .tabla-docs colgroup{ display:none; }
+    .tabla-docs tr{ display:grid; grid-template-columns:minmax(0,1fr) max-content; grid-template-areas:"quien ver" "doc ver" "fecha estado";
+      gap:2px 12px; padding:10px 2px; border-bottom:1px solid var(--line); align-items:center; }
+    .tabla-docs td{ display:block; height:auto; padding:0; border:0; background:none !important; min-width:0; }
+    .tabla-docs td.t-quien{ grid-area:quien; font-weight:700; }
+    .tabla-docs td.t-doc{ grid-area:doc; font-size:13.5px; }
+    .tabla-docs td.t-fecha{ grid-area:fecha; font-size:13px; color:var(--ink-soft); }
+    .tabla-docs td.t-estado{ grid-area:estado; justify-self:end; }
+    .tabla-docs td.t-ver{ grid-area:ver; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">Administración</div>
+  <h1>Documentos firmados</h1>
+  <p class="lede">Todo lo que han firmado o subido las familias, separado por tipo. Los archivos son privados: se abren con un enlace que caduca a los pocos minutos.</p>
+
+  <div class="tabs" id="tabs">
+    <button class="tab-btn active" data-tab="altas">Altas y cuotas <span class="num" id="n-altas">…</span></button>
+    <button class="tab-btn" data-tab="sepa">Domiciliación SEPA <span class="num" id="n-sepa">…</span></button>
+    <button class="tab-btn" data-tab="eventos">Eventos <span class="num" id="n-eventos">…</span></button>
+    <button class="tab-btn" data-tab="mochila">Mochila Jugona Exploradora <span class="num" id="n-mochila">…</span></button>
+  </div>
+
+  <div class="card card-lista">
+    <div class="filtros">
+      <div class="field"><label for="buscar">Buscar</label><input type="search" id="buscar" placeholder="Nombre, nº de socio, evento, documento..."></div>
+      <div class="field" id="filtroEventoWrap" hidden style="max-width:340px;"><label for="filtroEvento">Evento</label><select id="filtroEvento"><option value="">Todos los eventos</option></select></div>
+    </div>
+    <p class="contador" id="contador"></p>
+    <table class="tabla-docs">
+      <colgroup><col class="c-fecha"><col class="c-quien"><col class="c-doc"><col class="c-estado"><col class="c-ver"></colgroup>
+      <thead><tr><th>Fecha</th><th>Familia o persona</th><th>Documento</th><th>Estado</th><th></th></tr></thead>
+      <tbody id="tbody"><tr><td colspan="5" class="loading">Cargando...</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="shared/supabaseClient.js"></script>
+<script src="shared/nav.js"></script>
+<script src="shared/helpers.js"></script>
+<script>
+const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const fecha = (f) => f ? new Date(f).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '';
+const nombre = (p) => p ? [p.nombre, p.apellidos].filter(Boolean).join(' ') : '';
+const ibanCorto = (i) => { const t = String(i || '').replace(/\s/g, ''); return t ? t.slice(0, 4) + ' … ' + t.slice(-4) : ''; };
+const chip = (texto, clase) => `<span class="chip ${clase}">${esc(texto)}</span>`;
+
+// Cada documento: { tipo, fecha, quien, socio, doc, estado (html), bucket, ruta, eventoId, buscar }
+const DOCS = { altas: [], sepa: [], eventos: [], mochila: [] };
+let pestana = 'altas';
+
+async function cargar() {
+  const [comp, mand, cartas, resp, adultos] = await Promise.all([
+    todasLasFilas(() => sb.from('comprobantes_pago')
+      .select('id, tipo, archivo_url, verificado, created_at, socio_id, pago_id, socios(numero_socio_completo, created_at), evento_inscripciones(socio_id, nombre_invitado, apellidos_invitado, alumno_nombre, alumno_apellidos, nombre_contacto, socios(numero_socio_completo), eventos(id, titulo, fecha)), mochila_cola(nombre_contacto)')
+      .order('created_at', { ascending: false })),
+    todasLasFilas(() => sb.from('mandatos_sepa')
+      .select('id, iban, vigente, aviso_diferencias, archivo_final_url, archivo_url, created_at, socio_id, socios(numero_socio_completo), adultos!adulto_id(nombre, apellidos)')
+      .order('created_at', { ascending: false })),
+    todasLasFilas(() => sb.from('mochila_compromisos')
+      .select('socio_id, archivo_url, firmado_en, socios(numero_socio_completo), adultos!firmado_por(nombre, apellidos)')
+      .order('firmado_en', { ascending: false })),
+    todasLasFilas(() => sb.from('documentos_evento_respuestas')
+      .select('id, archivo_final_url, created_at, aviso_diferencias, socio_id, documentos_evento(titulo, evento_id, eventos(id, titulo, fecha)), socios(numero_socio_completo), adultos!adulto_id(nombre, apellidos), alumnos(nombre, apellidos), evento_inscripciones(nombre_invitado, apellidos_invitado)')
+      .order('created_at', { ascending: false })),
+    todasLasFilas(() => sb.from('adultos').select('socio_id, nombre, apellidos, created_at').order('created_at'))
+  ]);
+
+  // Familia = su adulto principal (el primero que se dio de alta)
+  const principal = {};
+  adultos.forEach(a => { if (!principal[a.socio_id]) principal[a.socio_id] = nombre(a); });
+  const familia = (socioId) => principal[socioId] || 'Familia sin adultos';
+  const num = (s) => s && s.numero_socio_completo ? numeroSocioBonito(s.numero_socio_completo) : '';
+  const verificado = (c) => c.verificado ? chip('Verificado', 'ok') : chip('Sin revisar', 'pend');
+
+  const quienes = (i) => i ? (i.nombre_invitado ? nombre({ nombre: i.nombre_invitado, apellidos: i.apellidos_invitado })
+    : i.alumno_nombre ? nombre({ nombre: i.alumno_nombre, apellidos: i.alumno_apellidos }) : i.nombre_contacto || '') : '';
+
+  // Varias personas no socias pagadas con una sola transferencia: un solo justificante
+  const porPago = {};
+  comp.forEach(c => {
+    if (c.tipo === 'cuota_socio') {
+      // Alta si se subió el mismo día que se creó la cuenta; si no, renovación o reactivación
+      const alta = c.socios && Math.abs(new Date(c.created_at) - new Date(c.socios.created_at)) < 86400000;
+      DOCS.altas.push({ fecha: c.created_at, quien: familia(c.socio_id), socio: num(c.socios),
+        doc: alta ? 'Justificante de la cuota (alta)' : 'Justificante de la cuota (renovación o reactivación)',
+        estado: verificado(c), bucket: 'comprobantes', ruta: c.archivo_url });
+    } else if (c.tipo === 'mochila_no_socio') {
+      DOCS.mochila.push({ fecha: c.created_at, quien: (c.mochila_cola && c.mochila_cola.nombre_contacto) || 'No socio', socio: '',
+        doc: 'Justificante de pago (familia no socia)', estado: verificado(c), bucket: 'comprobantes', ruta: c.archivo_url });
+    } else if (c.tipo === 'invitado_evento') {
+      const ins = c.evento_inscripciones || {};
+      const clave = c.pago_id || c.id;
+      if (porPago[clave]) { porPago[clave].personas.push(quienes(ins)); return; }
+      const d = porPago[clave] = { fecha: c.created_at, socio: num(c.socios || ins.socios), personas: [quienes(ins)], socioId: c.socio_id || ins.socio_id,
+        evento: ins.eventos, estado: verificado(c), bucket: 'comprobantes', ruta: c.archivo_url };
+      DOCS.eventos.push(d);
+    }
+  });
+  Object.values(porPago).forEach(d => {
+    d.quien = d.socioId ? familia(d.socioId) : d.personas.filter(Boolean).join(', ');
+    d.doc = `Justificante de pago de ${d.personas.length === 1 ? 'persona no socia' : d.personas.length + ' personas no socias'}${d.socioId ? ' (' + d.personas.filter(Boolean).join(', ') + ')' : ''}`;
+    d.eventoId = d.evento && d.evento.id;
+    d.eventoTitulo = d.evento && d.evento.titulo;
+  });
+
+  mand.forEach(m => DOCS.sepa.push({ fecha: m.created_at, quien: familia(m.socio_id), socio: num(m.socios),
+    doc: `Orden SEPA · IBAN ${ibanCorto(m.iban)}${m.adultos ? ' · firmó ' + nombre(m.adultos) : ''}`,
+    estado: (m.vigente ? chip('Vigente', 'ok') : chip('Sustituida', 'gris'))
+      + (m.aviso_diferencias ? `<span class="chip aviso" title="Al firmar cambió el titular o la dirección respecto a sus datos">Datos cambiados</span>` : ''),
+    bucket: 'mandatos-sepa', ruta: m.archivo_final_url || m.archivo_url }));
+
+  cartas.forEach(c => DOCS.mochila.push({ fecha: c.firmado_en, quien: familia(c.socio_id), socio: num(c.socios),
+    doc: 'Carta de compromiso' + (c.adultos ? ' · firmó ' + nombre(c.adultos) : ''),
+    estado: chip('Firmada', 'ok'), bucket: 'mochila-compromisos', ruta: c.archivo_url }));
+
+  resp.forEach(r => {
+    const d = r.documentos_evento || {}, ev = d.eventos || {};
+    const persona = r.alumnos ? nombre(r.alumnos) + ' (alumno/a)' : r.adultos ? nombre(r.adultos)
+      : r.evento_inscripciones ? nombre({ nombre: r.evento_inscripciones.nombre_invitado, apellidos: r.evento_inscripciones.apellidos_invitado }) + ' (no socio/a)' : '';
+    DOCS.eventos.push({ fecha: r.created_at, quien: familia(r.socio_id), socio: num(r.socios),
+      doc: `${d.titulo || 'Documento'}${persona ? ' · ' + persona : ''}`,
+      estado: chip('Firmado', 'ok') + (r.aviso_diferencias ? `<span class="chip aviso" title="Al firmar cambió algún dato respecto a los de la web">Datos cambiados</span>` : ''),
+      bucket: 'documentos-evento', ruta: r.archivo_final_url, eventoId: ev.id, eventoTitulo: ev.titulo });
+  });
+
+  Object.values(DOCS).forEach(lista => lista.sort((a, b) => new Date(b.fecha) - new Date(a.fecha)));
+  Object.entries(DOCS).forEach(([k, lista]) => {
+    lista.forEach(d => { d.buscar = [d.quien, d.socio, d.doc, d.eventoTitulo].filter(Boolean).join(' ').toLowerCase(); });
+    document.getElementById('n-' + k).textContent = lista.length;
+  });
+
+  // Eventos con algún documento, para filtrar
+  const eventos = {};
+  DOCS.eventos.forEach(d => { if (d.eventoId) eventos[d.eventoId] = d.eventoTitulo || 'Evento'; });
+  document.getElementById('filtroEvento').innerHTML = '<option value="">Todos los eventos</option>' +
+    Object.entries(eventos).sort((a, b) => a[1].localeCompare(b[1], 'es')).map(([id, t]) => `<option value="${esc(id)}">${esc(t)}</option>`).join('');
+}
+
+function pintar() {
+  const q = document.getElementById('buscar').value.trim().toLowerCase();
+  const ev = pestana === 'eventos' ? document.getElementById('filtroEvento').value : '';
+  const lista = DOCS[pestana].filter(d => (!q || d.buscar.includes(q)) && (!ev || d.eventoId === ev));
+  document.getElementById('filtroEventoWrap').hidden = pestana !== 'eventos';
+  document.getElementById('contador').textContent = `${lista.length} documento${lista.length === 1 ? '' : 's'}`;
+  const tbody = document.getElementById('tbody');
+  if (!lista.length) { tbody.innerHTML = '<tr><td colspan="5" class="empty-hint">No hay documentos' + (q || ev ? ' con este filtro' : '') + '.</td></tr>'; return; }
+  tbody.innerHTML = lista.map((d, i) => {
+    const doc = d.eventoTitulo && pestana === 'eventos' ? `${d.eventoTitulo} · ${d.doc}` : d.doc;
+    return `<tr>
+      <td class="t-fecha">${fecha(d.fecha)}</td>
+      <td class="t-quien" title="${esc([d.socio, d.quien].filter(Boolean).join(' · '))}">${d.socio ? `<span class="num-socio">${esc(d.socio)}</span>` : ''}${esc(d.quien)}</td>
+      <td class="t-doc" title="${esc(doc)}">${esc(doc)}</td>
+      <td class="t-estado">${d.estado}</td>
+      <td class="t-ver">${d.ruta ? `<button type="button" class="btn btn-outline ver" data-i="${i}">Ver</button>` : '<span class="gris">—</span>'}</td>
+    </tr>`;
+  }).join('');
+  tbody.querySelectorAll('.ver').forEach(b => b.addEventListener('click', async () => {
+    const d = lista[Number(b.dataset.i)];
+    try { await abrirEnPestana(() => urlArchivo(d.bucket, d.ruta)); }
+    catch (e) { alert(e.message); }
+  }));
+}
+
+document.querySelectorAll('.tab-btn').forEach(btn => btn.addEventListener('click', () => {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b === btn));
+  pestana = btn.dataset.tab;
+  pintar();
+}));
+document.getElementById('buscar').addEventListener('input', pintar);
+document.getElementById('filtroEvento').addEventListener('change', pintar);
+
+(async () => {
+  const ctx = await requireAdmin();
+  if (!ctx) return;
+  renderNav('admin-firmados', ctx);
+  try { await cargar(); }
+  catch (e) { document.getElementById('tbody').innerHTML = `<tr><td colspan="5" class="msg-error">No se pudieron cargar los documentos: ${esc(e.message)}</td></tr>`; return; }
+  const pedir = new URLSearchParams(location.search).get('tipo');
+  const btn = pedir && document.querySelector(`.tab-btn[data-tab="${pedir}"]`);
+  if (btn) btn.click(); else pintar();
+})();
+</script>
+<script src="shared/sonido.js"></script>
+<script src="shared/vida.js"></script>
+</body>
+</html>

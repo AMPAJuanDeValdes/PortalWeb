@@ -252,7 +252,10 @@ img[src*="logo-ampa"]{ mix-blend-mode:multiply; }
 
 .admin-shell{ display:flex; gap:28px; max-width:1260px; margin:0 auto; padding:0 20px; align-items:flex-start; }
 .admin-shell > .wrap{ flex:1 1 0; min-width:0; max-width:none; margin:0; padding:28px 0 80px; }
-.admin-menu{ flex:0 0 236px; position:sticky; top:16px; margin-top:28px; background:#fff; border:1px solid var(--line); border-radius:18px; padding:10px; }
+.admin-menu{ flex:0 0 236px; position:sticky; top:calc(84px + 16px); margin-top:28px; background:#fff; border:1px solid var(--line); border-radius:18px; padding:10px;
+  /* La cabecera fija mide 84px: el menú queda debajo y, si no cabe en la
+     pantalla, se desplaza por dentro (antes se perdían las últimas opciones) */
+  max-height:calc(100vh - 84px - 32px); overflow-y:auto; overscroll-behavior:contain; scrollbar-width:thin; }
 .admin-menu a{ display:block; padding:8px 12px; border-radius:10px; color:var(--ink); text-decoration:none; font-size:15px; }
 .admin-menu a:hover{ background:#F3F5F9; color:var(--ink); }
 .admin-menu a.activo{ background:var(--area-bg, #FFF3C4); color:var(--area, var(--ink)); font-weight:700; }
@@ -403,7 +406,7 @@ html, body{ overflow-x:clip; }
 .barra{ position:sticky; top:0; z-index:30; display:flex; align-items:center; justify-content:space-between; gap:16px;
   padding:10px max(16px, calc(50% - 600px)); background:#fff; box-shadow:0 6px 18px -12px rgba(22,35,58,.25); }
 .barra-logo{ display:flex; align-items:center; gap:14px; text-decoration:none; color:var(--ink); }
-.barra-logo img{ height:64px; width:auto; display:block; transition:transform .3s cubic-bezier(.3,1.6,.5,1); }
+.barra-logo img{ height:64px; width:auto; display:block; flex-shrink:0; object-fit:contain; transition:transform .3s cubic-bezier(.3,1.6,.5,1); }
 .barra-logo:hover img{ transform:rotate(-4deg) scale(1.05); }
 .barra-que{ font-family:var(--font-title); font-weight:800; font-size:20px; }
 .barra-botones{ display:flex; align-items:center; gap:10px; }
@@ -427,9 +430,20 @@ html, body{ overflow-x:clip; }
 .d-perfil{ --c:#FFFFFF; } .d-eventos{ --c:#8BD28F; } .d-libros{ --c:#FF9CBF; } .d-uniformes{ --c:#FFD866; } .d-mochila{ --c:#7CCDF0; } .d-familia{ --c:#C9B3E6; }
 
 @media (max-width:700px){
+  .barra{ gap:8px; }
   .barra-logo img{ height:52px; }
   .barra-btn, .barra-botones .sonido{ width:44px; height:44px; }
-  
+  .barra-botones{ gap:6px; }
+  /* Con cinco botones no cabe el «Panel de la Junta» al lado del logo */
+  .barra-que{ display:none; }
+}
+/* Móviles estrechos: botones algo más pequeños para que el logo no se deforme */
+@media (max-width:380px){
+  .barra-logo img{ height:46px; }
+  .barra-btn, .barra-botones .sonido{ width:40px; height:40px; }
+  .barra-btn svg, .barra-botones .sonido svg{ width:20px; height:20px; }
+  .barra-botones{ gap:5px; }
+
   
   
   .flotante{ bottom:96px; }
@@ -659,3 +673,42 @@ body > .wrap, body > main{ position:relative; z-index:0; isolation:isolate; }
 .recogida .radios label{ font-weight:400; display:flex; gap:6px; align-items:center; margin:0; }
 .recogida .dos{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
 @media (max-width:560px){ .recogida .dos{ grid-template-columns:1fr; } }
+
+/* Inicio: invitación a activar los avisos en el móvil */
+.aviso-avisos{ display:flex; gap:14px 20px; align-items:center; justify-content:space-between; flex-wrap:wrap;
+  background:#EEF4FB; border:1px solid #CFE0F3; border-radius:var(--radius-card); padding:16px 20px; margin:0 0 24px; }
+.aviso-avisos > div:first-child{ flex:1 1 320px; }
+.aviso-avisos .avisos-botones{ display:flex; gap:14px; align-items:center; }
+
+/* Pantalla breve al entrar: activar los avisos */
+.dialogo-avisos{ border:0; border-radius:var(--radius-card); padding:26px 24px; max-width:440px; width:calc(100% - 32px);
+  box-shadow:0 24px 60px -20px rgba(22,35,58,.45); }
+.dialogo-avisos::backdrop{ background:rgba(22,35,58,.45); }
+.dialogo-avisos h2{ font-family:var(--font-title); font-size:22px; margin:0 0 10px; }
+.dialogo-avisos p{ margin:0 0 12px; }
+.dialogo-avisos .avisos-botones{ display:flex; gap:16px; align-items:center; flex-wrap:wrap; margin-top:16px; }
+
+/* Campana de los avisos en la cabecera (activada = rellena, como el sonido) */
+.barra-botones .avisos-btn .off{ display:inline; }
+.barra-botones .avisos-btn[aria-pressed="true"]{ background:var(--ink); color:#fff; border-color:var(--ink); }
+.barra-botones .avisos-btn[aria-pressed="true"] .off{ display:none; }
+.avisos-toast{ position:fixed; left:50%; bottom:24px; transform:translate(-50%, 20px); opacity:0; pointer-events:none; z-index:200;
+  max-width:min(520px, calc(100% - 32px)); background:var(--ink); color:#fff; padding:12px 18px; border-radius:14px; font-size:15px;
+  box-shadow:0 12px 30px -12px rgba(22,35,58,.5); transition:opacity .25s, transform .25s; }
+.avisos-toast.visible{ opacity:1; transform:translate(-50%, 0); }
+.dialogo-avisos .avisos-nunca{ display:flex; gap:8px; align-items:center; font-weight:400; font-size:15px; margin:16px 0 0; cursor:pointer; }
+.dialogo-avisos .avisos-nunca input{ width:18px; height:18px; }
+.dialogo-avisos .avisos-pie{ font-size:13.5px; color:var(--ink-soft); margin:6px 0 0; }
+
+/* Mis datos: quitar adultos y alumnos */
+.hijo-head .hijo-rol{ font-size:14px; color:var(--ink-soft); margin-left:auto; }
+.quitar-persona{ display:inline-block; margin:14px 0 0 18px; }
+.nota-principal{ font-size:14px; color:var(--ink-soft); margin:12px 0 0; }
+
+/* Mi perfil: «Quiero comprar Lotería» mientras la campaña está abierta */
+.aviso-loteria{ display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px 20px; background:var(--eventos-bg); color:#2A4A0C;
+  border-radius:var(--radius-card); padding:18px 22px; margin:0 0 28px; text-decoration:none; }
+.aviso-loteria[hidden]{ display:none; }
+.aviso-loteria b{ display:block; font-family:var(--font-title); font-size:22px; }
+.aviso-loteria .btn{ border-color:#2A4A0C; color:#2A4A0C; background:#fff; }
+.aviso-loteria:hover .btn{ background:#2A4A0C; color:#fff; }

@@ -13,6 +13,7 @@
 // falla a mitad, se deshace todo lo ya creado.
 
 const { createClient } = require('@supabase/supabase-js');
+const { anioCuotaActual } = require('./_lib/cuota');
 const { enviarEmail, plantillaCredenciales } = require('./_lib/email');
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -131,7 +132,7 @@ exports.handler = async (event) => {
 
     // 3) Ahora sí, el socio
     const { data: socio, error: socioError } = await supabaseAdmin.from('socios').insert({
-      anio_ultima_cuota: new Date().getFullYear(), estado: 'recien_creada', forma_pago, sepa_pendiente: eligeDomiciliacion
+      anio_ultima_cuota: anioCuotaActual(), estado: 'recien_creada', forma_pago, sepa_pendiente: eligeDomiciliacion
     }).select('id').single();
     if (socioError) throw socioError;
     socioId = socio.id;
