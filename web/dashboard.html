@@ -52,43 +52,6 @@
   .junta-pend{ background:#FFF3C4; color:#6B4E00; font-weight:700; border-radius:999px; padding:4px 14px; font-size:15px; }
   .junta-ir{ font-weight:700; }
   /* Calendario */
-  .calendario{ background:#fff; border:1px solid var(--line); border-radius:var(--radius-card); padding:22px; margin-bottom:34px; display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:28px; }
-  @media (max-width:760px){ .calendario{ grid-template-columns:1fr; gap:18px; padding:18px 14px; } }
-  .cal-cab{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:12px; }
-  .cal-cab h3{ margin:0; font-size:20px; }
-  .cal-cab button{ width:40px; height:40px; border-radius:50%; border:1.5px solid #C9D3DF; background:#fff; color:var(--ink); cursor:pointer; display:flex; align-items:center; justify-content:center; }
-  .cal-cab button:hover{ border-color:var(--ink); }
-  .cal-grid{ display:grid; grid-template-columns:repeat(7,1fr); gap:4px; text-align:center; }
-  .cal-grid .dsem{ font-size:13px; font-weight:700; color:var(--ink-soft); padding:4px 0; }
-  .cal-dia{ aspect-ratio:1; border-radius:12px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; font-size:15px; color:var(--ink); border:0; background:none; font-family:inherit; padding:0; }
-  .cal-dia.vacio{ visibility:hidden; }
-  .cal-dia.hoy{ box-shadow:inset 0 0 0 2px var(--ink); font-weight:700; }
-  .cal-dia.con-evento{ background:var(--d-bg); color:var(--d); font-weight:700; cursor:pointer; }
-  .cal-dia.con-evento:hover, .cal-dia.con-evento[aria-pressed="true"]{ background:var(--d-fuerte); color:#fff; }
-  .cal-dia .puntos{ display:flex; gap:3px; height:6px; }
-  .cal-dia .puntos i{ width:6px; height:6px; border-radius:50%; background:currentColor; }
-  .cal-lista h3{ margin:0 0 12px; font-size:20px; }
-  .cal-ev{ display:flex; gap:14px; align-items:center; padding:10px; margin:0 -10px; border-radius:14px; text-decoration:none; color:var(--ink); }
-  .cal-ev:hover{ background:#F6F8FB; color:var(--ink); }
-  .cal-ev.marcado{ background:var(--d-bg); }
-  .cal-ev .chip{ flex:0 0 52px; height:56px; border-radius:12px; background:var(--d-fuerte); color:#fff; display:flex; flex-direction:column; align-items:center; justify-content:center; line-height:1.05; }
-  .cal-ev .chip > b{ font-family:var(--font-title); font-size:22px; }
-  .cal-ev .chip > span{ font-size:12px; }
-  .cal-ev .txt{ min-width:0; }
-  .cal-ev .txt > b{ display:block; }
-  .cal-ev .txt > span{ font-size:14.5px; color:var(--ink-soft); }
-  /* Eventos que ya han pasado: en gris y al final de la lista */
-  .cal-dia.con-evento.pasado{ --d:#7A8494; --d-bg:#EEF0F3; --d-fuerte:#9AA3B0; font-weight:400; }
-  .cal-ev.pasado{ color:var(--ink-soft); }
-  .cal-ev.pasado .chip{ background:#C5CBD4; }
-  .cal-ev.pasado .txt > b{ font-weight:400; }
-  .cal-pasados{ font-size:14px; font-weight:700; color:var(--ink-soft); margin:14px 0 4px; }
-  .cal-nada{ color:var(--ink-soft); margin:0; }
-  .d-verde{ --d:#3F6E12; --d-bg:#E6F2D8; --d-fuerte:#5E9426; }
-  .d-rosa{ --d:#B0185A; --d-bg:#FDE7F1; --d-fuerte:#D6246E; }
-  .d-amarillo{ --d:#7A5800; --d-bg:#FFF3C4; --d-fuerte:#9A6E00; }
-  .d-cielo{ --d:#006D9C; --d-bg:#DCF0FA; --d-fuerte:#0087C2; }
-  .d-morado{ --d:#6B3FA0; --d-bg:#EFE7FA; --d-fuerte:#8A5CC2; }
 
   /* Redes del AMPA */
   .redes{ display:flex; flex-wrap:wrap; gap:12px; margin-bottom:34px; }
@@ -158,20 +121,7 @@
   <!-- Solo aparece si hay eventos creados -->
   <section id="bloqueCalendario" hidden>
     <h2 class="bloque">Calendario del AMPA</h2>
-    <div class="calendario">
-      <div>
-        <div class="cal-cab">
-          <button type="button" id="calAnt" aria-label="Mes anterior"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button>
-          <h3 id="calMes" aria-live="polite"></h3>
-          <button type="button" id="calSig" aria-label="Mes siguiente"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
-        </div>
-        <div class="cal-grid" id="calGrid"></div>
-      </div>
-      <div class="cal-lista">
-        <h3 id="calListaTit">Este mes</h3>
-        <div id="calLista"></div>
-      </div>
-    </div>
+    <div id="calendarioWrap"></div>
   </section>
 
   <section class="mochila" aria-labelledby="mochilaTitulo">
@@ -213,6 +163,7 @@
 <script src="shared/supabaseClient.js"></script>
 <script src="shared/sesiones.js"></script>
 <script src="shared/nav.js"></script>
+<script src="shared/calendario.js"></script>
 <script src="shared/mochila.js"></script>
 <script src="shared/avisos.js"></script>
 <script>
@@ -314,85 +265,21 @@ function alumnoCumple(al, e) {
 }
 
 
-/* ---------- Calendario de eventos ---------- */
-const COLOR_TIPO = { warhammer: 'morado', chocolatada: 'rosa', cabalgata: 'cielo', juegos: 'amarillo', taller: 'amarillo', barbacoa: 'verde', comedor: 'morado', concurso: 'rosa', informativo: 'morado', loteria: 'verde' };
-function colorEvento(e) {
-  if (COLOR_TIPO[e.plantilla]) return COLOR_TIPO[e.plantilla];
-  const paleta = ['verde', 'rosa', 'amarillo', 'cielo', 'morado'];
-  return paleta[[...String(e.id)].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7) % paleta.length];
-}
-const claveDia = (d) => d.getFullYear() + '-' + d.getMonth() + '-' + d.getDate();
-// Ya ha pasado: empezó hace más de 3 horas
-const yaPasado = (e) => e.f.getTime() + 3 * 3600e3 < Date.now();
-
+/* ---------- Calendario de eventos (shared/calendario.js) ---------- */
 async function montarCalendario(apuntadosIds) {
-  const { data } = await sb.from('eventos').select('id, titulo, fecha, plantilla').eq('activo', true).order('fecha');
+  const { data } = await sb.from('eventos').select('id, titulo, fecha, fecha_fin, plantilla').eq('activo', true).order('fecha');
   // Los cursos por sesiones salen en el calendario sesión a sesión
   const cursos = (data || []).filter(ES_CURSO);
   const sesiones = await cargarSesiones(cursos.map(e => e.id));
   const eventos = [
     ...(data || []).filter(e => !ES_CURSO(e) && e.fecha),
-    ...cursos.flatMap(e => (sesiones[e.id] || []).filter(s => s.fecha).map(s => ({ ...e, titulo: `${e.titulo} · Sesión ${s.numero}`, fecha: s.fecha })))
-  ].map(e => ({ ...e, f: new Date(e.fecha) })).sort((a, b) => a.f - b.f);
+    ...cursos.flatMap(e => (sesiones[e.id] || []).filter(s => s.fecha).map(s => ({ ...e, titulo: `${e.titulo} · Sesión ${s.numero}`, fecha: s.fecha, fecha_fin: null })))
+  ];
   if (!eventos.length) return;
   document.getElementById('bloqueCalendario').hidden = false;
-
-  const hoy = new Date();
-  const proximo = eventos.find(e => e.f >= new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate()));
-  const hayEsteMes = eventos.some(e => e.f.getFullYear() === hoy.getFullYear() && e.f.getMonth() === hoy.getMonth());
-  const inicio = hayEsteMes || !proximo ? hoy : proximo.f;
-  let anio = inicio.getFullYear(), mes = inicio.getMonth();
-  let diaMarcado = null;
-
-  function pintar() {
-    const primero = new Date(anio, mes, 1);
-    const nombreMes = primero.toLocaleDateString('es-ES', { month: 'long' });
-    document.getElementById('calMes').textContent = nombreMes[0].toUpperCase() + nombreMes.slice(1) + ' ' + anio;
-    const delMes = eventos.filter(e => e.f.getFullYear() === anio && e.f.getMonth() === mes);
-    const porDia = {};
-    delMes.forEach(e => (porDia[e.f.getDate()] = porDia[e.f.getDate()] || []).push(e));
-
-    const grid = document.getElementById('calGrid');
-    let html = ['L', 'M', 'X', 'J', 'V', 'S', 'D'].map(d => `<span class="dsem" aria-hidden="true">${d}</span>`).join('');
-    const hueco = (primero.getDay() + 6) % 7;
-    for (let i = 0; i < hueco; i++) html += '<span class="cal-dia vacio"></span>';
-    const dias = new Date(anio, mes + 1, 0).getDate();
-    for (let d = 1; d <= dias; d++) {
-      const evs = porDia[d];
-      const esHoy = claveDia(new Date(anio, mes, d)) === claveDia(hoy) ? ' hoy' : '';
- if (evs) {
-        const activos = evs.filter(e => !yaPasado(e));
-        const pasado = activos.length ? '' : ' pasado';
-        const etiqueta = `${d}: ${evs.map(e => e.titulo).join(', ')}${pasado ? ' (ya pasado)' : ''}`;
-        html += `<button type="button" class="cal-dia con-evento d-${colorEvento(activos[0] || evs[0])}${pasado}${esHoy}" data-dia="${d}" aria-pressed="${diaMarcado === d}" aria-label="${esc(etiqueta)}">${d}<span class="puntos">${evs.slice(0, 3).map(() => '<i></i>').join('')}</span></button>`;
-      } else {
-        html += `<span class="cal-dia${esHoy}">${d}</span>`;
-      }
-    }
-    grid.innerHTML = html;
-    grid.querySelectorAll('.con-evento').forEach(b => b.addEventListener('click', () => {
-      const d = Number(b.dataset.dia);
-      diaMarcado = diaMarcado === d ? null : d;
-      pintar();
-      const el = document.querySelector(`.cal-ev[data-dia="${d}"]`);
-      if (el && diaMarcado) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }));
-
-    document.getElementById('calListaTit').textContent = delMes.length ? 'Eventos de ' + primero.toLocaleDateString('es-ES', { month: 'long' }) : 'Este mes no hay eventos';
-    // Primero los que están por venir; los que ya han pasado, al final y en gris
-    const fila = (e) => `
-      <a class="cal-ev d-${colorEvento(e)}${yaPasado(e) ? ' pasado' : ''}${diaMarcado === e.f.getDate() ? ' marcado' : ''}" data-dia="${e.f.getDate()}" href="eventos.html#ev-${e.id}">
-        <span class="chip"><b>${e.f.getDate()}</b><span>${e.f.toLocaleDateString('es-ES', { weekday: 'short' }).replace('.', '')}</span></span>
-        <span class="txt"><b>${esc(e.titulo)}</b><span>${e.f.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}${yaPasado(e) ? ' · Ya pasado' : apuntadosIds.has(e.id) ? ' · Estáis apuntados' : ''}</span></span>
-      </a>`;
-    const proximos = delMes.filter(e => !yaPasado(e)), pasados = delMes.filter(yaPasado).reverse();
-    document.getElementById('calLista').innerHTML = delMes.length
-      ? proximos.map(fila).join('') + (pasados.length ? `<p class="cal-pasados">${proximos.length ? 'Ya pasados' : 'Ya han pasado todos'}</p>` + pasados.map(fila).join('') : '')
-      : '<p class="cal-nada">Usa las flechas para ver otros meses.</p>';
-  }
-  document.getElementById('calAnt').onclick = () => { mes--; if (mes < 0) { mes = 11; anio--; } diaMarcado = null; pintar(); };
-  document.getElementById('calSig').onclick = () => { mes++; if (mes > 11) { mes = 0; anio++; } diaMarcado = null; pintar(); };
-  pintar();
+  pintarCalendarioAMPA(document.getElementById('calendarioWrap'), eventos, {
+    detalle: (e) => apuntadosIds.has(e.id) ? 'Estáis apuntados' : ''
+  });
 }
 
 async function estadoEventos(socioId, alumnos) {
@@ -595,10 +482,12 @@ document.getElementById('comentarioBtn').addEventListener('click', async () => {
     const c = data && data[0];
     if (!c) return;
     document.getElementById('avisoLoteriaTit').textContent = c.nombre;
-    document.getElementById('avisoLoteriaTxt').textContent = `Participaciones de ${Number(c.precio).toLocaleString('es-ES')} €${c.numeros ? ' del número ' + c.numeros : ''}.`;
+    const e = (n) => Number(n).toLocaleString('es-ES') + ' €', don = Number(c.donativo) || 0;
+    document.getElementById('avisoLoteriaTxt').textContent = `Participaciones de ${e(c.precio)}${c.numeros ? ' del número ' + c.numeros : ''}${don ? `: se juegan ${e(c.precio - don)} y ${e(don)} es donativo para el AMPA` : ''}.`;
     document.getElementById('avisoLoteria').hidden = false;
   } catch (e) { /* sin lotería */ }
 })();
 </script>
+<script src="shared/visitas.js" defer></script>
 </body>
 </html>

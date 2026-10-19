@@ -5013,6 +5013,7 @@ create table if not exists loteria_campanas (
   nombre text not null,
   numeros text,                                   -- número(s) que juega el AMPA
   precio numeric(6,2) not null default 5 check (precio > 0),
+  donativo numeric(6,2) not null default 1 check (donativo >= 0),   -- de cada participación, lo que es donativo para el AMPA (no se juega)
   participaciones_por_talonario integer not null default 25 check (participaciones_por_talonario between 1 and 500),
   inicio date,                                    -- desde cuándo hay participaciones (campaña comenzada)
   cerrada_en timestamptz,                         -- ya no se venden más
@@ -5257,10 +5258,15 @@ end $$;
 create unique index if not exists loteria_una_campana_abierta on loteria_campanas ((true)) where inicio is not null and cerrada_en is null;
 
 -- La campaña abierta hoy, para la web pública (sin datos de la Junta)
+-- De cada participación, la parte que es donativo para el AMPA (5 € = 4 € que se juegan + 1 € de donativo)
+alter table loteria_campanas add column if not exists donativo numeric(6,2) not null default 1;
+alter table loteria_campanas drop constraint if exists loteria_donativo_check;
+alter table loteria_campanas add constraint loteria_donativo_check check (donativo >= 0 and donativo < precio);
+drop function if exists loteria_publica();
 create or replace function loteria_publica()
-returns table (id uuid, nombre text, numeros text, precio numeric, inicio date)
+returns table (id uuid, nombre text, numeros text, precio numeric, donativo numeric, inicio date)
 language sql stable security definer set search_path = public as $$
-  select id, nombre, numeros, precio, inicio from loteria_campanas
+  select id, nombre, numeros, precio, donativo, inicio from loteria_campanas
    where inicio is not null and inicio <= (now() at time zone 'Europe/Madrid')::date and cerrada_en is null
    limit 1;
 $$;
@@ -5319,3 +5325,108 @@ $$;
 drop trigger if exists loteria_campana_una_abierta on loteria_campanas;
 create trigger loteria_campana_una_abierta before insert or update on loteria_campanas
   for each row execute function loteria_campana_una_abierta();
+-- ==================================================================
+-- VISITAS A LA WEB (estadísticas propias, sin cookies)
+--  · Cada vez que alguien abre una página, la función
+--    netlify/functions/visita.js apunta: la página, el día, si es una
+--    familia socia, alguien de la Junta o un visitante, y un código
+--    anónimo de la persona:
+--      - socios y Junta: un código fijo sacado de su usuario (no se
+--        guarda quién es), para contar personas distintas y cada cuánto
+--        vuelven;
+--      - visitantes: un código que cambia cada día (sacado de la IP y el
+--        navegador, que no se guardan), como hacen las estadísticas que
+--        no usan cookies. Un visitante que vuelve otro día cuenta como
+--        persona nueva.
+--  · Si la misma persona recarga la misma página en menos de 30 minutos,
+--    cuenta una sola vez.
+--  · Solo la Junta ve el resumen (admin-visitas.html). Se guarda 13 meses.
+-- Se puede ejecutar varias veces.
+-- ==================================================================
+create table if not exists visitas (
+  id bigint generated always as identity primary key,
+  creado timestamptz not null default now(),
+  dia date not null default (now() at time zone 'Europe/Madrid')::date,
+  pagina text not null,
+  tipo text not null check (tipo in ('visitante', 'socio', 'junta')),
+  persona text not null,
+  movil boolean not null default false
+);
+create index if not exists visitas_dia on visitas(dia);
+create index if not exists visitas_persona_pagina on visitas(persona, pagina, creado desc);
+alter table visitas enable row level security;
+-- Sin políticas: solo la función (con la clave de servicio) escribe, y la
+-- Junta lee el resumen con visitas_resumen().
+
+-- Resumen para la Junta entre dos días (incluidos)
+create or replace function visitas_resumen(p_desde date, p_hasta date, p_con_junta boolean default false)
+returns json language plpgsql stable security definer set search_path = public as $$
+declare v json;
+begin
+  if not is_admin() then raise exception 'Solo la Junta.'; end if;
+  with v as (
+    select * from visitas where dia between p_desde and p_hasta and (p_con_junta or tipo <> 'junta')
+  ),
+  -- Para socios y Junta: en cuántos días distintos ha entrado cada persona
+  frecuencia as (
+    select tipo, persona, count(distinct dia) as dias, count(*) as visitas from v where tipo <> 'visitante' group by tipo, persona
+  )
+  select json_build_object(
+    'totales', (select coalesce(json_agg(t), '[]') from (
+        select tipo, count(*) as visitas, count(distinct persona) as personas, count(distinct (persona, dia)) as personas_dia,
+               round(100.0 * count(*) filter (where movil) / nullif(count(*), 0)) as pct_movil
+        from v group by tipo) t),
+    'frecuencia', (select coalesce(json_agg(f), '[]') from (
+        select tipo, count(*) as personas, round(avg(dias), 1) as media_dias, round(avg(visitas), 1) as media_visitas,
+               count(*) filter (where dias = 1) as un_dia, count(*) filter (where dias between 2 and 4) as de_2_a_4, count(*) filter (where dias >= 5) as cinco_o_mas
+        from frecuencia group by tipo) f),
+    'por_dia', (select coalesce(json_agg(d order by d.dia), '[]') from (
+        select dia, count(*) filter (where tipo = 'socio') as socios, count(*) filter (where tipo = 'visitante') as visitantes,
+               count(*) filter (where tipo = 'junta') as junta, count(distinct persona) as personas
+        from v group by dia) d),
+    'por_pagina', (select coalesce(json_agg(p order by p.visitas desc), '[]') from (
+        select pagina, count(*) as visitas, count(distinct (persona, dia)) as personas,
+               count(*) filter (where tipo = 'socio') as socios, count(*) filter (where tipo = 'visitante') as visitantes,
+               count(*) filter (where tipo = 'junta') as junta
+        from v group by pagina) p)
+  ) into v;
+  return v;
+end;
+$$;
+grant execute on function visitas_resumen(date, date, boolean) to authenticated;
+
+-- Borrar las visitas de hace más de 13 meses (lo llama la función de vez en cuando)
+create or replace function visitas_limpiar() returns void language sql security definer set search_path = public as $$
+  delete from visitas where dia < (now() at time zone 'Europe/Madrid')::date - interval '13 months';
+$$;
+revoke execute on function visitas_limpiar() from public, anon, authenticated;
+
+-- ==================================================================
+-- HORA DE FIN DE LOS EVENTOS
+--  · Los eventos pueden tener hora de fin (fecha_fin). Es obligatoria en
+--    las ventas de lotería (de 18:00 a 20:00, por ejemplo) y opcional en
+--    los demás.
+--  · Un evento con hora de fin cuenta como terminado a esa hora; sin
+--    ella, 3 horas después de empezar.
+-- Se puede ejecutar varias veces.
+-- ==================================================================
+alter table eventos add column if not exists fecha_fin timestamptz;
+alter table eventos drop constraint if exists eventos_fecha_fin_check;
+alter table eventos add constraint eventos_fecha_fin_check check (fecha_fin is null or fecha is null or fecha_fin > fecha);
+
+create or replace function eventos_validar_fin() returns trigger language plpgsql as $$
+begin
+  if new.plantilla = 'loteria' and new.fecha_fin is null
+     and (tg_op = 'INSERT' or old.fecha_fin is not null or new.fecha is distinct from old.fecha) then
+    raise exception 'Pon la hora de fin de la venta de lotería.';
+  end if;
+  if new.fecha_fin is not null and new.fecha is not null and new.fecha_fin <= new.fecha then
+    raise exception 'La hora de fin tiene que ser después de la de comienzo.';
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists eventos_validar_fin on eventos;
+create trigger eventos_validar_fin before insert or update on eventos
+  for each row execute function eventos_validar_fin();
+

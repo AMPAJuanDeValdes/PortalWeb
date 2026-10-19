@@ -144,17 +144,29 @@ test.describe('Venta de Lotería', () => {
     await page.click('#masFechaBtn');
     await page.locator('#masFechas .mf-fecha').fill('2099-11-27T10:00');
     await page.locator('#masFechas .mf-lugar').fill('Patio');
+    // Sin hora de fin no deja crearla
+    await page.click('#crearEventoBtn');
+    await expect(page.locator('#crearMsg')).toContainText('Pon a qué hora termina la venta de lotería');
+    // La segunda fecha tiene su propia hora de fin; si no, usaría la de arriba
+    await page.fill('#eHoraFin', '19:00');
+    await page.locator('#masFechas .mf-fin').fill('12:30');
     await page.click('#crearEventoBtn');
     await expect(page.locator('#crearMsg')).toContainText('Creados 2 eventos', { timeout: 30_000 });
-    const { data } = await admin.from('eventos').select('lugar, sin_inscripcion, abierto_no_socios').eq('titulo', titulo).order('fecha');
-    expect(data).toEqual([
+    const { data } = await admin.from('eventos').select('lugar, sin_inscripcion, abierto_no_socios, fecha, fecha_fin').eq('titulo', titulo).order('fecha');
+    expect(data.map(({ fecha, fecha_fin, ...x }) => x)).toEqual([
       { lugar: 'Entrada del colegio', sin_inscripcion: true, abierto_no_socios: true },
       { lugar: 'Patio', sin_inscripcion: true, abierto_no_socios: true }
     ]);
+    // 2 horas y 2 horas y media después de empezar
+    expect(data.map(e => (new Date(e.fecha_fin) - new Date(e.fecha)) / 60000)).toEqual([120, 150]);
+    // La base de datos tampoco deja crear una venta sin hora de fin
+    const { error: sinFin } = await admin.from('eventos').insert({ titulo: titulo + ' sin fin', plantilla: 'loteria', fecha: '2099-11-21T17:00:00Z', lugar: 'X' });
+    expect(sinFin && sinFin.message).toContain('hora de fin');
     await page.goto('/publico.html');
     const tarjetas = page.locator('.evento-card', { hasText: titulo });
     await expect(tarjetas).toHaveCount(2);
     await expect(tarjetas.first()).toContainText('Entrada del colegio');
+    await expect(tarjetas.first()).toContainText('de 17:00 a 19:00');
     await expect(tarjetas.first()).toContainText('No hace falta apuntarse');
   });
 });

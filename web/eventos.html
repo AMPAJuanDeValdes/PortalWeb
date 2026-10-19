@@ -254,15 +254,15 @@ async function cargarEventos() {
   if (destino) destino.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-// Un evento ha terminado cuando empezó hace más de 3 horas (los cursos por
-// sesiones, cuando ha pasado la última sesión)
+// Un evento ha terminado a su hora de fin o, si no tiene, 3 horas después de
+// empezar (los cursos por sesiones, cuando ha pasado la última sesión)
 function fechaFin(ev) {
   if (ES_CURSO(ev)) { const f = (SESIONES[ev.id] || []).map(x => new Date(x.fecha).getTime()).filter(Boolean); return f.length ? Math.max(...f) : 0; }
   return ev.fecha ? new Date(ev.fecha).getTime() : 0;
 }
 function eventoTerminado(ev) {
   if (ES_CURSO(ev)) return cursoTerminado(SESIONES[ev.id]);
-  return !!ev.fecha && new Date(ev.fecha).getTime() + 3 * 3600e3 < Date.now();
+  return !!ev.fecha && finEvento(ev) < new Date();
 }
 
 function activarFiltros() {
@@ -395,7 +395,7 @@ function cabeceraEvento(evento) {
       ${f ? `<div class="ev-fecha"><span>${f.toLocaleDateString('es-ES', { month: 'short' }).replace('.', '')}</span><b>${f.getDate()}</b><span>${f.toLocaleDateString('es-ES', { weekday: 'short' }).replace('.', '')}</span></div>` : '<div class="ev-fecha"><b>?</b><span>fecha</span></div>'}
       <div class="ev-tit">
         <h2>${esc(evento.titulo)}</h2>
-        <p class="ev-hora">${curso ? (prox ? 'Próxima sesión: ' : (cursoTerminado(SESIONES[evento.id]) ? 'Curso terminado' : 'Las fechas de las sesiones se irán publicando')) : ''}${f ? f.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }) + ', a las ' + f.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : curso ? '' : 'Fecha por confirmar'}${evento.lugar ? '. Lugar: ' + esc(evento.lugar) : ''}</p>
+        <p class="ev-hora">${curso ? (prox ? 'Próxima sesión: ' : (cursoTerminado(SESIONES[evento.id]) ? 'Curso terminado' : 'Las fechas de las sesiones se irán publicando')) : ''}${f ? f.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }) + ', ' + (curso ? 'a las ' + f.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : horarioEvento(evento)) : curso ? '' : 'Fecha por confirmar'}${evento.lugar ? '. Lugar: ' + esc(evento.lugar) : ''}</p>
         <div class="etiquetas"></div>
       </div>
       <svg class="ev-icono" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icono}</svg>
@@ -1323,5 +1323,6 @@ async function renderEventoConcurso(evento) {
 </script>
 <script src="shared/sonido.js"></script>
 <script src="shared/vida.js"></script>
+<script src="shared/visitas.js" defer></script>
 </body>
 </html>

@@ -546,7 +546,7 @@ async function cargarFotos() {
 
 /* ---------- Próximos eventos (oculto si no hay) ---------- */
 async function cargarEventos() {
-  const { data: todos, error } = await sb.from('eventos').select('id, titulo, fecha, plantilla, abierto_no_socios, sin_inscripcion, lugar')
+  const { data: todos, error } = await sb.from('eventos').select('id, titulo, fecha, fecha_fin, plantilla, abierto_no_socios, sin_inscripcion, lugar')
     .eq('activo', true).or(`fecha.gte.${new Date().toISOString()},plantilla.eq.warhammer`).order('fecha');
   if (error || !todos || !todos.length) return;
   // Cursos por sesiones: con la fecha de su próxima sesión (si ya está publicada)
@@ -558,10 +558,9 @@ async function cargarEventos() {
   document.getElementById('eventosLista').innerHTML = data.map((ev, k) => {
     const f = new Date(ev.fecha);
     const mes = f.toLocaleDateString('es-ES', { month: 'short' }).replace('.', '');
-    const hora = f.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
     const info = ev.sin_inscripcion
-      ? 'A las ' + hora + (ev.lugar ? ', en ' + esc(ev.lugar) : '')
-      : socio ? 'A las ' + hora : (ev.abierto_no_socios ? 'Abierto también a familias no socias' : 'Para familias socias') + ', a las ' + hora;
+      ? horarioEvento(ev).replace(/^./, c => c.toUpperCase()) + (ev.lugar ? ', en ' + esc(ev.lugar) : '')
+      : socio ? horarioEvento(ev).replace(/^./, c => c.toUpperCase()) : (ev.abierto_no_socios ? 'Abierto también a familias no socias' : 'Para familias socias') + ', ' + horarioEvento(ev);
     return `<a class="evento aparece" style="--c:${COLORES[k % 6]}; --t:${TINTES[k % 6]}" href="${socio ? 'eventos.html#ev-' + ev.id : ev.abierto_no_socios ? 'publico.html' : 'login.html'}">
       <span class="ev-fecha"><b>${f.getDate()}</b><span>${mes}</span></span>
       <span class="ev-tit">${esc(ev.titulo)}</span>
@@ -667,5 +666,6 @@ document.getElementById('contactoBtn').addEventListener('click', async () => {
 
 Vida.iniciar();
 </script>
+<script src="shared/visitas.js" defer></script>
 </body>
 </html>

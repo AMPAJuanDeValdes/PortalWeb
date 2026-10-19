@@ -87,6 +87,7 @@ ejecutados, borra los archivos de `pendientes/`: su contenido ya está en
 | `SITE_URL` | la URL de la web, sin barra al final |
 | `VAPID_PUBLIC_KEY` | clave pública de los avisos en el móvil (ver abajo) |
 | `VAPID_PRIVATE_KEY` | clave privada de los avisos. Solo aquí, nunca en el proyecto |
+| `VISITAS_SECRETO` | (opcional) texto largo cualquiera para los códigos anónimos de las estadísticas de visitas. Si no está, se usa uno sacado de la clave de servicio |
 
 **Desplegar:** el sitio está conectado al repositorio de GitHub; cada
 subida se publica sola. La configuración (carpeta `web`, funciones, tarea
@@ -141,3 +142,13 @@ comprobar que sigue programado.
 - Etapas y cursos: `CURSOS_POR_ETAPA` en `web/shared/catalogo.js`.
 - Vídeos y fotos de la portada: desde el panel (admin-carrusel.html).
 - Enlaces de redes sociales de la portada: `web/index.html`.
+
+## Visitas a la web
+
+Estadísticas propias, sin cookies ni servicios externos (no hace falta aviso
+de cookies). Cada página carga `shared/visitas.js`, que apunta la visita con
+`netlify/functions/visita.js` en la tabla `visitas`: página, día, si es socio,
+Junta o visitante, si es móvil y un código anónimo (no se guarda ni la IP ni
+quién es). La Junta lo ve en Panel → Comunicación → «Visitas a la web».
+Se guarda 13 meses. En local, en las pruebas automáticas (navegador manejado por Playwright) y con las cuentas ficticias de las pruebas (email con «ampa-prueba-») no se apunta nada. Migración:
+`supabase/pendientes/migracion-visitas.sql`.

@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<meta name="theme-color" content="#16233A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="AMPA">
+<title>Visitas a la web (admin) · AMPA Juan de Valdés</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared/styles.css">
+<style>
+  :root{ --s-socio:#2A6CB8; --s-visit:#D6246E; --s-junta:#B07A00; }
+  .filtros{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:0 0 20px; }
+  .filtros button{ border:2px solid var(--line); background:#fff; border-radius:999px; padding:8px 14px; font:inherit; font-weight:700; cursor:pointer; color:var(--ink); }
+  .filtros button[aria-pressed="true"]{ border-color:var(--ink); background:var(--ink); color:#fff; }
+  .filtros label{ display:flex; gap:8px; align-items:center; margin-left:auto; font-weight:700; font-size:15px; }
+  .filtros label input{ width:auto; }
+  .cifras{ display:grid; grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); gap:12px; margin:0 0 4px; }
+  .cifras div{ background:#F6F8FB; border-radius:14px; padding:14px 16px; }
+  .cifras dt{ font-size:14px; color:var(--ink-soft); }
+  .cifras dd{ margin:2px 0 0; font-family:'Bricolage Grotesque', sans-serif; font-size:30px; font-weight:800; line-height:1.1; }
+  .cifras small{ display:block; font-family:inherit; font-size:14px; font-weight:400; color:var(--ink-soft); }
+  .frec{ margin:0; line-height:1.6; }
+  .frec-barra{ display:flex; height:14px; border-radius:7px; overflow:hidden; gap:2px; margin:10px 0 6px; background:#fff; }
+  .frec-barra i{ display:block; height:100%; }
+  .frec-ley{ display:flex; flex-wrap:wrap; gap:4px 16px; font-size:14px; color:var(--ink-soft); }
+  .frec-ley span::before{ content:''; display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:6px; background:var(--c); vertical-align:-1px; }
+  .leyenda{ display:flex; flex-wrap:wrap; gap:6px 18px; font-size:14px; color:var(--ink-soft); margin:0 0 8px; }
+  .leyenda span::before{ content:''; display:inline-block; width:12px; height:12px; border-radius:3px; margin-right:6px; background:var(--c); vertical-align:-1px; }
+  .grafica{ position:relative; }
+  .grafica svg{ display:block; width:100%; height:260px; overflow:visible; }
+  .grafica .eje{ font-size:12px; fill:var(--ink-soft); font-family:inherit; }
+  .grafica .rejilla{ stroke:#EEF1F5; stroke-width:1; }
+  .grafica .col{ fill:transparent; cursor:default; }
+  .grafica .col:hover, .grafica .col.foco{ fill:rgba(22,35,58,.05); }
+  .tip{ position:absolute; pointer-events:none; background:#fff; border:1px solid var(--line); border-radius:12px; padding:8px 12px; font-size:14px; box-shadow:0 6px 20px -8px rgba(22,35,58,.35); white-space:nowrap; z-index:2; }
+  .tip b{ display:block; margin-bottom:2px; }
+  .tip span{ display:flex; align-items:center; gap:6px; }
+  .tip span::before{ content:''; width:10px; height:10px; border-radius:3px; background:var(--c); }
+  .tabla-pag td.n, .tabla-pag th.n{ text-align:right; font-variant-numeric:tabular-nums; }
+  .tabla-pag .pag small{ display:block; color:var(--ink-soft); font-size:13px; }
+  .tabla-pag .barra{ height:6px; border-radius:3px; background:var(--s-socio); margin-top:4px; }
+  .nota{ font-size:14px; color:var(--ink-soft); margin:12px 0 0; }
+  .ver-tabla{ margin-top:8px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">Administración</div>
+  <h1>Visitas a la web</h1>
+  <p class="lede">Cuántas personas entran en cada página, cada cuánto vuelven y si son familias socias o no. Sin cookies: no se guarda quién es nadie.</p>
+
+  <div class="filtros" id="periodo">
+    <button type="button" data-d="7" aria-pressed="false">Últimos 7 días</button>
+    <button type="button" data-d="30" aria-pressed="true">Últimos 30 días</button>
+    <button type="button" data-d="90" aria-pressed="false">Últimos 90 días</button>
+    <button type="button" data-d="curso" aria-pressed="false">Este curso</button>
+    <label><input type="checkbox" id="conJunta"> Incluir a la Junta</label>
+  </div>
+
+  <div class="card">
+    <p class="section-label">Resumen</p>
+    <dl class="cifras" id="cifras"><div><dt>Cargando...</dt></div></dl>
+  </div>
+
+  <div class="card">
+    <p class="section-label">Visitas por día</p>
+    <div class="leyenda" id="leyenda"></div>
+    <div class="grafica" id="grafica"></div>
+    <button type="button" class="linklike ver-tabla" id="verTablaDias">Ver los datos en una tabla</button>
+    <div id="tablaDias" hidden></div>
+  </div>
+
+  <div class="card">
+    <p class="section-label">Cada cuánto vuelven los socios</p>
+    <div id="frecuencia"></div>
+  </div>
+
+  <div class="card">
+    <p class="section-label">Páginas</p>
+    <div style="overflow-x:auto;"><table class="tabla-pag" id="paginas"></table></div>
+    <p class="nota">«Personas»: cada persona cuenta una vez al día por página. Si alguien recarga la misma página en menos de 30 minutos, cuenta una sola visita. Los visitantes (no socios) se reconocen solo dentro del mismo día.</p>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="shared/supabaseClient.js"></script>
+<script src="shared/nav.js"></script>
+<script>
+const esc = (t) => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const num = (n) => Number(n || 0).toLocaleString('es-ES');
+const iso = (d) => d.toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
+const NOMBRES = {
+  'index.html': 'Página principal', 'publico.html': 'Eventos (no socios)', 'hazte-socio.html': 'Hazte socio', 'login.html': 'Entrar',
+  'reactivar-cuenta.html': 'Reactivar cuenta', 'donar.html': 'Donar material', 'loteria.html': 'Lotería', 'estado-recien-creada.html': 'Alta pendiente',
+  'dashboard.html': 'Mi perfil', 'eventos.html': 'Eventos', 'mis-datos.html': 'Mis datos', 'mochila.html': 'Mochila Jugona Exploradora',
+  'prestamo.html': 'Banco de Libros', 'uniformes.html': 'Banco de Uniformes', 'encuestas.html': 'Encuestas', 'cambiar-clave.html': 'Cambiar contraseña',
+  'admin.html': 'Panel: resumen y pendientes'
+};
+AREAS_JUNTA.forEach(a => a.enlaces.forEach(([id, n]) => { NOMBRES[id + '.html'] = 'Panel: ' + n; }));
+const nombrePagina = (p) => NOMBRES[p] || p;
+
+let dias = '30';
+function rango() {
+  const hasta = new Date();
+  let desde;
+  if (dias === 'curso') { const h = new Date(); const a = h.getMonth() >= 7 ? h.getFullYear() : h.getFullYear() - 1; desde = new Date(a, 7, 1); }
+  else desde = new Date(Date.now() - (Number(dias) - 1) * 864e5);
+  return { desde: iso(desde), hasta: iso(hasta) };
+}
+
+async function cargar() {
+  const { desde, hasta } = rango();
+  const conJunta = document.getElementById('conJunta').checked;
+  const { data, error } = await sb.rpc('visitas_resumen', { p_desde: desde, p_hasta: hasta, p_con_junta: conJunta });
+  if (error) {
+    document.getElementById('cifras').innerHTML = `<div><dt>No se pudieron cargar las visitas</dt><dd style="font-size:16px; font-weight:400;">${esc(error.message)}</dd></div>`;
+    return;
+  }
+  const r = (typeof data === 'string' ? JSON.parse(data) : data) || {};
+  ultimo = [r, desde, hasta, conJunta];
+  pintarCifras(r); pintarGrafica(r, desde, hasta, conJunta); pintarFrecuencia(r); pintarPaginas(r, conJunta);
+}
+
+// Al cambiar el ancho de la ventana, la gráfica se vuelve a dibujar a su tamaño
+let ultimo = null, tRes;
+window.addEventListener('resize', () => { clearTimeout(tRes); tRes = setTimeout(() => { if (ultimo) pintarGrafica(...ultimo); }, 150); });
+
+function pintarCifras(r) {
+  const t = Object.fromEntries((r.totales || []).map(x => [x.tipo, x]));
+  const s = t.socio || {}, v = t.visitante || {}, j = t.junta || {};
+  const visitas = (s.visitas || 0) + (v.visitas || 0) + (j.visitas || 0);
+  const movil = [s, v, j].reduce((a, x) => a + (x.visitas || 0) * (x.pct_movil || 0) / 100, 0);
+  document.getElementById('cifras').innerHTML = `
+    <div><dt>Páginas vistas</dt><dd>${num(visitas)}<small>${num(s.visitas)} de socios, ${num(v.visitas)} de no socios${j.visitas ? `, ${num(j.visitas)} de la Junta` : ''}</small></dd></div>
+    <div><dt>Socios que han entrado</dt><dd>${num(s.personas)}<small>adultos distintos</small></dd></div>
+    <div><dt>Visitantes no socios</dt><dd>${num(v.personas_dia)}<small>contando cada día por separado</small></dd></div>
+    <div><dt>Desde el móvil</dt><dd>${visitas ? Math.round(movil * 100 / visitas) : 0} %<small>de las páginas vistas</small></dd></div>`;
+}
+
+function pintarGrafica(r, desde, hasta, conJunta) {
+  const series = [{ k: 'socios', n: 'Socios', c: 'var(--s-socio)' }, { k: 'visitantes', n: 'No socios', c: 'var(--s-visit)' }];
+  if (conJunta) series.push({ k: 'junta', n: 'Junta', c: 'var(--s-junta)' });
+  document.getElementById('leyenda').innerHTML = series.map(s => `<span style="--c:${s.c}">${s.n}</span>`).join('');
+  // Todos los días del periodo, también los que no tienen visitas
+  const porDia = Object.fromEntries((r.por_dia || []).map(d => [d.dia, d]));
+  const lista = [];
+  for (let d = new Date(desde + 'T12:00:00'); iso(d) <= hasta; d = new Date(d.getTime() + 864e5)) {
+    const x = porDia[iso(d)] || {};
+    lista.push({ dia: iso(d), f: new Date(d), socios: x.socios || 0, visitantes: x.visitantes || 0, junta: x.junta || 0 });
+  }
+  const total = (d) => series.reduce((a, s) => a + d[s.k], 0);
+  const max = Math.max(4, ...lista.map(total));
+  const paso = Math.pow(10, Math.floor(Math.log10(max))) * (max / Math.pow(10, Math.floor(Math.log10(max))) > 5 ? 2 : 1);
+  const tope = Math.ceil(max / paso) * paso;
+  const g = document.getElementById('grafica');
+  const W = Math.max(320, g.clientWidth || 1000), H = 260, iz = 40, ab = 26, ar = 8, an = (W - iz) / lista.length;
+  const y = (v) => ar + (H - ar - ab) * (1 - v / tope);
+  const barra = Math.max(2, Math.min(28, an - 4));
+  let svg = '';
+  for (let v = 0; v <= tope; v += paso) svg += `<line class="rejilla" x1="${iz}" x2="${W}" y1="${y(v)}" y2="${y(v)}"/><text class="eje" x="${iz - 8}" y="${y(v) + 4}" text-anchor="end">${num(v)}</text>`;
+  const cada = Math.ceil(lista.length / Math.max(2, Math.floor(W / 90)));
+  lista.forEach((d, i) => {
+    const x = iz + i * an + (an - barra) / 2;
+    let base = 0;
+    series.forEach((s, k) => {
+      const v = d[s.k]; if (!v) return;
+      const y1 = y(base + v), y0 = y(base);
+      const alto = Math.max(1, y0 - y1 - (base ? 2 : 0));   // 2px de separación entre tramos
+      const arriba = series.slice(k + 1).every(o => !d[o.k]);
+      svg += arriba
+        ? `<path d="M${x},${y0 - (base ? 2 : 0)} V${y1 + 4} Q${x},${y1} ${x + 4},${y1} H${x + barra - 4} Q${x + barra},${y1} ${x + barra},${y1 + 4} V${y0 - (base ? 2 : 0)} Z" fill="${s.c}"/>`
+        : `<rect x="${x}" y="${y1}" width="${barra}" height="${alto}" fill="${s.c}"/>`;
+      base += v;
+    });
+    if (i % cada === 0) svg += `<text class="eje" x="${iz + i * an + an / 2}" y="${H - 6}" text-anchor="middle">${d.f.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }).replace('.', '')}</text>`;
+    svg += `<rect class="col" data-i="${i}" x="${iz + i * an}" y="${ar}" width="${an}" height="${H - ar - ab}"/>`;
+  });
+ g.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Visitas por día entre el ${desde} y el ${hasta}">${svg}</svg><div class="tip" hidden></div>`;
+  const tip = g.querySelector('.tip');
+  g.querySelectorAll('.col').forEach(c => {
+    const mostrar = () => {
+      const d = lista[Number(c.dataset.i)];
+      tip.innerHTML = `<b>${d.f.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}</b>` + series.map(s => `<span style="--c:${s.c}">${s.n}: ${num(d[s.k])}</span>`).join('');
+      tip.hidden = false;
+      const caja = g.getBoundingClientRect(), col = c.getBoundingClientRect();
+      const izq = col.left - caja.left + col.width / 2;
+      tip.style.left = Math.min(Math.max(0, izq - tip.offsetWidth / 2), caja.width - tip.offsetWidth) + 'px';
+      tip.style.top = -(tip.offsetHeight + 6) + 'px';   // encima de la gráfica, sin tapar las barras
+    };
+    c.addEventListener('mouseenter', mostrar);
+    c.addEventListener('click', mostrar);
+    c.addEventListener('mouseleave', () => { tip.hidden = true; });
+  });
+  // La misma información en una tabla
+  document.getElementById('tablaDias').innerHTML = `<div style="overflow-x:auto;"><table><thead><tr><th>Día</th>${series.map(s => `<th class="n">${s.n}</th>`).join('')}</tr></thead><tbody>` +
+    lista.filter(total).reverse().map(d => `<tr><td>${d.f.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })}</td>${series.map(s => `<td class="n">${num(d[s.k])}</td>`).join('')}</tr>`).join('') +
+    '</tbody></table></div>';
+}
+document.getElementById('verTablaDias').addEventListener('click', (e) => {
+  const t = document.getElementById('tablaDias'); t.hidden = !t.hidden;
+  e.target.textContent = t.hidden ? 'Ver los datos en una tabla' : 'Ocultar la tabla';
+});
+
+function pintarFrecuencia(r) {
+  const f = (r.frecuencia || []).find(x => x.tipo === 'socio');
+  const caja = document.getElementById('frecuencia');
+  if (!f || !f.personas) { caja.innerHTML = '<p class="frec">Ningún socio ha entrado en este periodo.</p>'; return; }
+  const tramos = [{ n: f.un_dia, t: 'un solo día', c: '#A9C4E6' }, { n: f.de_2_a_4, t: 'de 2 a 4 días', c: '#5E93D1' }, { n: f.cinco_o_mas, t: '5 días o más', c: '#1F4F8A' }];
+  caja.innerHTML = `<p class="frec">De los <b>${num(f.personas)}</b> socios que han entrado, cada uno ha entrado de media <b>${String(f.media_dias).replace('.', ',')} días</b> y ha visto <b>${String(f.media_visitas).replace('.', ',')} páginas</b>.</p>
+    <div class="frec-barra" role="img" aria-label="${tramos.map(t => `${t.n} socios ${t.t}`).join(', ')}">${tramos.filter(t => t.n).map(t => `<i style="width:${t.n * 100 / f.personas}%; background:${t.c}" title="${num(t.n)} ${t.t}"></i>`).join('')}</div>
+    <div class="frec-ley">${tramos.map(t => `<span style="--c:${t.c}">${num(t.n)} ${t.t}</span>`).join('')}</div>`;
+}
+
+function pintarPaginas(r, conJunta) {
+  const filas = r.por_pagina || [];
+  const max = Math.max(1, ...filas.map(p => p.visitas));
+  document.getElementById('paginas').innerHTML = `<thead><tr><th>Página</th><th class="n">Visitas</th><th class="n">Personas</th><th class="n">Socios</th><th class="n">No socios</th>${conJunta ? '<th class="n">Junta</th>' : ''}</tr></thead><tbody>` +
+    (filas.length ? filas.map(p => `<tr><td class="pag">${esc(nombrePagina(p.pagina))}<small>${esc(p.pagina)}</small><div class="barra" style="width:${p.visitas * 100 / max}%"></div></td>
+      <td class="n">${num(p.visitas)}</td><td class="n">${num(p.personas)}</td><td class="n">${num(p.socios)}</td><td class="n">${num(p.visitantes)}</td>${conJunta ? `<td class="n">${num(p.junta)}</td>` : ''}</tr>`).join('')
+      : `<tr><td colspan="${conJunta ? 6 : 5}">Todavía no hay visitas en este periodo.</td></tr>`) + '</tbody>';
+}
+
+document.getElementById('periodo').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-d]'); if (!b) return;
+  dias = b.dataset.d;
+  document.querySelectorAll('#periodo button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+  cargar();
+});
+document.getElementById('conJunta').addEventListener('change', cargar);
+
+(async () => {
+  const ctx = await requireAdmin();
+  if (!ctx) return;
+  renderNav('admin-visitas', ctx);
+  cargar();
+})();
+</script>
+<script src="shared/sonido.js"></script>
+<script src="shared/vida.js"></script>
+<script src="shared/visitas.js" defer></script>
+</body>
+</html>

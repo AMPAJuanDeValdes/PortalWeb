@@ -1,6 +1,6 @@
 # Plan de pruebas — Portal AMPA v2
 
-> **Automático:** las secciones 1 (acceso), 2 (Mis datos), 3 (Mochila, solo apuntarse/desapuntarse), 9 (navegación), 11 (seguridad) y 12 (gestión de cuentas) ya se comprueban solas con `pruebas\ejecutar-pruebas.bat` (ver `pruebas/LEEME.md`). Lo que sigue siendo manual: préstamo, uniformes, encuestas, eventos, SEPA y comprobar a ojo los emails.
+> **Automático:** las secciones 1 (acceso), 2 (Mis datos), 3 (Mochila, solo apuntarse/desapuntarse), 9 (navegación), 11 (seguridad) y 12 (gestión de cuentas) ya se comprueban solas con `pruebas\ejecutar-pruebas.bat` (ver `pruebas/LEEME.md`). También se comprueban solas la Lotería (talonarios, ventas, ingresos, mensajes), borrar alumnos y quitar adultos, los avisos en el móvil, las visitas, «volver» tras entrar y los eventos terminados. Lo que sigue siendo manual: préstamo, uniformes, encuestas, eventos, SEPA y comprobar a ojo los emails.
 
 > Cómo usar esto: ve marcando `[x]` cada caso a medida que lo pruebas.
 > Si algo falla, anota debajo del caso qué pasó exactamente (mensaje de
@@ -451,8 +451,20 @@ que la respuesta es vacía o un error de permisos, nunca los datos:
       pide nombre, apellidos, email y móvil; «Soy socio» lleva a entrar y
       vuelve a la misma página. Con sesión de socio no pide datos. El
       mensaje llega por email y aparece en Lotería → Mensajes.
+- [ ] En Lotería → «Días de venta», crear una venta con día, desde, hasta
+      y lugar → sale en el calendario de «Quiero comprar Lotería» con su
+      horario (18:00–20:00) y en Eventos («de 18:00 a 20:00»). Sin hora
+      de fin no deja crearla.
 - [ ] El resumen y el Excel cuadran con la lista; el historial recoge
       cada cambio con quién lo hizo.
+
+## Visitas a la web
+
+- [ ] Abrir varias páginas sin sesión y con sesión de socio (en la web
+      publicada, no en local) → en Panel → «Visitas a la web» suben las
+      visitas de no socios y de socios.
+- [ ] Recargar la misma página varias veces seguidas → cuenta una sola visita.
+- [ ] «Incluir a la Junta» añade las visitas de la Junta.
 
 ## Cómo reportar lo que falle
 

@@ -46,6 +46,8 @@
   .tabla-wrap{ overflow-x:auto; margin-top:10px; }
   .tabla-wrap table{ font-size:14px; min-width:900px; }
   .tabla-wrap .aviso-fila td{ background:#FFF3C4; }
+  #pestanasEventos .num{ display:inline-block; min-width:20px; padding:0 6px; border-radius:9px; background:#E3E8F0; color:var(--ink); font-size:13px; margin-left:6px; }
+  #pestanasEventos .tab-btn.active .num{ background:rgba(255,255,255,.22); color:#fff; }
 </style>
 </head>
 <body>
@@ -80,6 +82,7 @@
       <div class="field"><label for="eFecha">Fecha y hora</label><input type="datetime-local" id="eFecha"></div>
       <div class="field"><label for="eAforo">Aforo total (vacío = sin límite)</label><input type="number" id="eAforo" min="1"></div>
     </div>
+    <div class="field"><label for="eHoraFin">Termina a las <span id="eHoraFinOpc">(opcional)</span></label><input type="time" id="eHoraFin" style="max-width:220px;"></div>
     <div class="field"><label for="eLugar">Lugar (opcional)</label><input type="text" id="eLugar" placeholder="Por ejemplo: entrada del colegio"></div>
     <div class="field" id="incompatWrap">
       <p style="font-weight:700; margin:0 0 4px;">Este evento es incompatible con:</p>
@@ -199,7 +202,11 @@
   </div>
 
   <div class="card">
-    <p class="section-label">Eventos existentes</p>
+    <div class="tabs" id="pestanasEventos" role="tablist">
+      <button type="button" class="tab-btn active" data-p="actuales" role="tab" aria-selected="true">Eventos existentes <span class="num" id="nActuales">…</span></button>
+      <button type="button" class="tab-btn" data-p="pasados" role="tab" aria-selected="false">Eventos pasados <span class="num" id="nPasados">…</span></button>
+    </div>
+    <p class="empty-hint" id="sinEventosPestana" hidden></p>
     <div id="eventosWrap"><p class="loading">Cargando...</p></div>
   </div>
 
@@ -236,7 +243,7 @@ function filaFecha() {
   const d = document.createElement('div');
   d.className = 'two-col mas-fecha';
   d.style.alignItems = 'end';
-  d.innerHTML = '<div class="field"><label>Fecha y hora</label><input type="datetime-local" class="mf-fecha"></div>' +
+  d.innerHTML = '<div class="field"><label>Fecha y hora</label><div style="display:flex; gap:8px;"><input type="datetime-local" class="mf-fecha"><input type="time" class="mf-fin" aria-label="Termina a las" title="Termina a las"></div></div>' +
     '<div class="field"><label>Lugar</label><div style="display:flex; gap:8px;"><input type="text" class="mf-lugar" placeholder="El mismo de arriba"><button type="button" class="linklike mf-quitar">Quitar</button></div></div>';
   d.querySelector('.mf-quitar').addEventListener('click', () => d.remove());
   return d;
@@ -246,6 +253,8 @@ $('masFechaBtn').addEventListener('click', () => { const f = filaFecha(); $('mas
 function actualizarVisibilidad() {
   // Varias fechas de venta de lotería: solo al crear
   $('masFechasWrap').hidden = !($('ePlantilla').value === 'loteria' && !editandoId);
+  // En la venta de lotería la hora de fin es obligatoria
+  $('eHoraFinOpc').textContent = $('ePlantilla').value === 'loteria' ? '' : '(opcional)';
   if ($('masFechasWrap').hidden) $('masFechas').innerHTML = '';
   const tipoEsp = $('eTipoEspecial').value;
   $('inscripcionWrap').hidden = tipoEsp !== 'normal';
@@ -271,10 +280,13 @@ const aLocal = (iso) => {
   return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
 };
 const aISO = (v) => v ? new Date(v).toISOString() : null;
+// Hora de fin: el mismo día que la fecha de comienzo (datetime-local) a la hora indicada
+const finISO = (inicioLocal, hora) => inicioLocal && hora ? new Date(inicioLocal.slice(0, 10) + 'T' + hora).toISOString() : null;
+const horaLocal = (iso) => iso ? aLocal(iso).slice(11, 16) : '';
 const num = (v, entero) => v === '' || v == null ? null : (entero ? parseInt(v, 10) : parseFloat(v));
 
 const CAMPOS_VACIOS = {
-  titulo: '', descripcion: '', fecha: null, aforo_total: null, tipo_elegibilidad: 'toda_familia',
+  titulo: '', descripcion: '', fecha: null, fecha_fin: null, aforo_total: null, tipo_elegibilidad: 'toda_familia',
   elegibilidad_modo: 'curso', cursos_permitidos: [], edad_min: null, edad_max: null,
   sin_inscripcion: false, usa_concurso_texto: false, metodo_asignacion: 'aforo',
   requiere_pareja_adulto_alumno: false, usa_prioridad_historial: false,
@@ -313,6 +325,7 @@ function rellenarFormulario(ev) {
   $('eTitulo').value = e.titulo || '';
   $('eDescripcion').value = e.descripcion || '';
   $('eFecha').value = aLocal(e.fecha);
+  $('eHoraFin').value = horaLocal(e.fecha_fin);
   $('eAforo').value = e.aforo_total ?? '';
   $('eLugar').value = e.lugar || '';
   $('eTipoEspecial').value = e.sin_inscripcion ? 'informativo' : e.usa_concurso_texto ? 'concurso' : 'normal';
@@ -358,6 +371,7 @@ function leerFormulario() {
     titulo: $('eTitulo').value.trim(),
     descripcion: $('eDescripcion').value.trim(),
     fecha: aISO($('eFecha').value),
+    fecha_fin: finISO($('eFecha').value, $('eHoraFin').value),
     aforo_total: num($('eAforo').value, true),
     lugar: $('eLugar').value.trim() || null,
     sin_inscripcion: tipoEsp === 'informativo',
@@ -523,6 +537,8 @@ $('crearEventoBtn').addEventListener('click', async () => {
   }
   if (payload.metodo_asignacion === 'sorteo' && !payload.aforo_total) { aviso('Un sorteo necesita un aforo (número de plazas).', false); return; }
   if (payload.plantilla === 'loteria' && !payload.lugar) { aviso('Pon el lugar de la venta de lotería.', false); return; }
+  if (payload.plantilla === 'loteria' && !payload.fecha_fin) { aviso('Pon a qué hora termina la venta de lotería.', false); return; }
+  if (payload.fecha_fin && payload.fecha && payload.fecha_fin <= payload.fecha) { aviso('La hora de fin tiene que ser después de la de comienzo.', false); return; }
   if (!payload.sin_inscripcion && (payload.permite_invitados || payload.abierto_no_socios) && payload.precio_invitado == null && !payload.publico_solo_actividades) {
     if (!confirm('No has puesto precio para las personas no socias. ¿Es gratis para ellas?')) return;
   }
@@ -545,11 +561,14 @@ $('crearEventoBtn').addEventListener('click', async () => {
     salirDeEdicion();
   } else {
     // Venta de lotería con varias fechas: un evento por fecha
-    const extras = [...document.querySelectorAll('#masFechas .mas-fecha')].map(f => ({
-      fecha: aISO(f.querySelector('.mf-fecha').value), lugar: f.querySelector('.mf-lugar').value.trim() || payload.lugar
-    }));
+    // Sin hora de fin propia, la misma que la de arriba
+    const extras = [...document.querySelectorAll('#masFechas .mas-fecha')].map(f => {
+      const ini = f.querySelector('.mf-fecha').value;
+      return { fecha: aISO(ini), fecha_fin: finISO(ini, f.querySelector('.mf-fin').value || $('eHoraFin').value), lugar: f.querySelector('.mf-lugar').value.trim() || payload.lugar };
+    });
     if (extras.some(x => !x.fecha)) { aviso('Pon el día y la hora de cada fecha de venta, o quita las que sobren.', false); return; }
-    const filas = [payload, ...extras.map(x => ({ ...payload, fecha: x.fecha, lugar: x.lugar }))];
+    if (extras.some(x => !x.fecha_fin || x.fecha_fin <= x.fecha)) { aviso('Revisa la hora de fin de cada fecha de venta: tiene que ser después de la de comienzo.', false); return; }
+    const filas = [payload, ...extras.map(x => ({ ...payload, fecha: x.fecha, fecha_fin: x.fecha_fin, lugar: x.lugar }))];
     const { data: creados, error } = await sb.from('eventos').insert(filas).select('id');
     if (error) { aviso('No se pudo crear: ' + error.message, false); return; }
     try { await guardarIncompat((creados || []).map(c => c.id)); }
@@ -563,6 +582,32 @@ $('crearEventoBtn').addEventListener('click', async () => {
   cargarEventos();
 });
 actualizarVisibilidad();
+
+// Terminado: a su hora de fin o 3 horas después de empezar; los cursos por
+// sesiones, cuando ha pasado la última sesión
+function eventoTerminadoAdmin(ev) {
+  if (ES_CURSO(ev)) return cursoTerminado(sesionesCursos[ev.id]);
+  return !!ev.fecha && finEvento(ev) < new Date();
+}
+function fechaFinAdmin(ev) {
+  if (ES_CURSO(ev)) { const f = (sesionesCursos[ev.id] || []).map(x => new Date(x.fecha).getTime()).filter(Boolean); return f.length ? Math.max(...f) : 0; }
+  return ev.fecha ? finEvento(ev).getTime() : 0;
+}
+let pestanaEventos = 'actuales';
+function aplicarPestanaEventos() {
+  const filas = [...document.querySelectorAll('#eventosWrap .evento-row')];
+  let visibles = 0;
+  filas.forEach(r => { r.hidden = (pestanaEventos === 'pasados') !== !!r.dataset.pasado; if (!r.hidden) visibles++; });
+  const vacio = document.getElementById('sinEventosPestana');
+  vacio.hidden = visibles > 0 || !filas.length;
+  vacio.textContent = pestanaEventos === 'pasados' ? 'Todavía no ha terminado ningún evento.' : 'No hay eventos por venir. Los terminados están en «Eventos pasados».';
+}
+document.getElementById('pestanasEventos').addEventListener('click', (e) => {
+  const b = e.target.closest('.tab-btn'); if (!b) return;
+  pestanaEventos = b.dataset.p;
+  document.querySelectorAll('#pestanasEventos .tab-btn').forEach(x => { x.classList.toggle('active', x === b); x.setAttribute('aria-selected', String(x === b)); });
+  aplicarPestanaEventos();
+});
 
 async function cargarEventos() {
   const wrap = document.getElementById('eventosWrap');
@@ -586,15 +631,22 @@ async function cargarEventos() {
   }));
   const QUIEN = { toda_familia: 'Toda la familia', alumnos: 'Alumnos', adultos: 'Adultos' };
 
+  // Los que ya han terminado van a «Eventos pasados» (el más reciente primero)
+  const actuales = eventos.filter(e => !eventoTerminadoAdmin(e));
+  const pasados = eventos.filter(eventoTerminadoAdmin).sort((a, b) => fechaFinAdmin(b) - fechaFinAdmin(a));
+  document.getElementById('nActuales').textContent = actuales.length;
+  document.getElementById('nPasados').textContent = pasados.length;
   wrap.innerHTML = '';
-  for (const ev of eventos) {
+  for (const ev of [...actuales, ...pasados]) {
     const row = document.createElement('div');
     row.className = 'evento-row';
+    row.id = 'adm-ev-' + ev.id;
+    if (eventoTerminadoAdmin(ev)) row.dataset.pasado = '1';
     row.innerHTML =
       '<div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap;">' +
         '<div><b>' + esc(ev.titulo) + '</b> ' + (ev.activo ? '' : '<span class="badge badge-socio">Oculto</span>') + '<br>' +
           '<span style="font-size:14px; color:var(--ink-soft);">' +
-            (ev.plantilla === 'warhammer' ? 'Curso por sesiones' : ev.fecha ? new Date(ev.fecha).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' }) : 'Sin fecha') +
+            (ev.plantilla === 'warhammer' ? 'Curso por sesiones' : ev.fecha ? new Date(ev.fecha).toLocaleDateString('es-ES', { dateStyle: 'medium' }) + ', ' + horarioEvento(ev) : 'Sin fecha') +
             (ev.sin_inscripcion ? ', informativo' : ev.usa_concurso_texto ? ', concurso' : ', ' + QUIEN[ev.tipo_elegibilidad]) +
             (ev.aforo_total != null ? (ev.requiere_pareja_adulto_alumno ? `, ${ev.aforo_total} plazas de alumnos` : `, ${ocupacion[ev.id] ?? 0} de ${ev.aforo_total} plazas`) : '') +
             (ev.metodo_asignacion === 'sorteo' ? ', por sorteo' : '') +
@@ -614,7 +666,7 @@ async function cargarEventos() {
           (!ev.sin_inscripcion && !ev.usa_concurso_texto ? '<button class="btn btn-outline toggleDocsBtn">Documentos</button>' : '') +
           (inscripcionCerrada(ev, ocupacion[ev.id]) && ev.tipo_elegibilidad !== 'adultos' && !ev.sin_inscripcion && !ev.usa_concurso_texto ? '<button class="btn btn-outline listadoBtn">Listado (Excel)</button>' : '') +
           (ev.metodo_asignacion === 'sorteo' && !ev.sorteo_realizado ? '<button class="btn btn-outline sortearBtn">Sortear</button>' : '') +
-          (ev.activo ? '<button class="btn btn-outline avisarBtn">Avisar a las familias</button>' : '') +
+          (ev.activo && !eventoTerminadoAdmin(ev) ? '<button class="btn btn-outline avisarBtn">Avisar a las familias</button>' : '') +
           (ev.metodo_asignacion === 'sorteo' && ev.sorteo_realizado ? '<span class="badge badge-socio">Ya sorteado</span>' : '') +
           '<button class="btn-danger-link toggleActivoBtn">' + (ev.activo ? 'Ocultar' : 'Reactivar') + '</button>' +
           '<button class="btn-danger-link borrarBtn">Borrar</button>' +
@@ -771,6 +823,7 @@ async function cargarEventos() {
 
     wrap.appendChild(row);
   }
+  aplicarPestanaEventos();
 }
 
 /* ================= Listado de inscritos ================= */
@@ -1466,5 +1519,6 @@ async function renderConcursoEvento(panel, evento) {
 </script>
 <script src="shared/sonido.js"></script>
 <script src="shared/vida.js"></script>
+<script src="shared/visitas.js" defer></script>
 </body>
 </html>

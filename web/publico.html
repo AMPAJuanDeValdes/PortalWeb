@@ -64,7 +64,7 @@
 <script>
 const esc = (t) => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const euros = (n) => Number(n).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
-const fechaLarga = (f) => f ? new Date(f).toLocaleString('es-ES', { dateStyle: 'full', timeStyle: 'short' }) : 'Fecha por confirmar';
+const fechaLarga = (f, fin) => f ? new Date(f).toLocaleDateString('es-ES', { dateStyle: 'full' }) + ', ' + horarioEvento({ fecha: f, fecha_fin: fin }) : 'Fecha por confirmar';
 const textoError = (e) => ((e && e.message) || String(e)).replace(/^.*?ERROR:\s*/, '');
 
 if (typeof AMPA_CUOTA_ANUAL !== 'undefined') {
@@ -83,7 +83,7 @@ async function cargarEventos() {
   if (error) { cont.innerHTML = '<p class="msg-error">No se pudieron cargar los eventos. Recarga la página.</p>'; return; }
   // Cursos por sesiones: siguen abiertos mientras no hayan terminado
   SESIONES = await cargarSesiones((eventos || []).filter(ES_CURSO).map(e => e.id));
-  const futuros = (eventos || []).filter(e => ES_CURSO(e) ? !cursoTerminado(SESIONES[e.id]) : (!e.fecha || new Date(e.fecha) > new Date()));
+  const futuros = (eventos || []).filter(e => ES_CURSO(e) ? !cursoTerminado(SESIONES[e.id]) : (!e.fecha || (e.fecha_fin ? new Date(e.fecha_fin) : new Date(e.fecha)) > new Date()));
   if (!futuros.length) { cont.innerHTML = '<p class="empty-hint">Ahora mismo no hay eventos abiertos a no socios.</p>'; return; }
   cont.innerHTML = '';
   for (const ev of futuros) cont.appendChild(await tarjetaEvento(ev));
@@ -94,7 +94,7 @@ async function tarjetaEvento(ev) {
   card.className = 'card evento-card';
   const precio = Number(ev.precio_invitado) || 0;
   card.innerHTML = `
-    <p class="evento-fecha">${ES_CURSO(ev) ? (proximaSesion(SESIONES[ev.id]) ? 'Próxima sesión: ' + fechaLarga(proximaSesion(SESIONES[ev.id]).fecha) : 'Las fechas de las sesiones se irán publicando') : fechaLarga(ev.fecha)}${ev.lugar ? '. Lugar: ' + esc(ev.lugar) : ''}</p>
+    <p class="evento-fecha">${ES_CURSO(ev) ? (proximaSesion(SESIONES[ev.id]) ? 'Próxima sesión: ' + fechaLarga(proximaSesion(SESIONES[ev.id]).fecha) : 'Las fechas de las sesiones se irán publicando') : fechaLarga(ev.fecha, ev.fecha_fin)}${ev.lugar ? '. Lugar: ' + esc(ev.lugar) : ''}</p>
     <h2>${esc(ev.titulo)}</h2>
     <div class="eventoCarrusel" style="max-width:420px; margin:10px 0;"></div>
     ${ev.descripcion ? `<p style="white-space:pre-line; margin:0;">${esc(ev.descripcion)}</p>` : ''}
@@ -251,5 +251,6 @@ cargarEventos();
 </script>
 <script src="shared/sonido.js"></script>
 <script src="shared/vida.js"></script>
+<script src="shared/visitas.js" defer></script>
 </body>
 </html>

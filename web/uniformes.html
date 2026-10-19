@@ -12,10 +12,22 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="shared/styles.css">
+<style>
+  .una-prenda{ border-left:6px solid #5C4300; background:var(--uniformes-bg); color:#3D2C00; border-radius:0 18px 18px 0; padding:16px 20px; margin:0 0 22px; }
+  .una-prenda b{ display:block; font-family:var(--font-title); font-size:20px; margin-bottom:4px; }
+  .una-prenda p{ margin:0; }
+  .prio-intro{ margin:0 0 12px; }
+  .prio-ayuda{ font-weight:400; color:var(--ink-soft); font-size:14px; }
+</style>
 </head>
 <body>
 <div class="wrap">
   <header class="cab-servicio cs-uniformes"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3L3 6l2 4 3-1v12h8V9l3 1 2-4-5-3a4 4 0 0 1-8 0z"/></svg><div><nav class="miga" aria-label="Estás en"><a href="dashboard.html">Inicio</a><span aria-hidden="true">›</span><span>Banco de Uniformes</span></nav><h1>Entrega de uniformes</h1><p>Elige, para cada alumno/a, 3 prendas ordenadas por prioridad. 🔴 queda poco stock, 🟡 stock medio, 🟢 stock amplio.</p></div></header>
+
+  <div class="una-prenda">
+    <b>Cada alumno o alumna recibe una sola prenda</b>
+    <p>Aunque elijáis 3, regalamos una prenda por alumno/a. Intentamos que sea la de 1ª prioridad; la 2ª y la 3ª son por si no hay suficientes de la primera.</p>
+  </div>
 
   <details class="card" style="cursor:pointer;">
     <summary class="section-label" style="margin:0;">Cómo funciona el reparto</summary>
@@ -180,11 +192,12 @@ function renderAlumnoCard(alumno, seleccionInicial) {
 
   const ORDEN_TIPOS = ['Sudadera', 'Camiseta', 'Pantalón Corto', 'Pantalón Largo', 'Baby'];
   const tipoSel = {}, tallaSel = {};
+  body.insertAdjacentHTML('beforeend', '<p class="prio-intro">Recibirá <b>una</b> de estas 3 prendas, no las tres.</p>');
   [1, 2, 3].forEach(prioridad => {
     const field = document.createElement('div');
     field.className = 'field';
     field.style.marginTop = prioridad > 1 ? '14px' : '0';
-    field.innerHTML = `<label>${prioridad}ª prioridad</label>`;
+    field.innerHTML = `<label>${prioridad}ª prioridad <span class="prio-ayuda">${['', 'la que intentaremos daros', 'solo si no hay suficientes de la 1ª', 'solo si tampoco hay de la 2ª'][prioridad]}</span></label>`;
     const fila = document.createElement('div');
     fila.style.cssText = 'display:grid; grid-template-columns:1fr 1fr; gap:10px;';
     const t = document.createElement('select'); t.dataset.prioridad = prioridad; t.className = 'tipoSel';
@@ -269,7 +282,7 @@ function renderAlumnoCard(alumno, seleccionInicial) {
 
     msg.style.display = 'block';
     msg.className = error ? 'msg-error' : 'msg-ok';
-    msg.textContent = error ? 'Error: ' + error.message : 'Guardado ✓';
+    msg.textContent = error ? 'Error: ' + error.message : 'Guardado ✓. Recibirá una sola de estas prendas: la de 1ª prioridad si hay suficientes.';
   });
 
   body.appendChild(guardarBtn);
@@ -289,5 +302,6 @@ function renderAlumnoCard(alumno, seleccionInicial) {
 </script>
 <script src="shared/sonido.js"></script>
 <script src="shared/vida.js"></script>
+<script src="shared/visitas.js" defer></script>
 </body>
 </html>

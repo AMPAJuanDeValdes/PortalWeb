@@ -158,3 +158,15 @@ function calcularEdad(fechaNacimiento) {
   if (m < 0 || (m === 0 && hoy.getDate() < nac.getDate())) edad--;
   return edad;
 }
+
+// Horario de un evento: «a las 18:00» o, con hora de fin, «de 18:00 a 20:00»
+function horarioEvento(ev) {
+  if (!ev || !ev.fecha) return '';
+  const h = (x) => new Date(x).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+  return ev.fecha_fin ? `de ${h(ev.fecha)} a ${h(ev.fecha_fin)}` : `a las ${h(ev.fecha)}`;
+}
+// Cuándo ha terminado: a la hora de fin o, si no tiene, 3 horas después de empezar
+function finEvento(ev) {
+  if (!ev || !ev.fecha) return null;
+  return ev.fecha_fin ? new Date(ev.fecha_fin) : new Date(new Date(ev.fecha).getTime() + 3 * 3600e3);
+}

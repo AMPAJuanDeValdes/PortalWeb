@@ -35,7 +35,12 @@ module.exports = async function limpiar() {
 
   // Eventos de prueba (y sus inscripciones, en cascada) antes de borrar
   // a las familias, que si no quedan referenciadas
-  await admin.from('eventos').delete().ilike('titulo', `${MARCA}%`);
+  // También «Venta de <campaña de prueba>», creados desde Lotería
+  await admin.from('eventos').delete().ilike('titulo', `%${MARCA}%`);
+  // Campañas de lotería de prueba (con sus talonarios, ingresos, historial y mensajes)
+  await admin.from('loteria_campanas').delete().ilike('nombre', `${MARCA}%`);
+  await admin.from('loteria_mensajes').delete().ilike('email', `%${MARCA}%`);
+  await admin.from('push_suscripciones').delete().ilike('endpoint', `%${MARCA}%`);
   if (socios.length) await admin.from('evento_inscripciones').delete().in('socio_id', socios);
 
   // Mandatos SEPA firmados en las pruebas: el PDF guardado

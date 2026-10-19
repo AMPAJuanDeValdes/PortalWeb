@@ -676,6 +676,9 @@ web/                      → Lo que se publica (Netlify publish = "web").
                             activar/desactivar por dispositivo (push_suscripciones). La Junta avisa
                             con netlify/functions/push-avisar-evento.js (Web Push propio, sin
                             librerías: netlify/functions/_lib/webpush.js).
+  admin-visitas.html      → Visitas a la web: páginas vistas, personas, socios / no socios, cada
+                            cuánto vuelven los socios. Datos de la tabla visitas (shared/visitas.js →
+                            netlify/functions/visita.js), resumen con la función visitas_resumen().
   admin-firmados.html     → Documentos firmados y justificantes, por tipo (altas y cuotas, SEPA,
                             eventos, Mochila). Abre los archivos privados con enlaces temporales
                             (urlArchivo() de shared/supabaseClient.js).

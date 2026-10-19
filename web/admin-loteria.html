@@ -20,6 +20,11 @@
   .camp-estado .chip{ font-size:15px; }
   .camp-estado label{ display:flex; gap:8px; align-items:center; font-weight:700; font-size:15px; }
   .camp-estado input[type=date]{ width:auto; }
+  .venta{ display:flex; flex-wrap:wrap; gap:6px 14px; align-items:center; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--line); }
+  .venta small{ color:var(--ink-soft); }
+  .fila-venta{ display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end; margin-top:14px; }
+  .fila-venta label{ display:grid; gap:4px; font-weight:700; font-size:14px; }
+  .fila-venta .crece{ flex:1 1 220px; }
   .msj{ border-bottom:1px solid var(--line); padding:14px 0; display:grid; gap:6px; }
   .msj:last-child{ border-bottom:0; }
   .msj-cab{ display:flex; flex-wrap:wrap; gap:4px 12px; align-items:baseline; }
@@ -103,6 +108,7 @@
         <label>Nombre<input type="text" name="nombre" required placeholder="Lotería de Navidad 2026"></label>
         <label>Número(s) que jugamos<input type="text" name="numeros" placeholder="12345"></label>
         <label>Precio de la participación (€)<input type="number" name="precio" min="0.5" step="0.5" value="5" required></label>
+        <label>De ellos, donativo para el AMPA (€)<input type="number" name="donativo" min="0" step="0.5" value="1" required></label>
         <label>Participaciones por talonario<input type="number" name="ppt" min="1" max="500" value="25" required></label>
         <label class="solo-nueva">Talonarios<input type="number" name="cuantos" min="1" max="1000" value="40"></label>
       </div>
@@ -116,6 +122,20 @@
     <div class="card">
       <p class="section-label">Resumen</p>
       <dl class="resumen" id="resumen"></dl>
+    </div>
+
+    <div class="card" id="ventasCard">
+      <p class="section-label">Días de venta</p>
+      <p style="color:var(--ink-soft); margin:-4px 0 10px;">Salen en el calendario, en Eventos (también en la web pública) y en «Quiero comprar Lotería».</p>
+      <div id="ventas"><p class="loading">Cargando...</p></div>
+      <form id="ventaForm" class="fila-venta" novalidate>
+        <label>Día<input type="date" name="dia" required></label>
+        <label>Desde<input type="time" name="hora" required></label>
+        <label>Hasta<input type="time" name="fin" required></label>
+        <label class="crece">Lugar<input type="text" name="lugar" required placeholder="Por ejemplo: entrada del colegio"></label>
+        <button type="submit" class="btn btn-primary">Crear venta</button>
+      </form>
+      <p class="msg-error" id="ventaMsg" hidden></p>
     </div>
 
     <div class="card" id="mensajesCard">
@@ -216,10 +236,10 @@ async function elegirCampana(id) {
   document.getElementById('campEditarBtn').hidden = !camp;
   document.getElementById('excelBtn').hidden = !camp;
   document.getElementById('campDatos').textContent = camp
-    ? `${camp.numeros ? 'Número ' + camp.numeros + '. ' : ''}Participaciones de ${eur(camp.precio)}, ${camp.participaciones_por_talonario} por talonario (${eur(camp.precio * camp.participaciones_por_talonario)} el talonario entero).`
+    ? `${camp.numeros ? 'Número ' + camp.numeros + '. ' : ''}Participaciones de ${eur(camp.precio)}${Number(camp.donativo) ? ` (se juegan ${eur(camp.precio - camp.donativo)} y ${eur(camp.donativo)} es donativo para el AMPA)` : ''}, ${camp.participaciones_por_talonario} por talonario (${eur(camp.precio * camp.participaciones_por_talonario)} el talonario entero).`
     : 'Crea la campaña de este año para empezar a repartir talonarios.';
   pintarEstado();
-  if (camp) await Promise.all([cargarTalonarios(), cargarMovs(), cargarMensajes()]);
+  if (camp) await Promise.all([cargarTalonarios(), cargarMovs(), cargarMensajes(), cargarVentas()]);
 }
 document.getElementById('campSel').addEventListener('change', (e) => elegirCampana(e.target.value));
 
@@ -232,6 +252,7 @@ function abrirFormCampana(editar) {
   f.numeros.value = editar ? (camp.numeros || '') : '';
   f.precio.value = editar ? camp.precio : 5;
   f.ppt.value = editar ? camp.participaciones_por_talonario : 25;
+  f.donativo.value = editar ? camp.donativo : 1;
   document.getElementById('campMsg').hidden = true;
   f.nombre.focus();
 }
@@ -241,7 +262,8 @@ document.getElementById('campCancelar').addEventListener('click', () => { docume
 document.getElementById('campForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const f = e.target, msg = document.getElementById('campMsg'); msg.hidden = true;
-  const datos = { nombre: f.nombre.value.trim(), numeros: f.numeros.value.trim() || null, precio: Number(f.precio.value), participaciones_por_talonario: Math.trunc(Number(f.ppt.value)) };
+  const datos = { nombre: f.nombre.value.trim(), numeros: f.numeros.value.trim() || null, precio: Number(f.precio.value), donativo: Number(f.donativo.value), participaciones_por_talonario: Math.trunc(Number(f.ppt.value)) };
+  if (!(datos.donativo >= 0 && datos.donativo < datos.precio)) { const m = document.getElementById('campMsg'); m.textContent = 'El donativo tiene que ser menor que el precio de la participación.'; m.hidden = false; return; }
   const fallo = (t) => { msg.textContent = t; msg.hidden = false; };
   let id;
   if (f.dataset.editar) {
@@ -469,6 +491,44 @@ document.getElementById('campEstado').addEventListener('click', async (e) => {
   await cargarCampanas(camp.id);
 });
 
+/* ---------- Días de venta (eventos «Venta de Lotería») ---------- */
+async function cargarVentas() {
+  const wrap = document.getElementById('ventas');
+  const { data, error } = await sb.from('eventos').select('id, titulo, fecha, fecha_fin, lugar, activo').eq('plantilla', 'loteria')
+    .gte('fecha', new Date(Date.now() - 3 * 3600e3).toISOString()).order('fecha');
+  if (error) { wrap.innerHTML = '<p class="msg-error">No se pudieron cargar los días de venta.</p>'; return; }
+  if (!data.length) { wrap.innerHTML = '<p class="nada" style="margin:0;">No hay ningún día de venta próximo.</p>'; return; }
+  wrap.innerHTML = data.map(e => `<div class="venta" data-id="${e.id}">
+    <span><b>${new Date(e.fecha).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}, ${horarioEvento(e)}</b> · ${esc(e.lugar || '')}${e.activo ? '' : ' <small>(oculto)</small>'}</span>
+    <span><a href="admin-eventos.html">Editar en Eventos</a> · <button type="button" class="btn-danger-link" data-v="borrar">Borrar</button></span>
+  </div>`).join('');
+}
+document.getElementById('ventas').addEventListener('click', async (e) => {
+  const b = e.target.closest('button[data-v=borrar]'); if (!b) return;
+  if (!confirm('¿Borrar este día de venta?')) return;
+  const { error } = await sb.from('eventos').delete().eq('id', b.closest('.venta').dataset.id);
+  if (error) { alert('No se pudo borrar: ' + error.message); return; }
+  cargarVentas();
+});
+document.getElementById('ventaForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const f = e.target, msg = document.getElementById('ventaMsg'); msg.hidden = true;
+  const fallo = (t) => { msg.textContent = t; msg.hidden = false; };
+  const lugar = f.lugar.value.trim();
+  if (!f.dia.value || !f.hora.value || !f.fin.value) return fallo('Pon el día y las horas de comienzo y fin de la venta.');
+  if (f.fin.value <= f.hora.value) return fallo('La hora de fin tiene que ser después de la de comienzo.');
+  if (!lugar) return fallo('Pon el lugar de la venta.');
+  const fecha = new Date(f.dia.value + 'T' + f.hora.value);
+  if (fecha < new Date()) return fallo('Esa fecha ya ha pasado.');
+  const b = f.querySelector('button'); b.disabled = true;
+  // El tipo «loteria» fija el resto en la base de datos: nadie se apunta y la ve todo el mundo
+  const { error } = await sb.from('eventos').insert({ plantilla: 'loteria', titulo: 'Venta de ' + camp.nombre, fecha: fecha.toISOString(), fecha_fin: new Date(f.dia.value + 'T' + f.fin.value).toISOString(), lugar, tipo_elegibilidad: 'toda_familia', activo: true });
+  b.disabled = false;
+  if (error) return fallo('No se pudo crear: ' + error.message);
+  f.reset();
+  cargarVentas();
+});
+
 /* ---------- Mensajes de «Quiero comprar Lotería» ---------- */
 let verAtendidos = false;
 async function cargarMensajes() {
@@ -631,5 +691,6 @@ document.getElementById('excelBtn').addEventListener('click', () => {
 </script>
 <script src="shared/sonido.js"></script>
 <script src="shared/vida.js"></script>
+<script src="shared/visitas.js" defer></script>
 </body>
 </html>

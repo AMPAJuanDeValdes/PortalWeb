@@ -14,7 +14,7 @@ const AREAS_JUNTA = [
     ['admin-uniformes', 'Banco de Uniformes'], ['admin-mochila', 'Mochila Jugona Exploradora'], ['admin-encuestas', 'Encuestas'], ['admin-donaciones', 'Donaciones'], ['admin-loteria', 'Lotería'] ] },
   { titulo: 'Comunicación', color: 'comunicacion', enlaces: [
     ['admin-email', 'Enviar email'], ['admin-documentos', 'Documentos'],
-    ['admin-carrusel', 'Fotos y vídeos de portada'], ['admin-respuestas', 'Listados'] ] }
+    ['admin-carrusel', 'Fotos y vídeos de portada'], ['admin-respuestas', 'Listados'], ['admin-visitas', 'Visitas a la web'] ] }
 ];
 
 function renderNav(activePage, ctx) {
