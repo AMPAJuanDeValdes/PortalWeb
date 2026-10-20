@@ -90,9 +90,9 @@ async function cargarPrestamo() {
 
 async function cargarEventosSelect() {
   const select = document.getElementById('eventoSelect');
-  const { data } = await sb.from('eventos').select('id, titulo').order('fecha', { ascending: false });
+  const { data } = await sb.from('eventos').select('id, titulo, fecha, fecha_fin').order('fecha', { ascending: false });
   if (!data || data.length === 0) { select.innerHTML = '<option value="">No hay eventos</option>'; return; }
-  select.innerHTML = data.map(e => '<option value="' + e.id + '">' + e.titulo + '</option>').join('');
+  select.innerHTML = data.map(e => '<option value="' + e.id + '">' + opcionEvento(e) + '</option>').join('');
   select.addEventListener('change', () => cargarInscritosDe(select.value, (data.find(e => e.id === select.value) || {}).titulo));
   cargarInscritosDe(select.value, data[0].titulo);
 }
@@ -142,7 +142,7 @@ async function cargarAlumnos() {
   const [alumnos, socios, adultos] = await Promise.all([
     todasLasFilas(() => sb.from('alumnos').select('id, nombre, apellidos, fecha_nacimiento, etapa, curso, aula, verificado, socio_id')),
     todasLasFilas(() => sb.from('socios').select('id, numero_socio_completo, estado, datos_revisados_en')),
-    todasLasFilas(() => sb.from('adultos').select('socio_id, nombre, apellidos, email, movil, created_at').order('created_at'))
+    todasLasFilas(() => sb.from('adultos').select('socio_id, nombre, apellidos, email, movil, dni_nie, created_at').order('created_at').order('id'))
   ]);
   const socio = Object.fromEntries(socios.map(x => [x.id, x]));
   const principal = {};
@@ -150,7 +150,7 @@ async function cargarAlumnos() {
   ALUMNOS = alumnos.map(a => {
     const s = socio[a.socio_id] || {}, ad = principal[a.socio_id] || {};
     return { ...a, numero: s.numero_socio_completo ? numeroSocioBonito(s.numero_socio_completo) : '', estado: s.estado || '',
-      confirmados: s.datos_revisados_en || null, familia: [ad.nombre, ad.apellidos].filter(Boolean).join(' '), email: ad.email || '', movil: ad.movil || '' };
+      confirmados: s.datos_revisados_en || null, familia: [ad.nombre, ad.apellidos].filter(Boolean).join(' '), email: ad.email || '', movil: ad.movil || '', dni: ad.dni_nie || '' };
   }).sort((x, y) => (ORDEN_ETAPA_AL[x.etapa] || 9) - (ORDEN_ETAPA_AL[y.etapa] || 9)
     || (parseInt(x.curso, 10) || 99) - (parseInt(y.curso, 10) || 99) || String(x.aula || '').localeCompare(String(y.aula || ''))
     || (x.apellidos + x.nombre).localeCompare(y.apellidos + y.nombre, 'es'));
@@ -174,7 +174,8 @@ async function cargarAlumnos() {
     if (!lista.length) { alert('No hay alumnos en esta lista.'); return; }
     const filtro = document.getElementById('filtroMatricula').value;
     descargarCSV(lista.map(a => ({
-      numero_socio: a.numero, familia: a.familia, email: a.email, movil: a.movil,
+      numero_socio: a.numero, familia: a.familia, email: a.email,
+      dni_adulto_principal: a.dni, movil_adulto_principal: a.movil,
       nombre: a.nombre, apellidos: a.apellidos, fecha_nacimiento: a.fecha_nacimiento || '',
       etapa: a.etapa, curso: a.curso || '', aula: a.aula || '',
       datos_confirmados: a.confirmados ? new Date(a.confirmados).toLocaleDateString('es-ES') : 'no',
@@ -194,12 +195,14 @@ function pintarAlumnos() {
   document.getElementById('contAlumnos').textContent = `${lista.length} alumno${lista.length === 1 ? '' : 's'}`;
   const t = document.getElementById('tablaAlumnos');
   if (!lista.length) { t.innerHTML = '<p class="empty-hint">No hay alumnos en esta lista.</p>'; return; }
-  t.innerHTML = '<div style="overflow-x:auto;"><table><thead><tr><th>Nombre</th><th>Curso</th><th>Aula</th><th>Familia</th><th>Datos</th><th>Matrícula</th><th></th></tr></thead><tbody>' +
+  t.innerHTML = '<div style="overflow-x:auto;"><table><thead><tr><th>Nombre</th><th>Curso</th><th>Aula</th><th>Familia</th><th>DNI adulto principal</th><th>Móvil adulto principal</th><th>Datos</th><th>Matrícula</th><th></th></tr></thead><tbody>' +
     lista.map(a => '<tr>' +
       `<td>${escA(a.nombre + ' ' + a.apellidos)}</td>` +
       `<td>${escA([a.curso, a.etapa].filter(Boolean).join(' '))}</td>` +
       `<td>${escA(a.aula || '')}</td>` +
       `<td>${a.numero ? `<span style="font-family:ui-monospace,Menlo,Consolas,monospace; font-size:13px; color:var(--ink-soft);">${escA(a.numero)}</span> ` : ''}${escA(a.familia)}</td>` +
+      `<td>${escA(a.dni)}</td>` +
+      `<td>${escA(a.movil)}</td>` +
       `<td>${a.confirmados ? '<span class="badge badge-socio">Confirmados</span>' : '<span class="badge badge-admin">Sin confirmar</span>'}</td>` +
       `<td>${a.verificado ? '<span class="badge badge-socio">✓ Verificada</span>' : '<span class="badge badge-admin">Falta verificar</span>'}</td>` +
       `<td><button class="btn-danger-link toggleVerificadoBtn" data-id="${escA(a.id)}">${a.verificado ? 'Desmarcar' : 'Marcar verificada'}</button></td>` +

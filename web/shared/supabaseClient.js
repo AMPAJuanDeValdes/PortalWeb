@@ -165,6 +165,14 @@ function horarioEvento(ev) {
   const h = (x) => new Date(x).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
   return ev.fecha_fin ? `de ${h(ev.fecha)} a ${h(ev.fecha_fin)}` : `a las ${h(ev.fecha)}`;
 }
+// Texto para elegir un evento en un desplegable: título, día y hora, para
+// distinguir dos eventos con el mismo nombre. Ya escapado para HTML.
+function opcionEvento(ev) {
+  const esc = (t) => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  if (!ev.fecha) return esc(ev.titulo) + ' (sin fecha)';
+  const dia = new Date(ev.fecha).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+  return esc(ev.titulo) + ' · ' + esc(dia) + ' ' + esc(horarioEvento(ev));
+}
 // Cuándo ha terminado: a la hora de fin o, si no tiene, 3 horas después de empezar
 function finEvento(ev) {
   if (!ev || !ev.fecha) return null;

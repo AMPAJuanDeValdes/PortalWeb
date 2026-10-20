@@ -131,8 +131,8 @@ document.getElementById('tipoDestinatario').addEventListener('change', (e) => {
 });
 
 async function cargarEventosSelect() {
-  const { data } = await sb.from('eventos').select('id, titulo').order('fecha', { ascending: false });
-  document.getElementById('fEvento').innerHTML = (data || []).map(e => '<option value="' + e.id + '">' + e.titulo + '</option>').join('');
+  const { data } = await sb.from('eventos').select('id, titulo, fecha, fecha_fin').order('fecha', { ascending: false });
+  document.getElementById('fEvento').innerHTML = (data || []).map(e => '<option value="' + e.id + '">' + opcionEvento(e) + '</option>').join('');
 }
 
 let destinatariosCalculados = [];
