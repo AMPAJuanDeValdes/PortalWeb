@@ -173,7 +173,8 @@ test.describe('Quiero comprar Lotería', () => {
       const c = abierta[0];
       await expect(page.locator('#titulo')).toHaveText(c.nombre);
       if (Number(c.donativo)) await expect(page.locator('#subtitulo')).toContainText('es donativo para el AMPA');
-      await expect(page.locator('#soySocio a')).toHaveAttribute('href', 'login.html?volver=loteria.html');
+      // (Netlify reescribe los enlaces «x.html» como «/x»)
+      await expect(page.locator('#soySocio a')).toHaveAttribute('href', /login(\.html)?\?volver=loteria\.html$/);
       // El calendario solo tiene ventas de lotería
       const { data: otros } = await admin.from('eventos').select('titulo').eq('activo', true).neq('plantilla', 'loteria').gte('fecha', c.inicio).limit(20);
       for (const o of otros || []) await expect(page.locator('#fechas')).not.toContainText(o.titulo);

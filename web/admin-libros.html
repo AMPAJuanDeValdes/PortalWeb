@@ -195,6 +195,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="shared/supabaseClient.js"></script>
 <script src="shared/nav.js"></script>
+<script src="shared/difusion.js"></script>
 <script src="shared/catalogo.js"></script>
 <script src="shared/helpers.js"></script>
 <script src="shared/csv.js"></script>
@@ -478,7 +479,8 @@ async function cargarConvocatoria() {
   let html = '';
   if (c && c.estado === 'abierta' && !cerrada) {
     html = `<p class="section-label">Convocatoria abierta</p><p style="font-size:14.5px;">Las familias pueden pedir hasta el <b>${fechaHora(c.fecha_cierre)}</b>.</p>
-      <div class="botones"><button class="btn btn-outline" data-accion="cerrar">Cerrar plazo ahora</button><button class="btn-danger-link" data-accion="cancelar">Cancelar convocatoria</button></div>`;
+      <div class="botones"><button class="btn btn-outline" data-accion="cerrar">Cerrar plazo ahora</button><button class="btn-danger-link" data-accion="cancelar">Cancelar convocatoria</button></div>
+      <div id="difusionWrap"></div>`;   // Avisar a las familias y circular, mientras se puede pedir
   } else if (c && c.estado === 'abierta') {
     html = `<p class="section-label">Plazo cerrado, pendiente de repartir</p><p style="font-size:14.5px;">Se cerró el ${fechaHora(c.fecha_cierre)}. Antes de repartir, revisa en "Demanda y compras" que tenéis los ejemplares dados de alta.</p>
       <div class="botones"><button class="btn btn-primary" id="repartirBtn">Repartir</button><button class="btn-danger-link" data-accion="cancelar">Cancelar sin repartir</button></div>`;
@@ -495,6 +497,7 @@ async function cargarConvocatoria() {
   }
   html += '<p id="convMsg" style="display:none; margin-top:12px;"></p><div id="itemsWrap" style="margin-top:20px;"></div>';
   card.innerHTML = html;
+  montarDifusion(document.getElementById('difusionWrap'), { tipo: 'libros', convocatoria: c });
   card.querySelectorAll('[data-accion]').forEach(b => b.addEventListener('click', async () => {
     const txt = b.dataset.accion === 'cerrar' ? '¿Cerrar el plazo ahora? Las familias ya no podrán pedir.' : '¿Cancelar esta convocatoria sin repartir? Las peticiones se conservan para consultarlas.';
     if (!confirm(txt)) return;

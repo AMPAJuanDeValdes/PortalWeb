@@ -86,15 +86,29 @@ async function enviarEmail({ to, bcc, replyTo, subject, text, html, sinFirma }) 
   if (sinFirma || interno) {
     return transporter.sendMail({ from, to: destino, bcc, replyTo, subject, text, html });
   }
+  return transporter.sendMail({ from, to: destino, bcc, replyTo, ...conFirma({ subject, text, html }) });
+}
+
+// Asunto, texto y HTML con la firma del AMPA y su logo (Verdana 10 pt)
+function conFirma({ subject, text, html }) {
   const logo = logoFirma();
   const srcLogo = logo ? 'cid:' + LOGO_CID : (process.env.SITE_URL || '').replace(/\/$/, '') + '/assets/logo-ampa-email.jpg';
   const cuerpoHtml = html || `<div style="font-family:Verdana, Geneva, sans-serif; font-size:10pt; line-height:1.5; color:#1A1A18; max-width:600px;">\n${textoAHtml(text)}\n</div>`;
-  return transporter.sendMail({
-    from, to: destino, bcc, replyTo, subject,
+  return {
+    subject,
     text: String(text || '').trimEnd() + FIRMA_TEXTO,
     html: cuerpoHtml + firmaHtml(srcLogo),
     attachments: logo ? [{ filename: 'logo-ampa.jpg', path: logo, cid: LOGO_CID }] : []
-  });
+  };
+}
+
+// El email completo (RFC 822) con la firma, sin enviarlo: para dejarlo en
+// Borradores del buzón (ver _lib/imap.js). Sin destinatarios: se ponen al enviarlo.
+function componerBorrador({ subject, text, html }) {
+  const MailComposer = require('nodemailer/lib/mail-composer');
+  const from = `"${process.env.SMTP_FROM_NAME || 'AMPA'}" <${process.env.SMTP_USER}>`;
+  const correo = new MailComposer({ from, ...conFirma({ subject, text, html }) });
+  return new Promise((resolve, reject) => correo.compile().build((err, msg) => err ? reject(err) : resolve(msg)));
 }
 
 function plantillaCredenciales({ nombre, email, password, urlPortal, inactiva }) {
@@ -265,6 +279,7 @@ function plantillaRecordatorioDevolucion({ nombre, libros }) {
 }
 
 module.exports = {
+  componerBorrador, conFirma, textoAHtml,
   plantillaLoteria,
   enviarEmail, numeroSocioBonito, plantillaCredenciales, plantillaMochilaTurno, plantillaComentario, plantillaDonacion,
   plantillaBienvenida, plantillaRechazo, plantillaRecuperarPassword, plantillaRecordatorioDevolucion

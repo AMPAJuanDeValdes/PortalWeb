@@ -5430,3 +5430,140 @@ drop trigger if exists eventos_validar_fin on eventos;
 create trigger eventos_validar_fin before insert or update on eventos
   for each row execute function eventos_validar_fin();
 
+-- ==================================================================
+-- AVISOS Y CIRCULARES DEL BANCO DE UNIFORMES Y DEL BANCO DE LIBROS
+--  · Desde la convocatoria abierta, la Junta puede avisar en el móvil a
+--    las familias y preparar la circular (email en Borradores del buzón).
+--  · Se guarda cuándo se avisó y a cuántas familias.
+-- Se puede ejecutar varias veces.
+-- ==================================================================
+alter table uniformes_convocatorias add column if not exists aviso_push_en timestamptz;
+alter table uniformes_convocatorias add column if not exists aviso_push_familias integer;
+alter table prestamo_convocatorias add column if not exists aviso_push_en timestamptz;
+alter table prestamo_convocatorias add column if not exists aviso_push_familias integer;
+
+-- ==================================================================
+-- HISTORIAL DE AVISOS Y CIRCULARES
+--  · Cada «Avisar a las familias» (aviso en el móvil) y cada «Enviar
+--    circular» (email a Borradores) de un evento o de una convocatoria del
+--    Banco de Uniformes o del Banco de Libros queda apuntado: cuándo,
+--    quién y a cuántas familias. Junto a los botones se ve cuántas veces se
+--    ha hecho y cuándo fue la última.
+--  · Lo escriben las funciones de Netlify; solo la Junta lo lee.
+-- Se puede ejecutar varias veces.
+-- ==================================================================
+create table if not exists difusiones (
+  id bigint generated always as identity primary key,
+  tipo text not null check (tipo in ('evento', 'uniformes', 'libros')),
+  ref_id uuid not null,                 -- el evento o la convocatoria
+  canal text not null check (canal in ('aviso', 'circular')),
+  familias integer,                     -- en los avisos: familias con el aviso activado
+  creado_por_nombre text,
+  created_at timestamptz not null default now()
+);
+create index if not exists difusiones_ref on difusiones(tipo, ref_id, created_at desc);
+alter table difusiones enable row level security;
+drop policy if exists "la junta ve el historial de avisos y circulares" on difusiones;
+create policy "la junta ve el historial de avisos y circulares" on difusiones for select using (is_admin());
+
+-- Los avisos que ya se habían hecho antes de este historial (solo el último)
+do $$ begin
+  if exists (select 1 from information_schema.columns where table_name = 'eventos' and column_name = 'aviso_push_en') then
+    insert into difusiones (tipo, ref_id, canal, familias, created_at)
+    select 'evento', e.id, 'aviso', e.aviso_push_familias, e.aviso_push_en from eventos e
+     where e.aviso_push_en is not null
+       and not exists (select 1 from difusiones d where d.tipo = 'evento' and d.ref_id = e.id and d.canal = 'aviso');
+  end if;
+  if exists (select 1 from information_schema.columns where table_name = 'uniformes_convocatorias' and column_name = 'aviso_push_en') then
+    insert into difusiones (tipo, ref_id, canal, familias, created_at)
+    select 'uniformes', c.id, 'aviso', c.aviso_push_familias, c.aviso_push_en from uniformes_convocatorias c
+     where c.aviso_push_en is not null and not exists (select 1 from difusiones d where d.tipo = 'uniformes' and d.ref_id = c.id and d.canal = 'aviso');
+    insert into difusiones (tipo, ref_id, canal, familias, created_at)
+    select 'libros', c.id, 'aviso', c.aviso_push_familias, c.aviso_push_en from prestamo_convocatorias c
+     where c.aviso_push_en is not null and not exists (select 1 from difusiones d where d.tipo = 'libros' and d.ref_id = c.id and d.canal = 'aviso');
+  end if;
+end $$;
+
+-- ==================================================================
+-- HACER ADMIN A UN ADULTO (solo desde la cuenta principal)
+--  · La cuenta principal es la del socio 0000. Sus adultos Admin son los
+--    únicos que pueden hacer Admin a un adulto de otra familia socia, o
+--    quitárselo (Panel → Socios, en la ficha de cada adulto).
+--  · Admin es el adulto, no la familia: el otro adulto de esa familia
+--    sigue siendo socio normal.
+--  · Nadie más puede cambiar el rol: ni las familias ni el resto de la
+--    Junta (antes, cualquier Admin podía hacerlo desde la consola).
+--  · Los adultos del socio 0000 no pierden el Admin desde la web, y el
+--    número 0000 no se puede cambiar ni dar a otra familia desde la web.
+-- Se puede ejecutar varias veces.
+-- ==================================================================
+create or replace function es_admin_principal() returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from adultos a join socios s on s.id = a.socio_id
+                  where a.id = auth.uid() and a.role = 'admin' and s.numero_secuencial = '0000');
+$$;
+grant execute on function es_admin_principal() to authenticated;
+
+-- El rol solo lo cambia la cuenta principal (o la base de datos / las
+-- funciones de Netlify, sin sesión de usuario)
+create or replace function proteger_rol_adulto() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if new.role is distinct from old.role and auth.uid() is not null and not es_admin_principal() then
+    raise exception 'Solo la cuenta principal del AMPA (socio 0000) puede hacer o quitar Admin.';
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists trg_proteger_rol_adulto on adultos;
+create trigger trg_proteger_rol_adulto before update on adultos
+  for each row execute function proteger_rol_adulto();
+
+-- Un adulto nuevo no puede nacer Admin desde la web (solo socio)
+create or replace function proteger_rol_adulto_nuevo() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if new.role = 'admin' and auth.uid() is not null and not es_admin_principal() then
+    raise exception 'Solo la cuenta principal del AMPA (socio 0000) puede hacer Admin.';
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists trg_proteger_rol_adulto_nuevo on adultos;
+create trigger trg_proteger_rol_adulto_nuevo before insert on adultos
+  for each row execute function proteger_rol_adulto_nuevo();
+
+-- El número 0000 es el de la cuenta principal: no se cambia desde la web
+create or replace function proteger_socio_0000() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is not null and new.numero_secuencial is distinct from old.numero_secuencial
+     and (old.numero_secuencial = '0000' or new.numero_secuencial = '0000') then
+    raise exception 'El número 0000 es el de la cuenta principal del AMPA: no se puede cambiar ni dar a otra familia.';
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists trg_proteger_socio_0000 on socios;
+create trigger trg_proteger_socio_0000 before update on socios
+  for each row execute function proteger_socio_0000();
+
+-- Hacer o quitar Admin a un adulto
+create or replace function adulto_cambiar_admin(p_adulto uuid, p_admin boolean)
+returns void language plpgsql security definer set search_path = public as $$
+declare a record;
+begin
+  if not es_admin_principal() then
+    raise exception 'Solo la cuenta principal del AMPA (socio 0000) puede hacer o quitar Admin.';
+  end if;
+  select ad.id, ad.role, ad.nombre, s.numero_secuencial, s.estado into a
+    from adultos ad join socios s on s.id = ad.socio_id where ad.id = p_adulto;
+  if a.id is null then raise exception 'Ese adulto no existe.'; end if;
+  if a.id = auth.uid() then raise exception 'No puedes cambiar tu propio rol.'; end if;
+  if a.numero_secuencial = '0000' then raise exception 'Los adultos de la cuenta principal siempre son Admin.'; end if;
+  if p_admin and a.estado <> 'activa' then raise exception 'Solo se puede hacer Admin a un adulto de una familia socia activa.'; end if;
+  update adultos set role = case when p_admin then 'admin' else 'socio' end where id = p_adulto;
+end;
+$$;
+grant execute on function adulto_cambiar_admin(uuid, boolean) to authenticated;
+

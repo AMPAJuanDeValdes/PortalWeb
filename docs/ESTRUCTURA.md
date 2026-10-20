@@ -58,6 +58,8 @@ cada funcionalidad nueva que se ha ido añadiendo:
 ### 1.1 Funciones auxiliares de Postgres
 - `is_admin()` — true si `auth.uid()` corresponde a un adulto con
   `role = 'admin'`.
+- `es_admin_principal()` — true si el adulto autenticado es Admin del socio 0000 (la cuenta principal):
+  solo él puede hacer o quitar Admin a un adulto (`adulto_cambiar_admin`).
 - `mi_socio_id()` — devuelve el `socio_id` del adulto autenticado
   (`auth.uid()`), o null si no aplica.
 - Prácticamente toda política RLS del proyecto se apoya en estas dos.
@@ -658,6 +660,7 @@ web/                      → Lo que se publica (Netlify publish = "web").
   admin-importar.html     → Alta de socios (CSV o manual) → admin-import-socios.js.
   admin-comprobantes.html → Justificantes de personas no socias (agrupados por pago).
   admin-eventos.html      → Eventos, sorteo, concurso, inscritos.
+                            «Enviar circular»: email del evento a Borradores del buzón (circular-borrador.js, _lib/imap.js).
   admin-mochila.html      → Mochila: asignar (fechas), entregar, recibir, juegos.
   admin-libros.html       → Banco de Libros: catálogo, ejemplares, reparto, entregas.
   admin-uniformes.html    → Banco de Uniformes: catálogo, convocatoria y reparto.

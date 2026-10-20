@@ -83,7 +83,7 @@ test.describe('Libros y uniformes', () => {
     expect(data[0].creado_por_nombre).toContain('Prueba');
   });
 
-  test('Familia: el préstamo solo ofrece los libros del curso de cada hijo/a', async ({ page }) => {
+  test('Familia: el préstamo solo ofrece los libros del curso de cada alumno/a', async ({ page }) => {
     // Si no hay convocatoria abierta, se abre una de prueba solo durante el
     // test (fecha de cierre 31/12/2099, que es su marca) y se borra al final.
     const { data: abiertas } = await admin.from('prestamo_convocatorias').select('id, fecha_cierre').eq('estado', 'abierta');

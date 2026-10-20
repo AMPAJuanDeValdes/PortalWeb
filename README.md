@@ -87,6 +87,8 @@ ejecutados, borra los archivos de `pendientes/`: su contenido ya está en
 | `SITE_URL` | la URL de la web, sin barra al final |
 | `VAPID_PUBLIC_KEY` | clave pública de los avisos en el móvil (ver abajo) |
 | `VAPID_PRIVATE_KEY` | clave privada de los avisos. Solo aquí, nunca en el proyecto |
+| `IMAP_HOST` | (opcional) servidor IMAP del buzón para «Enviar circular». Si no está, el de `SMTP_HOST` cambiando «smtp.» por «imap.» (`imap.serviciodecorreo.es`) |
+| `IMAP_BORRADORES` | (opcional) nombre de la carpeta de borradores si no se encuentra sola |
 | `VISITAS_SECRETO` | (opcional) texto largo cualquiera para los códigos anónimos de las estadísticas de visitas. Si no está, se usa uno sacado de la clave de servicio |
 
 **Desplegar:** el sitio está conectado al repositorio de GitHub; cada
@@ -152,3 +154,17 @@ Junta o visitante, si es móvil y un código anónimo (no se guarda ni la IP ni
 quién es). La Junta lo ve en Panel → Comunicación → «Visitas a la web».
 Se guarda 13 meses. En local, en las pruebas automáticas (navegador manejado por Playwright) y con las cuentas ficticias de las pruebas (email con «ampa-prueba-») no se apunta nada. Migración:
 `supabase/pendientes/migracion-visitas.sql`.
+
+## Enviar circular
+
+En Panel → Eventos, cada evento tiene «Enviar circular»: prepara un email con
+la información del evento (descripción, cuándo, dónde, para quién, plazas,
+precio para no socios y enlace para apuntarse) con la firma del AMPA y lo deja
+en la carpeta de Borradores del buzón del AMPA (por IMAP, con el mismo usuario
+y contraseña que el correo: `SMTP_USER` y `SMTP_PASSWORD`). Desde el correo se
+revisa, se ponen los destinatarios y se envía. Función:
+`netlify/functions/circular-borrador.js` (`_lib/imap.js`).
+
+Lo mismo en la convocatoria abierta del Banco de Uniformes y del Banco de
+Libros: «Avisar a las familias» (`push-avisar-convocatoria.js`) y «Enviar
+circular». Los textos están en `netlify/functions/_lib/bancos.js`.

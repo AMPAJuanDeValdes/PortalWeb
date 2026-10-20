@@ -80,6 +80,7 @@
   .field label{ font-size:14px; }
   .persona{ border-top:1px dashed var(--line); padding-top:14px; margin-top:14px; }
   .persona:first-of-type{ border-top:none; padding-top:0; margin-top:0; }
+  .persona-acc{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
   .persona-head{ display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:10px; font-weight:600; font-size:14px; }
   .acciones{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top:12px; }
   .dato-ro{ font-size:14px; } .dato-ro span{ color:var(--ink-soft); font-size:14px; display:block; }
@@ -160,6 +161,8 @@
 <script src="shared/csv.js"></script>
 <script>
 let ctxGlobal = null;
+// Cuenta principal del AMPA (socio 0000): solo ella puede hacer o quitar Admin a un adulto
+let esPrincipal = false;
 let SOCIOS = [];          // filas de socios, cada una con .adultos y .alumnos
 let abierto = null;       // id del socio desplegado en la lista
 let mensajePendiente = null; // mensaje a mostrar en la ficha tras repintarla
@@ -584,7 +587,8 @@ function pintarDetalle(s, td) {
     div.className = 'persona';
     div.innerHTML = `
       <div class="persona-head"><span>${i === 0 ? 'Adulto principal' : 'Segundo adulto'} ${a.role === 'admin' ? '<span class="badge badge-admin">admin</span>' : ''}</span>
-        ${i > 0 && a.id !== ctxGlobal.adulto.id ? '<button class="btn-danger-link quitarBtn">Quitar este adulto</button>' : ''}</div>
+        <span class="persona-acc">${esPrincipal && a.id !== ctxGlobal.adulto.id && s.numero_secuencial !== '0000' ? `<button class="btn btn-outline adminBtn">${a.role === 'admin' ? 'Quitar Admin' : 'Hacer Admin'}</button>` : ''}
+        ${i > 0 && a.id !== ctxGlobal.adulto.id ? '<button class="btn-danger-link quitarBtn">Quitar este adulto</button>' : ''}</span></div>
       <div class="grid3">
         ${campo('Nombre *', 'nombre', a.nombre)}${campo('Apellidos *', 'apellidos', a.apellidos)}${campo('Email (usuario de acceso) *', 'email', a.email, 'email')}
         ${campo('DNI / NIE / Pasaporte *', 'dni_nie', a.dni_nie)}
@@ -612,6 +616,23 @@ function pintarDetalle(s, td) {
       try { await llamarGestion({ accion: 'guardar_adulto', adultoId: a.id, datos: d }); msg(true, d.email.toLowerCase() !== String(a.email).toLowerCase() ? 'Guardado ✓ (el email de acceso también se ha cambiado).' : 'Guardado ✓'); await cargarDatos(); }
       catch (err) { msg(false, err.message); }
       e.target.disabled = false;
+    });
+    // Hacer o quitar Admin a este adulto (solo la cuenta principal)
+    const adm = div.querySelector('.adminBtn');
+    if (adm) adm.addEventListener('click', async () => {
+      const hacer = a.role !== 'admin';
+      const texto = hacer
+        ? `¿Hacer Admin a ${a.nombre} ${a.apellidos}? Podrá entrar en el Panel de la Junta y gestionar socios, eventos y todo lo demás. Solo esta persona: el otro adulto de su familia sigue siendo socio normal.`
+        : `¿Quitar el Admin a ${a.nombre} ${a.apellidos}? Dejará de ver el Panel de la Junta y seguirá como socio normal.`;
+      if (!confirm(texto)) return;
+      adm.disabled = true;
+      const { error } = await sb.rpc('adulto_cambiar_admin', { p_adulto: a.id, p_admin: hacer });
+      if (error) { msg(false, error.message); adm.disabled = false; return; }
+      msg(true, hacer ? `${a.nombre} ya es Admin.` : `${a.nombre} ya no es Admin.`);
+      a.role = hacer ? 'admin' : 'socio';
+      adm.textContent = hacer ? 'Quitar Admin' : 'Hacer Admin'; adm.disabled = false;
+      div.querySelector('.persona-head > span').innerHTML = `${i === 0 ? 'Adulto principal' : 'Segundo adulto'} ${hacer ? '<span class="badge badge-admin">admin</span>' : ''}`;
+      await cargarDatos();
     });
     const q = div.querySelector('.quitarBtn');
     if (q) q.addEventListener('click', async () => {
@@ -687,6 +708,7 @@ function pintarDetalle(s, td) {
   if (!ctx) return;
   ctxGlobal = ctx;
   renderNav('admin-socios', ctx);
+  try { const { data } = await sb.rpc('es_admin_principal'); esPrincipal = data === true; } catch (e) { esPrincipal = false; }
   await recargar();
   const pedir = new URLSearchParams(location.search).get('tab');
   if (pedir === 'socios') document.querySelector('.tab-btn[data-tab="socios"]').click();

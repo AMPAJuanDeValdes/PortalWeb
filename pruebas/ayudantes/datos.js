@@ -38,6 +38,20 @@ async function ok(promesa, que) {
   return data;
 }
 
+// Supabase a veces corta una respuesta (red, «Unexpected end of JSON input»,
+// 502/503...). Esos fallos pasajeros se reintentan hasta 3 veces; los demás
+// (email repetido, datos mal...) fallan a la primera.
+const PASAJERO = /Unexpected end of JSON|fetch failed|ECONNRESET|ETIMEDOUT|socket hang up|network|50[234]|timeout/i;
+async function conReintentos(fn, intentos = 3) {
+  for (let i = 1; ; i++) {
+    try { return await fn(); }
+    catch (e) {
+      if (i >= intentos || !PASAJERO.test(String(e && e.message))) throw e;
+      await new Promise(r => setTimeout(r, 1500 * i));
+    }
+  }
+}
+
 // Crea una familia completa directamente en la base de datos.
 async function crearFamilia({ etiqueta = 'fam', estado = 'activa', adultos = 1, alumnos = 0,
   esAdmin = false, forzarCambioClave = false, conNumero = false, datosRevisados = true } = {}) {
@@ -49,8 +63,13 @@ async function crearFamilia({ etiqueta = 'fam', estado = 'activa', adultos = 1, 
 
   const listaAdultos = [];
   for (let i = 0; i < adultos; i++) {
-    const email = emailPrueba(etiqueta);
-    const u = await ok(admin.auth.admin.createUser({ email, password: PASSWORD, email_confirm: true }), 'crear usuario');
+    // Cada intento con un email nuevo: si el corte llegó después de crearlo,
+    // el usuario a medias se borra al final con los demás de prueba
+    let email, u;
+    await conReintentos(async () => {
+      email = emailPrueba(etiqueta);
+      u = await ok(admin.auth.admin.createUser({ email, password: PASSWORD, email_confirm: true }), 'crear usuario');
+    });
     const fila = {
       id: u.user.id, socio_id: socio.id, nombre: i === 0 ? 'Prueba' : 'Segunda', apellidos: 'Automática ' + etiqueta,
       dni_nie: dniPrueba(), email, direccion: 'Calle de las Pruebas 1', ciudad: 'Madrid', provincia: 'Madrid',
@@ -92,7 +111,7 @@ async function clienteComo(email, password = PASSWORD) {
   const c = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY, {
     auth: { persistSession: false, autoRefreshToken: false }
   });
-  await ok(c.auth.signInWithPassword({ email, password }), 'iniciar sesión ' + email);
+  await conReintentos(() => ok(c.auth.signInWithPassword({ email, password }), 'iniciar sesión ' + email));
   const { data } = await c.auth.getSession();
   return { cliente: c, token: data.session.access_token };
 }
@@ -124,5 +143,5 @@ function aceptarDialogos(page) {
 module.exports = {
   CIERRE_PRUEBA,
   admin, MARCA, PASSWORD, COMPROBANTE, emailPrueba, dniPrueba, crearFamilia, socioPorEmail,
-  clienteComo, llamarFuncion, entrar, aceptarDialogos, siguienteNumeroLibre
+  clienteComo, llamarFuncion, entrar, aceptarDialogos, siguienteNumeroLibre, conReintentos
 };

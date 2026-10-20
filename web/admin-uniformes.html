@@ -109,6 +109,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="shared/supabaseClient.js"></script>
 <script src="shared/nav.js"></script>
+<script src="shared/difusion.js"></script>
 <script src="shared/helpers.js"></script>
 <script src="shared/csv.js"></script>
 <script>
@@ -273,8 +274,11 @@ async function cargarConvocatoria() {
       <div class="fila"><div class="field"><label>Las familias pueden pedir hasta</label><input type="datetime-local" id="nuevaFechaCierre"></div>
       <button type="button" class="btn btn-primary" id="crearBtn">Abrir convocatoria</button></div></div>`;
   }
+  // Avisar a las familias y circular, mientras se puede pedir
+  if (c && c.estado === 'abierta' && !plazoCerrado) html += '<div id="difusionWrap"></div>';
   html += '<p id="convMsg" style="display:none; margin-top:12px;"></p>';
   card.innerHTML = html;
+  montarDifusion(document.getElementById('difusionWrap'), { tipo: 'uniformes', convocatoria: c });
 
   card.querySelectorAll('[data-accion]').forEach(b => b.addEventListener('click', () => accionConvocatoria(b.dataset.accion)));
   const rep = document.getElementById('repartirBtn'); if (rep) rep.addEventListener('click', repartir);

@@ -99,9 +99,13 @@ test.describe('Portada y Banco de Uniformes', () => {
   test('«Qué hacemos»: la caja de Eventos lleva a los eventos', async ({ page }) => {
     await page.goto('/index.html');
     const caja = page.locator('#pista a.p-eventos');
-    await expect(caja).toHaveAttribute('href', 'publico.html');
+    // (Netlify reescribe los enlaces «x.html» como «/x»)
+    await expect(caja).toHaveAttribute('href', /publico(\.html)?$/);
     await expect(caja).toHaveAttribute('data-socio', 'eventos.html');
-    await expect(page.locator('#pista a.p-libros')).toHaveAttribute('href', 'login.html?volver=prestamo.html');
+    await expect(page.locator('#pista a.p-libros')).toHaveAttribute('href', /login(\.html)?\?volver=prestamo\.html$/);
+    // Sin sesión, al pulsarla se llega a los eventos abiertos a no socios
+    await caja.click();
+    await expect(page).toHaveURL(/publico(\.html)?$/);
   });
 
   test('Banco de Uniformes: queda claro que se regala una prenda por alumno/a', async ({ page }) => {

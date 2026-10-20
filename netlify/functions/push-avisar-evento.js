@@ -8,7 +8,7 @@
 //   si no      → envía y devuelve { familias, dispositivos, enviados, fallidos }
 
 const { createClient } = require('@supabase/supabase-js');
-const { enviarPush, clavesEntorno } = require('./_lib/webpush');
+const { familiasActivas, avisarFamilias, registrarDifusion } = require('./_lib/avisos');
 
 const json = (statusCode, obj) => ({ statusCode, body: JSON.stringify(obj) });
 
@@ -46,16 +46,6 @@ function mensajeDe(ev, nombres) {
   return { title: 'Nueva actividad: ' + ev.titulo, body, url: '/eventos.html#ev-' + ev.id, tag: 'evento-' + ev.id };
 }
 
-async function todas(consulta) {
-  const filas = [];
-  for (let desde = 0; ; desde += 1000) {
-    const { data, error } = await consulta().range(desde, desde + 999);
-    if (error) throw error;
-    filas.push(...(data || []));
-    if (!data || data.length < 1000) return filas;
-  }
-}
-
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') return { statusCode: 405, body: 'Método no permitido' };
   const token = String(event.headers.authorization || event.headers.Authorization || '').replace('Bearer ', '');
@@ -74,49 +64,27 @@ exports.handler = async (event) => {
   if (!ev.activo) return json(400, { error: 'El evento no está publicado: actívalo antes de avisar.' });
 
   try {
-    const socios = await todas(() => sb.from('socios').select('id').eq('estado', 'activa'));
-    const activos = new Set(socios.map(s => s.id));
-    const alumnos = (await todas(() => sb.from('alumnos').select('socio_id, nombre, etapa, curso, fecha_nacimiento')))
-      .filter(a => activos.has(a.socio_id));
-
+    const { socios, alumnos } = await familiasActivas(sb);
     // Familia → nombres de sus alumnos/as que pueden apuntarse
-    const familias = new Map();
+    const nombres = new Map();
     if (ev.tipo_elegibilidad === 'adultos' || ev.sin_inscripcion || (ev.tipo_elegibilidad === 'toda_familia' && ev.elegibilidad_modo !== 'edad')) {
-      socios.forEach(s => familias.set(s.id, []));
-      if (ev.tipo_elegibilidad === 'toda_familia') alumnos.forEach(a => familias.get(a.socio_id)?.push(a.nombre));
+      socios.forEach(s => nombres.set(s.id, []));
+      if (ev.tipo_elegibilidad === 'toda_familia') alumnos.forEach(a => nombres.get(a.socio_id)?.push(a.nombre));
     } else {
       alumnos.filter(a => alumnoPuede(ev, a)).forEach(a => {
-        if (!familias.has(a.socio_id)) familias.set(a.socio_id, []);
-        familias.get(a.socio_id).push(a.nombre);
+        if (!nombres.has(a.socio_id)) nombres.set(a.socio_id, []);
+        nombres.get(a.socio_id).push(a.nombre);
       });
     }
-
-    const subs = (await todas(() => sb.from('push_suscripciones').select('endpoint, p256dh, auth, socio_id')))
-      .filter(s => familias.has(s.socio_id));
-    const familiasConAviso = new Set(subs.map(s => s.socio_id)).size;
-    const base = { familias: familias.size, familiasConAviso, dispositivos: subs.length };
-    if (p.soloContar) return json(200, base);
-
-    const claves = clavesEntorno();
-    if (!claves) return json(500, { error: 'Faltan las claves de los avisos (VAPID_PUBLIC_KEY y VAPID_PRIVATE_KEY) en Netlify. Mira el README.' });
-
-    let enviados = 0, fallidos = 0;
-    const caducadas = [];
-    // De 20 en 20 para no pasarse del tiempo de la función
-    for (let i = 0; i < subs.length; i += 20) {
-      await Promise.all(subs.slice(i, i + 20).map(async (s) => {
-        try {
-          const r = await enviarPush(s, mensajeDe(ev, familias.get(s.socio_id) || []), claves);
-          if (r.ok) enviados++; else { fallidos++; if (r.caducada) caducadas.push(s.endpoint); }
-        } catch (e) { fallidos++; }
-      }));
+    const familias = new Map([...nombres].map(([id, n]) => [id, mensajeDe(ev, n)]));
+    const r = await avisarFamilias(sb, familias, { soloContar: !!p.soloContar });
+    if (!p.soloContar) {
+      await sb.from('eventos').update({ aviso_push_en: new Date().toISOString(), aviso_push_familias: r.familiasConAviso }).eq('id', ev.id);
+      await registrarDifusion(sb, { tipo: 'evento', refId: ev.id, canal: 'aviso', familias: r.familiasConAviso, adultoId: u.user.id });
     }
-    // Dispositivos que ya no existen (desinstalada la web, permisos quitados...)
-    if (caducadas.length) await sb.from('push_suscripciones').delete().in('endpoint', caducadas);
-    await sb.from('eventos').update({ aviso_push_en: new Date().toISOString(), aviso_push_familias: familiasConAviso }).eq('id', ev.id);
-    return json(200, { ...base, enviados, fallidos, caducadas: caducadas.length });
+    return json(200, r);
   } catch (e) {
-    return json(500, { error: e.message || 'No se pudo avisar.' });
+    return json(e.status || 500, { error: e.message || 'No se pudo avisar.' });
   }
 };
 

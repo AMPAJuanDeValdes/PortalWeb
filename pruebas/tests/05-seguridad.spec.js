@@ -19,6 +19,22 @@ test.describe('Seguridad', () => {
     expect(error && error.message).toMatch(/rol/i);
   });
 
+  test('Solo la cuenta principal (socio 0000) hace Admin: el resto de la Junta no puede', async () => {
+    const jefe = await crearFamilia({ etiqueta: 'noprincipal', esAdmin: true });
+    const { cliente } = await clienteComo(jefe.adultos[0].email);
+    const { data: soy } = await cliente.rpc('es_admin_principal');
+    expect(soy).toBe(false);
+    let r = await cliente.rpc('adulto_cambiar_admin', { p_adulto: a.adultos[0].id, p_admin: true });
+    expect(r.error?.message).toContain('cuenta principal');
+    r = await cliente.from('adultos').update({ role: 'admin' }).eq('id', a.adultos[0].id);
+    expect(r.error?.message).toContain('cuenta principal');
+    const { data } = await admin.from('adultos').select('role').eq('id', a.adultos[0].id).single();
+    expect(data.role).toBe('socio');
+    // Y nadie de la Junta puede quedarse con el número 0000
+    r = await cliente.from('socios').update({ numero_secuencial: '0000' }).eq('id', a.socio.id);
+    expect(r.error?.message).toContain('0000');
+  });
+
   test('Un socio no puede reactivar su propia cuenta', async () => {
     const { cliente } = await clienteComo(impago.adultos[0].email);
     const { error } = await cliente.from('socios').update({ estado: 'activa' }).eq('id', impago.socio.id);
@@ -63,7 +79,7 @@ test.describe('Seguridad', () => {
 
   test('Funciones de admin: 403 con un socio, 401 sin sesión', async () => {
     const { token } = await clienteComo(a.adultos[0].email);
-    for (const f of ['admin-gestionar-cuenta', 'admin-import-socios', 'enviar-email-masivo', 'prestamo-repartir', 'uniformes-repartir', 'evento-sortear']) {
+    for (const f of ['admin-gestionar-cuenta', 'admin-import-socios', 'enviar-email-masivo', 'prestamo-repartir', 'uniformes-repartir', 'evento-sortear', 'circular-borrador', 'push-avisar-evento', 'push-avisar-convocatoria']) {
       const conSocio = await llamarFuncion(f, { accion: 'baja', socioId: b.socio.id }, token);
       expect(conSocio.status, f + ' con socio').toBe(403);
       const sinToken = await llamarFuncion(f, {}, null);

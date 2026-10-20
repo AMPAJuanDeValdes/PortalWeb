@@ -466,6 +466,29 @@ que la respuesta es vacía o un error de permisos, nunca los datos:
 - [ ] Recargar la misma página varias veces seguidas → cuenta una sola visita.
 - [ ] «Incluir a la Junta» añade las visitas de la Junta.
 
+## Enviar circular
+
+- [ ] En Panel → Eventos, «Enviar circular» en un evento → aparece el
+      mensaje con la carpeta, y en el correo del AMPA (Borradores) está el
+      email con la información del evento y la firma. Se pone el
+      destinatario y se envía desde allí.
+
+- [ ] Banco de Uniformes y Banco de Libros, con la convocatoria abierta:
+      «Avisar a las familias» dice a cuántas familias llegaría y, al
+      confirmar, les llega el aviso; «Enviar circular» deja el email en
+      Borradores.
+
+- [ ] Junto a «Avisar a las familias» y «Enviar circular» (eventos y
+      bancos) se ve cuántas veces se ha hecho y la última; al pasar el
+      ratón, la lista con fecha, familias y quién.
+
+## Hacer Admin
+
+- [ ] Con la cuenta principal (socio 0000), en Socios → ficha de una
+      familia, cada adulto tiene «Hacer Admin» / «Quitar Admin». Al hacer
+      Admin a uno, el otro adulto de la familia sigue siendo socio.
+- [ ] Con otra cuenta de la Junta no sale el botón.
+
 ## Cómo reportar lo que falle
 
 Por cada caso marcado como fallido, apunta:

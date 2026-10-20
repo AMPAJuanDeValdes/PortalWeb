@@ -217,6 +217,7 @@
 <script src="shared/sesiones.js"></script>
 <script src="shared/recogida.js"></script>
 <script src="shared/nav.js"></script>
+<script src="shared/difusion.js"></script>
 <script src="shared/catalogo.js"></script>
 <script src="shared/helpers.js"></script>
 <script src="shared/csv.js"></script>
@@ -594,6 +595,18 @@ function fechaFinAdmin(ev) {
   return ev.fecha ? finEvento(ev).getTime() : 0;
 }
 let pestanaEventos = 'actuales';
+// Historial de avisos y circulares de los eventos (shared/difusion.js)
+let difusionesEventos = new Map();
+function pintarDifusionFila(row, id) {
+  const lista = difusionesEventos.get(id);
+  pintarResumenDifusion(row.querySelector('.avisarBtn'), row.querySelector('.info-aviso'), lista, 'aviso');
+  pintarResumenDifusion(row.querySelector('.circularBtn'), row.querySelector('.info-circular'), lista, 'circular');
+}
+async function refrescarDifusion(row, id) {
+  const m = await cargarDifusiones('evento', [id]);
+  difusionesEventos.set(id, m.get(id) || []);
+  pintarDifusionFila(row, id);
+}
 function aplicarPestanaEventos() {
   const filas = [...document.querySelectorAll('#eventosWrap .evento-row')];
   let visibles = 0;
@@ -631,6 +644,7 @@ async function cargarEventos() {
   }));
   const QUIEN = { toda_familia: 'Toda la familia', alumnos: 'Alumnos', adultos: 'Adultos' };
 
+  difusionesEventos = await cargarDifusiones('evento');
   // Los que ya han terminado van a «Eventos pasados» (el más reciente primero)
   const actuales = eventos.filter(e => !eventoTerminadoAdmin(e));
   const pasados = eventos.filter(eventoTerminadoAdmin).sort((a, b) => fechaFinAdmin(b) - fechaFinAdmin(a));
@@ -651,11 +665,10 @@ async function cargarEventos() {
             (ev.aforo_total != null ? (ev.requiere_pareja_adulto_alumno ? `, ${ev.aforo_total} plazas de alumnos` : `, ${ocupacion[ev.id] ?? 0} de ${ev.aforo_total} plazas`) : '') +
             (ev.metodo_asignacion === 'sorteo' ? ', por sorteo' : '') +
           '</span>' +
-          (ev.aviso_push_en ? `<br><span style="font-size:14px; color:var(--ink-soft);">Avisadas ${ev.aviso_push_familias ?? 0} familias en el móvil el ${new Date(ev.aviso_push_en).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })}</span>` : '') +
           (incompatiblesDe(ev.id).length ? '<br><span style="font-size:14px; color:var(--ink-soft);">A la misma hora que: ' +
             incompatiblesDe(ev.id).map(id => esc((eventosCache.find(e => e.id === id) || {}).titulo || '')).join(', ') + '</span>' : '') +
           '</div>' +
-        '<div style="display:flex; gap:8px; flex-wrap:wrap;">' +
+        '<div style="display:flex; gap:8px; flex-wrap:wrap; align-items:flex-start;">' +
           '<button class="btn btn-outline editarBtn">Editar</button>' +
           (!ev.sin_inscripcion && !ev.usa_concurso_texto ? '<button class="btn btn-outline toggleInscritosBtn">Inscritos</button>' : '') +
           (ev.usa_concurso_texto ? '<button class="btn btn-outline toggleConcursoBtn">Concurso</button>' : '') +
@@ -666,7 +679,9 @@ async function cargarEventos() {
           (!ev.sin_inscripcion && !ev.usa_concurso_texto ? '<button class="btn btn-outline toggleDocsBtn">Documentos</button>' : '') +
           (inscripcionCerrada(ev, ocupacion[ev.id]) && ev.tipo_elegibilidad !== 'adultos' && !ev.sin_inscripcion && !ev.usa_concurso_texto ? '<button class="btn btn-outline listadoBtn">Listado (Excel)</button>' : '') +
           (ev.metodo_asignacion === 'sorteo' && !ev.sorteo_realizado ? '<button class="btn btn-outline sortearBtn">Sortear</button>' : '') +
-          (ev.activo && !eventoTerminadoAdmin(ev) ? '<button class="btn btn-outline avisarBtn">Avisar a las familias</button>' : '') +
+          // Junto a cada botón: cuántas veces se ha hecho y la última (al pasar el ratón, todas)
+          (ev.activo && !eventoTerminadoAdmin(ev) ? '<span class="difusion-par"><button class="btn btn-outline avisarBtn">Avisar a las familias</button><small class="difusion-info info-aviso" hidden></small></span>' : '') +
+          (!eventoTerminadoAdmin(ev) ? '<span class="difusion-par"><button class="btn btn-outline circularBtn">Enviar circular</button><small class="difusion-info info-circular" hidden></small></span>' : '') +
           (ev.metodo_asignacion === 'sorteo' && ev.sorteo_realizado ? '<span class="badge badge-socio">Ya sorteado</span>' : '') +
           '<button class="btn-danger-link toggleActivoBtn">' + (ev.activo ? 'Ocultar' : 'Reactivar') + '</button>' +
           '<button class="btn-danger-link borrarBtn">Borrar</button>' +
@@ -761,6 +776,30 @@ async function cargarEventos() {
       });
     }
 
+    // Circular: el email con la información del evento queda en Borradores
+    // del buzón del AMPA para revisarlo y enviarlo desde el correo
+    const circularBtn = row.querySelector('.circularBtn');
+    if (circularBtn) circularBtn.addEventListener('click', async () => {
+      const msg = row.querySelector('.sortearMsg');
+      if (!confirm(`Se va a preparar un email con la información de «${ev.titulo}» y se dejará en Borradores del correo del AMPA para que lo reviséis y lo enviéis desde allí. ¿Seguir?`)) return;
+      circularBtn.disabled = true; circularBtn.textContent = 'Preparando...';
+      try {
+        const session = await getSession();
+        const resp = await fetch('/.netlify/functions/circular-borrador', {
+          method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
+          body: JSON.stringify({ eventoId: ev.id })
+        });
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok) throw new Error(data.error || 'No se pudo preparar la circular.');
+        msg.style.display = 'block'; msg.className = 'sortearMsg msg-ok';
+        msg.textContent = `Circular «${data.asunto}» guardada en «${data.carpeta}» del correo del AMPA. Ábrela allí, revísala, pon los destinatarios y envíala.`;
+      } catch (e) {
+        msg.style.display = 'block'; msg.className = 'sortearMsg msg-error'; msg.textContent = e.message;
+      }
+      circularBtn.disabled = false; circularBtn.textContent = 'Enviar circular';
+      refrescarDifusion(row, ev.id);
+    });
+
     // Aviso en el móvil a las familias con algún alumno/a que puede apuntarse
     const avisarBtn = row.querySelector('.avisarBtn');
     if (avisarBtn) avisarBtn.addEventListener('click', async () => {
@@ -779,21 +818,22 @@ async function cargarEventos() {
       try {
         const c = await llamar(true);
         if (!c.dispositivos) {
-          msg.style.display = 'block'; msg.className = 'msg-error';
+          msg.style.display = 'block'; msg.className = 'sortearMsg msg-error';
           msg.textContent = `De las ${c.familias} familias que pueden apuntarse, ninguna tiene los avisos activados todavía.`;
           avisarBtn.disabled = false; return;
         }
-        const yaAvisado = ev.aviso_push_en ? `\n\nOjo: ya se avisó el ${new Date(ev.aviso_push_en).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })}; les llegará otra vez.` : '';
+        const previos = resumenDifusion(difusionesEventos.get(ev.id), 'aviso');
+        const yaAvisado = previos ? `\n\nOjo: ${previos.texto.toLowerCase()}; les llegará otra vez.` : '';
         if (!confirm(`Pueden apuntarse ${c.familias} familias; ${c.familiasConAviso} tienen los avisos activados (${c.dispositivos} dispositivos).\n\n¿Enviar ahora el aviso de «${ev.titulo}»?${yaAvisado}`)) { avisarBtn.disabled = false; return; }
         avisarBtn.textContent = 'Enviando...';
         const r = await llamar(false);
-        msg.style.display = 'block'; msg.className = r.fallidos ? 'msg-error' : 'msg-ok';
+        msg.style.display = 'block'; msg.className = 'sortearMsg ' + (r.fallidos ? 'msg-error' : 'msg-ok');
         msg.textContent = `Aviso enviado a ${r.enviados} dispositivos (${r.familiasConAviso} familias)` + (r.fallidos ? `; ${r.fallidos} no se pudieron enviar${r.caducadas ? ' (' + r.caducadas + ' ya no tenían los avisos activados y se han quitado)' : ''}.` : '.');
-        setTimeout(cargarEventos, 2500);
       } catch (e) {
-        msg.style.display = 'block'; msg.className = 'msg-error'; msg.textContent = e.message;
+        msg.style.display = 'block'; msg.className = 'sortearMsg msg-error'; msg.textContent = e.message;
       }
       avisarBtn.disabled = false; avisarBtn.textContent = 'Avisar a las familias';
+      refrescarDifusion(row, ev.id);
     });
 
     const sortearBtn = row.querySelector('.sortearBtn');
@@ -811,17 +851,18 @@ async function cargarEventos() {
           });
           const data = await resp.json();
           if (!resp.ok) throw new Error(data.error || 'Error al sortear');
-          msg.style.display = 'block'; msg.className = 'msg-ok';
+          msg.style.display = 'block'; msg.className = 'sortearMsg msg-ok';
           msg.textContent = `Sorteado ✓ — ${data.ganadores} ganador(es), ${data.noGanadores} sin plaza.`;
           cargarEventos();
         } catch (err) {
-          msg.style.display = 'block'; msg.className = 'msg-error'; msg.textContent = err.message;
+          msg.style.display = 'block'; msg.className = 'sortearMsg msg-error'; msg.textContent = err.message;
           sortearBtn.disabled = false;
         }
       });
     }
 
     wrap.appendChild(row);
+    pintarDifusionFila(row, ev.id);
   }
   aplicarPestanaEventos();
 }
