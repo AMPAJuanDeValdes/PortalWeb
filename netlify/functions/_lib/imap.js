@@ -74,8 +74,17 @@ function carpetaBorradores(lineasList) {
   return null;
 }
 
+// IMAP exige que todas las líneas del mensaje acaben en CRLF (RFC 3501/5322):
+// los saltos «\n» o «\r» sueltos hacen que el servidor rechace el APPEND
+// («Message contains bare newlines»). Se trabaja en latin1 para no tocar los bytes.
+function finesDeLineaCRLF(mensaje) {
+  const s = Buffer.isBuffer(mensaje) ? mensaje.toString('latin1') : String(mensaje);
+  return Buffer.from(s.replace(/\r\n|\r|\n/g, '\r\n'), 'latin1');
+}
+
 // Guarda el mensaje (RFC 822, Buffer) en Borradores. Devuelve el nombre de la carpeta.
 async function guardarBorrador(mensaje) {
+  mensaje = finesDeLineaCRLF(mensaje);
   const cfg = configImap();
   if (!cfg.host || !cfg.user || !cfg.pass) throw new Error('Faltan los datos del buzón (SMTP_HOST, SMTP_USER y SMTP_PASSWORD) en Netlify.');
   const c = await conectar(cfg);
@@ -94,4 +103,4 @@ async function guardarBorrador(mensaje) {
   }
 }
 
-module.exports = { guardarBorrador, carpetaBorradores, configImap };
+module.exports = { guardarBorrador, finesDeLineaCRLF, carpetaBorradores, configImap };
