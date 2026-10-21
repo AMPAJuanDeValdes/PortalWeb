@@ -90,11 +90,21 @@ function redirigirPorEstado(socio) {
   return false;
 }
 
+// login.html?volver=<esta página>#<ancla>: tras entrar se vuelve aquí (por
+// ejemplo, desde el enlace de una circular a eventos.html#ev-…)
+function urlLoginVolviendo() {
+  let pagina = (window.location.pathname.split('/').pop() || '');
+  if (pagina && !/\.html$/i.test(pagina)) pagina += '.html';   // Netlify sirve /eventos como eventos.html
+  const volver = pagina + (/^#[\w-]*$/.test(window.location.hash) ? window.location.hash : '');
+  return /^[a-z0-9-]+\.html(#[\w-]*)?$/i.test(volver) && !/^(login|index|dashboard)\.html$/i.test(pagina)
+    ? 'login.html?volver=' + encodeURIComponent(volver) : 'login.html';
+}
+
 // Llamar al principio de cada página que requiera sesión iniciada.
 async function requireAuth() {
   const session = await getSession();
   if (!session) {
-    window.location.href = 'login.html';
+    window.location.href = urlLoginVolviendo();
     return null;
   }
   const adulto = await getAdulto();

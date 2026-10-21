@@ -87,11 +87,15 @@ async function cargarEventos() {
   if (!futuros.length) { cont.innerHTML = '<p class="empty-hint">Ahora mismo no hay eventos abiertos a no socios.</p>'; return; }
   cont.innerHTML = '';
   for (const ev of futuros) cont.appendChild(await tarjetaEvento(ev));
+  // publico.html#ev-<id> (enlace de las circulares): se va directo a ese evento
+  const destino = /^#ev-[\w-]+$/.test(location.hash) && document.getElementById(location.hash.slice(1));
+  if (destino) destino.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 async function tarjetaEvento(ev) {
   const card = document.createElement('div');
   card.className = 'card evento-card';
+  card.id = 'ev-' + ev.id;
   const precio = Number(ev.precio_invitado) || 0;
   card.innerHTML = `
     <p class="evento-fecha">${ES_CURSO(ev) ? (proximaSesion(SESIONES[ev.id]) ? 'Próxima sesión: ' + fechaLarga(proximaSesion(SESIONES[ev.id]).fecha) : 'Las fechas de las sesiones se irán publicando') : fechaLarga(ev.fecha, ev.fecha_fin)}${ev.lugar ? '. Lugar: ' + esc(ev.lugar) : ''}</p>

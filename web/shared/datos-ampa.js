@@ -5,6 +5,10 @@
 var AMPA_IBAN = 'ES41 0049 4078 5026 1410 8578';
 var AMPA_TITULAR_CUENTA = 'APA del Colegio Evangélico Juan de Valdés';
 var AMPA_CUOTA_ANUAL = '25 €';
+// Contacto (pie de las circulares)
+var AMPA_EMAIL = 'ampa_j_valdes@fapaginerdelosrios.org';
+var AMPA_INSTAGRAM = 'https://www.instagram.com/ampacolegiojuandevaldes/';
+var AMPA_WHATSAPP = 'https://whatsapp.com/channel/0029Vb5wJn6G8l57tBQ4Oe3K';
 
 // Año escolar: del 1 de agosto al 31 de julio. Ej.: 9/10/2026 -> '2026-2027'.
 // Año de la cuota que se paga ahora: la del curso que termina ese año
@@ -111,4 +115,9 @@ function notaEdad(input) {
   input.addEventListener('blur', pintar);
   input.addEventListener('change', pintar);
   if (input.value) pintar();
+}
+
+// Las funciones de Netlify (circulares) usan los mismos datos
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { AMPA_IBAN, AMPA_TITULAR_CUENTA, AMPA_CUOTA_ANUAL, AMPA_EMAIL, AMPA_INSTAGRAM, AMPA_WHATSAPP };
 }

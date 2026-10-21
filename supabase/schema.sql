@@ -5567,3 +5567,32 @@ end;
 $$;
 grant execute on function adulto_cambiar_admin(uuid, boolean) to authenticated;
 
+-- ===================== DESAPUNTAR (copia de migracion-desapuntar.sql) =====================
+-- ==================================================================
+-- DESAPUNTAR DESDE EL PANEL DE LA JUNTA
+--  · Al quitar la inscripción principal de una persona no socia (web
+--    pública), se quitan también sus actividades de ese evento (las que
+--    hizo en la misma inscripción, mismo grupo_id), igual que ya pasaba
+--    con los adultos y alumnos socios.
+-- Se puede ejecutar varias veces.
+-- ==================================================================
+create or replace function eventos_quitar_subactividades()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if old.actividad_id is null and not old.es_voluntario and old.tipo_miembro in ('adulto', 'alumno') then
+    delete from evento_inscripciones i
+    where i.evento_id = old.evento_id and i.actividad_id is not null and not i.es_voluntario
+      and ((old.tipo_miembro = 'adulto' and i.adulto_id = old.adulto_id)
+        or (old.tipo_miembro = 'alumno' and i.alumno_id = old.alumno_id));
+  elsif old.actividad_id is null and old.tipo_miembro = 'publico' and old.grupo_id is not null then
+    delete from evento_inscripciones i
+    where i.evento_id = old.evento_id and i.actividad_id is not null and i.grupo_id = old.grupo_id;
+  end if;
+  return old;
+end;
+$$;
+
+drop trigger if exists trg_eventos_quitar_subactividades on evento_inscripciones;
+create trigger trg_eventos_quitar_subactividades
+after delete on evento_inscripciones
+for each row execute function eventos_quitar_subactividades();

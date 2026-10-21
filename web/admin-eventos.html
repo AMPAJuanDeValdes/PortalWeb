@@ -904,7 +904,7 @@ async function renderInscritos(panel, ev) {
     const sinAdulto = ev.alumnos_requieren_adulto && i.tipo_miembro === 'alumno' && !i.actividad_id && !i.es_voluntario
       && !familiasConAdulto.has(i.socio_id) && !(i.responsable_adulto_id && adultosApuntados.has(i.responsable_adulto_id));
     return {
-      _sinAdulto: sinAdulto,
+      _sinAdulto: sinAdulto, _id: i.id, _ins: i, _pagado: !!(debePagar && comp),
       'Apartado': i.es_voluntario ? 'Voluntario' : (i.evento_actividades ? i.evento_actividades.nombre : 'Asistente'),
       'Nombre': nombre || '', 'Apellidos': apellidos || '', 'Tipo': tipo, 'Edad': edad, 'Curso': curso,
       'Alergias': i.tiene_alergias === true ? ('Sí: ' + (i.alergias || '')) : i.tiene_alergias === false ? 'No' : '',
@@ -932,9 +932,35 @@ async function renderInscritos(panel, ev) {
     </div>
     ${filas.some(f => f._sinAdulto) ? '<p class="aviso">Hay alumnos sin ningún adulto encargado (marcados en amarillo).</p>' : ''}
     <div class="tabla-wrap"><table>
-      <thead><tr>${columnas.map(c => `<th>${esc(c)}</th>`).join('')}</tr></thead>
-      <tbody>${filas.map(f => `<tr class="${f._sinAdulto ? 'aviso-fila' : ''}">${columnas.map(c => `<td>${esc(f[c])}</td>`).join('')}</tr>`).join('')}</tbody>
-    </table></div>`;
+      <thead><tr>${columnas.map(c => `<th>${esc(c)}</th>`).join('')}<th aria-label="Acciones"></th></tr></thead>
+      <tbody>${filas.map(f => `<tr class="${f._sinAdulto ? 'aviso-fila' : ''}">${columnas.map(c => `<td>${esc(f[c])}</td>`).join('')}<td><button type="button" class="btn-danger-link desapuntarBtn" data-id="${esc(f._id)}">Desapuntar</button></td></tr>`).join('')}</tbody>
+    </table></div>
+    <p class="msg-error desapuntarMsg" hidden></p>`;
+  // La Junta puede desapuntar a cualquiera (también fuera de plazo o con el sorteo hecho)
+  panel.querySelectorAll('.desapuntarBtn').forEach(b => b.addEventListener('click', async () => {
+    const f = filas.find(x => x._id === b.dataset.id);
+    if (!f) return;
+    const i = f._ins, quien = [f['Nombre'], f['Apellidos']].filter(Boolean).join(' ') || 'esta persona';
+    const avisos = [];
+    if (!i.actividad_id && !i.es_voluntario && data.some(o => o.id !== i.id && o.actividad_id && !o.es_voluntario
+        && ((i.tipo_miembro === 'adulto' && o.adulto_id === i.adulto_id) || (i.tipo_miembro === 'alumno' && o.alumno_id === i.alumno_id)
+          || (i.tipo_miembro === 'publico' && i.grupo_id && o.grupo_id === i.grupo_id))))
+      avisos.push('También se le quita de las actividades del evento a las que está apuntado/a.');
+    if (i.tipo_miembro === 'adulto' && !i.actividad_id && data.some(o => o.id !== i.id && o.socio_id === i.socio_id && o.tipo_miembro === 'alumno' && !o.actividad_id)
+        && !data.some(o => o.id !== i.id && o.socio_id === i.socio_id && o.tipo_miembro === 'adulto' && !o.actividad_id))
+      avisos.push('Es el único adulto de su familia en el evento: sus alumnos/as se quedan sin adulto encargado.');
+    if (f._pagado) avisos.push('Tiene un justificante de pago, que también se borra. Si hay que devolver el dinero, hacedlo aparte.');
+    if (!confirm(`¿Desapuntar a ${quien} de «${ev.titulo}»${f['Apartado'] !== 'Asistente' ? ` (${f['Apartado']})` : ''}?${avisos.length ? '\n\n' + avisos.join('\n') : ''}`)) return;
+    b.disabled = true;
+    const { error } = await sb.from('evento_inscripciones').delete().eq('id', i.id);
+    if (error) {
+      b.disabled = false;
+      const m = panel.querySelector('.desapuntarMsg');
+      m.textContent = 'No se pudo desapuntar: ' + error.message.replace(/^.*?ERROR:\s*/, ''); m.hidden = false;
+      return;
+    }
+    renderInscritos(panel, ev);
+  }));
   panel.querySelector('.csvBtn').addEventListener('click', () => {
     descargarCSV(filas.map(f => Object.fromEntries(columnas.map(c => [c, f[c]]))), 'inscritos-' + ev.titulo.replace(/[^\wáéíóúñÁÉÍÓÚÑ-]+/g, '-') + '.csv');
   });

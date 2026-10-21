@@ -204,7 +204,9 @@ Confirmado leyendo el archivo real — no asumir nada distinto a esto:
 - **`shared/helpers.js`** — `getResumenSocios(socioIds)`, devuelve
   `{ [socioId]: { numero_socio, nombre, estado } }`. Usado en pantallas
   de admin que listan cosas por familia.
-- **`shared/datos-ampa.js`** — `AMPA_IBAN`, `AMPA_CUOTA_ANUAL`,
+- **`shared/datos-ampa.js`** — `AMPA_IBAN`, `AMPA_CUOTA_ANUAL`, contacto
+  (`AMPA_EMAIL`, `AMPA_INSTAGRAM`, `AMPA_WHATSAPP`; también lo usan las
+  funciones de Netlify, p. ej. las circulares),
   `htmlDatosTransferencia(concepto)` y `marcarCamposVacios([elementos])`
   (marca en rojo con la clase `.campo-error` y hace scroll al primero).
   **El IBAN del AMPA vive solo aquí.**
@@ -658,9 +660,15 @@ web/                      → Lo que se publica (Netlify publish = "web").
   admin.html              → Panel de la Junta (mensajes de familias, accesos).
   admin-socios.html       → Socios + solicitudes → admin-gestionar-cuenta.js.
   admin-importar.html     → Alta de socios (CSV o manual) → admin-import-socios.js.
-  admin-comprobantes.html → Justificantes de personas no socias (agrupados por pago).
-  admin-eventos.html      → Eventos, sorteo, concurso, inscritos.
-                            «Enviar circular»: email del evento a Borradores del buzón (circular-borrador.js, _lib/imap.js).
+  admin-comprobantes.html → Justificantes de personas no socias (agrupados por pago): verificar o
+                            rechazar (comprobante-rechazar.js: anula la inscripción, borra el archivo y avisa por email).
+  admin-eventos.html      → Eventos, sorteo, concurso, inscritos (la Junta puede desapuntar a cualquiera desde Inscritos).
+                            «Enviar circular»: email del evento a Borradores del buzón (circular-borrador.js, _lib/imap.js),
+                            como los mandaba la Junta: nota al colegio para que lo reenvíe a los cursos del
+                            evento + mensaje a las familias (_lib/circular.js) y la circular adjunta en PDF
+                            (_lib/pdf-circular.js, sin dependencias: título, fecha, logo, Plazas disponibles,
+                            Coste, Inscripción con enlaces a la web, Organización, Recogida, Importante y pie
+                            con email, Instagram y WhatsApp).
   admin-mochila.html      → Mochila: asignar (fechas), entregar, recibir, juegos.
   admin-libros.html       → Banco de Libros: catálogo, ejemplares, reparto, entregas.
   admin-uniformes.html    → Banco de Uniformes: catálogo, convocatoria y reparto.

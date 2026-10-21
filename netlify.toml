@@ -3,9 +3,9 @@
   functions = "netlify/functions"
   command = "npm install"
 
-# El logo de la firma de los emails va dentro del propio email
+# El logo de la firma de los emails (y el de las circulares) va dentro del propio email
 [functions]
-  included_files = ["web/assets/logo-ampa-email.jpg"]
+  included_files = ["web/assets/logo-ampa-email.jpg", "web/assets/logo-ampa-circular.png"]
 
 [[redirects]]
   from = "/*"

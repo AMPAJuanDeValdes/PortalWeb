@@ -45,20 +45,22 @@ const LOGO_CID = 'logo-ampa@ampajuandevaldes';
 // El logo va dentro del email (adjunto en línea): se ve aunque el programa
 // de correo bloquee las imágenes de internet. Si no se encuentra el archivo,
 // se usa el de la web.
-let logoCache;
-function logoFirma() {
-  if (logoCache !== undefined) return logoCache;
+// Busca un archivo de web/assets dentro de la función (netlify.toml → included_files)
+const assetsCache = {};
+function rutaAsset(nombre) {
+  if (assetsCache[nombre] !== undefined) return assetsCache[nombre];
   const candidatos = [
-    path.join(__dirname, '..', '..', '..', 'web', 'assets', 'logo-ampa-email.jpg'),
-    path.join(process.cwd(), 'web', 'assets', 'logo-ampa-email.jpg'),
-    path.join(process.env.LAMBDA_TASK_ROOT || '', 'web', 'assets', 'logo-ampa-email.jpg')
+    path.join(__dirname, '..', '..', '..', 'web', 'assets', nombre),
+    path.join(process.cwd(), 'web', 'assets', nombre),
+    path.join(process.env.LAMBDA_TASK_ROOT || '', 'web', 'assets', nombre)
   ];
-  logoCache = null;
+  assetsCache[nombre] = null;
   for (const c of candidatos) {
-    try { if (fs.existsSync(c)) { logoCache = c; break; } } catch (e) { /* siguiente */ }
+    try { if (fs.existsSync(c)) { assetsCache[nombre] = c; break; } } catch (e) { /* siguiente */ }
   }
-  return logoCache;
+  return assetsCache[nombre];
 }
+const logoFirma = () => rutaAsset('logo-ampa-email.jpg');
 
 const escHtml = (t) => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 // Texto plano -> HTML sencillo (párrafos, saltos de línea y enlaces que se pueden pulsar)
@@ -90,9 +92,14 @@ async function enviarEmail({ to, bcc, replyTo, subject, text, html, sinFirma }) 
 }
 
 // Asunto, texto y HTML con la firma del AMPA y su logo (Verdana 10 pt)
+// Dirección del logo dentro del email: adjunto (cid:) o, si no está el archivo, en la web
+function srcLogoFirma() {
+  return logoFirma() ? 'cid:' + LOGO_CID : (process.env.SITE_URL || '').replace(/\/$/, '') + '/assets/logo-ampa-email.jpg';
+}
+
 function conFirma({ subject, text, html }) {
   const logo = logoFirma();
-  const srcLogo = logo ? 'cid:' + LOGO_CID : (process.env.SITE_URL || '').replace(/\/$/, '') + '/assets/logo-ampa-email.jpg';
+  const srcLogo = srcLogoFirma();
   const cuerpoHtml = html || `<div style="font-family:Verdana, Geneva, sans-serif; font-size:10pt; line-height:1.5; color:#1A1A18; max-width:600px;">\n${textoAHtml(text)}\n</div>`;
   return {
     subject,
@@ -104,10 +111,12 @@ function conFirma({ subject, text, html }) {
 
 // El email completo (RFC 822) con la firma, sin enviarlo: para dejarlo en
 // Borradores del buzón (ver _lib/imap.js). Sin destinatarios: se ponen al enviarlo.
-function componerBorrador({ subject, text, html }) {
+// adjuntos: imágenes en línea del propio cuerpo (p. ej. el logo de las circulares)
+function componerBorrador({ subject, text, html, adjuntos = [] }) {
   const MailComposer = require('nodemailer/lib/mail-composer');
   const from = `"${process.env.SMTP_FROM_NAME || 'AMPA'}" <${process.env.SMTP_USER}>`;
-  const correo = new MailComposer({ from, ...conFirma({ subject, text, html }) });
+  const m = conFirma({ subject, text, html });
+  const correo = new MailComposer({ from, ...m, attachments: [...m.attachments, ...adjuntos] });
   return new Promise((resolve, reject) => correo.compile().build((err, msg) => err ? reject(err) : resolve(msg)));
 }
 
@@ -200,6 +209,21 @@ function plantillaLoteria({ campana, nombre, apellidos, email, movil, mensaje, e
   };
 }
 
+// La Junta rechaza el justificante de pago de una inscripción (personas no
+// socias de un evento): la inscripción queda anulada.
+function plantillaJustificanteRechazado({ nombre, evento, personas, motivo, urlEvento }) {
+  return {
+    subject: `Justificante de pago no válido: ${evento}`,
+    text:
+      `Hola${nombre ? ' ' + nombre : ''},\n\n` +
+      `No hemos podido dar por bueno el justificante de pago que se subió al apuntar a «${evento}»` +
+      (personas.length ? ` (${personas.join(', ')})` : '') + `.\n\n` +
+      (motivo ? `Motivo: ${motivo}\n\n` : '') +
+      `Por eso hemos anulado esa inscripción. Si queréis, podéis volver a apuntaros en la web con el justificante correcto` +
+      (urlEvento ? `:\n${urlEvento}` : '.') + `\n`
+  };
+}
+
 // Número de socio tal como se muestra en todas partes: 2027.0300.0042
 function numeroSocioBonito(n) {
   n = String(n || '');
@@ -279,8 +303,8 @@ function plantillaRecordatorioDevolucion({ nombre, libros }) {
 }
 
 module.exports = {
-  componerBorrador, conFirma, textoAHtml,
-  plantillaLoteria,
+  componerBorrador, conFirma, textoAHtml, srcLogoFirma, rutaAsset,
+  plantillaLoteria, plantillaJustificanteRechazado,
   enviarEmail, numeroSocioBonito, plantillaCredenciales, plantillaMochilaTurno, plantillaComentario, plantillaDonacion,
   plantillaBienvenida, plantillaRechazo, plantillaRecuperarPassword, plantillaRecordatorioDevolucion
 };

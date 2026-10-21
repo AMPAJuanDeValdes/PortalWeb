@@ -22,7 +22,7 @@
 <div class="wrap">
   <div class="eyebrow">Administración</div>
   <h1>Comprobantes de invitados</h1>
-  <p class="lede">Verifica los comprobantes de pago de los invitados a eventos.</p>
+  <p class="lede">Verifica los comprobantes de pago de los invitados a eventos, o recházalos si no son válidos.</p>
   <div class="aviso">Las <b>altas nuevas</b>, las <b>reactivaciones</b> y las cuentas <b>pendientes de pago</b> se gestionan ahora en
     <a href="admin-socios.html" style="color:var(--navy); font-weight:600;">Socios → Solicitudes pendientes</a>,
     donde se ven todos los datos de la familia y al activar o rechazar se envía el email automáticamente.</div>
@@ -54,7 +54,7 @@ async function urlComprobante(path) {
 async function cargarInvitados() {
   const wrap = document.getElementById('wrapInvitados');
   const { data: comprobantes } = await sb.from('comprobantes_pago')
-    .select('*, evento_inscripciones(nombre_invitado, apellidos_invitado, evento_id, eventos(titulo, precio_invitado), socios(numero_socio_completo))')
+    .select('*, evento_inscripciones(tipo_miembro, nombre_invitado, apellidos_invitado, alumno_nombre, alumno_apellidos, nombre_contacto, email_contacto, evento_id, eventos(titulo, precio_invitado), socios(numero_socio_completo))')
     .eq('tipo', 'invitado_evento').eq('verificado', false).order('created_at');
 
   if (!comprobantes || comprobantes.length === 0) { wrap.innerHTML = '<p class="empty-hint">No hay comprobantes de invitados pendientes.</p>'; return; }
@@ -73,7 +73,13 @@ async function cargarInvitados() {
   for (const g of grupos) {
     const c = g.filas[0];
     const ins = c.evento_inscripciones || {};
-    const nombres = g.filas.map(f => [f.evento_inscripciones?.nombre_invitado, f.evento_inscripciones?.apellidos_invitado].filter(Boolean).join(' ') || 'Invitado');
+    // Invitados de una familia socia o personas no socias apuntadas desde la web pública
+    const nombres = g.filas.map(f => {
+      const i = f.evento_inscripciones || {};
+      return [i.nombre_invitado, i.apellidos_invitado].filter(Boolean).join(' ')
+        || [i.alumno_nombre, i.alumno_apellidos].filter(Boolean).join(' ') || i.nombre_contacto || 'Invitado';
+    });
+    const contacto = !ins.socios && ins.nombre_contacto ? `Apuntado por ${ins.nombre_contacto}${ins.email_contacto ? ' (' + ins.email_contacto + ')' : ''}, no socio` : '';
     const importe = c.importe != null ? Number(c.importe) : (Number(ins.eventos?.precio_invitado) || 0) * g.filas.length;
     const div = document.createElement('div');
     div.className = 'fila-socio';
@@ -81,9 +87,44 @@ async function cargarInvitados() {
       <b>${esc(ins.eventos?.titulo || '')}</b> — ${g.filas.length === 1 ? '1 persona' : g.filas.length + ' personas'}${importe ? ', <b>' + euros(importe) + '</b>' : ''}
       ${ins.socios?.numero_socio_completo ? ' · socio nº ' + esc(numeroSocioBonito(ins.socios.numero_socio_completo)) : ''}<br>
       <span style="color:var(--ink-soft);">${nombres.map(esc).join(', ')}</span><br>
+      ${contacto ? `<span style="color:var(--ink-soft);">${esc(contacto)}</span><br>` : ''}
       <a href="${await urlComprobante(c.archivo_url)}" target="_blank">Ver justificante</a>
-      <div style="margin-top:8px;"><button class="btn btn-primary verificarBtn">Marcar como verificado</button></div>
+      <div style="margin-top:8px; display:flex; flex-wrap:wrap; gap:10px; align-items:center;">
+        <button class="btn btn-primary verificarBtn">Marcar como verificado</button>
+        <button class="btn btn-outline rechazarBtn">Rechazar justificante</button>
+      </div>
+      <div class="rechazo" hidden style="margin-top:10px;">
+        <div class="field"><label>Motivo (se incluye en el email)</label><input type="text" class="motivo" maxlength="500" placeholder="Ej.: el importe no coincide, no se ve la transferencia..."></div>
+        <p style="margin:6px 0; font-size:15px; color:var(--ink-soft);">Se anula la inscripción de ${g.filas.length === 1 ? 'esta persona' : 'estas personas'} (y sus actividades del evento), se borra el justificante y se avisa por email a quien la hizo.</p>
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <button class="btn btn-danger confirmarRechazo">Rechazar y anular la inscripción</button>
+          <button class="btn btn-outline cancelarRechazo">Cancelar</button>
+        </div>
+      </div>
+      <p class="msg-error rechazoMsg" hidden style="margin-top:8px;"></p>
     `;
+    const caja = div.querySelector('.rechazo'), rMsg = div.querySelector('.rechazoMsg');
+    div.querySelector('.rechazarBtn').addEventListener('click', () => { caja.hidden = false; div.querySelector('.motivo').focus(); });
+    div.querySelector('.cancelarRechazo').addEventListener('click', () => { caja.hidden = true; rMsg.hidden = true; });
+    div.querySelector('.confirmarRechazo').addEventListener('click', async (e) => {
+      const b = e.target;
+      b.disabled = true; b.textContent = 'Rechazando...'; rMsg.hidden = true;
+      try {
+        const session = await getSession();
+        const resp = await fetch('/.netlify/functions/comprobante-rechazar', {
+          method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
+          body: JSON.stringify({ comprobanteIds: g.filas.map(f => f.id), motivo: div.querySelector('.motivo').value.trim() })
+        });
+        const d = await resp.json().catch(() => ({}));
+        if (!resp.ok) throw new Error(d.error || 'No se pudo rechazar el justificante.');
+        if (d.avisoError) alert('Inscripción anulada, pero ' + d.avisoError.charAt(0).toLowerCase() + d.avisoError.slice(1));
+        else if (!(d.avisados || []).length) alert('Inscripción anulada. No había ningún email al que avisar.');
+        cargarInvitados();
+      } catch (err) {
+        rMsg.textContent = err.message; rMsg.hidden = false;
+        b.disabled = false; b.textContent = 'Rechazar y anular la inscripción';
+      }
+    });
     div.querySelector('.verificarBtn').addEventListener('click', async (ev) => {
       ev.target.disabled = true;
       const { error } = await sb.from('comprobantes_pago').update({ verificado: true }).in('id', g.filas.map(f => f.id));

@@ -137,6 +137,8 @@ input[type=checkbox], input[type=radio]{ accent-color:var(--navy); }
 .btn:disabled{ opacity:.5; cursor:not-allowed; }
 .btn-outline{ background:#FFFFFF; border-color:var(--navy); color:var(--navy); }
 .btn-outline:hover{ background:#EEF4FB; color:var(--navy-deep); }
+.btn-danger{ background:var(--red); color:#fff; }
+.btn-danger:hover{ filter:brightness(.92); color:#fff; }
 .btn-danger-link{
   background:none; border:none; color:var(--red); font-family:var(--font-text);
   font-size:15px; font-weight:700; cursor:pointer; text-decoration:underline; padding:4px;
