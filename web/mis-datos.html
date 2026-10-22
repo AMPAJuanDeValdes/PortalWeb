@@ -527,9 +527,10 @@ function pintarAvisoRevisar(alumnos) {
     <p class="error" id="confirmarDatosMsg" hidden></p>`;
   caja.hidden = false;
   document.getElementById('confirmarDatosBtn').addEventListener('click', async () => {
-    const { error } = await sb.rpc('confirmar_datos_familia');
+    // Devuelve el motivo si no se puede confirmar (queda apuntado para que la Junta pueda ayudar)
+    const { data: fallo, error } = await sb.rpc('confirmar_datos_familia');
     const m = document.getElementById('confirmarDatosMsg');
-    if (error) { m.textContent = textoErrorBD(error); m.hidden = false; return; }
+    if (error || fallo) { m.textContent = error ? textoErrorBD(error) : fallo; m.hidden = false; return; }
     ctxGlobal.socio.datos_revisados_en = new Date().toISOString();
     caja.hidden = true;
     document.querySelector('.wrap').insertAdjacentHTML('afterbegin', '<p class="msg-ok" style="font-size:18px;">Gracias. Ya podéis apuntaros a los eventos.</p>');

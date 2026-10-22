@@ -51,6 +51,11 @@
   .barra{ height:8px; border-radius:999px; background:#EEF1F5; overflow:hidden; }
   .barra i{ display:block; height:100%; background:var(--area); border-radius:999px; }
   .nada{ color:var(--ink-soft); font-size:15px; margin:0; }
+  .vol{ margin-top:4px; padding:8px 12px; border-radius:12px; background:#EAF6EE; border:1px solid #BFE3CB; font-size:15px; display:grid; gap:2px; }
+  .vol b{ color:#1D6B3A; }
+  .vol span{ color:var(--ink); }
+  .vol-falta{ background:#FFF4E5; border-color:#F3C98B; }
+  .vol-falta b{ color:#8A4B00; }
 
   /* Mensajes */
   .mensaje{ background:#fff; border:1px solid var(--line); border-radius:16px; padding:14px 16px; margin-bottom:10px; }
@@ -102,6 +107,10 @@ async function socios() {
   const activas = s.filter(x => x.estado === 'activa').length;
   const faltaPago = s.filter(x => x.estado === 'falta_pago').length;
   const solicitudes = s.filter(x => x.estado === 'recien_creada' || (x.reactivacion_solicitada_en && x.estado !== 'activa')).length;
+  // Familias que intentaron confirmar sus datos y no pudieron: necesitan ayuda
+  const { data: sinConfirmar } = await sb.rpc('familias_sin_confirmar');
+  const atascadas = (sinConfirmar || []).filter(f => f.intentos_fallidos > 0).length;
+  if (atascadas) tarea('socios', atascadas, atascadas === 1 ? 'Familia que no consigue confirmar sus datos' : 'Familias que no consiguen confirmar sus datos', 'Lo intentaron en Mis datos y les falló. Sin eso no pueden apuntarse a eventos.', 'admin-respuestas.html#datos', 'Ver por qué');
   if (solicitudes) tarea('socios', solicitudes, solicitudes === 1 ? 'Solicitud de alta o reactivación' : 'Solicitudes de alta o reactivación', 'Revisa el justificante y activa o rechaza.', 'admin-socios.html', 'Revisar');
   const [alumnos, comprobantes] = await Promise.all([
     cuenta(sb.from('alumnos').select('id, socios!inner(estado)', { count: 'exact', head: true }).eq('socios.estado', 'activa')),
@@ -120,7 +129,7 @@ async function socios() {
 
 async function eventos() {
   const [{ data: prox }, { data: sinSortear }] = await Promise.all([
-    sb.from('eventos').select('id, titulo, fecha, aforo_total, metodo_asignacion, requiere_pareja_adulto_alumno, sin_inscripcion, usa_concurso_texto').eq('activo', true).gte('fecha', ahora.toISOString()).order('fecha').limit(5),
+    sb.from('eventos').select('id, titulo, fecha, aforo_total, metodo_asignacion, requiere_pareja_adulto_alumno, sin_inscripcion, usa_concurso_texto, voluntariado_modo, evento_actividades(voluntariado_habilitado)').eq('activo', true).gte('fecha', ahora.toISOString()).order('fecha').limit(5),
     sb.from('eventos').select('id, titulo, fecha_cierre_inscripcion').eq('activo', true).eq('metodo_asignacion', 'sorteo').eq('sorteo_realizado', false).lt('fecha_cierre_inscripcion', ahora.toISOString())
   ]);
   (sinSortear || []).forEach(e => tarea('eventos', '!', 'Sortear: ' + e.titulo, 'El plazo cerró el ' + fCorta(e.fecha_cierre_inscripcion) + '. Las familias esperan el resultado.', 'admin-eventos.html', 'Sortear'));
@@ -138,7 +147,22 @@ async function eventos() {
       info = e.aforo_total ? `${n} de ${e.aforo_total}${e.requiere_pareja_adulto_alumno ? ' alumnos' : ''}` : `${n} apuntados`;
       if (e.aforo_total) barra = `<div class="barra" aria-hidden="true"><i style="width:${Math.min(100, Math.round(n / e.aforo_total * 100))}%"></i></div>`;
     }
-    return `<div class="ev"><div class="ev-top"><span><b>${esc(e.titulo)}</b><br><span style="color:var(--ink-soft);">${fCorta(e.fecha)}</span></span><span>${info}</span></div>${barra}</div>`;
+    // Voluntarios: cuántos y quiénes (si el evento o alguna actividad los pide, o si ya hay)
+    const { data: vols } = await sb.from('evento_inscripciones')
+      .select('tipo_miembro, adultos!adulto_id(nombre, apellidos), alumnos(nombre, apellidos), evento_actividades(nombre)')
+      .eq('evento_id', e.id).eq('es_voluntario', true);
+    const pideVol = (e.voluntariado_modo && e.voluntariado_modo !== 'no')
+      || (e.evento_actividades || []).some(a => a.voluntariado_habilitado);
+    let voluntarios = '';
+    if (pideVol || (vols && vols.length)) {
+      const nombres = (vols || []).map(v => {
+        const p = v.tipo_miembro === 'alumno' ? v.alumnos : v.adultos;
+        const n = p ? [p.nombre, p.apellidos].filter(Boolean).join(' ') : '';
+        return n + (v.evento_actividades ? ` (${v.evento_actividades.nombre})` : '');
+      }).filter(Boolean);
+      voluntarios = `<div class="vol${nombres.length ? '' : ' vol-falta'}"><b>${nombres.length ? nombres.length + (nombres.length === 1 ? ' voluntario' : ' voluntarios') : 'Sin voluntarios todavía'}</b>${nombres.length ? `<span>${nombres.map(esc).join(', ')}</span>` : ''}</div>`;
+    }
+    return `<div class="ev"><div class="ev-top"><span><b>${esc(e.titulo)}</b><br><span style="color:var(--ink-soft);">${fCorta(e.fecha)}</span></span><span>${info}</span></div>${barra}${voluntarios}</div>`;
   }));
   c.innerHTML = filas.join('');
 }

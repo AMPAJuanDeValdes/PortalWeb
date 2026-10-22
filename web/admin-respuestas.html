@@ -25,6 +25,7 @@
     <button class="tab-btn active" data-tab="prestamo">Banco de Libros</button>
     <button class="tab-btn" data-tab="eventos">Eventos</button>
     <button class="tab-btn" data-tab="alumnos">Alumnos (matrícula)</button>
+    <button class="tab-btn" data-tab="datos">Datos sin confirmar</button>
   </div>
 
   <div class="panel active" id="panel-prestamo"><div class="card" id="wrapPrestamo"><p class="loading">Cargando...</p></div></div>
@@ -37,6 +38,8 @@
   </div>
 
   <div class="panel" id="panel-alumnos"><div class="card" id="wrapAlumnos"><p class="loading">Cargando...</p></div></div>
+
+  <div class="panel" id="panel-datos"><div class="card" id="wrapDatos"><p class="loading">Cargando...</p></div></div>
 
 </div>
 
@@ -217,10 +220,54 @@ function pintarAlumnos() {
   }));
 }
 
+/* ---- Familias activas sin los datos confirmados: por qué, para darles soporte ----
+   familias_sin_confirmar() (migracion-confirmar-datos-intentos.sql): lo que les
+   falta ahora, sus intentos de «Los datos de mi familia están bien» y su último
+   acceso a la web. */
+async function cargarDatosSinConfirmar() {
+  const wrap = document.getElementById('wrapDatos');
+  const { data, error } = await sb.rpc('familias_sin_confirmar');
+  if (error) { wrap.innerHTML = '<p class="msg-error">No se pudo cargar: ' + escA(error.message) + '</p>'; return; }
+  const fechaHora = (f) => new Date(f).toLocaleString('es-ES', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  const filas = (data || []).map(f => {
+    const ad = (f.adultos || [])[0] || {};
+    let motivo, puedeJunta = false;
+    if (f.faltan) motivo = `<b>Le falta:</b> ${escA(f.faltan)}. Tienen que completarlo en Mis datos (o la Junta en su ficha de Socios).`;
+    else if (!f.ultimo_acceso) motivo = 'No ha entrado nunca en la web.';
+    else if (!f.ultimo_intento) { motivo = `Tiene todo completo${f.sin_alumnos ? ' (no tiene alumnos dados de alta)' : ''}, pero no ha pulsado «Los datos de mi familia están bien» en Mis datos.`; puedeJunta = true; }
+    else { motivo = `Lo intentó, pero entonces le faltaban datos. Ahora tiene todo completo: solo tiene que volver a pulsar «Los datos de mi familia están bien».`; puedeJunta = true; }
+    return { f, ad, motivo, puedeJunta };
+  });
+  wrap.innerHTML = `
+    <p style="margin:0 0 10px; color:var(--ink-soft);">Familias activas que todavía no han confirmado sus datos: hasta que lo hagan no pueden apuntarse a eventos. El motivo se calcula con sus datos de ahora.</p>
+    <p style="margin:0 0 6px; font-size:14px; color:var(--ink-soft);">${filas.length} familia${filas.length === 1 ? '' : 's'}</p>
+    ${filas.length ? `<div style="overflow-x:auto;"><table><thead><tr><th>Familia</th><th>Contacto</th><th>Por qué</th><th>Intentos fallidos</th><th>Último acceso</th><th></th></tr></thead><tbody>
+    ${filas.map(({ f, ad, motivo, puedeJunta }) => `<tr>
+      <td>${f.numero ? `<span style="font-family:ui-monospace,Menlo,Consolas,monospace; font-size:13px; color:var(--ink-soft);">${escA(numeroSocioBonito(f.numero))}</span><br>` : ''}${escA([ad.nombre, ad.apellidos].filter(Boolean).join(' '))}</td>
+      <td style="font-size:14px;">${escA(ad.email || '')}${ad.movil ? '<br>' + escA(ad.movil) : ''}</td>
+      <td style="font-size:14px;">${motivo}${f.ultimo_error ? `<br><span style="color:var(--ink-soft);">Último error que vio: «${escA(f.ultimo_error)}» (${fechaHora(f.ultimo_intento)})</span>` : ''}</td>
+      <td>${f.intentos_fallidos || 0}</td>
+      <td style="font-size:14px;">${f.ultimo_acceso ? fechaHora(f.ultimo_acceso) : 'Nunca'}</td>
+      <td>${puedeJunta ? `<button class="btn-danger-link confirmarJuntaBtn" style="color:var(--navy);" data-id="${escA(f.socio_id)}">Confirmar por la familia</button>` : ''}</td>
+    </tr>`).join('')}</tbody></table></div>` : '<p class="empty-hint">Todas las familias activas tienen los datos confirmados.</p>'}
+    <p class="msg-error datosMsg" hidden></p>`;
+  wrap.querySelectorAll('.confirmarJuntaBtn').forEach(b => b.addEventListener('click', async () => {
+    if (!confirm('¿Confirmar los datos de esta familia en su nombre? Hacedlo solo si los habéis revisado con ella. Después ya podrá apuntarse a los eventos.')) return;
+    b.disabled = true;
+    const m = wrap.querySelector('.datosMsg');
+    const { data: fallo, error: err } = await sb.rpc('junta_confirmar_datos', { p_socio: b.dataset.id });
+    if (err || fallo) { m.textContent = err ? err.message : fallo; m.hidden = false; b.disabled = false; return; }
+    cargarDatosSinConfirmar();
+  }));
+}
+
 (async () => {
   const ctx = await requireAdmin();
   if (!ctx) return;
   renderNav('admin-respuestas', ctx);
+  // admin-respuestas.html#datos: abre directamente «Datos sin confirmar» (enlace del Resumen)
+  if (location.hash === '#datos') document.querySelector('.tab-btn[data-tab="datos"]').click();
+  cargarDatosSinConfirmar();
   await cargarPrestamo();
   await cargarEventosSelect();
   await cargarAlumnos();

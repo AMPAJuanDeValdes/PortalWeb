@@ -7,6 +7,12 @@
 //   rechazar     -> pasa la cuenta a "baja" guardando el motivo (obligatorio)
 //                   y lo envía por email a la familia.
 //   baja         -> pasa la cuenta a "baja" sin enviar email.
+//   eliminar     -> borra del todo una cuenta mal creada: la familia, sus
+//                   adultos (con su usuario de acceso), alumnos, inscripciones,
+//                   peticiones y justificantes. Sin email. No se puede con la
+//                   cuenta principal (0000), la propia, una con adultos de la
+//                   Junta, libros del Banco de Libros sin devolver o
+//                   talonarios de lotería.
 //   quitar_adulto-> borra un adulto (su usuario de acceso incluido). No deja
 //                   quitar al último adulto de una familia ni a uno mismo.
 //   guardar_adulto -> guarda los datos de un adulto. Pasa por aquí (y no
@@ -166,6 +172,33 @@ exports.handler = async (event) => {
     const { error: errAl } = await supabaseAdmin.from('alumnos').update({ verificado: false }).eq('socio_id', socioId);
     if (errAl) return json(500, { error: errAl.message });
     return json(200, { ok: true });
+  }
+
+  if (accion === 'eliminar') {
+    if (socio.numero_secuencial === '0000') return json(400, { error: 'Es la cuenta principal del AMPA: no se puede eliminar.' });
+    const { data: delSocio } = await supabaseAdmin.from('adultos').select('id, role').eq('socio_id', socioId);
+    const adultosIds = (delSocio || []).map(a => a.id);
+    if (adultosIds.includes(userData.user.id)) return json(400, { error: 'Es tu propia cuenta: no puedes eliminarla.' });
+    if ((delSocio || []).some(a => a.role === 'admin')) return json(400, { error: 'Tiene adultos de la Junta (Admin). Quítales antes el Admin.' });
+    const { count: libros } = await supabaseAdmin.from('prestamo_items').select('id', { count: 'exact', head: true })
+      .eq('socio_id', socioId).not('entregado_en', 'is', null).is('fecha_devolucion', null).eq('perdido', false);
+    if (libros) return json(400, { error: `Tiene ${libros} libro(s) del Banco de Libros sin devolver. Marcadlos como devueltos o perdidos antes de eliminarla.` });
+    const { count: talonarios } = await supabaseAdmin.from('loteria_talonarios').select('id', { count: 'exact', head: true }).eq('socio_id', socioId);
+    if (talonarios) return json(400, { error: `Tiene ${talonarios} talonario(s) de lotería asignados. Reasignadlos antes de eliminarla.` });
+
+    // Archivos de sus justificantes (se borran después, si la cuenta se ha podido borrar)
+    const { data: comps } = await supabaseAdmin.from('comprobantes_pago').select('archivo_url').eq('socio_id', socioId);
+    const { error } = await supabaseAdmin.from('socios').delete().eq('id', socioId);
+    if (error) return json(500, { error: 'No se pudo eliminar la cuenta: ' + error.message });
+    // Usuarios de acceso de sus adultos (la fila de adultos ya se borró con la cuenta)
+    const fallos = [];
+    for (const id of adultosIds) {
+      const { error: e } = await supabaseAdmin.auth.admin.deleteUser(id);
+      if (e && !/not.?found/i.test(e.message || '')) fallos.push(e.message);
+    }
+    const archivos = [...new Set((comps || []).map(c => c.archivo_url).filter(Boolean))];
+    if (archivos.length) await supabaseAdmin.storage.from('comprobantes').remove(archivos);
+    return json(200, { ok: true, avisoAcceso: fallos.length ? 'La cuenta se ha eliminado, pero no se pudo borrar algún usuario de acceso: ' + fallos[0] : null });
   }
 
   if (accion === 'baja') {

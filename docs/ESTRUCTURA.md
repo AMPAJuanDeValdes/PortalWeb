@@ -658,7 +658,10 @@ web/                      → Lo que se publica (Netlify publish = "web").
   encuestas.html          → Responder encuestas abiertas.
 
   admin.html              → Panel de la Junta (mensajes de familias, accesos).
-  admin-socios.html       → Socios + solicitudes → admin-gestionar-cuenta.js.
+  admin-respuestas.html   → Listados. Pestaña «Datos sin confirmar»: familias activas que no han confirmado sus
+                            datos, por qué (familias_sin_confirmar(), intentos en datos_confirmacion_intentos) y
+                            «Confirmar por la familia» (junta_confirmar_datos).
+  admin-socios.html       → Socios + solicitudes → admin-gestionar-cuenta.js (también «Eliminar la cuenta…» para una cuenta mal creada).
   admin-importar.html     → Alta de socios (CSV o manual) → admin-import-socios.js.
   admin-comprobantes.html → Justificantes de personas no socias (agrupados por pago): verificar o
                             rechazar (comprobante-rechazar.js: anula la inscripción, borra el archivo y avisa por email).

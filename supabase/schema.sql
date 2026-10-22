@@ -5596,3 +5596,139 @@ drop trigger if exists trg_eventos_quitar_subactividades on evento_inscripciones
 create trigger trg_eventos_quitar_subactividades
 after delete on evento_inscripciones
 for each row execute function eventos_quitar_subactividades();
+
+-- ===================== ELIMINAR CUENTA (copia de migracion-eliminar-cuenta.sql) =====================
+-- ==================================================================
+-- ELIMINAR UNA CUENTA MAL CREADA (Panel → Socios → ficha)
+--  · Las inscripciones a eventos hechas por la familia que no son de uno
+--    de sus adultos o alumnos (invitados no socios que apuntó) se borran
+--    con la cuenta. Antes impedían borrarla.
+--  · El resto ya se borra en cascada (adultos, alumnos, peticiones,
+--    justificantes…) o se queda sin la familia (donaciones, mensajes…).
+-- Se puede ejecutar varias veces.
+-- ==================================================================
+do $$
+declare v_nombre text;
+begin
+  for v_nombre in
+    select c.conname from pg_constraint c
+    join pg_attribute a on a.attrelid = c.conrelid and a.attnum = any (c.conkey)
+    where c.contype = 'f' and c.conrelid = 'public.evento_inscripciones'::regclass and a.attname = 'socio_id'
+  loop
+    execute format('alter table evento_inscripciones drop constraint %I', v_nombre);
+  end loop;
+  alter table evento_inscripciones add constraint evento_inscripciones_socio_id_fkey
+    foreign key (socio_id) references socios(id) on delete cascade;
+end $$;
+
+-- ===================== INTENTOS DE CONFIRMAR DATOS (copia de migracion-confirmar-datos-intentos.sql) =====================
+-- ==================================================================
+-- POR QUÉ UNA FAMILIA NO TIENE LOS DATOS CONFIRMADOS
+--  · Cada vez que una familia pulsa «Los datos de mi familia están bien»
+--    en Mis datos queda apuntado el intento: si ha ido bien o qué le ha
+--    fallado (por ejemplo, a qué alumno/a le falta el aula).
+--  · confirmar_datos_familia() ya no da error: devuelve el motivo (o nada
+--    si se ha confirmado), para poder guardar el intento.
+--  · familias_sin_confirmar() (solo la Junta): las familias activas sin
+--    los datos confirmados, con lo que les falta, sus intentos y cuándo
+--    entraron en la web por última vez. Se ve en Panel → Listados.
+--  · junta_confirmar_datos(socio): la Junta confirma los datos por la
+--    familia (por ejemplo, después de revisarlos con ella por teléfono),
+--    con las mismas reglas.
+-- Se puede ejecutar varias veces.
+-- ==================================================================
+
+create table if not exists datos_confirmacion_intentos (
+  id uuid primary key default gen_random_uuid(),
+  socio_id uuid not null references socios(id) on delete cascade,
+  adulto_id uuid references adultos(id) on delete set null,
+  ok boolean not null,
+  error text,
+  por_la_junta boolean not null default false,
+  created_at timestamptz not null default now()
+);
+create index if not exists datos_confirmacion_intentos_socio_idx on datos_confirmacion_intentos (socio_id, created_at desc);
+alter table datos_confirmacion_intentos enable row level security;
+drop policy if exists "admins ven los intentos de confirmar datos" on datos_confirmacion_intentos;
+create policy "admins ven los intentos de confirmar datos" on datos_confirmacion_intentos for select
+  using (is_admin());
+
+-- Qué le falta a cada alumno/a de la familia: «Marta (aula), Leo (curso y aula)»
+create or replace function _faltan_datos_familia(p_socio uuid)
+returns text language sql stable security definer set search_path = public as $$
+  select string_agg(x.nombre || ' (' || x.faltan || ')', ', ' order by x.nombre)
+  from (
+    select al.nombre,
+      regexp_replace(array_to_string(array_remove(array[
+        case when coalesce(btrim(al.etapa), '') = '' then 'etapa' end,
+        case when coalesce(btrim(al.curso), '') = '' then 'curso' end,
+        case when coalesce(btrim(al.aula), '') = '' then 'aula' end], null), ', '), ', ([^,]*)$', ' y \1') as faltan
+    from alumnos al
+    where al.socio_id = p_socio
+      and (coalesce(btrim(al.etapa), '') = '' or coalesce(btrim(al.curso), '') = '' or coalesce(btrim(al.aula), '') = '')
+  ) x;
+$$;
+revoke all on function _faltan_datos_familia(uuid) from public, anon, authenticated;
+
+drop function if exists confirmar_datos_familia();
+create function confirmar_datos_familia()
+returns text language plpgsql security definer set search_path = public as $$
+declare v_socio uuid := mi_socio_id(); v_faltan text; v_error text;
+begin
+  if v_socio is null then return 'No se pudo identificar tu cuenta de socio.'; end if;
+  v_faltan := _faltan_datos_familia(v_socio);
+  if v_faltan is not null then
+    v_error := 'Falta la etapa, el curso o el aula de: ' || v_faltan || '.';
+    insert into datos_confirmacion_intentos (socio_id, adulto_id, ok, error) values (v_socio, auth.uid(), false, v_error);
+    return v_error;
+  end if;
+  perform set_config('ampa.confirmando_datos', 'si', true);
+  update socios set datos_revisados_en = now() where id = v_socio;
+  perform set_config('ampa.confirmando_datos', '', true);
+  insert into datos_confirmacion_intentos (socio_id, adulto_id, ok) values (v_socio, auth.uid(), true);
+  return null;
+end;
+$$;
+grant execute on function confirmar_datos_familia() to authenticated;
+
+create or replace function junta_confirmar_datos(p_socio uuid)
+returns text language plpgsql security definer set search_path = public as $$
+declare v_faltan text;
+begin
+  if not coalesce(is_admin(), false) then raise exception 'Solo la Junta puede hacer esto.'; end if;
+  v_faltan := _faltan_datos_familia(p_socio);
+  if v_faltan is not null then
+    return 'No se puede confirmar: falta la etapa, el curso o el aula de ' || v_faltan || '. Completadlo antes en la ficha de la familia.';
+  end if;
+  perform set_config('ampa.confirmando_datos', 'si', true);
+  update socios set datos_revisados_en = now() where id = p_socio;
+  perform set_config('ampa.confirmando_datos', '', true);
+  insert into datos_confirmacion_intentos (socio_id, adulto_id, ok, por_la_junta) values (p_socio, auth.uid(), true, true);
+  return null;
+end;
+$$;
+grant execute on function junta_confirmar_datos(uuid) to authenticated;
+
+drop function if exists familias_sin_confirmar();
+create function familias_sin_confirmar()
+returns table (socio_id uuid, numero text, adultos jsonb, faltan text, sin_alumnos boolean,
+               ultimo_acceso timestamptz, intentos_fallidos integer, ultimo_intento timestamptz, ultimo_error text)
+language plpgsql stable security definer set search_path = public as $$
+begin
+  if not coalesce(is_admin(), false) then raise exception 'Solo la Junta puede ver esto.'; end if;
+  return query
+  select s.id, s.numero_socio_completo,
+    (select jsonb_agg(jsonb_build_object('nombre', a.nombre, 'apellidos', a.apellidos, 'email', a.email, 'movil', a.movil)
+                      order by a.created_at, a.id) from adultos a where a.socio_id = s.id),
+    _faltan_datos_familia(s.id),
+    not exists (select 1 from alumnos al where al.socio_id = s.id),
+    (select max(u.last_sign_in_at) from auth.users u join adultos a on a.id = u.id where a.socio_id = s.id),
+    (select count(*)::integer from datos_confirmacion_intentos i where i.socio_id = s.id and not i.ok),
+    (select max(i.created_at) from datos_confirmacion_intentos i where i.socio_id = s.id),
+    (select i.error from datos_confirmacion_intentos i where i.socio_id = s.id order by i.created_at desc limit 1)
+  from socios s
+  where s.estado = 'activa' and s.datos_revisados_en is null
+  order by s.numero_secuencial nulls last;
+end;
+$$;
+grant execute on function familias_sin_confirmar() to authenticated;

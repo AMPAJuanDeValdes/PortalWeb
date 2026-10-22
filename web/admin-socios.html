@@ -482,6 +482,7 @@ function pintarDetalle(s, td) {
         ${s.estado === 'activa' ? '<button class="btn btn-outline desactivarBtn">Desactivar cuenta</button>' : ''}
         ${s.estado !== 'baja' ? '<button class="btn btn-outline peligro bajaBtn">Dar de baja</button>' : ''}
         ${s.estado !== 'activa' && s.estado !== 'baja' ? '<button class="linklike rechazarAbrirBtn" style="font-size:14px;">Rechazar con motivo…</button>' : ''}
+        ${s.numero_secuencial !== '0000' && !s.adultos.some(a => a.role === 'admin') ? '<button class="linklike eliminarBtn" style="font-size:14px; color:var(--red);">Eliminar la cuenta…</button>' : ''}
       </div>
       <div class="rechazoZona" style="display:none; margin-top:12px;">
         <label style="font-size:14px;">Motivo (se enviará por email a la familia) *</label>
@@ -568,6 +569,21 @@ function pintarDetalle(s, td) {
     try { await llamarGestion({ accion: 'baja', socioId: s.id }); msgEstado(true, 'Cuenta dada de baja.'); setTimeout(recargar, 1200); }
     catch (err) { msgEstado(false, err.message); baja.disabled = false; }
   });
+  // Cuenta mal creada (duplicada, de prueba...): se borra del todo, sin email
+  const elim = bEstado.querySelector('.eliminarBtn');
+  if (elim) elim.addEventListener('click', async () => {
+    const nombres = s.adultos.map(a => [a.nombre, a.apellidos].filter(Boolean).join(' ')).join(' y ') || 'esta familia';
+    const escrito = prompt(`Se va a ELIMINAR del todo la cuenta de ${nombres}: adultos (no podrán entrar), alumnos, inscripciones, peticiones y justificantes. No se puede deshacer y no se envía ningún email.\n\nSi lo que quieres es que deje de ser socia, usa «Dar de baja».\n\nPara confirmar, escribe ELIMINAR:`);
+    if (escrito === null) return;
+    if (escrito.trim().toUpperCase() !== 'ELIMINAR') { msgEstado(false, 'No se ha eliminado: no has escrito ELIMINAR.'); return; }
+    elim.disabled = true;
+    try {
+      const r = await llamarGestion({ accion: 'eliminar', socioId: s.id });
+      msgEstado(true, r.avisoAcceso || 'Cuenta eliminada.');
+      setTimeout(recargar, 1200);
+    } catch (err) { msgEstado(false, err.message); elim.disabled = false; }
+  });
+
   const rech = bEstado.querySelector('.rechazarAbrirBtn');
   if (rech) rech.addEventListener('click', () => { bEstado.querySelector('.rechazoZona').style.display = 'block'; });
   bEstado.querySelector('.confirmarRechazoBtn').addEventListener('click', async (e) => {
