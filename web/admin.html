@@ -203,7 +203,7 @@ async function uniformes() {
     const cerrada = new Date(conv.fecha_cierre) <= ahora;
     const estado = { abierta: cerrada ? 'Plazo cerrado, falta repartir' : 'Plazo abierto hasta el ' + fCorta(conv.fecha_cierre), repartida: 'Repartida, falta cerrar y guardar', finalizada: 'Cerrada: las familias ven el resultado', cancelada: 'Cancelada' }[conv.estado] || conv.estado;
     if (conv.estado === 'abierta' && cerrada) tarea('uniformes', '!', 'Repartir los uniformes', `El plazo cerró el ${fCorta(conv.fecha_cierre)}. ${alumnos} alumnos han pedido prendas.`, 'admin-uniformes.html', 'Repartir');
-    if (conv.estado === 'repartida') tarea('uniformes', '!', 'Cerrar y guardar el reparto de uniformes', 'Las familias no ven lo que les ha tocado hasta que lo cierres.', 'admin-uniformes.html', 'Revisar');
+    if (conv.estado === 'repartida') tarea('uniformes', '!', 'Publicar los resultados del reparto de uniformes', 'Las familias no ven lo que ha recibido cada alumno/a hasta que los publiques.', 'admin-uniformes.html', 'Revisar');
     html += `<p class="estado-conv">${estado}</p><div class="linea"><span>Alumnos con pedido</span><b>${alumnos}</b></div>`;
   }
   html += `<div class="linea"><span>Prendas en stock</span><b>${stock}</b></div>`;

@@ -116,7 +116,7 @@
 const TIPOS = ['Sudadera', 'Camiseta', 'Pantalón Corto', 'Pantalón Largo', 'Baby'];
 const TALLAS = ['1', '2', '3', '4', '6', '8', '10', '12', '14', '16', '18', '20'];
 const TALLAS_BABY = ['1', '2', '3', '4', '6'];
-const ESTADO_TXT = { abierta: 'Abierta', repartida: 'Repartida', finalizada: 'Cerrada y guardada', cancelada: 'Cancelada' };
+const ESTADO_TXT = { abierta: 'Abierta', repartida: 'Repartida', finalizada: 'Resultados publicados', cancelada: 'Cancelada' };
 
 let prendas = [];
 let convocatoria = null;
@@ -255,14 +255,14 @@ async function cargarConvocatoria() {
           <button class="btn-danger-link" data-accion="cancelar">Cancelar sin repartir</button>
         </div>`;
     } else if (c.estado === 'repartida') {
-      html += resumenHtml(c) + `<p style="font-size:14px;">Puedes seguir asignando, quitando o cambiando prendas a mano. Cuando esté todo revisado, pulsa <b>Cerrar y guardar</b>: a partir de ahí no se puede tocar nada y cada familia verá en el portal qué le ha tocado.</p>
+      html += resumenHtml(c) + `<p style="font-size:14px;">Puedes seguir asignando, quitando o cambiando prendas a mano. Las familias todavía <b>no ven</b> el resultado. Cuando esté todo revisado, pulsa <b>Publicar resultados y cerrar</b>: cada familia verá en la web qué ha recibido cada alumno/a y ya no se podrá tocar nada.</p>
         <div class="acciones">
-          <button class="btn btn-primary" data-accion="finalizar">Cerrar y guardar</button>
+          <button class="btn btn-primary" data-accion="finalizar">Publicar resultados y cerrar</button>
           <button class="btn-danger-link" id="resetearBtn">Anular todo el reparto y volver a empezar</button>
         </div>
-        <p style="font-size:14px; color:var(--ink-soft); margin-top:10px;">Para abrir una convocatoria nueva, primero cierra y guarda esta.</p>`;
+        <p style="font-size:14px; color:var(--ink-soft); margin-top:10px;">Para abrir una convocatoria nueva, primero publica los resultados de esta.</p>`;
     } else if (c.estado === 'finalizada') {
-      html += resumenHtml(c) + `<p style="font-size:14px;">Cerrada y guardada el ${fechaHora(c.finalizada_en)}${c.finalizada_por ? ' por ' + esc(c.finalizada_por) : ''}. Solo lectura. Las familias ya ven su resultado.</p>`;
+      html += resumenHtml(c) + `<p style="font-size:14px;">Resultados publicados el ${fechaHora(c.finalizada_en)}${c.finalizada_por ? ' por ' + esc(c.finalizada_por) : ''}. Solo lectura. Las familias ya ven su resultado.</p>`;
     } else if (c.estado === 'cancelada') {
       html += `<p style="font-size:14px;">Cancelada sin repartir. Sus pedidos se pueden consultar o borrar abajo.</p>`;
     }
@@ -302,7 +302,7 @@ async function accionConvocatoria(accion) {
   const textos = {
     cerrar: '¿Cerrar el plazo ahora? Las familias ya no podrán pedir y podrás repartir enseguida.',
     cancelar: '¿Cancelar esta convocatoria sin repartir? Los pedidos se conservan para consultarlos, pero no se reparte nada.',
-    finalizar: '¿Cerrar y guardar? Ya no se podrá cambiar NADA de este reparto (ni anularlo) y las familias verán su resultado. No hay vuelta atrás.'
+    finalizar: '¿Publicar los resultados? Cada familia verá qué ha recibido cada alumno/a y ya no se podrá cambiar NADA de este reparto (ni anularlo). No hay vuelta atrás.'
   };
   if (!confirm(textos[accion])) return;
   const { error } = await sb.rpc('convocatoria_admin_accion', { p_tipo: 'uniformes', p_convocatoria_id: convocatoria.id, p_accion: accion });
@@ -388,7 +388,7 @@ async function cargarPedidos() {
       const prios = lista.filter(p => p.prioridad > 0).sort((a, b) => a.prioridad - b.prioridad)
         .map(p => `<span class="${p.estado === 'asignado' ? 'ok' : ''}">${p.prioridad}ª ${esc(p.prendas_catalogo?.tipo)} T${esc(p.prendas_catalogo?.talla)}${p.estado === 'asignado' ? ' ✓' : ''}</span>`).join(' · ');
       const resultado = asignado
-        ? `<b style="color:#1E7A46;">✓ ${esc(asignado.prendas_catalogo?.tipo)} talla ${esc(asignado.prendas_catalogo?.talla)}</b>${asignado.prioridad === 0 ? ' <span style="color:var(--ink-soft); font-size:14px;">(a mano)</span>' : ''}`
+        ? `<b style="color:#1E7A46;">✓ ${esc(asignado.prendas_catalogo?.tipo)} talla ${esc(asignado.prendas_catalogo?.talla)}</b> <span style="color:var(--ink-soft); font-size:14px;">(${asignado.prioridad === 0 ? 'a mano' : asignado.prioridad + 'ª prioridad'})</span>`
         : `<span style="color:var(--ink-soft);">${convocatoria.estado === 'repartida' || convocatoria.estado === 'finalizada' ? 'Sin prenda' : 'Pendiente del sorteo'}</span>`;
       html += `<div class="alumno" data-alumno="${lista[0].alumno_id}">
         <b>${esc(al.nombre)} ${esc(al.apellidos)}</b> <span style="color:var(--ink-soft);">· ${esc(al.curso || '')} ${esc(al.etapa || '')}</span> — ${resultado}
@@ -402,7 +402,8 @@ async function cargarPedidos() {
         prioridad_1: (lista.find(p => p.prioridad === 1)?.prendas_catalogo ? `${lista.find(p => p.prioridad === 1).prendas_catalogo.tipo} T${lista.find(p => p.prioridad === 1).prendas_catalogo.talla}` : ''),
         prioridad_2: (lista.find(p => p.prioridad === 2)?.prendas_catalogo ? `${lista.find(p => p.prioridad === 2).prendas_catalogo.tipo} T${lista.find(p => p.prioridad === 2).prendas_catalogo.talla}` : ''),
         prioridad_3: (lista.find(p => p.prioridad === 3)?.prendas_catalogo ? `${lista.find(p => p.prioridad === 3).prendas_catalogo.tipo} T${lista.find(p => p.prioridad === 3).prendas_catalogo.talla}` : ''),
-        asignado: asignado ? `${asignado.prendas_catalogo?.tipo} T${asignado.prendas_catalogo?.talla}${asignado.prioridad === 0 ? ' (a mano)' : ''}` : ''
+        asignado: asignado ? `${asignado.prendas_catalogo?.tipo} T${asignado.prendas_catalogo?.talla}${asignado.prioridad === 0 ? ' (a mano)' : ''}` : '',
+        prioridad_asignada: asignado ? (asignado.prioridad === 0 ? 'a mano' : asignado.prioridad + 'ª') : ''
       });
     });
     html += '</div>';

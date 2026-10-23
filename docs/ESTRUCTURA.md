@@ -350,7 +350,7 @@ Confirmado leyendo el archivo real — no asumir nada distinto a esto:
   **`finalizada`** / **`cancelada`**; `resumen_reparto` (jsonb: totales,
   quién y cuándo), `finalizada_en/por`. Acciones
   `convocatoria_admin_accion('uniformes', id, 'cerrar'|'cancelar'|'finalizar')`.
-  "Finalizar" (= "Cerrar y guardar") la deja de solo lectura: las RPC de
+  "Finalizar" (= "Publicar resultados y cerrar") publica el resultado (mientras está «repartida» la RLS no deja a las familias leer sus pedidos; uniformes_he_pedido) y la deja de solo lectura: las RPC de
   asignar/quitar/anular/borrar lo rechazan. Para abrir otra, la anterior
   tiene que estar finalizada o cancelada.
 - **`uniformes_pedidos`** — 3 filas por alumno (prioridad 1/2/3);

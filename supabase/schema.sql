@@ -5884,3 +5884,59 @@ begin
 end;
 $$;
 grant execute on function mochila_encuesta_responder(uuid, jsonb, jsonb) to anon, authenticated;
+
+-- ===================== CURSO TODO EL AÑO (copia de migracion-curso-todo-el-anio.sql) =====================
+-- ==================================================================
+-- CURSO DE WARHAMMER: INSCRIPCIÓN ABIERTA TODO EL AÑO
+--  · La inscripción es al curso entero (no por sesiones) y está siempre
+--    abierta mientras queden plazas: un curso (plantilla 'warhammer') no
+--    tiene fechas de apertura ni de cierre, ni sorteo.
+--  · Arregla los cursos que ya tengan alguna de esas fechas.
+-- Se puede ejecutar varias veces.
+-- ==================================================================
+create or replace function eventos_curso_todo_el_anio()
+returns trigger language plpgsql set search_path = public as $$
+begin
+  if new.plantilla = 'warhammer' then
+    new.fecha_apertura_socios := null;
+    new.fecha_apertura_no_socios := null;
+    new.fecha_cierre_inscripcion := null;
+    new.metodo_asignacion := 'aforo';
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists trg_eventos_curso_todo_el_anio on eventos;
+create trigger trg_eventos_curso_todo_el_anio before insert or update on eventos
+  for each row execute function eventos_curso_todo_el_anio();
+
+update eventos set fecha_apertura_socios = null, fecha_apertura_no_socios = null, fecha_cierre_inscripcion = null, metodo_asignacion = 'aforo'
+where plantilla = 'warhammer'
+  and (fecha_apertura_socios is not null or fecha_apertura_no_socios is not null or fecha_cierre_inscripcion is not null or metodo_asignacion <> 'aforo');
+
+-- ===================== UNIFORMES: PUBLICAR RESULTADOS (copia de migracion-uniformes-publicar.sql) =====================
+-- ==================================================================
+-- BANCO DE UNIFORMES: EL RESULTADO DEL REPARTO NO SE VE HASTA PUBLICARLO
+--  · Mientras la convocatoria está «Repartida» (la Junta lo revisa y aún
+--    puede cambiarlo), las familias no pueden leer sus pedidos de esa
+--    convocatoria, ni desde la web ni desde la consola del navegador.
+--    Los ven otra vez cuando la Junta pulsa «Publicar resultados y cerrar»
+--    (estado 'finalizada').
+--  · uniformes_he_pedido(convocatoria): si la familia pidió algo en esa
+--    convocatoria (para decirle que el reparto está en marcha), sin
+--    enseñar el resultado.
+-- Se puede ejecutar varias veces.
+-- ==================================================================
+drop policy if exists "socios ven sus propios pedidos de uniformes" on uniformes_pedidos;
+create policy "socios ven sus propios pedidos de uniformes" on uniformes_pedidos for select
+  using (
+    socio_id = mi_socio_id()
+    and exists (select 1 from uniformes_convocatorias c where c.id = convocatoria_id and c.estado <> 'repartida')
+  );
+
+create or replace function uniformes_he_pedido(p_convocatoria uuid)
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (select 1 from uniformes_pedidos
+                 where convocatoria_id = p_convocatoria and socio_id = mi_socio_id() and prioridad in (1, 2, 3));
+$$;
+grant execute on function uniformes_he_pedido(uuid) to authenticated;

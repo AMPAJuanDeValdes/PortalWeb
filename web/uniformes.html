@@ -17,7 +17,6 @@
   .una-prenda b{ display:block; font-family:var(--font-title); font-size:20px; margin-bottom:4px; }
   .una-prenda p{ margin:0; }
   .prio-intro{ margin:0 0 12px; }
-  .prio-ayuda{ font-weight:400; color:var(--ink-soft); font-size:14px; }
 </style>
 </head>
 <body>
@@ -98,9 +97,10 @@ async function cargarConseguidos() {
 }
 
 // ¿Ha pedido algo esta familia en esa convocatoria? (solo entonces tiene sentido hablar de su reparto)
+// (con el reparto hecho y sin publicar, los pedidos no se pueden leer: lo dice uniformes_he_pedido)
 async function hayPedidosEn(convocatoriaId) {
-  const { count } = await sb.from('uniformes_pedidos').select('id', { count: 'exact', head: true }).eq('convocatoria_id', convocatoriaId).in('prioridad', [1, 2, 3]);
-  return (count || 0) > 0;
+  const { data } = await sb.rpc('uniformes_he_pedido', { p_convocatoria: convocatoriaId });
+  return data === true;
 }
 
 async function cargarConvocatoria() {
@@ -135,7 +135,7 @@ async function cargarConvocatoria() {
       : convocatoria.estado === 'cancelada'
         ? '<p class="empty-hint">No hay ninguna convocatoria de uniformes en marcha ahora mismo.</p>'
         : (await hayPedidosEn(convocatoria.id))
-          ? '<p class="empty-hint">El plazo para pedir uniformes está cerrado. El AMPA está haciendo el reparto: cuando termine, veréis aquí el resultado.</p>'
+          ? '<p class="empty-hint">El plazo para pedir uniformes está cerrado. El AMPA está haciendo el reparto: cuando publique los resultados, veréis aquí qué ha recibido cada alumno/a.</p>'
           : '<p class="empty-hint">No hay ninguna convocatoria de uniformes en marcha ahora mismo.</p>';
     alumnosWrap.innerHTML = '';
   }
@@ -197,7 +197,7 @@ function renderAlumnoCard(alumno, seleccionInicial) {
     const field = document.createElement('div');
     field.className = 'field';
     field.style.marginTop = prioridad > 1 ? '14px' : '0';
-    field.innerHTML = `<label>${prioridad}ª prioridad <span class="prio-ayuda">${['', 'la que intentaremos daros', 'solo si no hay suficientes de la 1ª', 'solo si tampoco hay de la 2ª'][prioridad]}</span></label>`;
+    field.innerHTML = `<label>${prioridad}ª prioridad</label>`;
     const fila = document.createElement('div');
     fila.style.cssText = 'display:grid; grid-template-columns:1fr 1fr; gap:10px;';
     const t = document.createElement('select'); t.dataset.prioridad = prioridad; t.className = 'tipoSel';
@@ -282,7 +282,7 @@ function renderAlumnoCard(alumno, seleccionInicial) {
 
     msg.style.display = 'block';
     msg.className = error ? 'msg-error' : 'msg-ok';
-    msg.textContent = error ? 'Error: ' + error.message : 'Guardado ✓. Recibirá una sola de estas prendas: la de 1ª prioridad si hay suficientes.';
+    msg.textContent = error ? 'Error: ' + error.message : 'Guardado ✓';
   });
 
   body.appendChild(guardarBtn);

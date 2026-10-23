@@ -236,6 +236,12 @@ async function estadoUniformes(socioId) {
   const conv = convs && convs[0];
   if (!conv || conv.estado === 'cancelada') return pend;
   const mios = (pedidos || []).filter(p => p.convocatoria_id === conv.id);
+  // Reparto hecho y sin publicar: los pedidos no se pueden leer, solo si se pidió algo
+  if (conv.estado === 'repartida') {
+    const { data: pidio } = await sb.rpc('uniformes_he_pedido', { p_convocatoria: conv.id });
+    if (pidio) tarjeta('tUniformes', 'Plazo cerrado. Veréis el resultado cuando el AMPA lo publique.');
+    return pend;
+  }
   if (vigente(conv)) {
     if (!mios.length) {
       pend.push({ tipo: 'uniformes', href: 'uniformes.html', titulo: 'Pedid prendas de uniforme', accion: 'Pedir uniformes',
@@ -249,7 +255,7 @@ async function estadoUniformes(socioId) {
       const n = mios.filter(p => p.estado === 'asignado').length;
       tarjeta('tUniformes', n ? `Os han tocado ${n} prenda${n > 1 ? 's' : ''}.` : 'Esta vez no ha habido prendas para vuestro pedido.');
     } else {
-      tarjeta('tUniformes', 'Plazo cerrado. Veréis el resultado cuando se cierre el reparto.');
+      tarjeta('tUniformes', 'Plazo cerrado. Veréis el resultado cuando el AMPA lo publique.');
     }
   }
   return pend;
