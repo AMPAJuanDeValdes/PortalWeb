@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<meta name="theme-color" content="#16233A">
+<meta name="robots" content="noindex">
+<title>Encuesta de la Mochila Jugona Exploradora · AMPA Juan de Valdés</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared/styles.css">
+<style>
+  .wrap{ max-width:820px; }
+  .bloque{ background:#fff; border:1px solid var(--line); border-radius:var(--radius-card); padding:18px 20px; margin-bottom:16px; }
+  .bloque h2{ font-size:21px; margin:0 0 6px; }
+  .ayuda{ color:var(--ink-soft); margin:0 0 12px; font-size:16px; }
+
+  /* Quiénes habéis jugado */
+  .miembros{ display:grid; gap:8px; }
+  .miembro{ display:flex; flex-wrap:wrap; gap:8px 12px; align-items:center; }
+  .miembro .quien{ font-weight:700; min-width:9em; }
+  .miembro input[type=number]{ width:90px; min-height:40px; }
+  .miembro input[type=text]{ max-width:220px; min-height:40px; }
+  .anadir{ display:flex; flex-wrap:wrap; gap:10px; margin-top:12px; }
+
+  /* Un juego */
+  .juego{ display:grid; grid-template-columns:150px 1fr; gap:16px; align-items:start; }
+  @media (max-width:560px){ .juego{ grid-template-columns:1fr; } }
+  .juego .foto{ background:#F6F8FB; border:1px solid var(--line); border-radius:14px; height:150px; display:flex; align-items:center; justify-content:center; padding:8px; }
+  .juego .foto img{ max-width:100%; max-height:100%; object-fit:contain; border-radius:8px; }
+  .juego h3{ margin:0 0 8px; font-size:20px; }
+  .nojugado{ display:flex; gap:8px; align-items:center; font-weight:700; margin:0 0 10px; }
+  .valorar{ display:grid; gap:10px; }
+  .valorar.apagado{ opacity:.35; pointer-events:none; }
+  .fila-val{ display:grid; gap:4px; }
+  .fila-val > span{ font-weight:700; font-size:15px; }
+  .opciones{ display:flex; flex-wrap:wrap; gap:6px; border:0; padding:0; margin:0; }
+  .opciones label{ margin:0; cursor:pointer; }
+  .opciones input{ position:absolute; opacity:0; width:1px; height:1px; }
+  .opciones span{ display:inline-flex; align-items:center; min-height:40px; padding:0 14px; border:1.5px solid #C9D3DF; border-radius:999px; font-size:15px; font-weight:700; color:var(--ink-soft); background:#fff; }
+  .opciones input:focus-visible + span{ outline:3px solid #9CCBF0; outline-offset:1px; }
+  .opciones input:checked + span{ color:#fff; border-color:transparent; }
+  .opciones .v3 input:checked + span{ background:#1D7A45; }
+  .opciones .v2 input:checked + span{ background:var(--navy); }
+  .opciones .v1 input:checked + span{ background:#B23A2E; }
+  .opciones .v0 input:checked + span{ background:#E9EDF2; color:var(--ink); }
+  .gracias{ text-align:center; padding:30px 16px; }
+  .gracias b{ display:block; font-family:var(--font-title); font-size:28px; margin-bottom:8px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="cab-servicio cs-mochila" style="margin-top:28px;"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9a6 6 0 0 1 12 0v11H6z"/><path d="M9 5V3h6v2M9 14h6"/></svg><div><h1>¿Qué os han parecido los juegos?</h1><p id="subtitulo">Cargando...</p></div></header>
+
+  <div id="contenido"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="shared/supabaseClient.js"></script>
+<script>
+const esc = (t) => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const token = new URLSearchParams(location.search).get('t') || '';
+const cont = document.getElementById('contenido'), sub = document.getElementById('subtitulo');
+const OPCIONES = [[3, 'Le encantó'], [2, 'Bien'], [1, 'No le gustó'], [0, 'No jugó']];
+let juegos = [], miembros = [];   // miembros: { tipo: 'adulto'|'alumno', nombre, edad }
+
+function pintarMiembros() {
+  const w = document.getElementById('miembros');
+  w.innerHTML = miembros.map((m, k) => `<div class="miembro">
+      ${m.propio ? `<span class="quien">${esc(m.nombre)}</span>`
+        : `<input type="text" data-k="${k}" class="mNombre" placeholder="${m.tipo === 'adulto' ? 'Adulto (nombre, opcional)' : 'Alumno/a (nombre, opcional)'}" value="${esc(m.nombre || '')}" aria-label="Nombre">`}
+      ${m.tipo === 'alumno' ? `<label style="display:flex; gap:6px; align-items:center; margin:0; font-weight:400;">Edad <input type="number" min="0" max="25" data-k="${k}" class="mEdad" value="${m.edad ?? ''}"></label>` : ''}
+      ${m.propio ? '' : `<button type="button" class="linklike mQuitar" data-k="${k}">Quitar</button>`}
+    </div>`).join('') || '<p class="ayuda" style="margin:0;">Añade a quienes habéis jugado.</p>';
+  w.querySelectorAll('.mNombre').forEach(i => i.addEventListener('input', () => { miembros[i.dataset.k].nombre = i.value; pintarJuegos(true); }));
+  w.querySelectorAll('.mEdad').forEach(i => i.addEventListener('input', () => { miembros[i.dataset.k].edad = i.value === '' ? null : Number(i.value); pintarJuegos(true); }));
+  w.querySelectorAll('.mQuitar').forEach(b => b.addEventListener('click', () => { quitarMiembro(Number(b.dataset.k)); }));
+}
+function nombreMiembro(m) {
+  if (m.nombre && m.nombre.trim()) return m.nombre.trim();
+  return m.tipo === 'adulto' ? 'Adulto' : 'Alumno/a' + (m.edad != null ? ` de ${m.edad} años` : '');
+}
+
+// Lo marcado se guarda por juego y miembro: { juegoId: { noJugado, valores: [..] } }
+const marcado = {};
+function quitarMiembro(k) {
+  miembros.splice(k, 1);
+  Object.values(marcado).forEach(x => x.valores.splice(k, 1));
+  pintarMiembros(); pintarJuegos();
+}
+function pintarJuegos(soloNombres) {
+  const w = document.getElementById('juegos');
+  if (soloNombres) {   // al escribir un nombre no se repinta todo (no se pierde el foco)
+    w.querySelectorAll('.fila-val > span').forEach(s => { s.textContent = nombreMiembro(miembros[s.dataset.k]); });
+    return;
+  }
+  w.innerHTML = juegos.map(j => {
+    const m = marcado[j.id] || (marcado[j.id] = { noJugado: false, valores: [] });
+    return `<div class="bloque juego" data-j="${esc(j.id)}">
+      <div class="foto">${j.foto_url ? `<img src="${esc(j.foto_url)}" alt="${esc(j.nombre)}" loading="lazy">` : ''}</div>
+      <div>
+        <h3>${esc(j.nombre)}</h3>
+        <label class="nojugado"><input type="checkbox" class="nj" ${m.noJugado ? 'checked' : ''}> No hemos jugado</label>
+        <div class="valorar ${m.noJugado ? 'apagado' : ''}">
+          ${miembros.map((mi, k) => `<div class="fila-val"><span data-k="${k}">${esc(nombreMiembro(mi))}</span>
+            <fieldset class="opciones"><legend class="sr" style="position:absolute; left:-9999px;">${esc(j.nombre)}: ${esc(nombreMiembro(mi))}</legend>
+              ${OPCIONES.map(([v, t]) => `<label class="v${v}"><input type="radio" name="r-${esc(j.id)}-${k}" value="${v}" ${(m.valores[k] ?? 0) === v ? 'checked' : ''}><span>${t}</span></label>`).join('')}
+            </fieldset></div>`).join('')}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+  w.querySelectorAll('.juego').forEach(card => {
+    const id = card.dataset.j, m = marcado[id];
+    card.querySelector('.nj').addEventListener('change', (e) => { m.noJugado = e.target.checked; card.querySelector('.valorar').classList.toggle('apagado', m.noJugado); });
+    card.querySelectorAll('input[type=radio]').forEach(r => r.addEventListener('change', () => {
+      const k = Number(r.name.split('-').pop());
+      m.valores[k] = Number(r.value);
+    }));
+  });
+}
+
+async function enviar(btn, msg) {
+  msg.hidden = true;
+  const err = (t) => { msg.textContent = t; msg.hidden = false; };
+  if (!miembros.length) return err('Añade a quienes habéis jugado.');
+  const sinEdad = miembros.find(m => m.tipo === 'alumno' && (m.edad == null || isNaN(m.edad)));
+  if (sinEdad) return err('Pon la edad de ' + nombreMiembro(sinEdad) + '.');
+  const datos = juegos.map(j => {
+    const m = marcado[j.id] || { noJugado: false, valores: [] };
+    const valores = miembros.map((_, k) => m.valores[k] || null);
+    // Si nadie lo valoró, cuenta como «No hemos jugado»
+    return m.noJugado || !valores.some(Boolean) ? { juego_id: j.id, no_jugado: true } : { juego_id: j.id, valores };
+  });
+  btn.disabled = true; btn.textContent = 'Enviando...';
+  const { error } = await sb.rpc('mochila_encuesta_responder', {
+    p_token: token,
+    p_miembros: miembros.map(m => ({ tipo: m.tipo, nombre: nombreMiembro(m), edad: m.tipo === 'alumno' ? m.edad : null })),
+    p_juegos: datos
+  });
+  if (error) { btn.disabled = false; btn.textContent = 'Enviar'; return err(String(error.message).replace(/^.*?ERROR:\s*/, '')); }
+  cont.innerHTML = '<div class="bloque gracias"><b>¡Gracias!</b><p>Nos ayuda mucho a elegir los juegos de la Mochila Jugona Exploradora.</p><p><a href="index.html">Ir a la web del AMPA</a></p></div>';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+(async () => {
+  if (!/^[0-9a-f-]{36}$/i.test(token)) { sub.textContent = 'Este enlace no es válido.'; return; }
+  const { data, error } = await sb.rpc('mochila_encuesta_datos', { p_token: token });
+  if (error || !data) { sub.textContent = 'Este enlace no es válido.'; return; }
+  if (data.respondida) {
+    sub.textContent = 'Ya nos habéis contestado. ¡Gracias!';
+    return;
+  }
+  sub.textContent = `Gracias por devolver la Mochila Jugona Exploradora${data.nombre_familia ? ', ' + data.nombre_familia : ''}. Valorad cada juego (cada uno de vosotros) o marcad los que no habéis probado.`;
+  juegos = data.juegos || [];
+  miembros = (data.miembros || []).map(m => ({ tipo: m.tipo, nombre: m.nombre, edad: m.edad, propio: true }));
+  if (!miembros.length) miembros = [{ tipo: 'adulto', nombre: '' }, { tipo: 'alumno', nombre: '', edad: null }];
+  cont.innerHTML = `
+    <div class="bloque">
+      <h2>Quiénes habéis jugado</h2>
+      <p class="ayuda">${data.socia ? 'Revisad la edad de cada alumno/a. Si ha jugado alguien más, añadidlo.' : 'Añadid a cada persona que ha jugado; de los alumnos/as, su edad.'}</p>
+      <div class="miembros" id="miembros"></div>
+      <div class="anadir">
+        <button type="button" class="btn btn-outline" id="masAlumno">Añadir alumno/a</button>
+        <button type="button" class="btn btn-outline" id="masAdulto">Añadir adulto</button>
+      </div>
+    </div>
+    <div id="juegos"></div>
+    <div class="bloque">
+      <button type="button" class="btn btn-primary btn-grande" id="enviarBtn">Enviar</button>
+      <p class="msg-error" id="msg" hidden></p>
+    </div>`;
+  document.getElementById('masAlumno').addEventListener('click', () => { miembros.push({ tipo: 'alumno', nombre: '', edad: null }); pintarMiembros(); pintarJuegos(); });
+  document.getElementById('masAdulto').addEventListener('click', () => { miembros.push({ tipo: 'adulto', nombre: '' }); pintarMiembros(); pintarJuegos(); });
+  pintarMiembros(); pintarJuegos();
+  const btn = document.getElementById('enviarBtn');
+  btn.addEventListener('click', () => enviar(btn, document.getElementById('msg')));
+})();
+</script>
+<script src="shared/visitas.js" defer></script>
+</body>
+</html>

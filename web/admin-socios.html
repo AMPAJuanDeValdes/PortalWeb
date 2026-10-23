@@ -101,15 +101,15 @@
   <p class="lede">Todas las cuentas (activas, pendientes de pago y de baja) con todos sus datos. Desde aquí se aprueban las solicitudes de alta y de reactivación, se edita cualquier dato (incluido el número de socio) y se desactiva, se da de baja o se reactiva una cuenta.</p>
 
   <div class="tabs">
-    <button class="tab-btn active" data-tab="solicitudes">Solicitudes pendientes <span class="num" id="numSolicitudes" style="display:none;"></span></button>
-    <button class="tab-btn" data-tab="socios">Lista de socios</button>
+    <button class="tab-btn active" data-tab="socios">Lista de socios</button>
+    <button class="tab-btn" data-tab="solicitudes">Solicitudes pendientes <span class="num" id="numSolicitudes" style="display:none;"></span></button>
   </div>
 
-  <div class="panel active" id="panel-solicitudes">
+  <div class="panel" id="panel-solicitudes">
     <div id="wrapSolicitudes"><p class="loading">Cargando...</p></div>
   </div>
 
-  <div class="panel" id="panel-socios">
+  <div class="panel active" id="panel-socios">
     <div class="card card-lista">
       <div class="filtros">
         <div class="field">
@@ -119,8 +119,9 @@
         <div class="field" style="max-width:220px;">
           <label for="filtroEstado">Estado</label>
           <select id="filtroEstado">
-            <option value="">Todos</option>
-            <option value="activa">Activas</option>
+            <option value="activa" selected>Activas</option>
+            <option value="no_baja">Todas menos las de baja</option>
+            <option value="">Todas</option>
             <option value="recien_creada">Pendientes de aprobar</option>
             <option value="falta_pago">Inactivas (falta de pago)</option>
             <option value="baja">De baja</option>
@@ -365,7 +366,8 @@ function sociosFiltrados() {
   const t = document.getElementById('filtroTexto').value.trim().toLowerCase();
   const e = document.getElementById('filtroEstado').value;
   const w = document.getElementById('filtroWeb').value;
-  return SOCIOS.filter(s => (!e || s.estado === e) && cumpleFiltroWeb(s, w) && (!t || textoBusqueda(s).includes(t)))
+  const cumpleEstado = (s) => !e || (e === 'no_baja' ? s.estado !== 'baja' : s.estado === e);
+  return SOCIOS.filter(s => cumpleEstado(s) && cumpleFiltroWeb(s, w) && (!t || textoBusqueda(s).includes(t)))
     .sort((a, b) => String(a.numero_socio_completo || 'zzz').localeCompare(String(b.numero_socio_completo || 'zzz')));
 }
 
@@ -726,8 +728,13 @@ function pintarDetalle(s, td) {
   renderNav('admin-socios', ctx);
   try { const { data } = await sb.rpc('es_admin_principal'); esPrincipal = data === true; } catch (e) { esPrincipal = false; }
   await recargar();
-  const pedir = new URLSearchParams(location.search).get('tab');
-  if (pedir === 'socios') document.querySelector('.tab-btn[data-tab="socios"]').click();
+  // Se abre en «Lista de socios» con las activas. ?tab=solicitudes abre las solicitudes;
+  // ?estado=falta_pago (o cualquier valor del filtro) cambia el estado mostrado.
+  const params = new URLSearchParams(location.search);
+  if (params.get('tab') === 'solicitudes') document.querySelector('.tab-btn[data-tab="solicitudes"]').click();
+  const estado = params.get('estado');
+  const sel = document.getElementById('filtroEstado');
+  if (estado !== null && [...sel.options].some(o => o.value === estado)) { sel.value = estado; pintarLista(); }
 })();
 </script>
 <script src="shared/sonido.js"></script>

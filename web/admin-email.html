@@ -34,7 +34,7 @@
 <div class="wrap">
   <div class="eyebrow">Administración</div>
   <h1>Enviar email</h1>
-  <p class="lede">Se envía por email vía el buzón del AMPA (SMTP), en BCC por tandas. Es un email de texto plano, sin plantillas de diseño.</p>
+  <p class="lede">Se envía por email vía el buzón del AMPA (SMTP), en BCC por tandas. Es un email de texto, sin plantillas de diseño; al final se añade siempre la firma del AMPA («Un saludo, Junta Directiva, AMPA Juan de Valdés» con el logo), así que no hace falta escribirla.</p>
 
   <div class="card">
     <p class="section-label">Destinatarios</p>
@@ -42,6 +42,7 @@
       <option value="todos">Todos los socios activos</option>
       <option value="curso">Familias con alumnos/as en unos cursos</option>
       <option value="evento">Inscritos a un evento</option>
+      <option value="sin_confirmar">Familias activas que no han confirmado sus datos</option>
     </select>
 
     <div id="cursoWrap" style="display:none; margin-top:14px;">
@@ -151,6 +152,11 @@ document.getElementById('calcularBtn').addEventListener('click', async () => {
     const alumnos = await todasLasFilas(() => sb.from('alumnos').select('socio_id, etapa, curso').in('curso', nombresCurso).order('id'));
     const quiero = new Set(marcados);
     emails = await emailsDeSocios(alumnos.filter(a => quiero.has(a.etapa + '|' + a.curso)).map(a => a.socio_id), true);
+  } else if (tipo === 'sin_confirmar') {
+    // Las mismas familias que Listados → «Datos sin confirmar» (todos sus adultos)
+    const { data, error } = await sb.rpc('familias_sin_confirmar');
+    if (error) { document.getElementById('totalMsg').textContent = 'No se pudo calcular: ' + error.message; return; }
+    emails = (data || []).flatMap(f => (f.adultos || []).map(a => a.email)).filter(Boolean);
   } else if (tipo === 'evento') {
     const eventoId = document.getElementById('fEvento').value;
     const { data: inscripciones } = await sb.from('evento_inscripciones').select('socio_id').eq('evento_id', eventoId).not('socio_id', 'is', null);
@@ -202,6 +208,13 @@ document.getElementById('enviarBtn').addEventListener('click', async () => {
   if (!ctx) return;
   renderNav('admin-email', ctx);
   await cargarEventosSelect();
+  // admin-email.html?para=sin_confirmar (desde Listados → «Datos sin confirmar»): ya elegido y calculado
+  const para = new URLSearchParams(location.search).get('para');
+  const sel = document.getElementById('tipoDestinatario');
+  if (para && [...sel.options].some(o => o.value === para)) {
+    sel.value = para; sel.dispatchEvent(new Event('change'));
+    document.getElementById('calcularBtn').click();
+  }
 })();
 </script>
 <script src="shared/sonido.js"></script>

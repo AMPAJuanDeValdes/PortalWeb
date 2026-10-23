@@ -79,7 +79,7 @@ test.describe('Seguridad', () => {
 
   test('Funciones de admin: 403 con un socio, 401 sin sesión', async () => {
     const { token } = await clienteComo(a.adultos[0].email);
-    for (const f of ['admin-gestionar-cuenta', 'admin-import-socios', 'enviar-email-masivo', 'prestamo-repartir', 'uniformes-repartir', 'evento-sortear', 'circular-borrador', 'push-avisar-evento', 'push-avisar-convocatoria', 'comprobante-rechazar']) {
+    for (const f of ['admin-gestionar-cuenta', 'admin-import-socios', 'enviar-email-masivo', 'prestamo-repartir', 'uniformes-repartir', 'evento-sortear', 'circular-borrador', 'push-avisar-evento', 'push-avisar-convocatoria', 'comprobante-rechazar', 'mochila-encuesta-enviar']) {
       const conSocio = await llamarFuncion(f, { accion: 'baja', socioId: b.socio.id }, token);
       expect(conSocio.status, f + ' con socio').toBe(403);
       const sinToken = await llamarFuncion(f, {}, null);

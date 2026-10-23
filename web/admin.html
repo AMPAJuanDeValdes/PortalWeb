@@ -111,7 +111,7 @@ async function socios() {
   const { data: sinConfirmar } = await sb.rpc('familias_sin_confirmar');
   const atascadas = (sinConfirmar || []).filter(f => f.intentos_fallidos > 0).length;
   if (atascadas) tarea('socios', atascadas, atascadas === 1 ? 'Familia que no consigue confirmar sus datos' : 'Familias que no consiguen confirmar sus datos', 'Lo intentaron en Mis datos y les falló. Sin eso no pueden apuntarse a eventos.', 'admin-respuestas.html#datos', 'Ver por qué');
-  if (solicitudes) tarea('socios', solicitudes, solicitudes === 1 ? 'Solicitud de alta o reactivación' : 'Solicitudes de alta o reactivación', 'Revisa el justificante y activa o rechaza.', 'admin-socios.html', 'Revisar');
+  if (solicitudes) tarea('socios', solicitudes, solicitudes === 1 ? 'Solicitud de alta o reactivación' : 'Solicitudes de alta o reactivación', 'Revisa el justificante y activa o rechaza.', 'admin-socios.html?tab=solicitudes', 'Revisar');
   const [alumnos, comprobantes] = await Promise.all([
     cuenta(sb.from('alumnos').select('id, socios!inner(estado)', { count: 'exact', head: true }).eq('socios.estado', 'activa')),
     cuenta(sb.from('comprobantes_pago').select('id', { count: 'exact', head: true }).eq('tipo', 'invitado_evento').eq('verificado', false).eq('reembolsado', false))
@@ -122,8 +122,8 @@ async function socios() {
   document.getElementById('cifras').innerHTML = [
     ['admin-socios.html', activas, 'familias socias'],
     ['admin-respuestas.html', alumnos, 'alumnos de familias socias'],
-    ['admin-socios.html', faltaPago, 'pendientes de pagar la cuota'],
-    ['admin-socios.html', domiciliadas, 'familias con domiciliación']
+    ['admin-socios.html?estado=falta_pago', faltaPago, 'pendientes de pagar la cuota'],
+    ['admin-socios.html?estado=no_baja', domiciliadas, 'familias con domiciliación']
   ].map(([h, n, t]) => `<a class="cifra" href="${h}"><b>${n}</b><span>${t}</span></a>`).join('');
 }
 

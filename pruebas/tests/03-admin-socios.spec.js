@@ -30,7 +30,7 @@ test.describe.serial('Administración de socios', () => {
   const solicitudDe = (page, f) => page.locator('.solicitud', { hasText: apellido(f) });
   async function abrirFicha(page, f) {
     await page.goto('/admin-socios.html');
-    await page.click('.tab-btn[data-tab="socios"]');
+    await page.selectOption('#filtroEstado', '');   // todas: la ficha puede no estar activa
     await page.fill('#filtroTexto', apellido(f));
     await page.click(`tr[data-id="${f.socio.id}"]`);
     return page.locator('td.detalle');
@@ -45,7 +45,7 @@ test.describe.serial('Administración de socios', () => {
   });
 
   test('Solicitudes: se ven todos los datos de la familia', async ({ page }) => {
-    await page.goto('/admin-socios.html');
+    await page.goto('/admin-socios.html?tab=solicitudes');
     const s = solicitudDe(page, pendiente);
     await expect(s).toBeVisible();
     await expect(s).toContainText(pendiente.adultos[0].email);
@@ -55,7 +55,7 @@ test.describe.serial('Administración de socios', () => {
   });
 
   test('Activar solicitud → cuenta activa con número de socio', async ({ page }) => {
-    await page.goto('/admin-socios.html');
+    await page.goto('/admin-socios.html?tab=solicitudes');
     const s = solicitudDe(page, pendiente);
     await s.locator('.activarBtn').click();
     await expect(s.locator('.msg-linea')).toContainText('Cuenta activada', { timeout: EMAIL_TIMEOUT });
@@ -65,7 +65,7 @@ test.describe.serial('Administración de socios', () => {
   });
 
   test('Rechazar sin motivo no deja; con motivo → baja y motivo guardado', async ({ page }) => {
-    await page.goto('/admin-socios.html');
+    await page.goto('/admin-socios.html?tab=solicitudes');
     const s = solicitudDe(page, pendiente2);
     await s.locator('.rechazarAbrirBtn').click();
     await s.locator('.confirmarRechazoBtn').click();
@@ -78,14 +78,17 @@ test.describe.serial('Administración de socios', () => {
     expect(data.motivo_rechazo).toContain('ilegible');
   });
 
-  test('Lista: buscar y filtrar por estado', async ({ page }) => {
+  test('Lista: se abre por defecto con las activas; buscar y filtrar por estado', async ({ page }) => {
     await page.goto('/admin-socios.html');
-    await page.click('.tab-btn[data-tab="socios"]');
-    await page.fill('#filtroTexto', apellido(pendiente2));
-    await expect(page.locator(`tr[data-id="${pendiente2.socio.id}"]`)).toBeVisible();
-    await page.selectOption('#filtroEstado', 'activa');
+    await expect(page.locator('.tab-btn.active')).toHaveAttribute('data-tab', 'socios');
+    await expect(page.locator('#filtroEstado')).toHaveValue('activa');
+    await page.fill('#filtroTexto', apellido(pendiente2));   // está de baja (rechazada)
+    await expect(page.locator(`tr[data-id="${pendiente2.socio.id}"]`)).toHaveCount(0);
+    await page.selectOption('#filtroEstado', 'no_baja');
     await expect(page.locator(`tr[data-id="${pendiente2.socio.id}"]`)).toHaveCount(0);
     await page.selectOption('#filtroEstado', 'baja');
+    await expect(page.locator(`tr[data-id="${pendiente2.socio.id}"]`)).toBeVisible();
+    await page.selectOption('#filtroEstado', '');
     await expect(page.locator(`tr[data-id="${pendiente2.socio.id}"]`)).toBeVisible();
   });
 

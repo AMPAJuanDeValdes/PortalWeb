@@ -209,6 +209,19 @@ function plantillaLoteria({ campana, nombre, apellidos, email, movil, mensaje, e
   };
 }
 
+// Al devolver la Mochila Jugona Exploradora: encuesta sobre los juegos
+function plantillaMochilaEncuesta({ nombre, url }) {
+  return {
+    subject: '¿Qué os han parecido los juegos de la Mochila Jugona Exploradora?',
+    text:
+      `Hola${nombre ? ' ' + nombre : ''},\n\n` +
+      `Gracias por devolver la Mochila Jugona Exploradora.\n\n` +
+      `¿Nos contáis qué os han parecido los juegos? Cada miembro de la familia puede valorar cada juego, ` +
+      `o podéis marcar los que no habéis probado. Nos sirve para saber qué juegos gustan más según la edad:\n` +
+      `${url}\n`
+  };
+}
+
 // La Junta rechaza el justificante de pago de una inscripción (personas no
 // socias de un evento): la inscripción queda anulada.
 function plantillaJustificanteRechazado({ nombre, evento, personas, motivo, urlEvento }) {
@@ -304,7 +317,7 @@ function plantillaRecordatorioDevolucion({ nombre, libros }) {
 
 module.exports = {
   componerBorrador, conFirma, textoAHtml, srcLogoFirma, rutaAsset,
-  plantillaLoteria, plantillaJustificanteRechazado,
+  plantillaLoteria, plantillaJustificanteRechazado, plantillaMochilaEncuesta,
   enviarEmail, numeroSocioBonito, plantillaCredenciales, plantillaMochilaTurno, plantillaComentario, plantillaDonacion,
   plantillaBienvenida, plantillaRechazo, plantillaRecuperarPassword, plantillaRecordatorioDevolucion
 };

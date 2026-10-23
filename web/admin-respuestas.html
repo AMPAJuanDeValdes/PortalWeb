@@ -240,7 +240,10 @@ async function cargarDatosSinConfirmar() {
   });
   wrap.innerHTML = `
     <p style="margin:0 0 10px; color:var(--ink-soft);">Familias activas que todavía no han confirmado sus datos: hasta que lo hagan no pueden apuntarse a eventos. El motivo se calcula con sus datos de ahora.</p>
-    <p style="margin:0 0 6px; font-size:14px; color:var(--ink-soft);">${filas.length} familia${filas.length === 1 ? '' : 's'}</p>
+    <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between; margin:0 0 6px;">
+      <p style="margin:0; font-size:14px; color:var(--ink-soft);">${filas.length} familia${filas.length === 1 ? '' : 's'}</p>
+      ${filas.length ? '<a class="btn btn-outline" href="admin-email.html?para=sin_confirmar">Enviar un email a estas familias</a>' : ''}
+    </div>
     ${filas.length ? `<div style="overflow-x:auto;"><table><thead><tr><th>Familia</th><th>Contacto</th><th>Por qué</th><th>Intentos fallidos</th><th>Último acceso</th><th></th></tr></thead><tbody>
     ${filas.map(({ f, ad, motivo, puedeJunta }) => `<tr>
       <td>${f.numero ? `<span style="font-family:ui-monospace,Menlo,Consolas,monospace; font-size:13px; color:var(--ink-soft);">${escA(numeroSocioBonito(f.numero))}</span><br>` : ''}${escA([ad.nombre, ad.apellidos].filter(Boolean).join(' '))}</td>

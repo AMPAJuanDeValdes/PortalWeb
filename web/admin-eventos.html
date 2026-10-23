@@ -677,7 +677,8 @@ async function cargarEventos() {
           '<button class="btn btn-outline togglePremiosBtn">Premios</button>' +
           '<button class="btn btn-outline toggleFotosBtn">Fotos</button>' +
           (!ev.sin_inscripcion && !ev.usa_concurso_texto ? '<button class="btn btn-outline toggleDocsBtn">Documentos</button>' : '') +
-          (inscripcionCerrada(ev, ocupacion[ev.id]) && ev.tipo_elegibilidad !== 'adultos' && !ev.sin_inscripcion && !ev.usa_concurso_texto ? '<button class="btn btn-outline listadoBtn">Listado (Excel)</button>' : '') +
+          // El listado se puede sacar siempre; si aún se pueden apuntar, se avisa de que puede cambiar
+          (ev.tipo_elegibilidad !== 'adultos' && !ev.sin_inscripcion && !ev.usa_concurso_texto ? '<button class="btn btn-outline listadoBtn">Listado (Excel)</button>' : '') +
           (ev.metodo_asignacion === 'sorteo' && !ev.sorteo_realizado ? '<button class="btn btn-outline sortearBtn">Sortear</button>' : '') +
           // Junto a cada botón: cuántas veces se ha hecho y la última (al pasar el ratón, todas)
           (ev.activo && !eventoTerminadoAdmin(ev) ? '<span class="difusion-par"><button class="btn btn-outline avisarBtn">Avisar a las familias</button><small class="difusion-info info-aviso" hidden></small></span>' : '') +
@@ -699,6 +700,8 @@ async function cargarEventos() {
     row.querySelector('.editarBtn').addEventListener('click', () => editarEvento(ev));
     const listadoBtn = row.querySelector('.listadoBtn');
     if (listadoBtn) listadoBtn.addEventListener('click', async () => {
+      if (!inscripcionCerrada(ev, ocupacion[ev.id])
+          && !confirm('La inscripción sigue abierta: todavía se puede apuntar gente y el listado puede cambiar. ¿Descargarlo igualmente?')) return;
       listadoBtn.disabled = true;
       try { await descargarListado(ev); }
       catch (e) { alert('No se pudo sacar el listado: ' + e.message); }
@@ -1038,8 +1041,9 @@ function bloqueApuntarAlumno(panel, ev, inscritos) {
 }
 
 /* ================= Listado de inscritos en Excel =================
-   Cuando la inscripción está cerrada (plazas cubiertas, plazo terminado,
-   sorteo hecho o evento pasado). Si el evento es a la misma hora que otros,
+   Se puede sacar siempre; si la inscripción no está cerrada (plazas cubiertas,
+   plazo terminado, sorteo hecho o evento pasado) se avisa de que puede cambiar.
+   En un curso (Warhammer), con la fecha de la sesión de hoy o la siguiente. Si el evento es a la misma hora que otros,
    el listado es conjunto. Ordenado por nivel, curso y aula; los que pasan
    antes por Patines van en una segunda lista, y en naranja los apuntados a
    alguna actividad del evento (p. ej. el torneo de rol). */
@@ -1053,8 +1057,31 @@ function inscripcionCerrada(ev, ocupadas) {
 const ORDEN_ETAPA = { Infantil: 1, Primaria: 2, ESO: 3, Bachillerato: 4 };
 const numCurso = (c) => { const m = String(c || '').match(/\d+/); return m ? Number(m[0]) : 99; };
 
+// Sesión del curso para el listado: la de hoy o la siguiente (si no, la última con fecha)
+function sesionDelListado(cursoId) {
+  const ses = (sesionesCursos[cursoId] || []).filter(x => x.fecha).sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+  const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+  return ses.find(x => new Date(x.fecha) >= hoy) || ses[ses.length - 1] || null;
+}
+
 async function descargarListado(ev) {
-  const grupo = [ev, ...incompatiblesDe(ev.id).map(id => eventosCache.find(e => e.id === id)).filter(Boolean)];
+  // Un solo listado con todo lo que es a la misma hora: los eventos marcados como
+  // «a la misma hora» y, con el Curso de Warhammer, el taller que coincide con esa
+  // sesión (o, desde el taller, el curso cuya sesión coincide con él).
+  const porId = (id) => eventosCache.find(e => e.id === id);
+  const grupo = [ev];
+  const anadir = (e, sesion) => { if (e && !grupo.some(g => g.id === e.id)) grupo.push(sesion ? { ...e, _sesion: sesion } : e); };
+  let sesionCurso = null;
+  if (ES_CURSO(ev)) {
+    sesionCurso = sesionDelListado(ev.id);
+    if (sesionCurso) sesIncCache.filter(x => x.sesion_id === sesionCurso.id).forEach(x => anadir(porId(x.evento_id)));
+  } else {
+    sesionesIncDe(ev.id).forEach(sid => {
+      const cursoId = Object.keys(sesionesCursos).find(c => (sesionesCursos[c] || []).some(x => x.id === sid));
+      anadir(porId(cursoId), (sesionesCursos[cursoId] || []).find(x => x.id === sid));
+    });
+  }
+  incompatiblesDe(ev.id).forEach(id => anadir(porId(id)));
   const ids = grupo.map(e => e.id);
   const { data: ins, error } = await sb.from('evento_inscripciones')
     .select('evento_id, actividad_id, tipo_miembro, socio_id, alumno_id, adulto_id, responsable_adulto_id, responsable_nombre, respuesta_extra, es_voluntario, estado, nombre_contacto, telefono_contacto, instrucciones, sale_solo, recoge_otra, recoge_nombre, recoge_apellidos, recoge_movil, alumno_nombre, alumno_apellidos, alumno_etapa, alumno_curso, alumnos(nombre, apellidos, etapa, curso, aula)')
@@ -1081,6 +1108,7 @@ async function descargarListado(ev) {
 
   const filas = ins.filter(i => !i.actividad_id && vale(i) && (i.tipo_miembro === 'alumno' || (i.tipo_miembro === 'publico' && i.alumno_nombre))).map(i => {
     if (i.tipo_miembro === 'publico') return {
+      evento_id: i.evento_id,
       etapa: i.alumno_etapa || '', curso: i.alumno_curso || '', aula: '',
       alumno: ((i.alumno_nombre || '') + ' ' + (i.alumno_apellidos || '')).trim(),
       adulto: i.nombre_contacto || '', movil: i.telefono_contacto || '',
@@ -1095,6 +1123,7 @@ async function descargarListado(ev) {
       || (enEvento && familia.find(a => a.id === enEvento.adulto_id)) || familia[0];
     // Si la familia dijo que lo recoge otra persona, esa es el adulto responsable
     return {
+      evento_id: i.evento_id,
       etapa: al.etapa || '', curso: al.curso || '', aula: al.aula || '',
       alumno: ((al.nombre || '') + ' ' + (al.apellidos || '')).trim(),
       adulto: i.recoge_otra ? nombreRecoge(i) : resp ? nombreAd(resp) : (i.responsable_nombre || ''),
@@ -1106,8 +1135,11 @@ async function descargarListado(ev) {
     || a.aula.localeCompare(b.aula) || a.alumno.localeCompare(b.alumno, 'es'));
   if (!filas.length) { alert('No hay alumnos/as apuntados.'); return; }
 
-  const fecha = ev.fecha ? new Date(ev.fecha).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).replace(',', '') : '';
-  const titulo = grupo.map(e => e.titulo).join(' y ') + (fecha ? ' - ' + fecha[0].toUpperCase() + fecha.slice(1) : '');
+  // Fecha del listado: la del evento o, en un curso, la de la sesión de hoy o la siguiente
+  const nombreGrupo = (e) => e.titulo + (ES_CURSO(e) && (e.id === ev.id ? sesionCurso : e._sesion) ? ' (sesión ' + (e.id === ev.id ? sesionCurso : e._sesion).numero + ')' : '');
+  const cuando = ES_CURSO(ev) ? (sesionCurso && sesionCurso.fecha) : ev.fecha;
+  const fecha = cuando ? new Date(cuando).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).replace(',', '') : '';
+  const titulo = grupo.map(nombreGrupo).join(' y ') + (fecha ? ' - ' + fecha[0].toUpperCase() + fecha.slice(1) : '');
   // Como el listado en papel que usa la Junta: sin cabeceras, la clase en una
   // sola columna («2ºA», «1ºB ESO»), una raya gris entre clases y letra grande.
   const SUFIJO = { Infantil: '', Primaria: '', ESO: ' ESO', Bachillerato: ' Bach.' };
@@ -1126,19 +1158,28 @@ async function descargarListado(ev) {
   const raya = { celdas: [null, ...[1, 2, 3, 4].map(() => ({ v: '', e: 'gris' }))], alto: 5 };
   const out = [{ celdas: [{ v: titulo, e: 'titulo' }], alto: 26 }, { celdas: [], alto: 6 }];
   const unir = ['A1:E1'];
-  let anterior = null;
-  filas.filter(f => !f.patines).forEach(f => {
-    const c = f.etapa + '|' + clase(f);
-    if (anterior !== null && c !== anterior) out.push(raya);
-    anterior = c;
-    out.push(fila(f, f.naranja ? 'naranja' : 'normal'));
-  });
-  const patines = filas.filter(f => f.patines);
-  if (patines.length) {
-    out.push({ celdas: [], alto: 10 }, { celdas: [{ v: 'PATINES', e: 'seccion' }], alto: 40 }, { celdas: [], alto: 6 });
+  const seccion = (texto) => {
+    out.push({ celdas: [], alto: 10 }, { celdas: [{ v: texto, e: 'seccion' }], alto: 40 }, { celdas: [], alto: 6 });
     unir.push(`A${out.length - 1}:E${out.length - 1}`);
-    patines.forEach(f => out.push(fila(f, 'amarillo')));
-  }
+  };
+  // Varios eventos a la vez: un bloque por cada uno, con su nombre (y los de Patines al final de su bloque)
+  grupo.forEach(e => {
+    const deEste = filas.filter(f => f.evento_id === e.id);
+    if (!deEste.length) return;
+    if (grupo.length > 1) seccion(nombreGrupo(e).toUpperCase() + ` (${deEste.length})`);
+    let anterior = null;
+    deEste.filter(f => !f.patines).forEach(f => {
+      const c = f.etapa + '|' + clase(f);
+      if (anterior !== null && c !== anterior) out.push(raya);
+      anterior = c;
+      out.push(fila(f, f.naranja ? 'naranja' : 'normal'));
+    });
+    const patines = deEste.filter(f => f.patines);
+    if (patines.length) {
+      seccion(grupo.length > 1 ? 'PATINES · ' + e.titulo.toUpperCase() : 'PATINES');
+      patines.forEach(f => out.push(fila(f, 'amarillo')));
+    }
+  });
 
   const blob = crearXlsx({ hoja: 'Inscritos', filas: out, unir, letra: 14, margen: 0.3, anchos: [8, 21, 21, 10, 15] });
   const a = document.createElement('a');

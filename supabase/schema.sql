@@ -5732,3 +5732,155 @@ begin
 end;
 $$;
 grant execute on function familias_sin_confirmar() to authenticated;
+
+-- ===================== ENCUESTA DE LA MOCHILA (copia de migracion-mochila-encuesta.sql) =====================
+-- ==================================================================
+-- MOCHILA JUGONA EXPLORADORA: ENCUESTA AL DEVOLVERLA
+--  · Al pulsar «Recibir mochila» se crea una encuesta para esa familia
+--    (mochila_encuestas, con un enlace propio: token) y se le manda por
+--    email (Netlify: mochila-encuesta-enviar).
+--  · La familia abre mochila-encuesta.html?t=<token> (sin entrar en la
+--    web): por cada juego, con su foto, cada miembro de la familia lo
+--    valora (Le encantó / Bien / No le gustó) o marcan «No hemos jugado».
+--  · Se guardan las edades de los alumnos/as en ese momento, para las
+--    estadísticas por edad (de quien valora, o de los alumnos/as de la
+--    familia). Las estadísticas se ven en Panel → Mochila.
+-- Se puede ejecutar varias veces.
+-- ==================================================================
+
+create table if not exists mochila_encuestas (
+  id uuid primary key default gen_random_uuid(),
+  historial_id uuid unique references mochila_historial(id) on delete cascade,
+  socio_id uuid references socios(id) on delete set null,
+  nombre_familia text,
+  email_contacto text,              -- familias no socias (las socias: los emails de sus adultos)
+  token uuid not null unique default gen_random_uuid(),
+  edades_alumnos integer[],         -- al responder: edades de los alumnos/as de la familia
+  enviada_en timestamptz,
+  respondida_en timestamptz,
+  created_at timestamptz not null default now()
+);
+alter table mochila_encuestas enable row level security;
+drop policy if exists "admins ven las encuestas de la mochila" on mochila_encuestas;
+create policy "admins ven las encuestas de la mochila" on mochila_encuestas for select using (is_admin());
+
+create table if not exists mochila_valoraciones (
+  id uuid primary key default gen_random_uuid(),
+  encuesta_id uuid not null references mochila_encuestas(id) on delete cascade,
+  juego_id uuid not null references mochila_juegos(id) on delete cascade,
+  no_jugado boolean not null default false,       -- la familia no jugó a este juego (una fila sin miembro)
+  miembro text,                                   -- «Lucía», «Alumno/a de 7 años»...
+  tipo_miembro text check (tipo_miembro in ('adulto', 'alumno')),
+  edad integer,                                   -- de los alumnos/as, al responder
+  valor smallint check (valor between 1 and 3),   -- 3 Le encantó · 2 Bien · 1 No le gustó
+  check (no_jugado or (miembro is not null and tipo_miembro is not null and valor is not null))
+);
+create index if not exists mochila_valoraciones_juego_idx on mochila_valoraciones (juego_id);
+alter table mochila_valoraciones enable row level security;
+drop policy if exists "admins ven las valoraciones de la mochila" on mochila_valoraciones;
+create policy "admins ven las valoraciones de la mochila" on mochila_valoraciones for select using (is_admin());
+
+-- «Recibir mochila»: además, crea la encuesta de esa familia
+create or replace function mochila_admin_devuelto(p_fecha_devolucion date default current_date)
+returns uuid language plpgsql security definer set search_path = public as $$
+declare
+  e mochila_cola; v_nombre text; v_numero text; v_hist uuid;
+begin
+  if not is_admin() then raise exception 'Solo la Junta puede hacer esto.'; end if;
+  lock table mochila_cola in share row exclusive mode;
+  select * into e from mochila_cola where estado = 'la_tiene';
+  if not found then raise exception 'Ninguna familia tiene la mochila ahora mismo.'; end if;
+  if e.tipo = 'socio' then
+    select s.numero_socio_completo, a.nombre || ' ' || a.apellidos into v_numero, v_nombre
+    from socios s join adultos a on a.socio_id = s.id where s.id = e.socio_id order by a.created_at limit 1;
+  else
+    v_nombre := e.nombre_contacto;
+  end if;
+  insert into mochila_historial (tipo, socio_id, numero_socio_completo, nombre_familia, fecha_entrega, fecha_devolucion)
+  values (e.tipo, e.socio_id, v_numero, coalesce(v_nombre, '(sin nombre)'), coalesce(e.fecha_entrega, p_fecha_devolucion), p_fecha_devolucion)
+  returning id into v_hist;
+  insert into mochila_encuestas (historial_id, socio_id, nombre_familia, email_contacto)
+  values (v_hist, e.socio_id, coalesce(v_nombre, '(sin nombre)'), case when e.tipo = 'no_socio' then e.email_contacto end);
+  delete from mochila_cola where id = e.id;
+  perform mochila_compactar();
+  return v_hist;
+end;
+$$;
+grant execute on function mochila_admin_devuelto(date) to authenticated;
+
+-- Edad en años cumplidos en una fecha
+create or replace function _edad_en(p_nacimiento date, p_dia date)
+returns integer language sql immutable as $$
+  select case when p_nacimiento is null then null else extract(year from age(p_dia, p_nacimiento))::integer end;
+$$;
+
+-- Lo que ve la familia al abrir el enlace (sin sesión: el token es la llave)
+create or replace function mochila_encuesta_datos(p_token uuid)
+returns jsonb language plpgsql stable security definer set search_path = public as $$
+declare v mochila_encuestas;
+begin
+  select * into v from mochila_encuestas where token = p_token;
+  if not found then raise exception 'Este enlace no es válido.'; end if;
+  return jsonb_build_object(
+    'nombre_familia', v.nombre_familia,
+    'respondida', v.respondida_en is not null,
+    'socia', v.socio_id is not null,
+    'juegos', coalesce((select jsonb_agg(jsonb_build_object('id', j.id, 'nombre', j.nombre, 'foto_url', j.foto_url) order by j.orden, j.nombre)
+                        from mochila_juegos j), '[]'::jsonb),
+    'miembros', coalesce((
+      select jsonb_agg(m order by m->>'orden') from (
+        select jsonb_build_object('tipo', 'adulto', 'nombre', a.nombre, 'edad', null, 'orden', '1' || to_char(a.created_at, 'YYYYMMDDHH24MISS')) m
+        from adultos a where a.socio_id = v.socio_id
+        union all
+        select jsonb_build_object('tipo', 'alumno', 'nombre', al.nombre, 'edad', _edad_en(al.fecha_nacimiento, current_date),
+                                  'orden', '2' || coalesce(to_char(al.fecha_nacimiento, 'YYYYMMDD'), '99999999'))
+        from alumnos al where al.socio_id = v.socio_id
+      ) x), '[]'::jsonb)
+  );
+end;
+$$;
+grant execute on function mochila_encuesta_datos(uuid) to anon, authenticated;
+
+-- Guardar la encuesta (una sola vez)
+--   p_miembros: [{"tipo":"adulto"|"alumno","nombre":"Lucía","edad":7}, ...]
+--   p_juegos:   [{"juego_id":"…","no_jugado":true} | {"juego_id":"…","valores":[3,null,2]}]  (un valor por miembro, en orden)
+create or replace function mochila_encuesta_responder(p_token uuid, p_miembros jsonb, p_juegos jsonb)
+returns void language plpgsql security definer set search_path = public as $$
+declare v mochila_encuestas; j jsonb; m jsonb; k integer; val smallint; n integer := 0;
+begin
+  select * into v from mochila_encuestas where token = p_token for update;
+  if not found then raise exception 'Este enlace no es válido.'; end if;
+  if v.respondida_en is not null then raise exception 'Esta encuesta ya está respondida. ¡Gracias!'; end if;
+  if jsonb_typeof(p_miembros) <> 'array' or jsonb_array_length(p_miembros) = 0 or jsonb_array_length(p_miembros) > 12 then
+    raise exception 'Indica quiénes habéis jugado.';
+  end if;
+  if jsonb_typeof(p_juegos) <> 'array' then raise exception 'Faltan las valoraciones.'; end if;
+
+  for j in select * from jsonb_array_elements(p_juegos) loop
+    if not exists (select 1 from mochila_juegos where id = (j->>'juego_id')::uuid) then continue; end if;
+    if coalesce((j->>'no_jugado')::boolean, false) then
+      insert into mochila_valoraciones (encuesta_id, juego_id, no_jugado) values (v.id, (j->>'juego_id')::uuid, true);
+      n := n + 1;
+      continue;
+    end if;
+    for k in 0 .. jsonb_array_length(p_miembros) - 1 loop
+      val := nullif(j->'valores'->>k, '')::smallint;
+      if val is null then continue; end if;   -- ese miembro no lo valoró
+      if val not between 1 and 3 then raise exception 'Valoración no válida.'; end if;
+      m := p_miembros->k;
+      insert into mochila_valoraciones (encuesta_id, juego_id, miembro, tipo_miembro, edad, valor)
+      values (v.id, (j->>'juego_id')::uuid, left(coalesce(nullif(btrim(m->>'nombre'), ''), case when m->>'tipo' = 'adulto' then 'Adulto' else 'Alumno/a' end), 60),
+              case when m->>'tipo' = 'adulto' then 'adulto' else 'alumno' end,
+              case when m->>'tipo' = 'adulto' then null else least(greatest(nullif(m->>'edad', '')::integer, 0), 25) end, val);
+      n := n + 1;
+    end loop;
+  end loop;
+  if n = 0 then raise exception 'Valora al menos un juego, o marca «No hemos jugado».'; end if;
+
+  update mochila_encuestas set respondida_en = now(),
+    edades_alumnos = (select array_agg(least(greatest((x->>'edad')::integer, 0), 25) order by (x->>'edad')::integer)
+                      from jsonb_array_elements(p_miembros) x where x->>'tipo' <> 'adulto' and nullif(x->>'edad', '') is not null)
+  where id = v.id;
+end;
+$$;
+grant execute on function mochila_encuesta_responder(uuid, jsonb, jsonb) to anon, authenticated;

@@ -51,6 +51,14 @@
   @media (max-width:600px){ .dos{ grid-template-columns:1fr; } }
   table.h{ width:100%; border-collapse:collapse; font-size:15px; }
   table.h th, table.h td{ text-align:left; padding:8px 6px; border-bottom:1px solid var(--line); }
+  .filtros-val{ display:flex; flex-wrap:wrap; gap:10px 16px; align-items:flex-end; margin-bottom:12px; }
+  .filtros-val .field{ margin:0; }
+  .filtros-val input[type=number]{ width:120px; }
+  .val-juego{ display:flex; align-items:center; gap:10px; }
+  .val-juego img{ width:44px; height:44px; object-fit:contain; border-radius:8px; background:#F6F8FB; }
+  .val-media{ display:inline-block; vertical-align:middle; width:70px; height:8px; border-radius:999px; background:#EEF1F5; overflow:hidden; margin-right:6px; }
+  .val-media i{ display:block; height:100%; background:var(--mochila); }
+  .opc{ font-weight:400; color:var(--ink-soft); font-size:14px; }
 </style>
 </head>
 <body>
@@ -92,6 +100,23 @@
         <p id="jMsg" hidden></p>
       </div>
     </details>
+  </div>
+
+  <div class="card" id="valoracionesCard">
+    <p class="section-label">Qué juegos gustan más</p>
+    <p style="color:var(--ink-soft); margin:-6px 0 12px;">De las encuestas que reciben las familias al devolver la mochila. <span id="encResumen"></span></p>
+    <div class="filtros-val">
+      <div class="field"><label for="vQuien">Valoraciones de</label>
+        <select id="vQuien">
+          <option value="alumnos">Alumnos/as de esa edad</option>
+          <option value="familias">Toda la familia, si tiene algún alumno/a de esa edad</option>
+          <option value="adultos">Adultos</option>
+          <option value="todos">Todos</option>
+        </select></div>
+      <div class="field"><label for="vDesde">Edad desde</label><input type="number" id="vDesde" min="0" max="25" placeholder="Cualquiera"></div>
+      <div class="field"><label for="vHasta">hasta</label><input type="number" id="vHasta" min="0" max="25" placeholder="Cualquiera"></div>
+    </div>
+    <div id="valoraciones"><p class="loading">Cargando...</p></div>
   </div>
 
   <div class="card" id="historialCard" hidden>
@@ -212,7 +237,19 @@ function pintarAhora() {
     });
   };
   const rpc = async (n) => { const { error } = await sb.rpc(n, {}); if (error) throw error; };
-  if (tiene) accion('recibirBtn', '¿Confirmas que ' + nombreFamilia(tiene) + ' ha devuelto la mochila?', () => rpc('mochila_admin_devuelto'));
+  // Al recibirla, a la familia le llega por email la encuesta sobre los juegos
+  if (tiene) accion('recibirBtn', '¿Confirmas que ' + nombreFamilia(tiene) + ' ha devuelto la mochila? Le llegará por email la encuesta sobre los juegos.', async () => {
+    const { data: hist, error } = await sb.rpc('mochila_admin_devuelto', {});
+    if (error) throw error;
+    let aviso;
+    try {
+      const r = await mochilaNetlify('mochila-encuesta-enviar', { historialId: hist });
+      aviso = r.enviada ? 'Mochila recibida. La encuesta sobre los juegos se ha enviado a ' + r.a.join(', ') + '.'
+        : 'Mochila recibida, pero la encuesta no se ha enviado' + (r.error ? ': ' + r.error : '.');
+    } catch (e) { aviso = 'Mochila recibida, pero la encuesta no se ha enviado: ' + (e.message || e); }
+    setTimeout(() => alert(aviso), 50);
+    cargarValoraciones();
+  });
   if (!turno && siguiente) {
     const ent = document.getElementById('aEntrega'), dev = document.getElementById('aDevolucion');
     ent.addEventListener('change', () => { if (ent.value) dev.value = masDias(ent.value, 7); });
@@ -390,11 +427,64 @@ async function cargarHistorial() {
   document.getElementById('historialCard').hidden = false;
 }
 
+/* ---- Qué juegos gustan más (encuestas al devolver la mochila) ----
+   Cada valoración: 3 Le encantó · 2 Bien · 1 No le gustó (migracion-mochila-encuesta.sql).
+   Filtro por edad: de quien valora (alumnos/as) o de los alumnos/as de la familia. */
+let VAL = null;
+async function cargarValoraciones() {
+  const [{ data: enc, error: e1 }, { data: val, error: e2 }, { data: js }] = await Promise.all([
+    sb.from('mochila_encuestas').select('id, enviada_en, respondida_en, edades_alumnos'),
+    sb.from('mochila_valoraciones').select('encuesta_id, juego_id, no_jugado, tipo_miembro, edad, valor'),
+    sb.from('mochila_juegos').select('id, nombre, foto_url, orden').order('orden').order('nombre')
+  ]);
+  const caja = document.getElementById('valoraciones');
+  if (e1 || e2) { caja.innerHTML = '<p class="msg-error">No se pudo cargar. ¿Has ejecutado supabase/pendientes/migracion-mochila-encuesta.sql?</p>'; return; }
+  VAL = { enc: enc || [], val: val || [], juegos: js || [] };
+  const enviadas = VAL.enc.filter(x => x.enviada_en).length, respondidas = VAL.enc.filter(x => x.respondida_en).length;
+  document.getElementById('encResumen').textContent = `${respondidas} respondida${respondidas === 1 ? '' : 's'} de ${enviadas} enviada${enviadas === 1 ? '' : 's'}.`;
+  pintarValoraciones();
+}
+function pintarValoraciones() {
+  if (!VAL) return;
+  const caja = document.getElementById('valoraciones');
+  const quien = document.getElementById('vQuien').value;
+  const num = (id) => { const v = document.getElementById(id).value; return v === '' ? null : Number(v); };
+  const desde = num('vDesde'), hasta = num('vHasta');
+  const enRango = (e) => e != null && (desde == null || e >= desde) && (hasta == null || e <= hasta);
+  const sinEdad = desde == null && hasta == null;
+  const encuesta = Object.fromEntries(VAL.enc.map(e => [e.id, e]));
+  const familiaVale = (encId) => sinEdad || (encuesta[encId]?.edades_alumnos || []).some(enRango);
+  const cuenta = (v) => {
+    if (v.no_jugado) return quien === 'familias' || quien === 'todos' ? familiaVale(v.encuesta_id) : quien === 'alumnos' ? familiaVale(v.encuesta_id) : true;
+    if (quien === 'alumnos') return v.tipo_miembro === 'alumno' && (sinEdad || enRango(v.edad));
+    if (quien === 'adultos') return v.tipo_miembro === 'adulto' && familiaVale(v.encuesta_id);
+    if (quien === 'familias') return familiaVale(v.encuesta_id);
+    return true;
+  };
+  const filas = VAL.juegos.map(j => {
+    const vs = VAL.val.filter(v => v.juego_id === j.id && cuenta(v));
+    const notas = vs.filter(v => !v.no_jugado).map(v => v.valor);
+    const media = notas.length ? notas.reduce((a, b) => a + b, 0) / notas.length : null;
+    return { j, n: notas.length, media, encanto: notas.filter(x => x === 3).length, bien: notas.filter(x => x === 2).length,
+      nogusto: notas.filter(x => x === 1).length, noJugado: vs.filter(v => v.no_jugado).length };
+  }).sort((a, b) => (b.media ?? -1) - (a.media ?? -1) || b.n - a.n);
+  if (!VAL.val.length) { caja.innerHTML = '<p class="empty-hint">Todavía no ha contestado ninguna familia.</p>'; return; }
+  const pct = (x, n) => n ? Math.round(x / n * 100) + '%' : '';
+  caja.innerHTML = `<div style="overflow-x:auto;"><table class="h val">
+    <thead><tr><th>Juego</th><th>Nota media <span class="opc">(de 1 a 3)</span></th><th>Le encantó</th><th>Bien</th><th>No le gustó</th><th>Valoraciones</th><th>Familias que no jugaron</th></tr></thead>
+    <tbody>${filas.map(f => `<tr>
+      <td><span class="val-juego">${f.j.foto_url ? `<img src="${esc(f.j.foto_url)}" alt="">` : ''}<b>${esc(f.j.nombre)}</b></span></td>
+      <td>${f.media == null ? '<span class="opc">Sin valorar</span>' : `<span class="val-media"><i style="width:${Math.round((f.media - 1) / 2 * 100)}%"></i></span> ${f.media.toLocaleString('es-ES', { maximumFractionDigits: 1 })}`}</td>
+      <td>${pct(f.encanto, f.n)}</td><td>${pct(f.bien, f.n)}</td><td>${pct(f.nogusto, f.n)}</td>
+      <td>${f.n}</td><td>${f.noJugado}</td></tr>`).join('')}</tbody></table></div>`;
+}
+['vQuien', 'vDesde', 'vHasta'].forEach(id => document.getElementById(id).addEventListener('input', pintarValoraciones));
+
 (async () => {
   const ctx = await requireAdmin();
   if (!ctx) return;
   renderNav('admin-mochila', ctx);
-  await Promise.all([cargar(), cargarJuegos(), cargarHistorial()]);
+  await Promise.all([cargar(), cargarJuegos(), cargarHistorial(), cargarValoraciones()]);
 })();
 </script>
 <script src="shared/sonido.js"></script>
