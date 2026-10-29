@@ -5952,3 +5952,22 @@ grant execute on function uniformes_he_pedido(uuid) to authenticated;
 -- ==================================================================
 alter table difusiones drop constraint if exists difusiones_canal_check;
 alter table difusiones add constraint difusiones_canal_check check (canal in ('aviso', 'circular', 'recogida'));
+
+-- ===================== UNIFORMES: ENVÍOS DE RECOGIDA (copia de migracion-uniformes-recogida-envios.sql) =====================
+-- ==================================================================
+-- BANCO DE UNIFORMES: EMAIL DE RECOGIDA POR TANDAS
+--  · El email de recogida se envía en tandas de pocas familias (cada
+--    llamada a Netlify tiene 10 s). Aquí queda a qué familias ya se les ha
+--    enviado en cada envío: si algo falla y se repite, no le llega dos veces.
+-- Se puede ejecutar varias veces.
+-- ==================================================================
+create table if not exists uniformes_recogida_enviados (
+  envio_id uuid not null,
+  convocatoria_id uuid not null references uniformes_convocatorias(id) on delete cascade,
+  socio_id uuid not null references socios(id) on delete cascade,
+  enviado_en timestamptz not null default now(),
+  primary key (envio_id, socio_id)
+);
+alter table uniformes_recogida_enviados enable row level security;
+drop policy if exists "admins ven los envios de recogida" on uniformes_recogida_enviados;
+create policy "admins ven los envios de recogida" on uniformes_recogida_enviados for select using (is_admin());

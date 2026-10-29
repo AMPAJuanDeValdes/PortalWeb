@@ -2,8 +2,13 @@
 // publicados: manda a cada familia que pidió uniformes un email con cuándo y
 // dónde recogerlos y qué ha recibido cada alumno/a. A las que no han recibido
 // nada, si se marca, un email diciéndoselo.
-//   POST { convocatoriaId, dia: 'YYYY-MM-DD', desde: 'HH:MM', hasta: 'HH:MM', lugar, nota, incluirSinPrenda }
-//   → { ok, enviados, sinPrenda, fallos: [emails] }
+//   POST { convocatoriaId, dia: 'YYYY-MM-DD', desde: 'HH:MM', hasta: 'HH:MM', lugar, nota, incluirSinPrenda,
+//          envioId: uuid, inicio: 0 }
+//   → { ok, total, siguiente (null al terminar), enviados, sinPrenda, fallos: [emails] }
+//   Se envía por tandas (cada llamada a Netlify tiene 10 s): la pantalla llama
+//   con inicio = 0, TANDA, 2·TANDA… hasta que «siguiente» es null. Cada familia
+//   enviada queda en uniformes_recogida_enviados (envioId): repetir una tanda
+//   no la vuelve a enviar.
 //   Con { vista: true }: no envía nada; devuelve cada email tal como saldrá
 //   → { ok, vista: [{ familia, a, asunto, html, sinPrenda }] }
 
@@ -13,6 +18,7 @@ const { registrarDifusion } = require('./_lib/avisos');
 
 const json = (statusCode, obj) => ({ statusCode, body: JSON.stringify(obj) });
 const ZONA = { timeZone: 'Europe/Madrid' };
+const TANDA = 2;   // familias por llamada (cada email, con su copia en Enviados, tarda 2–4 s y Netlify corta a los 10 s)
 
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') return { statusCode: 405, body: 'Método no permitido' };
@@ -39,7 +45,7 @@ exports.handler = async (event) => {
   const { data: pedidos, error } = await sb.from('uniformes_pedidos')
     .select('socio_id, alumno_id, estado, alumnos(nombre), prendas_catalogo(tipo, talla)').eq('convocatoria_id', conv.id);
   if (error) return json(500, { error: error.message });
-  const socios = [...new Set((pedidos || []).map(x => x.socio_id))];
+  const socios = [...new Set((pedidos || []).map(x => x.socio_id))].sort();   // orden fijo: las tandas no cambian
   if (!socios.length) return json(400, { error: 'Nadie pidió uniformes en esta convocatoria.' });
   const { data: adultos } = await sb.from('adultos').select('socio_id, nombre, email, created_at').in('socio_id', socios).order('created_at');
 
@@ -54,7 +60,7 @@ exports.handler = async (event) => {
     if (!ads.length) continue;
     const prendas = suyos.map(x => `${x.alumnos?.nombre || 'Alumno/a'}: ${x.prendas_catalogo?.tipo || 'prenda'} talla ${x.prendas_catalogo?.talla || ''}`.trim());
     const pl = plantillaUniformesRecogida({ nombre: ads.length === 1 ? ads[0].nombre : '', prendas, cuando, lugar, nota });
-    mensajes.push({ familia: ads.map(a => a.nombre).join(' y '), a: ads.map(a => a.email).join(', '), sinPrenda: !suyos.length, ...pl });
+    mensajes.push({ socio: sid, familia: ads.map(a => a.nombre).join(' y '), a: ads.map(a => a.email).join(', '), sinPrenda: !suyos.length, ...pl });
   }
   if (!mensajes.length) return json(400, { error: 'No hay ninguna familia a la que enviarlo.' });
 
@@ -66,13 +72,27 @@ exports.handler = async (event) => {
     })) });
   }
 
+  const envioId = String(p.envioId || '');
+  if (!/^[0-9a-f-]{36}$/i.test(envioId)) return json(400, { error: 'Falta el identificador del envío.' });
+  const inicio = Math.max(0, parseInt(p.inicio, 10) || 0);
+  const tanda = mensajes.slice(inicio, inicio + TANDA);
+  const { data: ya } = await sb.from('uniformes_recogida_enviados').select('socio_id').eq('envio_id', envioId);
+  const hechos = new Set((ya || []).map(x => x.socio_id));
   let enviados = 0, sinPrenda = 0; const fallos = [];
-  for (const m of mensajes) {
+  for (const m of tanda) {
+    if (hechos.has(m.socio)) { enviados++; if (m.sinPrenda) sinPrenda++; continue; }
     try {
       await enviarEmail({ to: m.a, subject: m.subject, text: m.text });
+      await sb.from('uniformes_recogida_enviados').insert({ envio_id: envioId, convocatoria_id: conv.id, socio_id: m.socio });
       enviados++; if (m.sinPrenda) sinPrenda++;
     } catch (e) { fallos.push(m.a); }
   }
-  if (enviados) await registrarDifusion(sb, { tipo: 'uniformes', refId: conv.id, canal: 'recogida', familias: enviados, adultoId: u.user.id });
-  return json(200, { ok: true, enviados, sinPrenda, fallos });
+  const siguiente = inicio + TANDA < mensajes.length ? inicio + TANDA : null;
+  // Al terminar, al historial (con el total de familias de este envío)
+  if (siguiente === null) {
+    const { count } = await sb.from('uniformes_recogida_enviados').select('socio_id', { count: 'exact', head: true }).eq('envio_id', envioId);
+    if (count) await registrarDifusion(sb, { tipo: 'uniformes', refId: conv.id, canal: 'recogida', familias: count, adultoId: u.user.id });
+  }
+  return json(200, { ok: true, total: mensajes.length, siguiente, enviados, sinPrenda, fallos });
 };
+

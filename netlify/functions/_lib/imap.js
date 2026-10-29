@@ -7,6 +7,7 @@
 //   IMAP_HOST (opcional)      → si no está, el de SMTP_HOST cambiando «smtp.» por «imap.»
 //   IMAP_PORT (opcional)      → 993
 //   IMAP_BORRADORES (opcional) → nombre de la carpeta si no se encuentra sola
+//   IMAP_ENVIADOS (opcional)   → ídem para Enviados (copia de lo que envía la web)
 
 const tls = require('tls');
 
@@ -60,19 +61,21 @@ function conectar({ host, port }, tiempo = 15000) {
   });
 }
 
-// Busca la carpeta de borradores: la marcada como \Drafts o una con nombre conocido
-function carpetaBorradores(lineasList) {
+// Busca una carpeta: la marcada con su uso especial (\\Drafts, \\Sent) o una con nombre conocido
+function buscarCarpeta(lineasList, marca, conocidas) {
   const carpetas = lineasList.map(l => {
     const m = l.match(/^\* LIST \(([^)]*)\) (?:"[^"]*"|NIL) (.+)$/i);
     if (!m) return null;
     return { flags: m[1], nombre: m[2].replace(/^"(.*)"$/, '$1').replace(/\\(.)/g, '$1') };
   }).filter(Boolean);
-  const marcada = carpetas.find(c => /\\Drafts/i.test(c.flags));
+  const marcada = carpetas.find(c => new RegExp('\\\\' + marca + '\\b', 'i').test(c.flags));
   if (marcada) return marcada.nombre;
-  const conocidas = ['Drafts', 'Borradores', 'INBOX.Drafts', 'INBOX.Borradores', 'INBOX/Drafts', 'INBOX/Borradores'];
   for (const n of conocidas) { const c = carpetas.find(x => x.nombre.toLowerCase() === n.toLowerCase()); if (c) return c.nombre; }
   return null;
 }
+const carpetaBorradores = (l) => buscarCarpeta(l, 'Drafts', ['Drafts', 'Borradores', 'INBOX.Drafts', 'INBOX.Borradores', 'INBOX/Drafts', 'INBOX/Borradores']);
+const carpetaEnviados = (l) => buscarCarpeta(l, 'Sent', ['Sent', 'Enviados', 'Sent Items', 'Sent Messages', 'Elementos enviados',
+  'INBOX.Sent', 'INBOX.Enviados', 'INBOX/Sent', 'INBOX/Enviados', 'INBOX.Sent Items', 'INBOX.Elementos enviados']);
 
 // IMAP exige que todas las líneas del mensaje acaben en CRLF (RFC 3501/5322):
 // los saltos «\n» o «\r» sueltos hacen que el servidor rechace el APPEND
@@ -82,8 +85,8 @@ function finesDeLineaCRLF(mensaje) {
   return Buffer.from(s.replace(/\r\n|\r|\n/g, '\r\n'), 'latin1');
 }
 
-// Guarda el mensaje (RFC 822, Buffer) en Borradores. Devuelve el nombre de la carpeta.
-async function guardarBorrador(mensaje) {
+// Guarda un mensaje (RFC 822, Buffer) en una carpeta del buzón. Devuelve el nombre de la carpeta.
+async function guardarEnCarpeta(mensaje, { buscar, variable, flags, nombreCarpeta, queEs }) {
   mensaje = finesDeLineaCRLF(mensaje);
   const cfg = configImap();
   if (!cfg.host || !cfg.user || !cfg.pass) throw new Error('Faltan los datos del buzón (SMTP_HOST, SMTP_USER y SMTP_PASSWORD) en Netlify.');
@@ -91,11 +94,11 @@ async function guardarBorrador(mensaje) {
   try {
     const login = await c.orden(`LOGIN ${comillas(cfg.user)} ${comillas(cfg.pass)}`);
     if (!login.ok) throw new Error('El buzón del AMPA no acepta el usuario o la contraseña (IMAP).');
-    const list = await c.orden('LIST "" "*"');
-    const carpeta = process.env.IMAP_BORRADORES || carpetaBorradores(list.lineas);
-    if (!carpeta) throw new Error('No encuentro la carpeta de Borradores del buzón. Pon su nombre en IMAP_BORRADORES (Netlify).');
-    const r = await c.orden(`APPEND ${comillas(carpeta)} (\\Draft \\Seen)`, mensaje);
-    if (!r.ok) throw new Error('El buzón no ha aceptado el borrador: ' + r.texto);
+    let carpeta = process.env[variable];
+    if (!carpeta) carpeta = buscar((await c.orden('LIST "" "*"')).lineas);
+    if (!carpeta) throw new Error(`No encuentro la carpeta de ${nombreCarpeta} del buzón. Pon su nombre en ${variable} (Netlify).`);
+    const r = await c.orden(`APPEND ${comillas(carpeta)} ${flags}`, mensaje);
+    if (!r.ok) throw new Error(`El buzón no ha aceptado ${queEs}: ` + r.texto);
     await c.orden('LOGOUT').catch(() => {});
     return carpeta;
   } finally {
@@ -103,4 +106,13 @@ async function guardarBorrador(mensaje) {
   }
 }
 
-module.exports = { guardarBorrador, finesDeLineaCRLF, carpetaBorradores, configImap };
+// Borradores (circulares): la Junta lo abre, lo revisa y lo envía desde su correo
+const guardarBorrador = (mensaje) => guardarEnCarpeta(mensaje, {
+  buscar: carpetaBorradores, variable: 'IMAP_BORRADORES', flags: '(\\Draft \\Seen)', nombreCarpeta: 'Borradores', queEs: 'el borrador'
+});
+// Enviados: copia de cada email que manda la web, para que quede constancia
+const guardarEnviado = (mensaje) => guardarEnCarpeta(mensaje, {
+  buscar: carpetaEnviados, variable: 'IMAP_ENVIADOS', flags: '(\\Seen)', nombreCarpeta: 'Enviados', queEs: 'la copia en Enviados'
+});
+
+module.exports = { guardarBorrador, guardarEnviado, finesDeLineaCRLF, carpetaBorradores, carpetaEnviados, configImap };

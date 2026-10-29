@@ -311,6 +311,9 @@ async function cargarConvocatoria() {
 }
 
 /* ---- Email de recogida (resultados publicados) ---- */
+// (crypto.randomUUID solo existe en https o localhost)
+const nuevoUuid = () => (window.crypto && crypto.randomUUID) ? crypto.randomUUID()
+  : '10000000-1000-4000-8000-100000000000'.replace(/[018]/g, c => (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16));
 async function montarRecogida(c) {
   const hist = document.getElementById('recogidaHist');
   const pintarHist = async () => {
@@ -326,7 +329,7 @@ async function montarRecogida(c) {
       method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token }, body: JSON.stringify(datos)
     });
     const d = await resp.json().catch(() => ({}));
-    if (!resp.ok) throw new Error(d.error || 'No se pudo completar.');
+    if (!resp.ok) throw new Error(d.error || (resp.status === 502 || resp.status === 504 ? 'el servidor tardó demasiado en responder' : 'error ' + resp.status));
     return d;
   };
   const leer = () => {
@@ -335,6 +338,7 @@ async function montarRecogida(c) {
   };
   const caja = document.getElementById('recogidaVista');
   let datosVista = null;
+  let envio = null;   // envío en curso: { id, inicio, enviados, sinPrenda, fallos }
   // 1. Vista previa: cada email tal como lo recibirá cada familia
   document.getElementById('recogidaBtn').addEventListener('click', async (e) => {
     const datos = leer();
@@ -344,7 +348,7 @@ async function montarRecogida(c) {
     const b = e.target; b.disabled = true;
     try {
       const d = await llamar({ ...datos, vista: true });
-      datosVista = datos;
+      datosVista = { ...datos, total: d.vista.length }; envio = null;
       const con = d.vista.filter(x => !x.sinPrenda).length, sin = d.vista.length - con;
       document.getElementById('rvResumen').textContent = `Se enviará a ${d.vista.length} familia${d.vista.length === 1 ? '' : 's'}: ${con} con prendas${sin ? ` y ${sin} sin prenda` : ''}.`;
       const sel = document.getElementById('rvFamilia');
@@ -361,18 +365,29 @@ async function montarRecogida(c) {
     } catch (err) { aviso('convMsg', false, err.message); }
     b.disabled = false;
   });
-  document.getElementById('rvCancelar').addEventListener('click', () => { caja.hidden = true; datosVista = null; });
+  document.getElementById('rvCancelar').addEventListener('click', () => { caja.hidden = true; datosVista = null; envio = null; });
   // 2. Enviar lo que se ha visto (si se cambia algo del formulario, hay que volver a verlo)
-  ['rDia', 'rDesde', 'rHasta', 'rLugar', 'rNota', 'rSinPrenda'].forEach(id => document.getElementById(id).addEventListener('input', () => { caja.hidden = true; datosVista = null; }));
+  ['rDia', 'rDesde', 'rHasta', 'rLugar', 'rNota', 'rSinPrenda'].forEach(id => document.getElementById(id).addEventListener('input', () => { caja.hidden = true; datosVista = null; envio = null; }));
+  // Se envía por tandas de pocas familias (Netlify corta cada llamada a los 10 s).
+  // Si se corta, «Enviar» sigue donde se quedó; a quien ya lo recibió no le llega otra vez (envioId).
   document.getElementById('rvEnviar').addEventListener('click', async (e) => {
     if (!datosVista) return;
-    const b = e.target; b.disabled = true; b.textContent = 'Enviando...';
+    if (!envio) envio = { id: nuevoUuid(), inicio: 0, enviados: 0, sinPrenda: 0, fallos: [] };
+    const b = e.target; b.disabled = true;
     try {
-      const d = await llamar(datosVista);
-      aviso('convMsg', !d.fallos?.length, `Email enviado a ${d.enviados} familia${d.enviados === 1 ? '' : 's'}${d.sinPrenda ? ` (${d.sinPrenda} sin prenda)` : ''}.` + (d.fallos?.length ? ` No se pudo enviar a: ${d.fallos.join('; ')}.` : ''));
-      caja.hidden = true; datosVista = null;
+      while (envio.inicio !== null) {
+        b.textContent = `Enviando… ${envio.enviados}${datosVista.total ? ' de ' + datosVista.total : ''}`;
+        const d = await llamar({ ...datosVista, envioId: envio.id, inicio: envio.inicio });
+        datosVista.total = d.total;
+        envio.enviados += d.enviados; envio.sinPrenda += d.sinPrenda; envio.fallos.push(...(d.fallos || []));
+        envio.inicio = d.siguiente;
+      }
+      aviso('convMsg', !envio.fallos.length, `Email enviado a ${envio.enviados} familia${envio.enviados === 1 ? '' : 's'}${envio.sinPrenda ? ` (${envio.sinPrenda} sin prenda)` : ''}.` + (envio.fallos.length ? ` No se pudo enviar a: ${envio.fallos.join('; ')}.` : ''));
+      caja.hidden = true; datosVista = null; envio = null;
       pintarHist();
-    } catch (err) { aviso('convMsg', false, err.message); }
+    } catch (err) {
+      aviso('convMsg', false, `Se ha cortado el envío (${err.message}). Llevamos ${envio.enviados}. Pulsa «Enviar» otra vez para seguir: a quien ya lo ha recibido no le llegará repetido.`);
+    }
     b.disabled = false; b.textContent = 'Enviar';
   });
 }

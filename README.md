@@ -89,6 +89,7 @@ ejecutados, borra los archivos de `pendientes/`: su contenido ya está en
 | `VAPID_PRIVATE_KEY` | clave privada de los avisos. Solo aquí, nunca en el proyecto |
 | `IMAP_HOST` | (opcional) servidor IMAP del buzón para «Enviar circular». Si no está, el de `SMTP_HOST` cambiando «smtp.» por «imap.» (`imap.serviciodecorreo.es`) |
 | `IMAP_BORRADORES` | (opcional) nombre de la carpeta de borradores si no se encuentra sola |
+| `IMAP_ENVIADOS` | (opcional) nombre de la carpeta de enviados si no se encuentra sola. Cada email que envía la web se guarda ahí (copia por IMAP) |
 | `VISITAS_SECRETO` | (opcional) texto largo cualquiera para los códigos anónimos de las estadísticas de visitas. Si no está, se usa uno sacado de la clave de servicio |
 
 **Desplegar:** el sitio está conectado al repositorio de GitHub; cada

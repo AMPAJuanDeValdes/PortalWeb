@@ -86,9 +86,37 @@ async function enviarEmail({ to, bcc, replyTo, subject, text, html, sinFirma }) 
   // Aviso interno: va solo al buzón del AMPA (sin copias ocultas a familias)
   const interno = !bcc && String(destino).trim().toLowerCase() === String(process.env.SMTP_USER || '').trim().toLowerCase();
   if (sinFirma || interno) {
-    return transporter.sendMail({ from, to: destino, bcc, replyTo, subject, text, html });
+    const opciones = { from, to: destino, bcc, replyTo, subject, text, html, messageId: nuevoMessageId(), date: new Date() };
+    const info = await transporter.sendMail(opciones);
+    if (!interno) await copiaEnEnviados(opciones);   // lo interno ya llega a la bandeja de entrada
+    return info;
   }
-  return transporter.sendMail({ from, to: destino, bcc, replyTo, ...conFirma({ subject, text, html }) });
+  const opciones = { from, to: destino, bcc, replyTo, ...conFirma({ subject, text, html }), messageId: nuevoMessageId(), date: new Date() };
+  const info = await transporter.sendMail(opciones);
+  await copiaEnEnviados(opciones);
+  return info;
+}
+
+// El mismo Message-ID en el email enviado y en su copia de Enviados
+function nuevoMessageId() {
+  const dominio = String(process.env.SMTP_USER || 'ampa.local').split('@').pop();
+  return `<${require('crypto').randomUUID()}@${dominio}>`;
+}
+
+// Copia en la carpeta Enviados del buzón (IMAP): el SMTP no la guarda solo.
+// Con las copias ocultas (BCC) a la vista, para saber a quién se mandó.
+// Si falla, el email ya se ha enviado: solo queda anotado en el registro.
+async function copiaEnEnviados(opciones) {
+  try {
+    const MailComposer = require('nodemailer/lib/mail-composer');
+    const { guardarEnviado } = require('./imap');
+    const nodo = new MailComposer(opciones).compile();
+    nodo.keepBcc = true;
+    const raw = await new Promise((res, rej) => nodo.build((e, m) => e ? rej(e) : res(m)));
+    await guardarEnviado(raw);
+  } catch (e) {
+    console.error('No se pudo guardar la copia en Enviados:', e.message);
+  }
 }
 
 // Asunto, texto y HTML con la firma del AMPA y su logo (Verdana 10 pt)
