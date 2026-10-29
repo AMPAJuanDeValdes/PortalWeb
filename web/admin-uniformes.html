@@ -274,7 +274,15 @@ async function cargarConvocatoria() {
           </div>
           <div class="field" style="margin-top:10px;"><label for="rNota">Algo más (opcional)</label><textarea id="rNota" rows="2" placeholder="Ej.: si no podéis venir ese día, escribidnos"></textarea></div>
           <label class="check" style="margin-top:8px;"><input type="checkbox" id="rSinPrenda" checked> Avisar también a las familias que esta vez no han recibido prenda</label>
-          <div class="acciones"><button class="btn btn-primary" id="recogidaBtn">Enviar email de recogida</button><small class="difusion-info" id="recogidaHist"></small></div>
+          <div class="acciones"><button class="btn btn-primary" id="recogidaBtn">Ver cómo queda y enviar</button><small class="difusion-info" id="recogidaHist"></small></div>
+          <div id="recogidaVista" hidden style="margin-top:14px;">
+            <p class="section-label" style="margin:0 0 6px;">Vista previa</p>
+            <p id="rvResumen" style="font-size:14.5px; margin:0 0 8px;"></p>
+            <div class="field" style="max-width:520px;"><label for="rvFamilia">Ver el email de</label><select id="rvFamilia"></select></div>
+            <p style="margin:8px 0 4px; font-size:14.5px;"><b>Para:</b> <span id="rvPara"></span><br><b>Asunto:</b> <span id="rvAsunto"></span></p>
+            <iframe id="rvMarco" title="Vista previa del email" sandbox="" style="width:100%; min-height:380px; border:1px solid var(--line); border-radius:12px; background:#fff;"></iframe>
+            <div class="acciones"><button class="btn btn-primary" id="rvEnviar">Enviar</button><button class="btn btn-outline" id="rvCancelar">Cancelar</button></div>
+          </div>
         </div>`;
     } else if (c.estado === 'cancelada') {
       html += `<p style="font-size:14px;">Cancelada sin repartir. Sus pedidos se pueden consultar o borrar abajo.</p>`;
@@ -312,24 +320,60 @@ async function montarRecogida(c) {
       : '';
   };
   pintarHist();
-  document.getElementById('recogidaBtn').addEventListener('click', async (e) => {
+  const llamar = async (datos) => {
+    const session = await getSession();
+    const resp = await fetch('/.netlify/functions/uniformes-recogida-avisar', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token }, body: JSON.stringify(datos)
+    });
+    const d = await resp.json().catch(() => ({}));
+    if (!resp.ok) throw new Error(d.error || 'No se pudo completar.');
+    return d;
+  };
+  const leer = () => {
     const v = (id) => document.getElementById(id).value.trim();
-    const datos = { convocatoriaId: c.id, dia: v('rDia'), desde: v('rDesde'), hasta: v('rHasta'), lugar: v('rLugar'), nota: v('rNota'), incluirSinPrenda: document.getElementById('rSinPrenda').checked };
+    return { convocatoriaId: c.id, dia: v('rDia'), desde: v('rDesde'), hasta: v('rHasta'), lugar: v('rLugar'), nota: v('rNota'), incluirSinPrenda: document.getElementById('rSinPrenda').checked };
+  };
+  const caja = document.getElementById('recogidaVista');
+  let datosVista = null;
+  // 1. Vista previa: cada email tal como lo recibirá cada familia
+  document.getElementById('recogidaBtn').addEventListener('click', async (e) => {
+    const datos = leer();
     if (!datos.dia || !datos.desde) { aviso('convMsg', false, 'Pon el día y la hora de recogida.'); return; }
     if (!datos.lugar) { aviso('convMsg', false, 'Pon dónde se recogen.'); return; }
-    if (!confirm('Se enviará el email de recogida a las familias que pidieron uniformes. ¿Seguir?')) return;
+    document.getElementById('convMsg').style.display = 'none';
+    const b = e.target; b.disabled = true;
+    try {
+      const d = await llamar({ ...datos, vista: true });
+      datosVista = datos;
+      const con = d.vista.filter(x => !x.sinPrenda).length, sin = d.vista.length - con;
+      document.getElementById('rvResumen').textContent = `Se enviará a ${d.vista.length} familia${d.vista.length === 1 ? '' : 's'}: ${con} con prendas${sin ? ` y ${sin} sin prenda` : ''}.`;
+      const sel = document.getElementById('rvFamilia');
+      sel.innerHTML = d.vista.map((x, k) => `<option value="${k}">${esc(x.familia)}${x.sinPrenda ? ' (sin prenda)' : ''}</option>`).join('');
+      const pintar = () => {
+        const x = d.vista[Number(sel.value) || 0];
+        document.getElementById('rvPara').textContent = x.a;
+        document.getElementById('rvAsunto').textContent = x.asunto;
+        document.getElementById('rvMarco').srcdoc = '<!doctype html><meta charset="utf-8"><body style="margin:16px;">' + x.html + '</body>';
+      };
+      sel.onchange = pintar; pintar();
+      caja.hidden = false;
+      caja.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } catch (err) { aviso('convMsg', false, err.message); }
+    b.disabled = false;
+  });
+  document.getElementById('rvCancelar').addEventListener('click', () => { caja.hidden = true; datosVista = null; });
+  // 2. Enviar lo que se ha visto (si se cambia algo del formulario, hay que volver a verlo)
+  ['rDia', 'rDesde', 'rHasta', 'rLugar', 'rNota', 'rSinPrenda'].forEach(id => document.getElementById(id).addEventListener('input', () => { caja.hidden = true; datosVista = null; }));
+  document.getElementById('rvEnviar').addEventListener('click', async (e) => {
+    if (!datosVista) return;
     const b = e.target; b.disabled = true; b.textContent = 'Enviando...';
     try {
-      const session = await getSession();
-      const resp = await fetch('/.netlify/functions/uniformes-recogida-avisar', {
-        method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token }, body: JSON.stringify(datos)
-      });
-      const d = await resp.json().catch(() => ({}));
-      if (!resp.ok) throw new Error(d.error || 'No se pudo enviar.');
+      const d = await llamar(datosVista);
       aviso('convMsg', !d.fallos?.length, `Email enviado a ${d.enviados} familia${d.enviados === 1 ? '' : 's'}${d.sinPrenda ? ` (${d.sinPrenda} sin prenda)` : ''}.` + (d.fallos?.length ? ` No se pudo enviar a: ${d.fallos.join('; ')}.` : ''));
+      caja.hidden = true; datosVista = null;
       pintarHist();
     } catch (err) { aviso('convMsg', false, err.message); }
-    b.disabled = false; b.textContent = 'Enviar email de recogida';
+    b.disabled = false; b.textContent = 'Enviar';
   });
 }
 

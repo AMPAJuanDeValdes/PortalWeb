@@ -4,9 +4,11 @@
 // nada, si se marca, un email diciéndoselo.
 //   POST { convocatoriaId, dia: 'YYYY-MM-DD', desde: 'HH:MM', hasta: 'HH:MM', lugar, nota, incluirSinPrenda }
 //   → { ok, enviados, sinPrenda, fallos: [emails] }
+//   Con { vista: true }: no envía nada; devuelve cada email tal como saldrá
+//   → { ok, vista: [{ familia, a, asunto, html, sinPrenda }] }
 
 const { createClient } = require('@supabase/supabase-js');
-const { enviarEmail, plantillaUniformesRecogida } = require('./_lib/email');
+const { enviarEmail, conFirma, plantillaUniformesRecogida } = require('./_lib/email');
 const { registrarDifusion } = require('./_lib/avisos');
 
 const json = (statusCode, obj) => ({ statusCode, body: JSON.stringify(obj) });
@@ -43,7 +45,8 @@ exports.handler = async (event) => {
 
   const diaTxt = new Date(dia + 'T12:00:00Z').toLocaleDateString('es-ES', { ...ZONA, weekday: 'long', day: 'numeric', month: 'long' }).replace(',', '');
   const cuando = `${diaTxt}, ${hasta ? `de ${desde} a ${hasta}` : `a partir de las ${desde}`}`;
-  let enviados = 0, sinPrenda = 0; const fallos = [];
+  // Primero se preparan todos los emails (los mismos para la vista previa y para el envío)
+  const mensajes = [];
   for (const sid of socios) {
     const suyos = (pedidos || []).filter(x => x.socio_id === sid && x.estado === 'asignado');
     if (!suyos.length && !p.incluirSinPrenda) continue;
@@ -51,10 +54,24 @@ exports.handler = async (event) => {
     if (!ads.length) continue;
     const prendas = suyos.map(x => `${x.alumnos?.nombre || 'Alumno/a'}: ${x.prendas_catalogo?.tipo || 'prenda'} talla ${x.prendas_catalogo?.talla || ''}`.trim());
     const pl = plantillaUniformesRecogida({ nombre: ads.length === 1 ? ads[0].nombre : '', prendas, cuando, lugar, nota });
+    mensajes.push({ familia: ads.map(a => a.nombre).join(' y '), a: ads.map(a => a.email).join(', '), sinPrenda: !suyos.length, ...pl });
+  }
+  if (!mensajes.length) return json(400, { error: 'No hay ninguna familia a la que enviarlo.' });
+
+  if (p.vista) {
+    const web = (process.env.SITE_URL || '').replace(/\/$/, '');
+    return json(200, { ok: true, vista: mensajes.map(m => ({
+      familia: m.familia, a: m.a, asunto: m.subject, sinPrenda: m.sinPrenda,
+      html: conFirma({ subject: m.subject, text: m.text }).html.replace(/src="cid:[^"]+"/g, `src="${web}/assets/logo-ampa-email.jpg"`)
+    })) });
+  }
+
+  let enviados = 0, sinPrenda = 0; const fallos = [];
+  for (const m of mensajes) {
     try {
-      await enviarEmail({ to: ads.map(a => a.email).join(', '), subject: pl.subject, text: pl.text });
-      enviados++; if (!suyos.length) sinPrenda++;
-    } catch (e) { fallos.push(ads.map(a => a.email).join(', ')); }
+      await enviarEmail({ to: m.a, subject: m.subject, text: m.text });
+      enviados++; if (m.sinPrenda) sinPrenda++;
+    } catch (e) { fallos.push(m.a); }
   }
   if (enviados) await registrarDifusion(sb, { tipo: 'uniformes', refId: conv.id, canal: 'recogida', familias: enviados, adultoId: u.user.id });
   return json(200, { ok: true, enviados, sinPrenda, fallos });
