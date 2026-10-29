@@ -166,6 +166,7 @@ function circularEvento(ev, sesiones, actividades, web) {
       ins.push({ etiqueta: 'Se abre para no socios:', texto: fechaHora(ev.fecha_apertura_no_socios) });
     }
     if (ev.fecha_cierre_inscripcion) ins.push({ etiqueta: 'Fecha límite:', texto: fechaHora(ev.fecha_cierre_inscripcion) });
+    if (ES_CURSO(ev)) ins.push('La inscripción es para todo el curso y está abierta todo el año, mientras queden plazas.');
     if (ev.pide_instrucciones) ins.push('Al apuntar podéis dejar instrucciones especiales (sale antes, llega tarde…).');
     c.apartados.push({ titulo: 'Inscripción', puntos: ins });
   } else {

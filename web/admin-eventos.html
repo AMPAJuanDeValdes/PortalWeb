@@ -185,6 +185,7 @@
       <p class="ayuda">Se muestra a las familias; se paga en el evento.</p>
     </div>
 
+    <p class="ayuda" id="cursoTodoElAnio" hidden>Curso de todo el año: la inscripción está siempre abierta mientras queden plazas (no hay fechas de apertura ni de cierre, ni inscripción por sesiones).</p>
     <div id="fechasWrap">
       <h3 class="subtitulo">Fechas de inscripción</h3>
       <div class="two-col">
@@ -259,7 +260,11 @@ function actualizarVisibilidad() {
   if ($('masFechasWrap').hidden) $('masFechas').innerHTML = '';
   const tipoEsp = $('eTipoEspecial').value;
   $('inscripcionWrap').hidden = tipoEsp !== 'normal';
-  $('fechasWrap').hidden = tipoEsp === 'informativo';
+  // Curso de Warhammer: inscripción todo el año, sin fechas (la base de datos también lo impone)
+  const cursoAnual = $('ePlantilla').value === 'warhammer' || ES_CURSO(eventosCache.find(e => e.id === editandoId));
+  $('fechasWrap').hidden = tipoEsp === 'informativo' || cursoAnual;
+  $('cursoTodoElAnio').hidden = !cursoAnual;
+  $('eFechaAperturaNoSocios').closest('.field').hidden = cursoAnual;
   $('elegibilidadAlumnosWrap').hidden = $('eTipoElegibilidad').value !== 'alumnos';
   $('eCursosWrap').hidden = $('eModo').value !== 'curso';
   $('eEdadWrap').hidden = $('eModo').value !== 'edad';
@@ -400,9 +405,9 @@ function leerFormulario() {
     precio_invitado: num($('ePrecioInvitado').value),
     precio_adulto: num($('ePrecioAdulto').value),
     precio_alumno: num($('ePrecioAlumno').value),
-    fecha_apertura_socios: aISO($('eFechaAperturaSocios').value),
-    fecha_apertura_no_socios: aISO($('eFechaAperturaNoSocios').value),
-    fecha_cierre_inscripcion: aISO($('eFechaCierreInscripcion').value)
+    fecha_apertura_socios: $('fechasWrap').hidden ? null : aISO($('eFechaAperturaSocios').value),
+    fecha_apertura_no_socios: $('cursoTodoElAnio').hidden ? aISO($('eFechaAperturaNoSocios').value) : null,
+    fecha_cierre_inscripcion: $('fechasWrap').hidden ? null : aISO($('eFechaCierreInscripcion').value)
   };
 }
 
@@ -700,7 +705,8 @@ async function cargarEventos() {
     row.querySelector('.editarBtn').addEventListener('click', () => editarEvento(ev));
     const listadoBtn = row.querySelector('.listadoBtn');
     if (listadoBtn) listadoBtn.addEventListener('click', async () => {
-      if (!inscripcionCerrada(ev, ocupacion[ev.id])
+      // (el curso de todo el año está siempre abierto: sin aviso)
+      if (!ES_CURSO(ev) && !inscripcionCerrada(ev, ocupacion[ev.id])
           && !confirm('La inscripción sigue abierta: todavía se puede apuntar gente y el listado puede cambiar. ¿Descargarlo igualmente?')) return;
       listadoBtn.disabled = true;
       try { await descargarListado(ev); }

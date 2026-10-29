@@ -67,8 +67,21 @@
     <p class="section-label">Mensaje</p>
     <div class="field"><label>Asunto</label><input type="text" id="asunto"></div>
     <div class="field" style="margin-top:14px;"><label>Cuerpo</label><textarea id="cuerpo"></textarea></div>
-    <button type="button" class="btn btn-primary" id="enviarBtn" style="margin-top:16px;" disabled>Enviar</button>
+    <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:16px;">
+      <button type="button" class="btn btn-outline" id="vistaBtn">Vista previa</button>
+      <button type="button" class="btn btn-outline" id="pruebaBtn">Enviarme una prueba</button>
+      <button type="button" class="btn btn-primary" id="enviarBtn" disabled>Enviar</button>
+    </div>
     <p id="msg" style="display:none; margin-top:14px;"></p>
+  </div>
+
+  <div class="card" id="vistaCard" hidden>
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
+      <p class="section-label" style="margin:0;">Así lo recibirán las familias</p>
+      <button type="button" class="linklike" id="cerrarVista">Cerrar</button>
+    </div>
+    <p style="margin:10px 0 6px;"><b>Asunto:</b> <span id="vistaAsunto"></span></p>
+    <iframe id="vistaMarco" title="Vista previa del email" sandbox="" style="width:100%; min-height:420px; border:1px solid var(--line); border-radius:12px; background:#fff;"></iframe>
   </div>
 
 </div>
@@ -170,6 +183,45 @@ document.getElementById('calcularBtn').addEventListener('click', async () => {
   destinatariosCalculados = [...new Set(emails)];
   document.getElementById('totalMsg').textContent = destinatariosCalculados.length + ' destinatarios encontrados.';
   document.getElementById('enviarBtn').disabled = destinatariosCalculados.length === 0;
+});
+
+// Vista previa y prueba: las prepara la misma función que envía (mismo formato y firma)
+async function llamarEmail(extra) {
+  const asunto = document.getElementById('asunto').value.trim();
+  const cuerpo = document.getElementById('cuerpo').value.trim();
+  if (!asunto || !cuerpo) throw new Error('Completa asunto y cuerpo.');
+  const session = await getSession();
+  const resp = await fetch('/.netlify/functions/enviar-email-masivo', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
+    body: JSON.stringify({ asunto, cuerpo, ...extra })
+  });
+  const data = await resp.json().catch(() => ({}));
+  if (!resp.ok) throw new Error(data.error || 'No se pudo completar.');
+  return data;
+}
+function mensaje(ok, texto) {
+  const msg = document.getElementById('msg');
+  msg.style.display = 'block'; msg.className = ok ? 'msg-ok' : 'msg-error'; msg.textContent = texto;
+}
+document.getElementById('vistaBtn').addEventListener('click', async (e) => {
+  e.target.disabled = true;
+  try {
+    const d = await llamarEmail({ vista: true });
+    document.getElementById('vistaAsunto').textContent = d.asunto;
+    document.getElementById('vistaMarco').srcdoc = '<!doctype html><meta charset="utf-8"><body style="margin:16px;">' + d.html + '</body>';
+    document.getElementById('vistaCard').hidden = false;
+    document.getElementById('msg').style.display = 'none';
+    document.getElementById('vistaCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } catch (err) { mensaje(false, err.message); }
+  e.target.disabled = false;
+});
+document.getElementById('cerrarVista').addEventListener('click', () => { document.getElementById('vistaCard').hidden = true; });
+document.getElementById('pruebaBtn').addEventListener('click', async (e) => {
+  e.target.disabled = true; e.target.textContent = 'Enviando...';
+  try { const d = await llamarEmail({ prueba: true }); mensaje(true, 'Prueba enviada a ' + d.a + '. Mírala en tu correo antes de enviarlo a todos.'); }
+  catch (err) { mensaje(false, err.message); }
+  e.target.disabled = false; e.target.textContent = 'Enviarme una prueba';
 });
 
 document.getElementById('enviarBtn').addEventListener('click', async () => {
