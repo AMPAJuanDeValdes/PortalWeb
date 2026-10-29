@@ -262,7 +262,20 @@ async function cargarConvocatoria() {
         </div>
         <p style="font-size:14px; color:var(--ink-soft); margin-top:10px;">Para abrir una convocatoria nueva, primero publica los resultados de esta.</p>`;
     } else if (c.estado === 'finalizada') {
-      html += resumenHtml(c) + `<p style="font-size:14px;">Resultados publicados el ${fechaHora(c.finalizada_en)}${c.finalizada_por ? ' por ' + esc(c.finalizada_por) : ''}. Solo lectura. Las familias ya ven su resultado.</p>`;
+      html += resumenHtml(c) + `<p style="font-size:14px;">Resultados publicados el ${fechaHora(c.finalizada_en)}${c.finalizada_por ? ' por ' + esc(c.finalizada_por) : ''}. Solo lectura. Las familias ya ven su resultado.</p>
+        <div class="recogida" style="border-top:1px solid var(--line); margin-top:16px; padding-top:16px;">
+          <p class="section-label">Avisar de la recogida</p>
+          <p style="font-size:14px; color:var(--ink-soft); margin:-6px 0 10px;">Cada familia que pidió uniformes recibe un email con qué ha recibido cada alumno/a y cuándo y dónde recogerlo.</p>
+          <div class="fila" style="flex-wrap:wrap; gap:10px 14px;">
+            <div class="field"><label for="rDia">Día</label><input type="date" id="rDia"></div>
+            <div class="field"><label for="rDesde">Desde</label><input type="time" id="rDesde"></div>
+            <div class="field"><label for="rHasta">Hasta</label><input type="time" id="rHasta"></div>
+            <div class="field" style="flex:1; min-width:220px;"><label for="rLugar">Dónde</label><input type="text" id="rLugar" placeholder="Ej.: en la puerta del colegio"></div>
+          </div>
+          <div class="field" style="margin-top:10px;"><label for="rNota">Algo más (opcional)</label><textarea id="rNota" rows="2" placeholder="Ej.: si no podéis venir ese día, escribidnos"></textarea></div>
+          <label class="check" style="margin-top:8px;"><input type="checkbox" id="rSinPrenda" checked> Avisar también a las familias que esta vez no han recibido prenda</label>
+          <div class="acciones"><button class="btn btn-primary" id="recogidaBtn">Enviar email de recogida</button><small class="difusion-info" id="recogidaHist"></small></div>
+        </div>`;
     } else if (c.estado === 'cancelada') {
       html += `<p style="font-size:14px;">Cancelada sin repartir. Sus pedidos se pueden consultar o borrar abajo.</p>`;
     }
@@ -284,8 +297,40 @@ async function cargarConvocatoria() {
   const rep = document.getElementById('repartirBtn'); if (rep) rep.addEventListener('click', repartir);
   const res = document.getElementById('resetearBtn'); if (res) res.addEventListener('click', resetear);
   const cre = document.getElementById('crearBtn'); if (cre) cre.addEventListener('click', crearConvocatoria);
+  if (document.getElementById('recogidaBtn')) montarRecogida(c);
 
   await cargarPedidos();
+}
+
+/* ---- Email de recogida (resultados publicados) ---- */
+async function montarRecogida(c) {
+  const hist = document.getElementById('recogidaHist');
+  const pintarHist = async () => {
+    const { data } = await sb.from('difusiones').select('created_at, familias, creado_por_nombre').eq('tipo', 'uniformes').eq('ref_id', c.id).eq('canal', 'recogida').order('created_at', { ascending: false });
+    hist.textContent = data && data.length
+      ? `Enviado ${data.length === 1 ? '1 vez' : data.length + ' veces'} · la última, ${fechaHora(data[0].created_at)} a ${data[0].familias} familia${data[0].familias === 1 ? '' : 's'}`
+      : '';
+  };
+  pintarHist();
+  document.getElementById('recogidaBtn').addEventListener('click', async (e) => {
+    const v = (id) => document.getElementById(id).value.trim();
+    const datos = { convocatoriaId: c.id, dia: v('rDia'), desde: v('rDesde'), hasta: v('rHasta'), lugar: v('rLugar'), nota: v('rNota'), incluirSinPrenda: document.getElementById('rSinPrenda').checked };
+    if (!datos.dia || !datos.desde) { aviso('convMsg', false, 'Pon el día y la hora de recogida.'); return; }
+    if (!datos.lugar) { aviso('convMsg', false, 'Pon dónde se recogen.'); return; }
+    if (!confirm('Se enviará el email de recogida a las familias que pidieron uniformes. ¿Seguir?')) return;
+    const b = e.target; b.disabled = true; b.textContent = 'Enviando...';
+    try {
+      const session = await getSession();
+      const resp = await fetch('/.netlify/functions/uniformes-recogida-avisar', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token }, body: JSON.stringify(datos)
+      });
+      const d = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(d.error || 'No se pudo enviar.');
+      aviso('convMsg', !d.fallos?.length, `Email enviado a ${d.enviados} familia${d.enviados === 1 ? '' : 's'}${d.sinPrenda ? ` (${d.sinPrenda} sin prenda)` : ''}.` + (d.fallos?.length ? ` No se pudo enviar a: ${d.fallos.join('; ')}.` : ''));
+      pintarHist();
+    } catch (err) { aviso('convMsg', false, err.message); }
+    b.disabled = false; b.textContent = 'Enviar email de recogida';
+  });
 }
 
 function resumenHtml(c) {

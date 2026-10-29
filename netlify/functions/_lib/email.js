@@ -209,6 +209,22 @@ function plantillaLoteria({ campana, nombre, apellidos, email, movil, mensaje, e
   };
 }
 
+// Banco de Uniformes: cuándo y dónde recoger lo que ha recibido cada alumno/a
+//   prendas: ['Marta: Sudadera talla 8', ...] (vacío = esta vez no ha recibido nada)
+function plantillaUniformesRecogida({ nombre, prendas, cuando, lugar, nota }) {
+  const con = prendas.length > 0;
+  return {
+    subject: con ? 'Banco de Uniformes: cuándo recoger vuestras prendas' : 'Banco de Uniformes: resultado del reparto',
+    text:
+      `Hola${nombre ? ' ' + nombre : ''},\n\n` +
+      (con
+        ? `Estas son las prendas del Banco de Uniformes que habéis recibido:\n` + prendas.map(p => `  - ${p}`).join('\n') + `\n\n` +
+          `Podéis recogerlas el ${cuando}${lugar ? ', en ' + lugar : ''}.\n\n` +
+          (nota ? `${nota}\n` : '')   // la nota es sobre la recogida: solo para quien recoge
+        : `Esta vez no ha habido prendas para vuestro pedido del Banco de Uniformes.\n`)
+  };
+}
+
 // Al devolver la Mochila Jugona Exploradora: encuesta sobre los juegos
 function plantillaMochilaEncuesta({ nombre, url }) {
   return {
@@ -317,7 +333,7 @@ function plantillaRecordatorioDevolucion({ nombre, libros }) {
 
 module.exports = {
   componerBorrador, conFirma, textoAHtml, srcLogoFirma, rutaAsset,
-  plantillaLoteria, plantillaJustificanteRechazado, plantillaMochilaEncuesta,
+  plantillaLoteria, plantillaJustificanteRechazado, plantillaMochilaEncuesta, plantillaUniformesRecogida,
   enviarEmail, numeroSocioBonito, plantillaCredenciales, plantillaMochilaTurno, plantillaComentario, plantillaDonacion,
   plantillaBienvenida, plantillaRechazo, plantillaRecuperarPassword, plantillaRecordatorioDevolucion
 };

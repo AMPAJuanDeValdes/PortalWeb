@@ -664,6 +664,8 @@ web/                      → Lo que se publica (Netlify publish = "web").
   admin-mochila.html      → Mochila Jugona Exploradora. «Recibir mochila» manda a la familia la encuesta de los juegos
                             (mochila-encuesta-enviar.js → mochila-encuesta.html?t=<token>, sin entrar en la web);
                             «Qué juegos gustan más»: valoraciones por edad (mochila_encuestas, mochila_valoraciones).
+  admin-uniformes.html    → Banco de Uniformes. Con los resultados publicados, «Enviar email de recogida»
+                            (uniformes-recogida-avisar.js): a cada familia, qué ha recibido cada alumno/a y cuándo y dónde recogerlo.
   admin-socios.html       → Socios + solicitudes → admin-gestionar-cuenta.js (también «Eliminar la cuenta…» para una cuenta mal creada).
   admin-importar.html     → Alta de socios (CSV o manual) → admin-import-socios.js.
   admin-comprobantes.html → Justificantes de personas no socias (agrupados por pago): verificar o

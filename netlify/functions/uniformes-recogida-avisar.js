@@ -1,0 +1,61 @@
+// Banco de Uniformes (Panel → Banco de Uniformes), con los resultados ya
+// publicados: manda a cada familia que pidió uniformes un email con cuándo y
+// dónde recogerlos y qué ha recibido cada alumno/a. A las que no han recibido
+// nada, si se marca, un email diciéndoselo.
+//   POST { convocatoriaId, dia: 'YYYY-MM-DD', desde: 'HH:MM', hasta: 'HH:MM', lugar, nota, incluirSinPrenda }
+//   → { ok, enviados, sinPrenda, fallos: [emails] }
+
+const { createClient } = require('@supabase/supabase-js');
+const { enviarEmail, plantillaUniformesRecogida } = require('./_lib/email');
+const { registrarDifusion } = require('./_lib/avisos');
+
+const json = (statusCode, obj) => ({ statusCode, body: JSON.stringify(obj) });
+const ZONA = { timeZone: 'Europe/Madrid' };
+
+exports.handler = async (event) => {
+  if (event.httpMethod !== 'POST') return { statusCode: 405, body: 'Método no permitido' };
+  const token = String(event.headers.authorization || event.headers.Authorization || '').replace(/^Bearer\s+/i, '');
+  if (!token) return json(401, { error: 'Falta token de sesión' });
+  const sb = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+  const { data: u, error: uErr } = await sb.auth.getUser(token);
+  if (uErr || !u?.user) return json(401, { error: 'Sesión no válida' });
+  const { data: quien } = await sb.from('adultos').select('role').eq('id', u.user.id).single();
+  if (!quien || quien.role !== 'admin') return json(403, { error: 'Solo la Junta puede hacer esto.' });
+
+  let p;
+  try { p = JSON.parse(event.body || '{}'); } catch { return json(400, { error: 'JSON no válido' }); }
+  const dia = String(p.dia || ''), desde = String(p.desde || ''), hasta = String(p.hasta || '');
+  const lugar = String(p.lugar || '').trim().slice(0, 200), nota = String(p.nota || '').trim().slice(0, 1000);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dia)) return json(400, { error: 'Pon el día de recogida.' });
+  if (!/^\d{2}:\d{2}$/.test(desde) || (hasta && !/^\d{2}:\d{2}$/.test(hasta))) return json(400, { error: 'Pon la hora de recogida.' });
+  if (hasta && hasta <= desde) return json(400, { error: 'La hora de fin tiene que ser después de la de inicio.' });
+
+  const { data: conv } = await sb.from('uniformes_convocatorias').select('id, estado').eq('id', String(p.convocatoriaId || '')).maybeSingle();
+  if (!conv) return json(404, { error: 'La convocatoria no existe.' });
+  if (conv.estado !== 'finalizada') return json(400, { error: 'Primero publica los resultados del reparto.' });
+
+  const { data: pedidos, error } = await sb.from('uniformes_pedidos')
+    .select('socio_id, alumno_id, estado, alumnos(nombre), prendas_catalogo(tipo, talla)').eq('convocatoria_id', conv.id);
+  if (error) return json(500, { error: error.message });
+  const socios = [...new Set((pedidos || []).map(x => x.socio_id))];
+  if (!socios.length) return json(400, { error: 'Nadie pidió uniformes en esta convocatoria.' });
+  const { data: adultos } = await sb.from('adultos').select('socio_id, nombre, email, created_at').in('socio_id', socios).order('created_at');
+
+  const diaTxt = new Date(dia + 'T12:00:00Z').toLocaleDateString('es-ES', { ...ZONA, weekday: 'long', day: 'numeric', month: 'long' }).replace(',', '');
+  const cuando = `${diaTxt}, ${hasta ? `de ${desde} a ${hasta}` : `a partir de las ${desde}`}`;
+  let enviados = 0, sinPrenda = 0; const fallos = [];
+  for (const sid of socios) {
+    const suyos = (pedidos || []).filter(x => x.socio_id === sid && x.estado === 'asignado');
+    if (!suyos.length && !p.incluirSinPrenda) continue;
+    const ads = (adultos || []).filter(a => a.socio_id === sid && a.email);
+    if (!ads.length) continue;
+    const prendas = suyos.map(x => `${x.alumnos?.nombre || 'Alumno/a'}: ${x.prendas_catalogo?.tipo || 'prenda'} talla ${x.prendas_catalogo?.talla || ''}`.trim());
+    const pl = plantillaUniformesRecogida({ nombre: ads.length === 1 ? ads[0].nombre : '', prendas, cuando, lugar, nota });
+    try {
+      await enviarEmail({ to: ads.map(a => a.email).join(', '), subject: pl.subject, text: pl.text });
+      enviados++; if (!suyos.length) sinPrenda++;
+    } catch (e) { fallos.push(ads.map(a => a.email).join(', ')); }
+  }
+  if (enviados) await registrarDifusion(sb, { tipo: 'uniformes', refId: conv.id, canal: 'recogida', familias: enviados, adultoId: u.user.id });
+  return json(200, { ok: true, enviados, sinPrenda, fallos });
+};
