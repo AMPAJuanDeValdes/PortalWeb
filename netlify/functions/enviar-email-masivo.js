@@ -5,6 +5,9 @@
 //   POST { vista: true, asunto, cuerpo }             → { asunto, html } tal como saldrá (con la firma), sin enviar
 //   POST { prueba: true, asunto, cuerpo }            → lo envía solo a quien lo está escribiendo
 //   POST { adultoId, asunto, cuerpo }                → a una sola persona (Socios → ficha), en «Para»
+//   POST { mochilaColaId, asunto, cuerpo }           → a la familia de la Mochila (sus adultos, o el
+//                                                      contacto si no es socia), en «Para»
+//   Con adultoId o mochilaColaId, la vista previa devuelve también «para»
 
 const { createClient } = require('@supabase/supabase-js');
 const { enviarEmail, conFirma } = require('./_lib/email');
@@ -35,12 +38,31 @@ exports.handler = async (event) => {
 
   if (!asunto || !cuerpo) return { statusCode: 400, body: JSON.stringify({ error: 'Falta el asunto o el cuerpo del mensaje' }) };
 
+  // Destinatarios concretos (adulto o familia de la Mochila): salen de la base de datos
+  async function destinatariosConcretos() {
+    if (payload.adultoId) {
+      const { data: ad } = await supabaseAdmin.from('adultos').select('nombre, apellidos, email').eq('id', String(payload.adultoId)).maybeSingle();
+      return ad && ad.email ? [{ nombre: `${ad.nombre} ${ad.apellidos}`, email: ad.email }] : [];
+    }
+    if (payload.mochilaColaId) {
+      const { data: e } = await supabaseAdmin.from('mochila_cola').select('tipo, socio_id, nombre_contacto, email_contacto').eq('id', String(payload.mochilaColaId)).maybeSingle();
+      if (!e) return [];
+      if (e.tipo !== 'socio') return e.email_contacto ? [{ nombre: e.nombre_contacto || '', email: e.email_contacto }] : [];
+      const { data: ads } = await supabaseAdmin.from('adultos').select('nombre, apellidos, email').eq('socio_id', e.socio_id).order('created_at');
+      return (ads || []).filter(a => a.email).map(a => ({ nombre: `${a.nombre} ${a.apellidos}`, email: a.email }));
+    }
+    return null;
+  }
+  const concretos = await destinatariosConcretos();
+  if (concretos && !concretos.length) return { statusCode: 404, body: JSON.stringify({ error: 'No tiene email.' }) };
+  const paraTexto = (concretos || []).map(d => d.nombre ? `"${d.nombre.replace(/"/g, '')}" <${d.email}>` : d.email).join(', ');
+
   // Vista previa: el mismo email que se envía (firma y logo incluidos); el logo, desde la web
   if (payload.vista) {
     const m = conFirma({ subject: asunto, text: cuerpo });
     const web = (process.env.SITE_URL || '').replace(/\/$/, '');
     const html = m.html.replace(/src="cid:[^"]+"/g, `src="${web}/assets/logo-ampa-email.jpg"`);
-    return { statusCode: 200, body: JSON.stringify({ ok: true, asunto: m.subject, html }) };
+    return { statusCode: 200, body: JSON.stringify({ ok: true, asunto: m.subject, html, para: concretos ? concretos.map(d => d.email).join(', ') : null }) };
   }
   // Prueba: solo a quien lo está escribiendo
   if (payload.prueba) {
@@ -54,13 +76,11 @@ exports.handler = async (event) => {
     }
   }
 
-  // A una sola persona (desde su ficha en Socios): su email sale de la base de datos
-  if (payload.adultoId) {
-    const { data: ad } = await supabaseAdmin.from('adultos').select('nombre, apellidos, email').eq('id', String(payload.adultoId)).maybeSingle();
-    if (!ad || !ad.email) return { statusCode: 404, body: JSON.stringify({ error: 'Ese adulto no tiene email.' }) };
+  // A una persona o a una familia concreta, en «Para»
+  if (concretos) {
     try {
-      await enviarEmail({ to: `"${ad.nombre} ${ad.apellidos}" <${ad.email}>`, subject: asunto, text: cuerpo });
-      return { statusCode: 200, body: JSON.stringify({ ok: true, enviados: 1, a: ad.email }) };
+      await enviarEmail({ to: paraTexto, subject: asunto, text: cuerpo });
+      return { statusCode: 200, body: JSON.stringify({ ok: true, enviados: concretos.length, a: concretos.map(d => d.email).join(', ') }) };
     } catch (err) {
       return { statusCode: 500, body: JSON.stringify({ error: err.message || 'Error al enviar' }) };
     }

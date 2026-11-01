@@ -92,11 +92,6 @@
   .solicitud .tipo-sol{ display:inline-block; font-size:14px; font-weight:700; padding:2px 12px; border-radius:999px; background:#DCF0FA; color:#006D9C; margin-right:8px; }
   .solicitud.reactivacion .tipo-sol{ background:#FFF3C4; color:#8A6400; }
     .msg-linea{ font-size:14px; margin:8px 0 0; }
-  .dialogo-email{ width:min(640px, 94vw); border:1px solid var(--line); border-radius:18px; padding:20px 22px; }
-  .dialogo-email::backdrop{ background:rgba(22,35,58,.35); }
-  .de-cab{ display:flex; flex-direction:column; gap:2px; margin-bottom:12px; }
-  .de-cab b{ font-family:var(--font-title); font-size:20px; }
-  .de-cab span{ color:var(--ink-soft); font-size:15px; }
 </style>
 </head>
 <body>
@@ -165,6 +160,7 @@
 <script src="shared/catalogo.js"></script>
 <script src="shared/datos-ampa.js"></script>
 <script src="shared/csv.js"></script>
+<script src="shared/email-dialogo.js"></script>
 <script>
 let ctxGlobal = null;
 // Cuenta principal del AMPA (socio 0000): solo ella puede hacer o quitar Admin a un adulto
@@ -221,65 +217,6 @@ async function recargar() {
   catch (e) { document.getElementById('wrapSolicitudes').innerHTML = '<p class="msg-error">' + esc(e.message) + '</p>'; return; }
   await pintarSolicitudes();
   pintarLista();
-}
-
-/* ---- Enviar un email a un adulto (con la firma del AMPA y vista previa) ---- */
-function abrirEmailAdulto(a) {
-  const d = document.createElement('dialog');
-  d.className = 'dialogo-email';
-  d.innerHTML = `<div class="de-cab"><b>Email a ${esc(a.nombre)} ${esc(a.apellidos)}</b><span>${esc(a.email)}</span></div>
-    <div class="field"><label for="deAsunto">Asunto</label><input type="text" id="deAsunto"></div>
-    <div class="field"><label for="deCuerpo">Mensaje</label><textarea id="deCuerpo" rows="8">Hola ${esc(a.nombre)},
-
-</textarea></div>
-    <p style="font-size:14px; color:var(--ink-soft); margin:6px 0 0;">Al final se añade la firma del AMPA con el logo.</p>
-    <div class="de-vista" hidden><p class="section-label" style="margin:12px 0 6px;">Así lo recibirá</p>
-      <iframe title="Vista previa del email" sandbox="" style="width:100%; min-height:300px; border:1px solid var(--line); border-radius:12px; background:#fff;"></iframe></div>
-    <p class="de-msg" hidden></p>
-    <div class="acciones">
-      <button type="button" class="btn btn-outline deVista">Vista previa</button>
-      <button type="button" class="btn btn-primary deEnviar" disabled title="Mira antes la vista previa">Enviar</button>
-      <button type="button" class="linklike deCerrar">Cerrar</button>
-    </div>`;
-  document.body.appendChild(d);
-  const $d = (sel) => d.querySelector(sel);
-  const msg = (ok, t) => { const m = $d('.de-msg'); m.hidden = false; m.className = 'de-msg ' + (ok ? 'msg-ok' : 'msg-error'); m.textContent = t; };
-  const llamar = async (extra) => {
-    const asunto = $d('#deAsunto').value.trim(), cuerpo = $d('#deCuerpo').value.trim();
-    if (!asunto || !cuerpo) throw new Error('Escribe el asunto y el mensaje.');
-    const session = await getSession();
-    const resp = await fetch('/.netlify/functions/enviar-email-masivo', {
-      method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
-      body: JSON.stringify({ asunto, cuerpo, ...extra })
-    });
-    const r = await resp.json().catch(() => ({}));
-    if (!resp.ok) throw new Error(r.error || 'No se pudo completar (error ' + resp.status + ').');
-    return r;
-  };
-  // Si se cambia el texto, hay que volver a ver la vista previa antes de enviar
-  ['#deAsunto', '#deCuerpo'].forEach(sel => $d(sel).addEventListener('input', () => { $d('.deEnviar').disabled = true; $d('.de-vista').hidden = true; }));
-  $d('.deVista').addEventListener('click', async (e) => {
-    e.target.disabled = true; $d('.de-msg').hidden = true;
-    try {
-      const r = await llamar({ vista: true });
-      $d('.de-vista iframe').srcdoc = '<!doctype html><meta charset="utf-8"><body style="margin:16px;">' + r.html + '</body>';
-      $d('.de-vista').hidden = false; $d('.deEnviar').disabled = false;
-    } catch (err) { msg(false, err.message); }
-    e.target.disabled = false;
-  });
-  $d('.deEnviar').addEventListener('click', async (e) => {
-    e.target.disabled = true; e.target.textContent = 'Enviando...';
-    try {
-      const r = await llamar({ adultoId: a.id });
-      msg(true, 'Enviado a ' + r.a + '. Queda una copia en Enviados del correo del AMPA.');
-      $d('.deVista').disabled = true; $d('#deAsunto').disabled = true; $d('#deCuerpo').disabled = true;
-      e.target.textContent = 'Enviado';
-    } catch (err) { msg(false, err.message); e.target.disabled = false; e.target.textContent = 'Enviar'; }
-  });
-  $d('.deCerrar').addEventListener('click', () => d.close());
-  d.addEventListener('close', () => d.remove());
-  d.showModal();
-  $d('#deAsunto').focus();
 }
 
 async function llamarGestion(payload) {
@@ -702,7 +639,7 @@ function pintarDetalle(s, td) {
       e.target.disabled = false;
     });
     const em = div.querySelector('.emailBtn');
-    if (em) em.addEventListener('click', () => abrirEmailAdulto(a));
+    if (em) em.addEventListener('click', () => abrirEmailDialogo({ titulo: `Email a ${a.nombre} ${a.apellidos}`, para: a.email, saludo: a.nombre, destino: { adultoId: a.id } }));
     // Hacer o quitar Admin a este adulto (solo la cuenta principal)
     const adm = div.querySelector('.adminBtn');
     if (adm) adm.addEventListener('click', async () => {

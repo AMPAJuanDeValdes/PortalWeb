@@ -762,3 +762,10 @@ body > .wrap, body > main{ position:relative; z-index:0; isolation:isolate; }
 .difusion-info{ font-size:13px; color:var(--ink-soft); cursor:help; }
 .difusion-nota{ font-size:14px; color:var(--ink-soft); margin:8px 0 0; }
 .difusion-msg{ margin:10px 0 0; }
+
+/* -------- Selector de dos o tres opciones («Solo por entregar» / «Todos») -------- */
+.segmentado{ display:inline-flex; border:1.5px solid var(--navy); border-radius:999px; overflow:hidden; }
+.segmentado button{ border:0; background:#fff; color:var(--navy); font-weight:700; font-size:15px; padding:8px 16px; min-height:40px; cursor:pointer; font-family:var(--font-text); }
+.segmentado button + button{ border-left:1.5px solid var(--navy); }
+.segmentado button[aria-pressed="true"]{ background:var(--navy); color:#fff; }
+.segmentado button:focus-visible{ outline:3px solid #9CCBF0; outline-offset:-3px; }

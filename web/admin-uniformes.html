@@ -453,6 +453,8 @@ async function resetear() {
 }
 
 /* ======================= PEDIDOS ======================= */
+// Con los resultados publicados: ver solo las prendas por entregar o todo (se recuerda en este navegador)
+let soloPorEntregar = (() => { try { return localStorage.getItem('ampa_uniformes_ver') !== 'todos'; } catch (e) { return true; } })();
 async function cargarPedidos() {
   const wrap = document.getElementById('pedidosWrap');
   if (!convocatoria) { wrap.innerHTML = ''; return; }
@@ -484,10 +486,17 @@ async function cargarPedidos() {
   let html = '';
   familias.forEach(([socioId, alumnos]) => {
     const s = socios[socioId] || {};
+    const inicioFamilia = html.length;
     html += `<div class="familia"><div class="familia-head"><span><b>Nº ${esc(s.numero_socio || '—')}</b> · ${esc(s.nombre || '')}</span>
       ${puedeBorrar ? `<button class="btn-danger-link" data-borrar="${socioId}">Borrar el pedido de esta familia</button>` : ''}</div>`;
     Object.values(alumnos).forEach(lista => {
       alumnosTot++;
+      // «Solo por entregar»: solo quien tiene prenda asignada sin entregar ni devolver al stock
+      const asig = lista.find(p => p.estado === 'asignado');
+      if (soloPorEntregar && convocatoria.estado === 'finalizada' && !(asig && !asig.entregado_en && !asig.devuelto_stock_en)) {
+        if (asig) asignadosTot++;
+        return;
+      }
       const al = lista[0].alumnos || {};
       const asignado = lista.find(p => p.estado === 'asignado');
       if (asignado) asignadosTot++;
@@ -518,6 +527,7 @@ async function cargarPedidos() {
       });
     });
     html += '</div>';
+    if (!html.slice(inicioFamilia).includes('class="alumno"')) html = html.slice(0, inicioFamilia);   // familia sin filas que mostrar
   });
 
   // Entregas (con los resultados publicados)
@@ -529,10 +539,21 @@ async function cargarPedidos() {
     ${porEntregar ? `<div class="acciones" style="margin:-4px 0 14px;"><button class="btn btn-outline" id="devolverStockBtn">Devolver al stock lo no entregado (${porEntregar})</button></div>` : ''}` : '';
   wrap.innerHTML = `<div class="card"><p class="section-label">Pedidos y asignaciones</p>
     <div class="resumen"><div><b>${familias.length}</b>familias</div><div><b>${alumnosTot}</b>alumnos/as</div><div><b>${asignadosTot}</b>con prenda</div><div><b>${alumnosTot - asignadosTot}</b>sin prenda</div></div>${bloqueEntregas}
-    <button class="btn btn-outline" id="csvBtn" style="margin-bottom:14px;">Descargar listado (CSV)</button>
+    <div style="display:flex; gap:10px 16px; flex-wrap:wrap; align-items:center; margin-bottom:14px;">
+      <button class="btn btn-outline" id="csvBtn">Descargar listado (CSV)</button>
+      ${convocatoria.estado === 'finalizada' ? `<div class="segmentado" role="group" aria-label="Qué alumnos/as mostrar">
+        <button type="button" data-ver="pendientes" aria-pressed="${soloPorEntregar}">Solo por entregar</button>
+        <button type="button" data-ver="todos" aria-pressed="${!soloPorEntregar}">Todos</button></div>` : ''}
+    </div>
+    ${soloPorEntregar && convocatoria.estado === 'finalizada' && !html ? '<p class="empty-hint">No queda ninguna prenda por entregar.</p>' : ''}
     <p id="pedMsg" style="display:none;"></p>${html}</div>`;
 
   document.getElementById('csvBtn').addEventListener('click', () => descargarCSV(filasCsv, 'uniformes-reparto.csv', { orden: true }));
+  wrap.querySelectorAll('[data-ver]').forEach(b => b.addEventListener('click', () => {
+    soloPorEntregar = b.dataset.ver === 'pendientes';
+    try { localStorage.setItem('ampa_uniformes_ver', soloPorEntregar ? 'pendientes' : 'todos'); } catch (e) { /* sin almacenamiento */ }
+    cargarPedidos();
+  }));
   // Marcar entregada / no entregada
   wrap.querySelectorAll('.entregadoChk').forEach(chk => chk.addEventListener('change', async () => {
     chk.disabled = true;

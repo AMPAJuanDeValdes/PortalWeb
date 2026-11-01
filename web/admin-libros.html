@@ -537,6 +537,8 @@ async function cargarConvocatoria() {
   if (c) await cargarItems(c.id);
 }
 
+// Peticiones de la convocatoria: ver solo los libros sin entregar o todos (se recuerda en este navegador)
+let librosSoloSinEntregar = (() => { try { return localStorage.getItem('ampa_libros_ver') === 'pendientes'; } catch (e) { return false; } })();
 async function cargarItems(convocatoriaId) {
   const wrap = document.getElementById('itemsWrap');
   const items = await todasLasFilas(() => sb.from('prestamo_items')
@@ -548,8 +550,17 @@ async function cargarItems(convocatoriaId) {
   const porSocio = {}; items.forEach(i => (porSocio[i.socio_id] = porSocio[i.socio_id] || []).push(i));
   const editable = convocatoria && ['abierta', 'repartida'].includes(convocatoria.estado);
   const asign = items.filter(i => i.estado === 'asignado').length;
-  wrap.innerHTML = `<p class="section-label">Peticiones (${items.length} libros, ${asign} con ejemplar)</p>` +
-    Object.entries(porSocio).map(([sid, lista]) => `<div class="familia"><div class="familia-head"><span><b>Nº ${esc(socios[sid]?.numero_socio || '—')}</b> · ${esc(socios[sid]?.nombre || '')}</span></div>` +
+  const sinEntregar = items.filter(i => i.estado === 'asignado' && !i.entregado_en).length;
+  // «Solo sin entregar»: libros con ejemplar asignado que aún no se han dado a la familia
+  const verItem = (it) => !librosSoloSinEntregar || (it.estado === 'asignado' && !it.entregado_en);
+  const familiasVisibles = Object.entries(porSocio).map(([sid, lista]) => [sid, lista.filter(verItem)]).filter(([, l]) => l.length);
+  wrap.innerHTML = `<div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:8px;">
+      <p class="section-label" style="margin:0;">Peticiones (${items.length} libros, ${asign} con ejemplar, ${sinEntregar} sin entregar)</p>
+      <div class="segmentado" role="group" aria-label="Qué libros mostrar">
+        <button type="button" data-ver="pendientes" aria-pressed="${librosSoloSinEntregar}">Solo sin entregar</button>
+        <button type="button" data-ver="todos" aria-pressed="${!librosSoloSinEntregar}">Todos</button></div></div>` +
+    (familiasVisibles.length ? '' : '<p class="empty-hint">No queda ningún libro por entregar.</p>') +
+    familiasVisibles.map(([sid, lista]) => `<div class="familia"><div class="familia-head"><span><b>Nº ${esc(socios[sid]?.numero_socio || '—')}</b> · ${esc(socios[sid]?.nombre || '')}</span></div>` +
       lista.map(it => {
         const opciones = disponibles[it.libros_catalogo?.id] || [];
         let der;
@@ -563,6 +574,11 @@ async function cargarItems(convocatoriaId) {
         }
         return `<div class="item"><span>${esc(it.alumnos?.nombre)} ${esc(it.alumnos?.apellidos)} — <b>${esc(it.libros_catalogo?.titulo)}</b></span><span class="botones">${der}</span></div>`;
       }).join('') + '</div>').join('');
+  wrap.querySelectorAll('[data-ver]').forEach(b => b.addEventListener('click', () => {
+    librosSoloSinEntregar = b.dataset.ver === 'pendientes';
+    try { localStorage.setItem('ampa_libros_ver', librosSoloSinEntregar ? 'pendientes' : 'todos'); } catch (e) { /* sin almacenamiento */ }
+    cargarItems(convocatoriaId);
+  }));
   wrap.querySelectorAll('[data-quitar]').forEach(b => b.addEventListener('click', async () => {
     const { error } = await sb.rpc('prestamo_admin_quitar', { p_item_id: b.dataset.quitar });
     if (error) { alert(error.message); return; }

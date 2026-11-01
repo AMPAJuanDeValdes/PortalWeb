@@ -129,6 +129,7 @@
 <script src="shared/supabaseClient.js"></script>
 <script src="shared/nav.js"></script>
 <script src="shared/mochila.js"></script>
+<script src="shared/email-dialogo.js"></script>
 <script>
 const esc = (t) => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fecha = (f) => f ? new Date(String(f).length === 10 ? f + 'T12:00:00' : f).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' }) : '';
@@ -190,6 +191,7 @@ function pintarAhora() {
       <p>Se la llevó el ${fecha(tiene.fecha_entrega)}. ${tarde ? '<b style="color:#B3261E;">Tenía que devolverla el ' + viernes(tiene.fecha_devolucion_prevista) + '.</b>' : 'La devuelve el ' + viernes(tiene.fecha_devolucion_prevista) + ' ' + HORA_DEVOLUCION + '.'}</p>
       <div class="acciones">
         <button type="button" class="btn btn-primary" id="recibirBtn">Recibir mochila</button>
+        <button type="button" class="btn btn-outline emailFamiliaBtn" data-cola="${tiene.id}">Escribir a la familia</button>
         <span class="nota">Cuando la devuelvan. Sale de la lista y queda en el AMPA.</span>
       </div>`;
   } else {
@@ -204,6 +206,7 @@ function pintarAhora() {
       ${turno.fecha_entrega ? `<p>Entrega el ${viernes(turno.fecha_entrega)} ${HORA_RECOGIDA}; devolución el ${viernes(turno.fecha_devolucion_prevista)} ${HORA_DEVOLUCION}.</p>` : ''}`;
   } else if (turno) {
     sig = `<h3>Siguiente: ${esc(nombreFamilia(turno))}</h3>
+      <div class="acciones" style="margin:4px 0 8px;"><button type="button" class="btn btn-outline emailFamiliaBtn" data-cola="${turno.id}">Escribir a la familia</button></div>
       <p>La ha aceptado. La recoge el ${viernes(turno.fecha_entrega)} ${HORA_RECOGIDA} y la devuelve el ${viernes(turno.fecha_devolucion_prevista)} ${HORA_DEVOLUCION}.</p>`;
   } else if (siguiente) {
     sig = `<h3>Siguiente en la lista: ${esc(nombreFamilia(siguiente))}</h3>
@@ -264,6 +267,14 @@ function pintarAhora() {
     });
   }
   if (turno) accion('entregarBtn', '¿Confirmas que ' + nombreFamilia(turno) + ' se lleva hoy la mochila?', () => rpc('mochila_admin_entregada'));
+  // Escribir a la familia que la tiene o que la ha aceptado (con vista previa)
+  caja.querySelectorAll('.emailFamiliaBtn').forEach(b => b.addEventListener('click', () => {
+    const x = cola.find(c => c.id === b.dataset.cola);
+    if (!x) return;
+    const ads = x.socios?.adultos || [];
+    const saludo = x.tipo === 'no_socio' ? String(x.nombre_contacto || '').split(' ')[0] : ads.map(a => a.nombre).join(' y ');
+    abrirEmailDialogo({ titulo: 'Email a ' + nombreFamilia(x), saludo, destino: { mochilaColaId: x.id } });
+  }));
   enlazarCartas(caja);
 }
 function enlazarCartas(cont) {
