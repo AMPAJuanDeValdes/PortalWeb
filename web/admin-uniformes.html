@@ -45,6 +45,8 @@
   .asig{ margin-top:6px; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
   .asig select{ max-width:260px; }
   .acciones{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top:12px; }
+  .entrega{ margin-top:6px; font-weight:700; display:flex; gap:8px; align-items:center; }
+  .entrega.devuelta{ color:var(--ink-soft); font-weight:400; font-size:14px; }
 </style>
 </head>
 <body>
@@ -455,7 +457,7 @@ async function cargarPedidos() {
   const wrap = document.getElementById('pedidosWrap');
   if (!convocatoria) { wrap.innerHTML = ''; return; }
   const { data: pedidos, error } = await sb.from('uniformes_pedidos')
-    .select('id, prioridad, estado, alumno_id, socio_id, alumnos(nombre, apellidos, curso, etapa), prendas_catalogo(id, tipo, talla, stock)')
+    .select('id, prioridad, estado, alumno_id, socio_id, entregado_en, entregado_por, devuelto_stock_en, alumnos(nombre, apellidos, curso, etapa), prendas_catalogo(id, tipo, talla, stock)')
     .eq('convocatoria_id', convocatoria.id);
   if (error) { wrap.innerHTML = '<div class="card"><p class="msg-error">No se pudieron cargar los pedidos.</p></div>'; return; }
   if (!pedidos || !pedidos.length) { wrap.innerHTML = '<div class="card"><p class="empty-hint">Ninguna familia ha pedido uniformes en esta convocatoria.</p></div>'; return; }
@@ -497,28 +499,56 @@ async function cargarPedidos() {
       html += `<div class="alumno" data-alumno="${lista[0].alumno_id}">
         <b>${esc(al.nombre)} ${esc(al.apellidos)}</b> <span style="color:var(--ink-soft);">· ${esc(al.curso || '')} ${esc(al.etapa || '')}</span> — ${resultado}
         <div class="prios">${prios || '<i>sin prioridades</i>'}</div>
+        ${asignado && convocatoria.estado === 'finalizada' ? (asignado.devuelto_stock_en
+          ? `<div class="entrega devuelta">No se recogió: devuelta al stock el ${fechaHora(asignado.devuelto_stock_en)}</div>`
+          : `<label class="entrega check"><input type="checkbox" class="entregadoChk" data-pedido="${asignado.id}" ${asignado.entregado_en ? 'checked' : ''}> Entregada${asignado.entregado_en ? ` <span style="color:var(--ink-soft); font-weight:400; font-size:14px;">(${fechaHora(asignado.entregado_en)}${asignado.entregado_por ? ', ' + esc(asignado.entregado_por) : ''})</span>` : ''}</label>`) : ''}
         ${puedeAsignar ? `<div class="asig"><select class="asigSel"><option value="">${asignado ? 'Cambiar por...' : 'Asignar a mano...'}</option>${opcionesStock}</select>
           <button class="btn btn-outline asigBtn" style="padding:6px 12px; font-size:14px;">${asignado ? 'Cambiar' : 'Asignar'}</button>
           ${asignado ? '<button class="btn-danger-link quitarBtn">Quitar</button>' : ''}</div>` : ''}
       </div>`;
       filasCsv.push({
+        _numero: s.numero_socio || '', _apellidos: al.apellidos || '', _nombre: al.nombre || '',
         numero_socio: s.numero_socio || '', familia: s.nombre || '', alumno: `${al.nombre || ''} ${al.apellidos || ''}`, curso: `${al.curso || ''} ${al.etapa || ''}`,
         prioridad_1: (lista.find(p => p.prioridad === 1)?.prendas_catalogo ? `${lista.find(p => p.prioridad === 1).prendas_catalogo.tipo} T${lista.find(p => p.prioridad === 1).prendas_catalogo.talla}` : ''),
         prioridad_2: (lista.find(p => p.prioridad === 2)?.prendas_catalogo ? `${lista.find(p => p.prioridad === 2).prendas_catalogo.tipo} T${lista.find(p => p.prioridad === 2).prendas_catalogo.talla}` : ''),
         prioridad_3: (lista.find(p => p.prioridad === 3)?.prendas_catalogo ? `${lista.find(p => p.prioridad === 3).prendas_catalogo.tipo} T${lista.find(p => p.prioridad === 3).prendas_catalogo.talla}` : ''),
         asignado: asignado ? `${asignado.prendas_catalogo?.tipo} T${asignado.prendas_catalogo?.talla}${asignado.prioridad === 0 ? ' (a mano)' : ''}` : '',
-        prioridad_asignada: asignado ? (asignado.prioridad === 0 ? 'a mano' : asignado.prioridad + 'ª') : ''
+        prioridad_asignada: asignado ? (asignado.prioridad === 0 ? 'a mano' : asignado.prioridad + 'ª') : '',
+        entregada: !asignado ? '' : asignado.entregado_en ? fechaHora(asignado.entregado_en) : asignado.devuelto_stock_en ? 'no (devuelta al stock)' : 'no'
       });
     });
     html += '</div>';
   });
 
+  // Entregas (con los resultados publicados)
+  const asignadas = pedidos.filter(p => p.estado === 'asignado');
+  const entregadas = asignadas.filter(p => p.entregado_en).length, devueltas = asignadas.filter(p => p.devuelto_stock_en).length;
+  const porEntregar = asignadas.length - entregadas - devueltas;
+  const bloqueEntregas = convocatoria.estado === 'finalizada' && asignadas.length ? `
+    <div class="resumen"><div><b>${entregadas}</b>entregadas</div><div><b>${porEntregar}</b>por entregar</div><div><b>${devueltas}</b>devueltas al stock</div></div>
+    ${porEntregar ? `<div class="acciones" style="margin:-4px 0 14px;"><button class="btn btn-outline" id="devolverStockBtn">Devolver al stock lo no entregado (${porEntregar})</button></div>` : ''}` : '';
   wrap.innerHTML = `<div class="card"><p class="section-label">Pedidos y asignaciones</p>
-    <div class="resumen"><div><b>${familias.length}</b>familias</div><div><b>${alumnosTot}</b>alumnos/as</div><div><b>${asignadosTot}</b>con prenda</div><div><b>${alumnosTot - asignadosTot}</b>sin prenda</div></div>
+    <div class="resumen"><div><b>${familias.length}</b>familias</div><div><b>${alumnosTot}</b>alumnos/as</div><div><b>${asignadosTot}</b>con prenda</div><div><b>${alumnosTot - asignadosTot}</b>sin prenda</div></div>${bloqueEntregas}
     <button class="btn btn-outline" id="csvBtn" style="margin-bottom:14px;">Descargar listado (CSV)</button>
     <p id="pedMsg" style="display:none;"></p>${html}</div>`;
 
-  document.getElementById('csvBtn').addEventListener('click', () => descargarCSV(filasCsv, 'uniformes-reparto.csv'));
+  document.getElementById('csvBtn').addEventListener('click', () => descargarCSV(filasCsv, 'uniformes-reparto.csv', { orden: true }));
+  // Marcar entregada / no entregada
+  wrap.querySelectorAll('.entregadoChk').forEach(chk => chk.addEventListener('change', async () => {
+    chk.disabled = true;
+    const { error } = await sb.rpc('uniformes_marcar_entregado', { p_pedido: chk.dataset.pedido, p_entregado: chk.checked });
+    if (error) { aviso('pedMsg', false, error.message); chk.checked = !chk.checked; chk.disabled = false; return; }
+    await cargarPedidos();
+  }));
+  const devolver = document.getElementById('devolverStockBtn');
+  if (devolver) devolver.addEventListener('click', async () => {
+    if (!confirm(`Las ${porEntregar} prendas asignadas que no están marcadas como entregadas vuelven al stock y dejan de aparecer a sus familias. ¿Seguir?`)) return;
+    devolver.disabled = true;
+    const { data: n, error } = await sb.rpc('uniformes_devolver_no_entregados', { p_convocatoria: convocatoria.id });
+    if (error) { aviso('pedMsg', false, error.message); devolver.disabled = false; return; }
+    await refrescarTodo();
+    aviso('pedMsg', true, `${n} prenda${n === 1 ? '' : 's'} devuelta${n === 1 ? '' : 's'} al stock.`);
+  });
   wrap.querySelectorAll('.alumno').forEach(div => {
     const alumnoId = div.dataset.alumno;
     const asigBtn = div.querySelector('.asigBtn');

@@ -15,6 +15,7 @@
 const { createClient } = require('@supabase/supabase-js');
 const { anioCuotaActual } = require('./_lib/cuota');
 const { enviarEmail, plantillaCredenciales } = require('./_lib/email');
+const { normalizarNombre } = require('./_lib/nombres');
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -50,6 +51,11 @@ exports.handler = async (event) => {
   const adulto1 = payload.adulto1;
   const adulto2 = payload.adulto2 || null;
   const alumnos = Array.isArray(payload.alumnos) ? payload.alumnos : [];
+  // Nombres estandarizados desde el principio (la base de datos también lo hace al guardar),
+  // también en el email con las claves del segundo adulto
+  [adulto1, adulto2, ...alumnos].forEach(x => {
+    if (x && typeof x === 'object') { x.nombre = normalizarNombre(x.nombre); x.apellidos = normalizarNombre(x.apellidos); }
+  });
   // Domiciliación: no hay IBAN hasta que la familia firma la orden SEPA, así
   // que la cuenta queda «pendiente de firmar» (sepa_pendiente) y la forma de
   // pago se pone al firmar (sin IBAN no hay domiciliación).

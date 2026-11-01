@@ -5971,3 +5971,150 @@ create table if not exists uniformes_recogida_enviados (
 alter table uniformes_recogida_enviados enable row level security;
 drop policy if exists "admins ven los envios de recogida" on uniformes_recogida_enviados;
 create policy "admins ven los envios de recogida" on uniformes_recogida_enviados for select using (is_admin());
+
+-- ===================== NOMBRES ESTANDARIZADOS (copia de migracion-nombres-normalizados.sql) =====================
+-- ==================================================================
+-- NOMBRES ESTANDARIZADOS
+--  · Todos los nombres y apellidos de personas se guardan con la primera
+--    letra de cada palabra en mayúscula y el resto en minúscula, sin
+--    espacios de más:  «mARIA  jose  GARCIA-lopez» → «Maria Jose Garcia-Lopez».
+--  · Las partículas en medio del nombre van en minúscula, como se escriben:
+--    «JOSE DE LA FUENTE» → «Jose de la Fuente», «MARIA DEL MAR» → «Maria del Mar».
+--  · Lo hace la base de datos al guardar (venga de la web, del panel, de
+--    una importación o de una función de Netlify) y se corrige lo que ya hay.
+--  · No toca los acentos: si alguien escribe «Maria» sin tilde, se queda así.
+-- Se puede ejecutar varias veces.
+-- ==================================================================
+
+create or replace function normalizar_nombre(p text)
+returns text language plpgsql immutable as $$
+declare
+  palabras text[];
+  k integer;
+  particulas constant text[] := array['de', 'del', 'la', 'las', 'los', 'y', 'e', 'i'];
+begin
+  if p is null then return null; end if;
+  p := btrim(regexp_replace(p, '\s+', ' ', 'g'));
+  if p = '' then return p; end if;
+  -- «maría-josé o'connor» → «María-José O'Connor» (cada palabra, también tras guion o apóstrofo)
+  palabras := string_to_array(initcap(lower(p)), ' ');
+  for k in 2 .. coalesce(array_length(palabras, 1), 0) loop
+    if lower(palabras[k]) = any (particulas) then palabras[k] := lower(palabras[k]); end if;
+  end loop;
+  return array_to_string(palabras, ' ');
+end;
+$$;
+
+-- Trigger genérico: normaliza las columnas que se le pasan
+create or replace function normalizar_nombres_trigger()
+returns trigger language plpgsql as $$
+declare
+  fila jsonb := to_jsonb(new);
+  col text;
+begin
+  foreach col in array tg_argv loop
+    if fila ? col and jsonb_typeof(fila -> col) = 'string' then
+      fila := jsonb_set(fila, array[col], to_jsonb(normalizar_nombre(fila ->> col)));
+    end if;
+  end loop;
+  new := jsonb_populate_record(new, fila);
+  return new;
+end;
+$$;
+
+-- «trg_aa_…»: se ejecuta antes que el resto de triggers de la tabla (van por orden alfabético)
+do $$
+declare
+  t record;
+begin
+  for t in select * from (values
+    ('adultos',              array['nombre', 'apellidos']),
+    ('alumnos',              array['nombre', 'apellidos']),
+    ('evento_inscripciones', array['nombre_invitado', 'apellidos_invitado', 'nombre_contacto', 'responsable_nombre',
+                                   'alumno_nombre', 'alumno_apellidos', 'recoge_nombre', 'recoge_apellidos']),
+    ('mochila_cola',         array['nombre_contacto']),
+    ('comentarios',          array['nombre_contacto']),
+    ('donaciones',           array['nombre']),
+    ('loteria_talonarios',   array['titular_nombre']),
+    ('loteria_mensajes',     array['nombre', 'apellidos'])
+  ) as x(tabla, columnas)
+  loop
+    if to_regclass('public.' || t.tabla) is null then continue; end if;
+    -- solo las columnas que existen en esa tabla
+    t.columnas := array(select c from unnest(t.columnas) c
+                        where exists (select 1 from information_schema.columns
+                                      where table_schema = 'public' and table_name = t.tabla and column_name = c));
+    if coalesce(array_length(t.columnas, 1), 0) = 0 then continue; end if;
+    execute format('drop trigger if exists trg_aa_normalizar_nombres on %I', t.tabla);
+    execute format('create trigger trg_aa_normalizar_nombres before insert or update of %s on %I
+                    for each row execute function normalizar_nombres_trigger(%s)',
+                   (select string_agg(quote_ident(c), ', ') from unnest(t.columnas) c), t.tabla,
+                   (select string_agg(quote_literal(c), ', ') from unnest(t.columnas) c));
+    -- Corregir lo que ya hay (solo las filas que cambian)
+    execute format('update %I set %s where %s', t.tabla,
+                   (select string_agg(format('%1$I = normalizar_nombre(%1$I)', c), ', ') from unnest(t.columnas) c),
+                   (select string_agg(format('%1$I is distinct from normalizar_nombre(%1$I)', c), ' or ') from unnest(t.columnas) c));
+  end loop;
+end $$;
+
+-- ===================== UNIFORMES: ENTREGAS (copia de migracion-uniformes-entregas.sql) =====================
+-- ==================================================================
+-- BANCO DE UNIFORMES: ENTREGAS Y DEVOLUCIÓN AL STOCK
+--  · Con los resultados publicados, la Junta marca qué prendas se han
+--    entregado (y quién y cuándo).
+--  · «Devolver al stock lo no entregado»: las prendas asignadas que no se
+--    han recogido vuelven al stock (queda en el historial de movimientos)
+--    y dejan de salir a la familia como suyas.
+-- Se puede ejecutar varias veces.
+-- ==================================================================
+alter table uniformes_pedidos add column if not exists entregado_en timestamptz;
+alter table uniformes_pedidos add column if not exists entregado_por text;
+alter table uniformes_pedidos add column if not exists devuelto_stock_en timestamptz;
+
+-- Marcar (o desmarcar) una prenda como entregada
+create or replace function uniformes_marcar_entregado(p_pedido uuid, p_entregado boolean)
+returns void language plpgsql security definer set search_path = public as $$
+declare v uniformes_pedidos; v_estado text; v_nombre text;
+begin
+  if not is_admin() then raise exception 'Solo la Junta puede hacer esto.'; end if;
+  select * into v from uniformes_pedidos where id = p_pedido for update;
+  if not found then raise exception 'Ese pedido no existe.'; end if;
+  select estado into v_estado from uniformes_convocatorias where id = v.convocatoria_id;
+  if v_estado <> 'finalizada' then raise exception 'Primero publica los resultados del reparto.'; end if;
+  if v.estado <> 'asignado' then raise exception 'Esa prenda no está asignada.'; end if;
+  if v.devuelto_stock_en is not null then raise exception 'Esa prenda ya se devolvió al stock.'; end if;
+  select nombre || ' ' || apellidos into v_nombre from adultos where id = auth.uid();
+  update uniformes_pedidos
+    set entregado_en = case when p_entregado then now() end,
+        entregado_por = case when p_entregado then v_nombre end
+  where id = p_pedido;
+end;
+$$;
+grant execute on function uniformes_marcar_entregado(uuid, boolean) to authenticated;
+
+-- Las asignadas y no entregadas vuelven al stock. Devuelve cuántas.
+create or replace function uniformes_devolver_no_entregados(p_convocatoria uuid)
+returns integer language plpgsql security definer set search_path = public as $$
+declare v_estado text; v_nombre text; r record; n integer := 0; v_stock integer;
+begin
+  if not is_admin() then raise exception 'Solo la Junta puede hacer esto.'; end if;
+  select estado into v_estado from uniformes_convocatorias where id = p_convocatoria for update;
+  if v_estado is distinct from 'finalizada' then raise exception 'Primero publica los resultados del reparto.'; end if;
+  select nombre || ' ' || apellidos into v_nombre from adultos where id = auth.uid();
+  for r in
+    select p.id, p.prenda_id, c.tipo, c.talla
+    from uniformes_pedidos p join prendas_catalogo c on c.id = p.prenda_id
+    where p.convocatoria_id = p_convocatoria and p.estado = 'asignado'
+      and p.entregado_en is null and p.devuelto_stock_en is null
+    for update of p
+  loop
+    update prendas_catalogo set stock = stock + 1 where id = r.prenda_id returning stock into v_stock;
+    insert into prendas_movimientos (tipo, talla, cantidad, stock_resultante, motivo, creado_por_nombre)
+    values (r.tipo, r.talla, 1, v_stock, 'No recogida en el reparto: vuelve al stock', v_nombre);
+    update uniformes_pedidos set devuelto_stock_en = now() where id = r.id;
+    n := n + 1;
+  end loop;
+  return n;
+end;
+$$;
+grant execute on function uniformes_devolver_no_entregados(uuid) to authenticated;

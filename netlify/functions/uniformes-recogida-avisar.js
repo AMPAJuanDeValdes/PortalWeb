@@ -43,7 +43,7 @@ exports.handler = async (event) => {
   if (conv.estado !== 'finalizada') return json(400, { error: 'Primero publica los resultados del reparto.' });
 
   const { data: pedidos, error } = await sb.from('uniformes_pedidos')
-    .select('socio_id, alumno_id, estado, alumnos(nombre), prendas_catalogo(tipo, talla)').eq('convocatoria_id', conv.id);
+    .select('socio_id, alumno_id, estado, devuelto_stock_en, alumnos(nombre), prendas_catalogo(tipo, talla)').eq('convocatoria_id', conv.id);
   if (error) return json(500, { error: error.message });
   const socios = [...new Set((pedidos || []).map(x => x.socio_id))].sort();   // orden fijo: las tandas no cambian
   if (!socios.length) return json(400, { error: 'Nadie pidió uniformes en esta convocatoria.' });
@@ -54,7 +54,7 @@ exports.handler = async (event) => {
   // Primero se preparan todos los emails (los mismos para la vista previa y para el envío)
   const mensajes = [];
   for (const sid of socios) {
-    const suyos = (pedidos || []).filter(x => x.socio_id === sid && x.estado === 'asignado');
+    const suyos = (pedidos || []).filter(x => x.socio_id === sid && x.estado === 'asignado' && !x.devuelto_stock_en);
     if (!suyos.length && !p.incluirSinPrenda) continue;
     const ads = (adultos || []).filter(a => a.socio_id === sid && a.email);
     if (!ads.length) continue;

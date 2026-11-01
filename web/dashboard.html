@@ -231,7 +231,7 @@ async function estadoUniformes(socioId) {
   const pend = [];
   const [{ data: convs }, { data: pedidos }] = await Promise.all([
     sb.from('uniformes_convocatorias').select('id, estado, fecha_cierre').order('created_at', { ascending: false }).limit(1),
-    sb.from('uniformes_pedidos').select('convocatoria_id, estado').eq('socio_id', socioId)
+    sb.from('uniformes_pedidos').select('convocatoria_id, estado').eq('socio_id', socioId).is('devuelto_stock_en', null)
   ]);
   const conv = convs && convs[0];
   if (!conv || conv.estado === 'cancelada') return pend;

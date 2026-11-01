@@ -5,6 +5,7 @@
 
 const { createClient } = require('@supabase/supabase-js');
 const { enviarEmail, plantillaCredenciales } = require('./_lib/email');
+const { normalizarNombre } = require('./_lib/nombres');
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -55,8 +56,8 @@ exports.handler = async (event) => {
   catch { return { statusCode: 400, body: JSON.stringify({ error: 'JSON no válido' }) }; }
 
   const email = String(payload.email || '').trim().toLowerCase();
-  const nombre = String(payload.nombre || '').trim();
-  const apellidos = String(payload.apellidos || '').trim();
+  const nombre = normalizarNombre(String(payload.nombre || '').trim());
+  const apellidos = normalizarNombre(String(payload.apellidos || '').trim());
   const movil = String(payload.movil || '').trim();
 
   if (!email || !nombre || !apellidos || !movil) {

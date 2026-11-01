@@ -4,6 +4,7 @@
 
 const { createClient } = require('@supabase/supabase-js');
 const { enviarEmail, numeroSocioBonito, plantillaCredenciales } = require('./_lib/email');
+const { normalizarNombre } = require('./_lib/nombres');
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -22,11 +23,11 @@ function esVerdadero(v) { return ['si', 'sí', 'true', '1', 'x', 'yes'].includes
 
 function normalizarAdulto(fila, prefijo) {
   const g = (campo) => fila[`${prefijo}_${campo}`];
-  const nombre = String(g('nombre') || '').trim();
+  const nombre = normalizarNombre(String(g('nombre') || '').trim());
   if (!nombre) return null;
   return {
     nombre,
-    apellidos: String(g('apellidos') || '').trim(),
+    apellidos: normalizarNombre(String(g('apellidos') || '').trim()),
     es_pasaporte: esVerdadero(g('es_pasaporte')),
     dni_nie: String(g('dni_nie') || '').trim(),
     sexo: ['Masculino', 'Femenino', 'Otro'].includes(String(g('sexo') || '').trim()) ? String(g('sexo')).trim() : null,
@@ -53,11 +54,11 @@ function normalizarFecha(v) {
 
 function normalizarAlumno(fila, prefijo) {
   const g = (campo) => fila[`${prefijo}_${campo}`];
-  const nombre = String(g('nombre') || '').trim();
+  const nombre = normalizarNombre(String(g('nombre') || '').trim());
   if (!nombre) return null;
   return {
     nombre,
-    apellidos: String(g('apellidos') || '').trim(),
+    apellidos: normalizarNombre(String(g('apellidos') || '').trim()),
     fecha_nacimiento: normalizarFecha(g('fecha_nacimiento')),
     sexo: ['Masculino', 'Femenino', 'Otro'].includes(String(g('sexo') || '').trim()) ? String(g('sexo')).trim() : null,
     etapa: ETAPAS_VALIDAS.includes(String(g('etapa') || '').trim()) ? String(g('etapa')).trim() : null,

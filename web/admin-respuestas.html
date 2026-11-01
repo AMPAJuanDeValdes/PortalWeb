@@ -86,8 +86,10 @@ async function cargarPrestamo() {
       curso: d.alumnos ? d.alumnos.curso + ' ' + d.alumnos.etapa : '',
       alumno: d.alumnos ? d.alumnos.nombre + ' ' + d.alumnos.apellidos : '',
       familia: resumen[d.socio_id] ? resumen[d.socio_id].nombre : '',
-      numero_socio: resumen[d.socio_id] ? resumen[d.socio_id].numero_socio : ''
-    })), 'prestamo-libros.csv');
+      numero_socio: resumen[d.socio_id] ? resumen[d.socio_id].numero_socio : '',
+      _numero: resumen[d.socio_id] ? resumen[d.socio_id].numero_socio : '',
+      _apellidos: d.alumnos ? d.alumnos.apellidos : '', _nombre: d.alumnos ? d.alumnos.nombre : ''
+    })), 'prestamo-libros.csv', { orden: true });
   });
 }
 
@@ -128,8 +130,13 @@ async function cargarInscritosDe(eventoId, titulo) {
     '</tbody></table><button class="btn btn-outline" id="descargarEvBtn" style="margin-top:14px;">Descargar CSV</button>';
 
   document.getElementById('descargarEvBtn').addEventListener('click', () => {
-    descargarCSV(data.map(i => { const f = filaDatos(i); return { nombre: f.nombre, tipo: f.tipo, familia: f.familia }; }),
-      'inscritos-' + (titulo || 'evento').replace(/\s+/g, '-') + '.csv');
+    // Alfabético: por los apellidos de la persona inscrita (adulto, alumno/a o invitado)
+    const persona = (i) => i.tipo_miembro === 'adulto' ? (i.adultos || {}) : i.tipo_miembro === 'alumno' ? (i.alumnos || {})
+      : i.tipo_miembro === 'invitado' ? { nombre: i.nombre_invitado, apellidos: i.apellidos_invitado } : { apellidos: i.nombre_contacto };
+    descargarCSV(data.map(i => { const f = filaDatos(i), p = persona(i);
+      return { nombre: f.nombre, tipo: f.tipo, familia: f.familia, numero_socio: resumen[i.socio_id] ? resumen[i.socio_id].numero_socio : '',
+        _numero: resumen[i.socio_id] ? resumen[i.socio_id].numero_socio : '', _apellidos: p.apellidos || '', _nombre: p.nombre || '' }; }),
+      'inscritos-' + (titulo || 'evento').replace(/\s+/g, '-') + '.csv', { orden: true });
   });
 }
 
@@ -182,8 +189,9 @@ async function cargarAlumnos() {
       nombre: a.nombre, apellidos: a.apellidos, fecha_nacimiento: a.fecha_nacimiento || '',
       etapa: a.etapa, curso: a.curso || '', aula: a.aula || '',
       datos_confirmados: a.confirmados ? new Date(a.confirmados).toLocaleDateString('es-ES') : 'no',
-      matricula_verificada: a.verificado ? 'si' : 'no'
-    })), filtro === 'pendientes' ? 'alumnos-datos-confirmados-sin-verificar.csv' : 'alumnos-matricula.csv');
+      matricula_verificada: a.verificado ? 'si' : 'no',
+      _numero: a.numero, _apellidos: a.apellidos, _nombre: a.nombre
+    })), filtro === 'pendientes' ? 'alumnos-datos-confirmados-sin-verificar.csv' : 'alumnos-matricula.csv', { orden: true });
   });
   pintarAlumnos();
 }

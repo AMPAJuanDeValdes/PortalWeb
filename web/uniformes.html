@@ -84,7 +84,8 @@ async function cargarConseguidos() {
     .from('uniformes_pedidos')
     .select('alumnos(nombre, apellidos), prendas_catalogo(tipo, talla), uniformes_convocatorias(estado, finalizada_en)')
     .eq('socio_id', ctxGlobal.socio.id)
-    .eq('estado', 'asignado');
+    .eq('estado', 'asignado')
+    .is('devuelto_stock_en', null);   // no recogida y devuelta al stock: ya no es suya
   const data = (todos || []).filter(p => p.uniformes_convocatorias && p.uniformes_convocatorias.estado === 'finalizada');
 
   if (data.length === 0) { card.style.display = 'none'; return; }

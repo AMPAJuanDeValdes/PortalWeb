@@ -971,7 +971,9 @@ async function renderInscritos(panel, ev) {
     renderInscritos(panel, ev);
   }));
   panel.querySelector('.csvBtn').addEventListener('click', () => {
-    descargarCSV(filas.map(f => Object.fromEntries(columnas.map(c => [c, f[c]]))), 'inscritos-' + ev.titulo.replace(/[^\wáéíóúñÁÉÍÓÚÑ-]+/g, '-') + '.csv');
+    descargarCSV(filas.map(f => ({ ...Object.fromEntries(columnas.map(c => [c, f[c]])),
+      _numero: f['Nº socio'] || '', _apellidos: f['Apellidos'] || '', _nombre: f['Nombre'] || '' })),
+      'inscritos-' + ev.titulo.replace(/[^\wáéíóúñÁÉÍÓÚÑ-]+/g, '-') + '.csv', { orden: true });
   });
   panel.prepend(bloqueApuntarAlumno(panel, ev, data));
 }

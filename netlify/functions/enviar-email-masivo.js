@@ -4,6 +4,7 @@
 //   POST { destinatarios, asunto, cuerpo }          → lo envía
 //   POST { vista: true, asunto, cuerpo }             → { asunto, html } tal como saldrá (con la firma), sin enviar
 //   POST { prueba: true, asunto, cuerpo }            → lo envía solo a quien lo está escribiendo
+//   POST { adultoId, asunto, cuerpo }                → a una sola persona (Socios → ficha), en «Para»
 
 const { createClient } = require('@supabase/supabase-js');
 const { enviarEmail, conFirma } = require('./_lib/email');
@@ -48,6 +49,18 @@ exports.handler = async (event) => {
     try {
       await enviarEmail({ to: process.env.SMTP_USER, bcc: email, subject: '[PRUEBA] ' + asunto, text: cuerpo });
       return { statusCode: 200, body: JSON.stringify({ ok: true, enviados: 1, a: email }) };
+    } catch (err) {
+      return { statusCode: 500, body: JSON.stringify({ error: err.message || 'Error al enviar' }) };
+    }
+  }
+
+  // A una sola persona (desde su ficha en Socios): su email sale de la base de datos
+  if (payload.adultoId) {
+    const { data: ad } = await supabaseAdmin.from('adultos').select('nombre, apellidos, email').eq('id', String(payload.adultoId)).maybeSingle();
+    if (!ad || !ad.email) return { statusCode: 404, body: JSON.stringify({ error: 'Ese adulto no tiene email.' }) };
+    try {
+      await enviarEmail({ to: `"${ad.nombre} ${ad.apellidos}" <${ad.email}>`, subject: asunto, text: cuerpo });
+      return { statusCode: 200, body: JSON.stringify({ ok: true, enviados: 1, a: ad.email }) };
     } catch (err) {
       return { statusCode: 500, body: JSON.stringify({ error: err.message || 'Error al enviar' }) };
     }
