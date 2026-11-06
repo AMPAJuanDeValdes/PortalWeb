@@ -60,7 +60,8 @@
   .redes .ico{ flex:0 0 44px; height:44px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:#fff; }
   .redes .ico svg{ width:22px; height:22px; }
   .redes small{ display:block; color:var(--ink-soft); font-size:14px; overflow-wrap:anywhere; }
-  .donar-linea{ color:var(--ink-soft); margin:26px 0 30px; } .donar-linea a{ font-weight:700; color:var(--ink); }
+  .donar-linea{ color:var(--ink-soft); margin:0 0 12px; }
+  .donaciones{ margin:0 0 30px; } .donar-botones{ display:flex; flex-wrap:wrap; gap:10px; } .donar-linea a{ font-weight:700; color:var(--ink); }
 </style>
 </head>
 <body>
@@ -138,7 +139,14 @@
     <span class="junta-ir">Abrir</span>
   </a>
 
-  <p class="donar-linea">¿Tenéis libros del Banco de Libros, uniformes, carillones, flautas o ropa de extraescolares que ya no uséis? <a href="donar.html">Donar material</a></p>
+  <h2 class="bloque">Donaciones</h2>
+  <div class="donaciones">
+    <p class="donar-linea">¿Tenéis libros del Banco de Libros, uniformes, carillones, flautas o ropa de extraescolares que ya no uséis? <a href="donar.html">Donar material</a></p>
+    <div class="donar-botones">
+      <a href="donar.html#catUniformes" class="btn btn-outline">Quiero donar uniformes</a>
+      <a href="donar.html#catLibros" class="btn btn-outline">Quiero donar libros</a>
+    </div>
+  </div>
 
   <h2 class="bloque">Síguenos</h2>
   <div class="redes">
@@ -262,6 +270,37 @@ async function estadoUniformes(socioId) {
 }
 
 // ¿Puede alguien de la familia apuntarse de verdad a este evento ahora?
+// Plazas que ha dado la Junta (p. ej. reservadas de la Cabalgata): si el evento
+// tiene documentos sin firmar, es lo primero que hay que hacer
+async function estadoDocumentosPlazaJunta(socioId, alumnos) {
+  const { data: ins, error } = await sb.from('evento_inscripciones')
+    .select('id, evento_id, tipo_miembro, alumno_id, adulto_id').eq('socio_id', socioId).eq('asignada_a_mano', true);
+  if (error || !ins || !ins.length) return [];
+  const eventoIds = [...new Set(ins.map(i => i.evento_id))];
+  const [{ data: docs }, { data: resp }, { data: evs }] = await Promise.all([
+    sb.from('documentos_evento').select('*').in('evento_id', eventoIds),
+    sb.from('documentos_evento_respuestas').select('documento_evento_id, alumno_id, adulto_id').eq('socio_id', socioId),
+    sb.from('eventos').select('id, titulo, fecha').in('id', eventoIds)
+  ]);
+  const pend = [];
+  for (const ev of evs || []) {
+    if (ev.fecha && new Date(ev.fecha) < ahora()) continue;
+    const faltan = (docs || []).filter(d => d.evento_id === ev.id).filter(d => ins.filter(i => i.evento_id === ev.id).some(i => {
+      if (d.aplica_a === 'adulto' && i.tipo_miembro === 'adulto')
+        return !(resp || []).some(r => r.documento_evento_id === d.id && r.adulto_id === i.adulto_id);
+      if (d.aplica_a === 'alumno' && i.tipo_miembro === 'alumno') {
+        const al = alumnos.find(a => a.id === i.alumno_id);
+        if (al && d.elegibilidad_modo && !alumnoCumple(al, d)) return false;
+        return !(resp || []).some(r => r.documento_evento_id === d.id && r.alumno_id === i.alumno_id);
+      }
+      return false;
+    }));
+    if (faltan.length) pend.push({ tipo: 'eventos', href: 'eventos.html#ev-' + ev.id, titulo: `Falta firmar: ${ev.titulo}`,
+      accion: 'Firmar', detalle: `La Junta os ha dado plaza. Para completar la inscripción, rellenad y firmad: ${nombres(faltan.map(d => d.titulo))}.` });
+  }
+  return pend;
+}
+
 function alumnoCumple(al, e) {
   if (e.elegibilidad_modo === 'edad') {
     const edad = al.fecha_nacimiento ? calcularEdad(al.fecha_nacimiento) : null;
@@ -471,6 +510,8 @@ document.getElementById('comentarioBtn').addEventListener('click', async () => {
   ]);
   const pendientes = resultados.slice(0, 4).flat();
   if (pendienteMochila) pendientes.unshift(pendienteMochila);
+  // Lo urgente, primero: documentos de una plaza que ha dado la Junta
+  pendientes.unshift(...await estadoDocumentosPlazaJunta(socioId, alumnos || []).catch(() => []));
   if (pendientes.length) {
     const sec = document.getElementById('pendientes');
     sec.innerHTML = pendientes.map(htmlPendiente).join('');

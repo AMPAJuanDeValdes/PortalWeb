@@ -7,7 +7,10 @@
 //     inscripciones vienen agrupadas por grupo_id (un adulto + un
 //     alumno, o un adulto solo); se sortea por GRUPO completo, nunca
 //     por persona suelta — si pierde la pareja, pierden los dos. El
-//     aforo cuenta alumnos; los adultos solos no ocupan plaza.
+//     aforo cuenta alumnos; los adultos solos no ocupan plaza. Las plazas
+//     reservadas (plazas_reservadas) no se sortean: las da la Junta a mano.
+//     Con puestos (Responsable, Reyes, Pajes), se sortean también entre
+//     los adultos postulados, menos los pajes reservados.
 //   - Con prioridad histórica (usa_prioridad_historial, ej. Comedor):
 //     quienes no han participado antes (adultos.ya_visito_comedor =
 //     false) entran primero al sorteo; los que ya participaron solo
@@ -82,7 +85,7 @@ exports.handler = async (event) => {
     .eq('id', eventoId)
     .eq('metodo_asignacion', 'sorteo')
     .eq('sorteo_realizado', false)
-    .select('id, aforo_total, requiere_pareja_adulto_alumno, usa_prioridad_historial')
+    .select('*')
     .maybeSingle();
 
   if (claimError) {
@@ -116,7 +119,8 @@ exports.handler = async (event) => {
     // El aforo cuenta ALUMNOS (Cabalgata: 12 o 20 plazas). Se sacan parejas
     // alumno+adulto al azar mientras queden plazas; cada alumno va con su
     // adulto. Los adultos que van solos no ocupan plaza de alumno.
-    let plazas = cupo;
+    // Las reservadas las da la Junta a mano: a sorteo va el resto
+    let plazas = cupo != null ? Math.max(0, cupo - (reclamado.plazas_reservadas || 0)) : null;
     for (const g of mezclar(Object.keys(grupos))) {
       const alumnos = grupos[g].filter(i => i.tipo_miembro === 'alumno').length;
       if (alumnos === 0) { ganadoresIds.push(...grupos[g].map(i => i.id)); continue; }
@@ -155,6 +159,30 @@ exports.handler = async (event) => {
       .eq('id', i.id);
   });
 
+  // Puestos (Cabalgata): se sortean entre los postulados las plazas que quedan
+  // libres; los pajes reservados los asigna la Junta a mano
+  let puestosSorteados = 0;
+  if ((reclamado.puestos || []).length) {
+    const { data: posts, error: postErr } = await supabaseAdmin.from('evento_postulaciones')
+      .select('id, puesto, estado').eq('evento_id', eventoId);
+    if (!postErr) {
+      for (const puesto of reclamado.puestos) {
+        const de = (posts || []).filter(x => x.puesto === puesto);
+        const elegidos = de.filter(x => x.estado === 'elegido').length;
+        const plazasPuesto = puesto === 'paje' ? 2 : 1;
+        const reservadas = puesto === 'paje' ? (reclamado.pajes_reservados || 0) : 0;
+        const libres = Math.max(0, plazasPuesto - Math.max(reservadas, elegidos));
+        const candidatos = mezclar(de.filter(x => x.estado === 'postulado'));
+        const salen = new Set(candidatos.slice(0, libres).map(x => x.id));
+        for (const x of candidatos) {
+          const { error } = await supabaseAdmin.from('evento_postulaciones')
+            .update({ estado: salen.has(x.id) ? 'elegido' : 'no_elegido' }).eq('id', x.id);
+          if (!error && salen.has(x.id)) puestosSorteados++;
+        }
+      }
+    }
+  }
+
   if (nuevosVisitantesAdultoIds.length > 0) {
     await supabaseAdmin.from('adultos')
       .update({ ya_visito_comedor: true })
@@ -167,7 +195,8 @@ exports.handler = async (event) => {
       ok: true,
       totalInscripciones: inscripciones.length,
       ganadores: ganadoresIds.length,
-      noGanadores: inscripciones.length - ganadoresIds.length
+      noGanadores: inscripciones.length - ganadoresIds.length,
+      puestos: puestosSorteados
     })
   };
 };

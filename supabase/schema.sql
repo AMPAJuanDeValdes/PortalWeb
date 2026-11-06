@@ -6118,3 +6118,378 @@ begin
 end;
 $$;
 grant execute on function uniformes_devolver_no_entregados(uuid) to authenticated;
+
+-- ==================================================================
+-- CABALGATA: POSTULARSE A UN PUESTO
+--  · Al crear o editar la Cabalgata se marcan los puestos a los que se
+--    pueden postular los adultos socios (eventos.puestos):
+--      responsable  Responsable del Evento (1)
+--      baltasar     Rey Baltasar (1)
+--      gaspar       Rey Gaspar (1)
+--      melchor      Rey Melchor (1)
+--      paje         Paje Real (2)
+--  · Cada adulto se postula como mucho a un puesto por evento.
+--  · Acompañante de un alumno/a, Responsable, Rey y Paje son excluyentes:
+--    quien acompaña a un alumno/a no puede postularse a ningún puesto, y
+--    quien se ha postulado no puede apuntarse como acompañante. Si la
+--    pareja no sale en el sorteo, deja de contar como acompañante.
+--  · La Junta elige entre los postulados (estado 'elegido'), como mucho
+--    las plazas de cada puesto.
+-- Se puede ejecutar varias veces.
+-- ==================================================================
+
+alter table eventos add column if not exists puestos text[];
+
+create table if not exists evento_postulaciones (
+  id uuid primary key default gen_random_uuid(),
+  evento_id uuid not null references eventos(id) on delete cascade,
+  puesto text not null check (puesto in ('responsable', 'baltasar', 'gaspar', 'melchor', 'paje')),
+  socio_id uuid not null references socios(id) on delete cascade,
+  adulto_id uuid not null references adultos(id) on delete cascade,
+  estado text not null default 'postulado' check (estado in ('postulado', 'elegido')),
+  created_at timestamptz not null default now(),
+  unique (evento_id, adulto_id)
+);
+create index if not exists evento_postulaciones_evento_idx on evento_postulaciones (evento_id, puesto);
+alter table evento_postulaciones enable row level security;
+
+drop policy if exists "familias ven sus postulaciones" on evento_postulaciones;
+create policy "familias ven sus postulaciones" on evento_postulaciones for select using (socio_id = mi_socio_id());
+drop policy if exists "familias se postulan" on evento_postulaciones;
+create policy "familias se postulan" on evento_postulaciones for insert
+  with check (socio_id = mi_socio_id() and estado = 'postulado');
+drop policy if exists "familias retiran su postulacion" on evento_postulaciones;
+create policy "familias retiran su postulacion" on evento_postulaciones for delete using (socio_id = mi_socio_id());
+drop policy if exists "admins gestionan las postulaciones" on evento_postulaciones;
+create policy "admins gestionan las postulaciones" on evento_postulaciones for all using (is_admin()) with check (is_admin());
+
+create or replace function _nombre_puesto(p text)
+returns text language sql immutable as $$
+  select case p when 'responsable' then 'Responsable del Evento' when 'baltasar' then 'Rey Baltasar'
+    when 'gaspar' then 'Rey Gaspar' when 'melchor' then 'Rey Melchor' when 'paje' then 'Paje Real' else p end;
+$$;
+
+-- ¿Este adulto acompaña a un alumno/a en el evento (y la pareja no ha quedado fuera del sorteo)?
+create or replace function _acompana_alumno(p_evento uuid, p_adulto uuid)
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1 from evento_inscripciones a
+    join evento_inscripciones n on n.grupo_id = a.grupo_id and n.evento_id = a.evento_id and n.tipo_miembro = 'alumno'
+    where a.evento_id = p_evento and a.adulto_id = p_adulto and a.tipo_miembro = 'adulto'
+      and a.actividad_id is null and not a.es_voluntario and a.grupo_id is not null
+      and a.estado <> 'no_ganador' and n.estado <> 'no_ganador');
+$$;
+
+create or replace function evento_postulaciones_reglas()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare
+  e eventos;
+  v_admin boolean := coalesce(is_admin(), false);
+  v_elegidos integer;
+begin
+  if tg_op = 'DELETE' then
+    if not v_admin then
+      if old.estado = 'elegido' then
+        raise exception 'Ya os ha elegido la Junta para ese puesto. Si no podéis, escribid a la Junta.';
+      end if;
+      select * into e from eventos where id = old.evento_id;
+      if e.fecha_cierre_inscripcion is not null and e.fecha_cierre_inscripcion <= now() then
+        raise exception 'El plazo para postularse ya ha terminado.';
+      end if;
+    end if;
+    return old;
+  end if;
+
+  select * into e from eventos where id = new.evento_id;
+  if not found then raise exception 'Evento no encontrado.'; end if;
+  if not (new.puesto = any (coalesce(e.puestos, '{}'))) then
+    raise exception 'En este evento no se puede postular a %.', _nombre_puesto(new.puesto);
+  end if;
+  if not exists (select 1 from adultos where id = new.adulto_id and socio_id = new.socio_id) then
+    raise exception 'Ese adulto no es de la familia.';
+  end if;
+
+  if tg_op = 'INSERT' and not v_admin then
+    if e.fecha_apertura_socios is not null and e.fecha_apertura_socios > now() then
+      raise exception 'Todavía no se puede postular: la inscripción no está abierta.';
+    end if;
+    if e.fecha_cierre_inscripcion is not null and e.fecha_cierre_inscripcion <= now() then
+      raise exception 'El plazo para postularse ya ha terminado.';
+    end if;
+  end if;
+
+  if exists (select 1 from evento_postulaciones p where p.evento_id = new.evento_id and p.adulto_id = new.adulto_id and p.id <> new.id) then
+    raise exception 'Cada persona puede postularse a un solo puesto.';
+  end if;
+  if _acompana_alumno(new.evento_id, new.adulto_id) then
+    raise exception 'Va como acompañante de un alumno/a: no puede postularse a ningún puesto.';
+  end if;
+
+  if new.estado = 'elegido' and (tg_op = 'INSERT' or old.estado is distinct from 'elegido' or old.puesto is distinct from new.puesto) then
+    select count(*) into v_elegidos from evento_postulaciones
+    where evento_id = new.evento_id and puesto = new.puesto and estado = 'elegido' and id <> new.id;
+    if v_elegidos >= (case when new.puesto = 'paje' then 2 else 1 end) then
+      raise exception 'Ya están elegidas todas las plazas de %.', _nombre_puesto(new.puesto);
+    end if;
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists trg_evento_postulaciones_reglas on evento_postulaciones;
+create trigger trg_evento_postulaciones_reglas before insert or update or delete on evento_postulaciones
+  for each row execute function evento_postulaciones_reglas();
+
+-- Al revés: quien se ha postulado a un puesto no puede apuntarse como acompañante
+create or replace function evento_inscripciones_postulados()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare v_puesto text;
+begin
+  if new.grupo_id is null or new.actividad_id is not null or new.es_voluntario or new.estado = 'no_ganador' then return new; end if;
+  select p.puesto into v_puesto
+  from evento_postulaciones p
+  where p.evento_id = new.evento_id
+    and p.adulto_id in (
+      -- el adulto que se apunta con un alumno/a, o el adulto del grupo al que se añade un alumno/a
+      select new.adulto_id where new.tipo_miembro = 'adulto'
+        and exists (select 1 from evento_inscripciones n where n.grupo_id = new.grupo_id and n.tipo_miembro = 'alumno' and n.id <> new.id)
+      union
+      select a.adulto_id from evento_inscripciones a
+      where new.tipo_miembro = 'alumno' and a.grupo_id = new.grupo_id and a.tipo_miembro = 'adulto' and a.id <> new.id)
+  limit 1;
+  if v_puesto is not null then
+    raise exception 'Se ha postulado como %: no puede ir como acompañante de un alumno/a.', _nombre_puesto(v_puesto);
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists trg_evento_inscripciones_postulados on evento_inscripciones;
+create trigger trg_evento_inscripciones_postulados before insert or update of grupo_id, adulto_id, alumno_id, estado on evento_inscripciones
+  for each row execute function evento_inscripciones_postulados();
+
+-- Panel de la Junta: postulaciones de un evento con el nombre, nº de socio y móvil
+create or replace function evento_postulaciones_junta(p_evento uuid)
+returns table (id uuid, puesto text, estado text, adulto_id uuid, nombre text, apellidos text, movil text, email text,
+               numero_socio text, acompana boolean, created_at timestamptz)
+language plpgsql stable security definer set search_path = public as $$
+begin
+  if not coalesce(is_admin(), false) then raise exception 'Solo la Junta puede ver esto.'; end if;
+  return query
+  select p.id, p.puesto, p.estado, p.adulto_id, a.nombre, a.apellidos, a.movil, a.email, s.numero_socio_completo,
+         _acompana_alumno(p.evento_id, p.adulto_id), p.created_at
+  from evento_postulaciones p join adultos a on a.id = p.adulto_id join socios s on s.id = p.socio_id
+  where p.evento_id = p_evento
+  order by p.created_at;
+end;
+$$;
+grant execute on function evento_postulaciones_junta(uuid) to authenticated;
+
+
+-- ==================================================================
+-- CABALGATA: PLAZAS RESERVADAS Y SORTEO DE LOS PUESTOS
+-- Requiere migracion-cabalgata-puestos.sql.
+--  · Al crear el evento se pueden reservar plazas de alumnos
+--    (eventos.plazas_reservadas) y pajes (eventos.pajes_reservados).
+--    Las plazas reservadas no se sortean: la Junta las asigna a mano a
+--    una pareja (alumno/a socio con un adulto de su familia), se haya
+--    apuntado o no. A sorteo van aforo_total - plazas_reservadas.
+--  · Las inscripciones que da la Junta llevan asignada_a_mano (y
+--    creada_por_junta si la familia no se había apuntado). La familia
+--    no puede quitarlas ni crearlas.
+--  · Los puestos (Responsable, Reyes, Pajes) se sortean entre los
+--    postulados con el sorteo del evento (estado 'elegido' o
+--    'no_elegido'). Antes del sorteo la Junta solo puede elegir a mano
+--    los pajes reservados; después, puede cambiar a quien haga falta.
+-- Se puede ejecutar varias veces.
+-- ==================================================================
+
+alter table eventos add column if not exists plazas_reservadas integer not null default 0;
+alter table eventos add column if not exists pajes_reservados integer not null default 0;
+alter table eventos drop constraint if exists eventos_plazas_reservadas_check;
+alter table eventos add constraint eventos_plazas_reservadas_check
+  check (plazas_reservadas >= 0 and (aforo_total is null or plazas_reservadas <= aforo_total));
+alter table eventos drop constraint if exists eventos_pajes_reservados_check;
+alter table eventos add constraint eventos_pajes_reservados_check check (pajes_reservados between 0 and 2);
+
+alter table evento_inscripciones add column if not exists asignada_a_mano boolean not null default false;
+alter table evento_inscripciones add column if not exists creada_por_junta boolean not null default false;
+
+alter table evento_postulaciones drop constraint if exists evento_postulaciones_estado_check;
+alter table evento_postulaciones add constraint evento_postulaciones_estado_check
+  check (estado in ('postulado', 'elegido', 'no_elegido'));
+
+-- Plazas que da la Junta: solo ella, y como mucho las reservadas
+create or replace function evento_inscripciones_reservadas()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare
+  v_admin boolean := auth.uid() is null or coalesce(is_admin(), false);
+  v_reservadas integer;
+  v_usadas integer;
+begin
+  if tg_op = 'DELETE' then
+    if not v_admin and old.asignada_a_mano then
+      raise exception 'Esta plaza os la ha dado la Junta. Si no podéis ir, escribid a la Junta.';
+    end if;
+    return old;
+  end if;
+  if not v_admin then
+    if tg_op = 'INSERT' and (new.estado <> 'pendiente' or new.asignada_a_mano or new.creada_por_junta) then
+      raise exception 'Esta inscripción no se puede hacer así.';
+    end if;
+    if tg_op = 'UPDATE' and (new.asignada_a_mano is distinct from old.asignada_a_mano or new.creada_por_junta is distinct from old.creada_por_junta) then
+      raise exception 'Esta inscripción no se puede cambiar.';
+    end if;
+    return new;
+  end if;
+  if new.asignada_a_mano and new.tipo_miembro = 'alumno' and new.actividad_id is null and not new.es_voluntario
+     and (tg_op = 'INSERT' or not old.asignada_a_mano) then
+    select plazas_reservadas into v_reservadas from eventos where id = new.evento_id;
+    select count(*) into v_usadas from evento_inscripciones
+    where evento_id = new.evento_id and asignada_a_mano and tipo_miembro = 'alumno' and actividad_id is null and id <> new.id;
+    if v_usadas >= coalesce(v_reservadas, 0) then
+      raise exception 'Ya están asignadas todas las plazas reservadas (%).', coalesce(v_reservadas, 0);
+    end if;
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists trg_evento_inscripciones_reservadas on evento_inscripciones;
+create trigger trg_evento_inscripciones_reservadas before insert or update or delete on evento_inscripciones
+  for each row execute function evento_inscripciones_reservadas();
+
+-- Reglas de las postulaciones, con el sorteo de los puestos
+create or replace function evento_postulaciones_reglas()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare
+  e eventos;
+  v_admin boolean := coalesce(is_admin(), false);
+  v_elegidos integer;
+  v_max integer;
+begin
+  if tg_op = 'DELETE' then
+    if not v_admin then
+      select * into e from eventos where id = old.evento_id;
+      if old.estado = 'elegido' then
+        raise exception 'Ya tiene el puesto de %. Si no podéis, escribid a la Junta.', _nombre_puesto(old.puesto);
+      end if;
+      if e.sorteo_realizado then raise exception 'El sorteo ya se hizo.'; end if;
+      if e.fecha_cierre_inscripcion is not null and e.fecha_cierre_inscripcion <= now() then
+        raise exception 'El plazo para postularse ya ha terminado.';
+      end if;
+    end if;
+    return old;
+  end if;
+
+  select * into e from eventos where id = new.evento_id;
+  if not found then raise exception 'Evento no encontrado.'; end if;
+  if not (new.puesto = any (coalesce(e.puestos, '{}'))) then
+    raise exception 'En este evento no se puede postular a %.', _nombre_puesto(new.puesto);
+  end if;
+  if not exists (select 1 from adultos where id = new.adulto_id and socio_id = new.socio_id) then
+    raise exception 'Ese adulto no es de la familia.';
+  end if;
+
+  if tg_op = 'INSERT' and not v_admin then
+    if e.sorteo_realizado then raise exception 'El sorteo ya se hizo.'; end if;
+    if e.fecha_apertura_socios is not null and e.fecha_apertura_socios > now() then
+      raise exception 'Todavía no se puede postular: la inscripción no está abierta.';
+    end if;
+    if e.fecha_cierre_inscripcion is not null and e.fecha_cierre_inscripcion <= now() then
+      raise exception 'El plazo para postularse ya ha terminado.';
+    end if;
+  end if;
+
+  if exists (select 1 from evento_postulaciones p where p.evento_id = new.evento_id and p.adulto_id = new.adulto_id and p.id <> new.id) then
+    raise exception 'Cada persona puede postularse a un solo puesto.';
+  end if;
+  if _acompana_alumno(new.evento_id, new.adulto_id) then
+    raise exception 'Va como acompañante de un alumno/a: no puede postularse a ningún puesto.';
+  end if;
+
+  if new.estado = 'elegido' and (tg_op = 'INSERT' or old.estado is distinct from 'elegido' or old.puesto is distinct from new.puesto) then
+    -- Antes del sorteo, a mano solo los pajes reservados; después, todas las plazas del puesto
+    v_max := case when e.sorteo_realizado then (case when new.puesto = 'paje' then 2 else 1 end)
+                  when new.puesto = 'paje' then e.pajes_reservados else 0 end;
+    select count(*) into v_elegidos from evento_postulaciones
+    where evento_id = new.evento_id and puesto = new.puesto and estado = 'elegido' and id <> new.id;
+    if v_elegidos >= v_max then
+      if not e.sorteo_realizado and v_max = 0 then
+        raise exception '% se sortea: no se puede asignar a mano antes del sorteo.', _nombre_puesto(new.puesto);
+      end if;
+      raise exception 'Ya están asignadas todas las plazas de %.', _nombre_puesto(new.puesto);
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+
+-- ==================================================================
+-- BANCO DE LIBROS: RESERVAR UN EJEMPLAR PARA UN ALUMNO/A
+--  · La Junta puede reservar a mano un ejemplar disponible para un
+--    alumno/a (lo mismo que hace el reparto): a la familia le aparece
+--    como asignado, pendiente de recoger. Si el alumno/a tiene una
+--    petición sin ejemplar de ese libro en la convocatoria, se le asigna
+--    a esa petición; si no, queda como préstamo a mano sin entregar.
+--  · Un ejemplar reservado solo se puede prestar (entregar) a ese
+--    alumno/a; al entregarlo pasa a prestado.
+--  · Quitar la reserva deja el ejemplar disponible.
+-- Se puede ejecutar varias veces.
+-- ==================================================================
+
+create or replace function prestamo_admin_reservar(p_ejemplar_id uuid, p_alumno_id uuid)
+returns void
+language plpgsql security definer set search_path = public as $$
+declare
+  v_ej libros_ejemplares;
+  v_al alumnos;
+  v_item uuid;
+begin
+  if not is_admin() then raise exception 'Solo un admin puede hacer esto.'; end if;
+  select * into v_ej from libros_ejemplares where id = p_ejemplar_id for update;
+  if not found then raise exception 'El ejemplar no existe.'; end if;
+  if v_ej.estado <> 'disponible' then raise exception 'Ese ejemplar no está disponible.'; end if;
+  select * into v_al from alumnos where id = p_alumno_id;
+  if not found then raise exception 'El alumno/a no existe.'; end if;
+  if exists (select 1 from prestamo_items where alumno_id = v_al.id and libro_id = v_ej.libro_id and estado = 'asignado'
+             and ejemplar_id is not null and fecha_devolucion is null) then
+    raise exception '% ya tiene un ejemplar de este libro reservado o prestado.', v_al.nombre;
+  end if;
+
+  -- Su petición de ese libro en la convocatoria, si la tiene sin ejemplar
+  select i.id into v_item from prestamo_items i join prestamo_convocatorias c on c.id = i.convocatoria_id
+  where i.alumno_id = v_al.id and i.libro_id = v_ej.libro_id and i.tipo = 'solicitud' and i.ejemplar_id is null
+    and i.estado in ('pendiente', 'no_asignado')
+  order by c.created_at desc limit 1;
+
+  if v_item is not null then
+    update prestamo_items set ejemplar_id = v_ej.id, estado = 'asignado', fecha_asignacion = current_date where id = v_item;
+  else
+    insert into prestamo_items (alumno_id, socio_id, libro_id, tipo, a_mano, ejemplar_id, estado, fecha_asignacion)
+    values (v_al.id, v_al.socio_id, v_ej.libro_id, 'solicitud', true, v_ej.id, 'asignado', current_date);
+  end if;
+  update libros_ejemplares set estado = 'prestado' where id = v_ej.id;
+end;
+$$;
+grant execute on function prestamo_admin_reservar(uuid, uuid) to authenticated;
+
+create or replace function prestamo_admin_quitar_reserva(p_item_id uuid)
+returns void
+language plpgsql security definer set search_path = public as $$
+declare v_item prestamo_items;
+begin
+  if not is_admin() then raise exception 'Solo un admin puede hacer esto.'; end if;
+  select * into v_item from prestamo_items where id = p_item_id;
+  if not found then raise exception 'La reserva no existe.'; end if;
+  if v_item.entregado_en is not null then raise exception 'Ese libro ya se entregó a la familia: registra antes su devolución.'; end if;
+  if v_item.ejemplar_id is not null then
+    update libros_ejemplares set estado = 'disponible' where id = v_item.ejemplar_id;
+  end if;
+  if v_item.a_mano then
+    delete from prestamo_items where id = p_item_id;
+  else
+    update prestamo_items set ejemplar_id = null, estado = 'no_asignado', fecha_asignacion = null where id = p_item_id;
+  end if;
+end;
+$$;
+grant execute on function prestamo_admin_quitar_reserva(uuid) to authenticated;
+

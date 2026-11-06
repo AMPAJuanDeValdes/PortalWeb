@@ -129,7 +129,9 @@ function circularEvento(ev, sesiones, actividades, web) {
     } else {
       const quien = paraQuien(ev);
       const cursos = ev.tipo_elegibilidad === 'adultos' ? '' : cursosTexto(ev);
-      if (ev.aforo_total) plazas.push(`${ev.aforo_total} plazas${cursos ? ` (${cursos})` : ''}`);
+      // En un sorteo con plazas reservadas (las da la Junta) se anuncian las que se sortean
+      const anunciadas = ev.aforo_total ? (ev.metodo_asignacion === 'sorteo' ? Math.max(0, ev.aforo_total - (ev.plazas_reservadas || 0)) : ev.aforo_total) : null;
+      if (anunciadas) plazas.push(`${anunciadas} plazas${cursos ? ` (${cursos})` : ''}`);
       else if (quien) plazas.push(quien);
     }
     if (ev.metodo_asignacion === 'sorteo') plazas.push('Las plazas se sortean entre las inscripciones recibidas.');

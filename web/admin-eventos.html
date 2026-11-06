@@ -28,11 +28,14 @@
   .apuntar-alumno{ margin:0 0 14px; padding-bottom:14px; border-bottom:1px solid var(--line); display:grid; gap:10px; }
   .apuntar-alumno .chk{ display:flex; gap:8px; align-items:center; font-weight:400; }
   .apuntar-alumno .chk input{ width:auto; }
-  .apuntar-alumno .res-fila{ display:flex; justify-content:space-between; align-items:center; gap:12px; padding:8px 0; border-bottom:1px solid var(--line); flex-wrap:wrap; }
-  .apuntar-alumno .res-fila small{ display:block; color:var(--ink-soft); font-size:14px; }
-  .apuntar-alumno .fuera{ color:var(--red); }
-  .apuntar-alumno .ya{ color:var(--green); font-weight:700; font-size:14px; }
+  .apuntar-alumno .res-fila, .reservadasPanel .res-fila{ display:flex; justify-content:space-between; align-items:center; gap:12px; padding:8px 0; border-bottom:1px solid var(--line); flex-wrap:wrap; }
+  .apuntar-alumno .res-fila small, .reservadasPanel .res-fila small{ display:block; color:var(--ink-soft); font-size:14px; }
+  .apuntar-alumno .fuera, .reservadasPanel .fuera{ color:var(--red); }
+  .apuntar-alumno .ya, .reservadasPanel .ya{ color:var(--green); font-weight:700; font-size:14px; }
   .apuntar-alumno .abrir, .apuntar-alumno .cerrar{ justify-self:start; }
+  .puesto-caja{ border:1px solid var(--line); border-radius:12px; margin-bottom:10px; overflow:hidden; }
+  .puesto-cab{ background:#F7F5EF; padding:8px 12px; }
+  .puesto-fila{ padding:8px 12px; border-top:1px solid var(--line); }
   .incompat-lista{ display:grid; gap:6px; max-height:240px; overflow:auto; }
   .incompat-lista label{ display:flex; gap:8px; align-items:flex-start; font-weight:400; }
   .incompat-lista input{ width:auto; margin-top:4px; }
@@ -82,8 +85,29 @@
       <div class="field"><label for="eFecha">Fecha y hora</label><input type="datetime-local" id="eFecha"></div>
       <div class="field"><label for="eAforo">Aforo total (vacío = sin límite)</label><input type="number" id="eAforo" min="1"></div>
     </div>
+    <div class="field" id="reservasWrap" hidden>
+      <label for="ePlazasReservadas">Plazas de alumnos reservadas</label>
+      <input type="number" id="ePlazasReservadas" min="0" style="max-width:220px;">
+      <p class="ayuda" id="reservasAyuda" style="margin:6px 0 0;">No se sortean: la Junta las asigna a mano en «Plazas reservadas».</p>
+    </div>
     <div class="field"><label for="eHoraFin">Termina a las <span id="eHoraFinOpc">(opcional)</span></label><input type="time" id="eHoraFin" style="max-width:220px;"></div>
     <div class="field"><label for="eLugar">Lugar (opcional)</label><input type="text" id="eLugar" placeholder="Por ejemplo: entrada del colegio"></div>
+    <div class="field" id="puestosWrap" hidden>
+      <p style="font-weight:700; margin:0 0 4px;">Puestos a los que se pueden postular</p>
+      <p class="ayuda" style="margin:0 0 8px;">Los adultos socios se postulan desde la web, cada uno a un solo puesto. Acompañante de un alumno/a, Responsable, Rey y Paje son excluyentes: quien acompaña a un alumno/a no puede postularse. Se sortean con el sorteo del evento.</p>
+      <div class="incompat-lista" id="ePuestos">
+        <label><input type="checkbox" value="responsable"> <span>Responsable del Evento <small>(1)</small></span></label>
+        <label><input type="checkbox" value="baltasar"> <span>Rey Baltasar <small>(1)</small></span></label>
+        <label><input type="checkbox" value="gaspar"> <span>Rey Gaspar <small>(1)</small></span></label>
+        <label><input type="checkbox" value="melchor"> <span>Rey Melchor <small>(1)</small></span></label>
+        <label><input type="checkbox" value="paje"> <span>Paje Real <small>(2)</small></span></label>
+      </div>
+      <div class="field" style="margin-top:10px;">
+        <label for="ePajesReservados">Pajes reservados</label>
+        <select id="ePajesReservados" style="max-width:220px;"><option value="0">Ninguno</option><option value="1">1</option><option value="2">2</option></select>
+        <p class="ayuda" style="margin:6px 0 0;">No se sortean: la Junta los asigna a mano en «Postulaciones». El resto de puestos se sortea entre quienes se postulan.</p>
+      </div>
+    </div>
     <div class="field" id="incompatWrap">
       <p style="font-weight:700; margin:0 0 4px;">Este evento es incompatible con:</p>
       <p class="ayuda" style="margin:0 0 8px;">Marca los eventos que son a la misma hora. Un alumno o alumna apuntado/a a uno de ellos no podrá apuntarse a los demás.
@@ -224,6 +248,7 @@
 <script src="shared/csv.js"></script>
 <script src="shared/xlsx.js"></script>
 <script src="shared/documentoRellenable.js"></script>
+<script src="shared/email-dialogo.js"></script>
 <script>
 const $ = (id) => document.getElementById(id);
 const esc = (t) => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -255,6 +280,9 @@ $('masFechaBtn').addEventListener('click', () => { const f = filaFecha(); $('mas
 function actualizarVisibilidad() {
   // Varias fechas de venta de lotería: solo al crear
   $('masFechasWrap').hidden = !($('ePlantilla').value === 'loteria' && !editandoId);
+  $('puestosWrap').hidden = $('ePlantilla').value !== 'cabalgata';
+  $('reservasWrap').hidden = $('ePlantilla').value !== 'cabalgata';
+  actualizarReservas();
   // En la venta de lotería la hora de fin es obligatoria
   $('eHoraFinOpc').textContent = $('ePlantilla').value === 'loteria' ? '' : '(opcional)';
   if ($('masFechasWrap').hidden) $('masFechas').innerHTML = '';
@@ -300,7 +328,7 @@ const CAMPOS_VACIOS = {
   voluntariado_modo: 'no', voluntariado_excluye_asistencia: false,
   permite_invitados: false, abierto_no_socios: false, publico_solo_actividades: false, aviso_no_socios: null,
   precio_invitado: null, precio_adulto: null, precio_alumno: null,
-  fecha_apertura_socios: null, fecha_apertura_no_socios: null, fecha_cierre_inscripcion: null
+  fecha_apertura_socios: null, fecha_apertura_no_socios: null, fecha_cierre_inscripcion: null, puestos: null, plazas_reservadas: 0, pajes_reservados: 0
 };
 const TODOS_LOS_CURSOS = Object.entries(CURSOS_POR_ETAPA).flatMap(([etapa, cs]) => cs.map(curso => ({ etapa, curso })));
 
@@ -308,7 +336,7 @@ const PLANTILLAS = {
   chocolatada: { titulo: 'Chocolatada de Navidad', tipo_elegibilidad: 'toda_familia', pide_alergias: true,
     alumnos_requieren_adulto: true, voluntariado_modo: 'adultos_y_ninos', permite_invitados: true },
   cabalgata: { titulo: 'Cabalgata de Reyes', tipo_elegibilidad: 'toda_familia', metodo_asignacion: 'sorteo',
-    requiere_pareja_adulto_alumno: true, aforo_total: 20 },
+    requiere_pareja_adulto_alumno: true, aforo_total: 20, puestos: ['responsable', 'baltasar', 'gaspar', 'melchor', 'paje'] },
   juegos: { titulo: 'Taller de juegos de mesa', tipo_elegibilidad: 'alumnos', elegibilidad_modo: 'curso', abierto_no_socios: true,
     voluntariado_modo: 'adultos', pregunta_extra: '¿Cómo llega al taller?', pregunta_opciones: ['Directo de clase', 'Pasa antes por Patines'] },
   taller: { titulo: 'Taller de ', tipo_elegibilidad: 'alumnos', elegibilidad_modo: 'curso', abierto_no_socios: true,
@@ -363,8 +391,19 @@ function rellenarFormulario(ev) {
   $('eFechaAperturaSocios').value = aLocal(e.fecha_apertura_socios);
   $('eFechaAperturaNoSocios').value = aLocal(e.fecha_apertura_no_socios);
   $('eFechaCierreInscripcion').value = aLocal(e.fecha_cierre_inscripcion);
+  document.querySelectorAll('#ePuestos input').forEach(cb => { cb.checked = (e.puestos || []).includes(cb.value); });
+  $('ePlazasReservadas').value = e.plazas_reservadas || 0;
+  $('ePajesReservados').value = String(e.pajes_reservados || 0);
   actualizarVisibilidad();
 }
+
+// Cabalgata: cuántas plazas van a sorteo (aforo menos las reservadas)
+function actualizarReservas() {
+  const aforo = num($('eAforo').value, true), res = num($('ePlazasReservadas').value, true) || 0;
+  $('reservasAyuda').textContent = 'No se sortean: la Junta las asigna a mano en «Plazas reservadas».'
+    + (aforo != null ? ` Se anuncian ${Math.max(0, aforo - res)} plazas a sorteo.` : '');
+}
+['eAforo', 'ePlazasReservadas'].forEach(id => $(id).addEventListener('input', actualizarReservas));
 
 function leerFormulario() {
   const tipoEsp = $('eTipoEspecial').value;
@@ -407,7 +446,14 @@ function leerFormulario() {
     precio_alumno: num($('ePrecioAlumno').value),
     fecha_apertura_socios: $('fechasWrap').hidden ? null : aISO($('eFechaAperturaSocios').value),
     fecha_apertura_no_socios: $('cursoTodoElAnio').hidden ? aISO($('eFechaAperturaNoSocios').value) : null,
-    fecha_cierre_inscripcion: $('fechasWrap').hidden ? null : aISO($('eFechaCierreInscripcion').value)
+    fecha_cierre_inscripcion: $('fechasWrap').hidden ? null : aISO($('eFechaCierreInscripcion').value),
+    // Cabalgata: puestos a los que se pueden postular los adultos socios (solo se envía en la Cabalgata)
+    ...($('ePlantilla').value === 'cabalgata' ? {
+      puestos: (p => p.length ? p : null)([...document.querySelectorAll('#ePuestos input:checked')].map(cb => cb.value)),
+      // Plazas y pajes reservados: los asigna la Junta a mano, no se sortean
+      plazas_reservadas: num($('ePlazasReservadas').value, true) || 0,
+      pajes_reservados: document.querySelector('#ePuestos input[value=paje]').checked ? Number($('ePajesReservados').value) : 0
+    } : {})
   };
 }
 
@@ -538,6 +584,9 @@ $('crearEventoBtn').addEventListener('click', async () => {
   if (!payload.titulo) { aviso('Pon un título.', false); return; }
   // Un curso por sesiones puede crearse sin fecha: las de las sesiones se publican después
   if (!payload.fecha && payload.plantilla !== 'warhammer') { aviso('Pon la fecha del evento.', false); return; }
+  if (payload.plazas_reservadas && payload.aforo_total != null && payload.plazas_reservadas > payload.aforo_total) {
+    aviso('Las plazas reservadas no pueden ser más que el aforo.', false); return;
+  }
   if (payload.tipo_elegibilidad === 'alumnos' && payload.elegibilidad_modo === 'curso' && !payload.cursos_permitidos.length) {
     aviso('Marca al menos un curso.', false); return;
   }
@@ -667,7 +716,7 @@ async function cargarEventos() {
           '<span style="font-size:14px; color:var(--ink-soft);">' +
             (ev.plantilla === 'warhammer' ? 'Curso por sesiones' : ev.fecha ? new Date(ev.fecha).toLocaleDateString('es-ES', { dateStyle: 'medium' }) + ', ' + horarioEvento(ev) : 'Sin fecha') +
             (ev.sin_inscripcion ? ', informativo' : ev.usa_concurso_texto ? ', concurso' : ', ' + QUIEN[ev.tipo_elegibilidad]) +
-            (ev.aforo_total != null ? (ev.requiere_pareja_adulto_alumno ? `, ${ev.aforo_total} plazas de alumnos` : `, ${ocupacion[ev.id] ?? 0} de ${ev.aforo_total} plazas`) : '') +
+            (ev.aforo_total != null ? (ev.requiere_pareja_adulto_alumno ? `, ${ev.aforo_total} plazas de alumnos${ev.plazas_reservadas ? ` (${ev.plazas_reservadas} reservadas)` : ''}` : `, ${ocupacion[ev.id] ?? 0} de ${ev.aforo_total} plazas`) : '') +
             (ev.metodo_asignacion === 'sorteo' ? ', por sorteo' : '') +
           '</span>' +
           (incompatiblesDe(ev.id).length ? '<br><span style="font-size:14px; color:var(--ink-soft);">A la misma hora que: ' +
@@ -679,6 +728,8 @@ async function cargarEventos() {
           (ev.usa_concurso_texto ? '<button class="btn btn-outline toggleConcursoBtn">Concurso</button>' : '') +
           (ev.plantilla === 'warhammer' ? '<button class="btn btn-outline toggleSesionesBtn">Sesiones</button>' : '') +
           (!ev.sin_inscripcion && !ev.usa_concurso_texto ? '<button class="btn btn-outline toggleActividadesBtn">Subactividades</button>' : '') +
+          (ev.requiere_pareja_adulto_alumno && ev.plazas_reservadas > 0 ? '<button class="btn btn-outline toggleReservadasBtn">Plazas reservadas</button>' : '') +
+          ((ev.puestos || []).length ? '<button class="btn btn-outline togglePostulacionesBtn">Postulaciones</button>' : '') +
           '<button class="btn btn-outline togglePremiosBtn">Premios</button>' +
           '<button class="btn btn-outline toggleFotosBtn">Fotos</button>' +
           (!ev.sin_inscripcion && !ev.usa_concurso_texto ? '<button class="btn btn-outline toggleDocsBtn">Documentos</button>' : '') +
@@ -696,6 +747,8 @@ async function cargarEventos() {
       '<div class="inscritosPanel" style="display:none; margin-top:14px;"></div>' +
       '<div class="sesionesPanel" style="display:none; margin-top:14px;"></div>' +
       '<div class="actividadesPanel" style="display:none; margin-top:14px;"></div>' +
+      '<div class="reservadasPanel" style="display:none; margin-top:14px;"></div>' +
+      '<div class="postulacionesPanel" style="display:none; margin-top:14px;"></div>' +
       '<div class="premiosPanel" style="display:none; margin-top:14px;"></div>' +
       '<div class="fotosPanel" style="display:none; margin-top:14px;"></div>' +
       '<div class="docsPanel" style="display:none; margin-top:14px;"></div>' +
@@ -750,6 +803,22 @@ async function cargarEventos() {
         if (!visible) await renderActividades(panel, ev);
       });
     }
+
+    const resPanel = row.querySelector('.reservadasPanel');
+    const toggleResBtn = row.querySelector('.toggleReservadasBtn');
+    if (toggleResBtn) toggleResBtn.addEventListener('click', async () => {
+      const visible = resPanel.style.display === 'block';
+      resPanel.style.display = visible ? 'none' : 'block';
+      if (!visible) await renderReservadas(resPanel, ev);
+    });
+
+    const postPanel = row.querySelector('.postulacionesPanel');
+    const togglePostBtn = row.querySelector('.togglePostulacionesBtn');
+    if (togglePostBtn) togglePostBtn.addEventListener('click', async () => {
+      const visible = postPanel.style.display === 'block';
+      postPanel.style.display = visible ? 'none' : 'block';
+      if (!visible) await renderPostulaciones(postPanel, ev);
+    });
 
     const premiosPanel = row.querySelector('.premiosPanel');
     row.querySelector('.togglePremiosBtn').addEventListener('click', async () => {
@@ -861,7 +930,7 @@ async function cargarEventos() {
           const data = await resp.json();
           if (!resp.ok) throw new Error(data.error || 'Error al sortear');
           msg.style.display = 'block'; msg.className = 'sortearMsg msg-ok';
-          msg.textContent = `Sorteado ✓ — ${data.ganadores} ganador(es), ${data.noGanadores} sin plaza.`;
+          msg.textContent = `Sorteado ✓ — ${data.ganadores} ganador(es), ${data.noGanadores} sin plaza${data.puestos ? `, ${data.puestos} puesto(s) asignados` : ''}.`;
           cargarEventos();
         } catch (err) {
           msg.style.display = 'block'; msg.className = 'sortearMsg msg-error'; msg.textContent = err.message;
@@ -1052,9 +1121,10 @@ function bloqueApuntarAlumno(panel, ev, inscritos) {
    Se puede sacar siempre; si la inscripción no está cerrada (plazas cubiertas,
    plazo terminado, sorteo hecho o evento pasado) se avisa de que puede cambiar.
    En un curso (Warhammer), con la fecha de la sesión de hoy o la siguiente. Si el evento es a la misma hora que otros,
-   el listado es conjunto. Ordenado por nivel, curso y aula; los que pasan
-   antes por Patines van en una segunda lista, y en naranja los apuntados a
-   alguna actividad del evento (p. ej. el torneo de rol). */
+   el listado es conjunto: una sola lista ordenada por nivel, curso y aula,
+   con el nombre de los que no van al Taller de juegos de mesa en el color de
+   su taller. Los que pasan antes por Patines van en una lista al final, y en
+   naranja los apuntados a alguna actividad del evento (p. ej. el torneo de rol). */
 function inscripcionCerrada(ev, ocupadas) {
   const ahora = new Date();
   return !!(ev.sorteo_realizado
@@ -1114,7 +1184,7 @@ async function descargarListado(ev) {
   // Quién está en alguna actividad (naranja)
   const enActividad = new Set(ins.filter(i => i.actividad_id && vale(i)).map(i => i.alumno_id || ('p:' + i.evento_id + ':' + (i.alumno_nombre || '') + ':' + (i.alumno_apellidos || ''))));
 
-  const filas = ins.filter(i => !i.actividad_id && vale(i) && (i.tipo_miembro === 'alumno' || (i.tipo_miembro === 'publico' && i.alumno_nombre))).map(i => {
+  const filas = ins.filter(i => ids.includes(i.evento_id) && !i.actividad_id && vale(i) && (i.tipo_miembro === 'alumno' || (i.tipo_miembro === 'publico' && i.alumno_nombre))).map(i => {
     if (i.tipo_miembro === 'publico') return {
       evento_id: i.evento_id,
       etapa: i.alumno_etapa || '', curso: i.alumno_curso || '', aula: '',
@@ -1142,12 +1212,16 @@ async function descargarListado(ev) {
   }).sort((a, b) => (ORDEN_ETAPA[a.etapa] || 9) - (ORDEN_ETAPA[b.etapa] || 9) || numCurso(a.curso) - numCurso(b.curso)
     || a.aula.localeCompare(b.aula) || a.alumno.localeCompare(b.alumno, 'es'));
   if (!filas.length) { alert('No hay alumnos/as apuntados.'); return; }
+  // El Taller de juegos de mesa (si está en el grupo) va primero: en el título y sin color en la lista
+  const esJuegosDeMesa = (e) => /juegos\s+de\s+mesa/i.test(e.titulo || '');
+  grupo.sort((x, y) => esJuegosDeMesa(y) - esJuegosDeMesa(x));
 
   // Fecha del listado: la del evento o, en un curso, la de la sesión de hoy o la siguiente
   const nombreGrupo = (e) => e.titulo + (ES_CURSO(e) && (e.id === ev.id ? sesionCurso : e._sesion) ? ' (sesión ' + (e.id === ev.id ? sesionCurso : e._sesion).numero + ')' : '');
   const cuando = ES_CURSO(ev) ? (sesionCurso && sesionCurso.fecha) : ev.fecha;
   const fecha = cuando ? new Date(cuando).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).replace(',', '') : '';
-  const titulo = grupo.map(nombreGrupo).join(' y ') + (fecha ? ' - ' + fecha[0].toUpperCase() + fecha.slice(1) : '');
+  const nombres = grupo.map(nombreGrupo);
+  const titulo = (nombres.length > 1 ? nombres.slice(0, -1).join(', ') + ' y ' + nombres[nombres.length - 1] : nombres[0]) + (fecha ? ' - ' + fecha[0].toUpperCase() + fecha.slice(1) : '');
   // Como el listado en papel que usa la Junta: sin cabeceras, la clase en una
   // sola columna («2ºA», «1ºB ESO»), una raya gris entre clases y letra grande.
   const SUFIJO = { Infantil: '', Primaria: '', ESO: ' ESO', Bachillerato: ' Bach.' };
@@ -1159,8 +1233,11 @@ async function descargarListado(ev) {
     if (ult && (ult + ' ' + w).length <= LETRAS_NOTA) acc[acc.length - 1] = ult + ' ' + w; else acc.push(w);
     return acc;
   }, []).length || 1;
+  // Solo el nombre del alumno/a lleva color: naranja (u otro) para el taller o la
+  // actividad, amarillo en la lista de Patines.
   const fila = (f, color) => ({
-    celdas: [{ v: clase(f) }, ...[f.alumno, f.adulto, f.movil].map(v => ({ v, e: color })), { v: f.notas, e: color, ajustar: true }],
+    celdas: [{ v: clase(f) }, { v: f.alumno, e: color }, { v: f.adulto, e: color === 'amarillo' ? color : undefined },
+      { v: f.movil, e: color === 'amarillo' ? color : undefined }, { v: f.notas, e: color === 'amarillo' ? color : undefined, ajustar: true }],
     alto: Math.max(20, lineasNota(f.notas) * 17 + 3)
   });
   const raya = { celdas: [null, ...[1, 2, 3, 4].map(() => ({ v: '', e: 'gris' }))], alto: 5 };
@@ -1170,24 +1247,42 @@ async function descargarListado(ev) {
     out.push({ celdas: [], alto: 10 }, { celdas: [{ v: texto, e: 'seccion' }], alto: 40 }, { celdas: [], alto: 6 });
     unir.push(`A${out.length - 1}:E${out.length - 1}`);
   };
-  // Varios eventos a la vez: un bloque por cada uno, con su nombre (y los de Patines al final de su bloque)
-  grupo.forEach(e => {
-    const deEste = filas.filter(f => f.evento_id === e.id);
-    if (!deEste.length) return;
-    if (grupo.length > 1) seccion(nombreGrupo(e).toUpperCase() + ` (${deEste.length})`);
+  const lista = (filasLista, colorDe) => {
     let anterior = null;
-    deEste.filter(f => !f.patines).forEach(f => {
+    filasLista.forEach(f => {
       const c = f.etapa + '|' + clase(f);
       if (anterior !== null && c !== anterior) out.push(raya);
       anterior = c;
-      out.push(fila(f, f.naranja ? 'naranja' : 'normal'));
+      out.push(fila(f, colorDe(f)));
     });
-    const patines = deEste.filter(f => f.patines);
-    if (patines.length) {
-      seccion(grupo.length > 1 ? 'PATINES · ' + e.titulo.toUpperCase() : 'PATINES');
-      patines.forEach(f => out.push(fila(f, 'amarillo')));
-    }
-  });
+  };
+
+  // Varios eventos a la vez: una sola lista por clase con todos los alumnos/as; el
+  // Taller de juegos de mesa sin color y cada uno de los otros con el suyo (nunca
+  // amarillo, que es Patines), explicado debajo del título. Patines, al final.
+  const conAlumnos = grupo.filter(e => filas.some(f => f.evento_id === e.id));
+  const principal = conAlumnos.find(esJuegosDeMesa) || conAlumnos.find(e => e.id === ev.id) || conAlumnos[0];
+  const hayActividad = filas.some(f => f.naranja);
+  const paleta = ['naranja', 'azul', 'verde', 'lila', 'rosa'].filter(c => !(hayActividad && conAlumnos.length > 1 && c === 'naranja'));
+  const colorEvento = {};
+  conAlumnos.filter(e => e.id !== principal.id).forEach((e, k) => { colorEvento[e.id] = paleta[k % paleta.length]; });
+  const colorAlumno = (f) => colorEvento[f.evento_id] || (f.naranja ? 'naranja' : undefined);
+  if (conAlumnos.length > 1) {
+    const leyenda = (texto, color) => {
+      out.push({ celdas: [null, { v: texto, e: color }, { v: '', e: color }], alto: 20 });
+      unir.push(`B${out.length}:C${out.length}`);
+    };
+    out.push({ celdas: [null, { v: principal.titulo }], alto: 20 });
+    conAlumnos.filter(e => e.id !== principal.id).forEach(e => leyenda(nombreGrupo(e), colorEvento[e.id]));
+    if (hayActividad) leyenda('Apuntados/as a una actividad del evento', 'naranja');
+  }
+  const sinPatines = filas.filter(f => !f.patines), conPatines = filas.filter(f => f.patines);
+  if (conAlumnos.length > 1) seccion(`ALUMNOS (${sinPatines.length})`);
+  lista(sinPatines, colorAlumno);
+  if (conPatines.length) {
+    seccion(`PATINES (${conPatines.length})`);
+    lista(conPatines, () => 'amarillo');
+  }
 
   const blob = crearXlsx({ hoja: 'Inscritos', filas: out, unir, letra: 14, margen: 0.3, anchos: [8, 21, 21, 10, 15] });
   const a = document.createElement('a');
@@ -1232,6 +1327,200 @@ async function renderSesiones(panel, ev) {
     }
     e.target.disabled = false;
     msg.className = 'sMsg msg-ok'; msg.textContent = 'Sesiones guardadas ✓';
+  });
+}
+
+// Id para agrupar alumno y adulto (crypto.randomUUID solo existe en https)
+const nuevoUuid = () => (window.crypto && crypto.randomUUID) ? crypto.randomUUID()
+  : '10000000-1000-4000-8000-100000000000'.replace(/[018]/g, c => (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16));
+
+/* ================= Plazas reservadas (Cabalgata) =================
+   No se sortean: la Junta da cada una a una pareja (alumno/a socio con un
+   adulto de su familia), se haya apuntado o no. Si la pareja ya estaba
+   apuntada, sale del sorteo. Los documentos los rellena luego la familia
+   (les aparece como pendiente en Inicio). */
+async function renderReservadas(panel, ev) {
+  panel.innerHTML = '<p class="loading">Cargando...</p>';
+  const { data: ins, error } = await sb.from('evento_inscripciones')
+    .select('id, grupo_id, tipo_miembro, socio_id, alumno_id, adulto_id, estado, asignada_a_mano, creada_por_junta, nombre_invitado, apellidos_invitado, actividad_id, es_voluntario, alumnos(nombre, apellidos, etapa, curso, aula)')
+    .eq('evento_id', ev.id);
+  if (error) { panel.innerHTML = '<p class="msg-error">' + esc(error.message) + '</p>'; return; }
+  const filas = (ins || []).filter(i => !i.actividad_id && !i.es_voluntario);
+  const adIds = [...new Set(filas.filter(i => i.adulto_id).map(i => i.adulto_id))];
+  const { data: ads } = adIds.length ? await sb.from('adultos').select('id, nombre, apellidos').in('id', adIds) : { data: [] };
+  const nombre = (i) => i.tipo_miembro === 'alumno' ? `${i.alumnos?.nombre || ''} ${i.alumnos?.apellidos || ''}`.trim()
+    : i.tipo_miembro === 'adulto' ? (a => a ? a.nombre + ' ' + a.apellidos : '')((ads || []).find(a => a.id === i.adulto_id))
+    : `${i.nombre_invitado || ''} ${i.apellidos_invitado || ''} (no socio)`.trim();
+  const grupos = {};
+  filas.forEach(i => { const g = i.grupo_id || i.id; (grupos[g] = grupos[g] || []).push(i); });
+  const parejas = Object.entries(grupos).map(([g, l]) => ({ g, filas: l, alumno: l.find(i => i.tipo_miembro === 'alumno') })).filter(x => x.alumno);
+  const texto = (x) => x.filas.slice().sort((a, b) => (a.tipo_miembro === 'alumno' ? 0 : 1) - (b.tipo_miembro === 'alumno' ? 0 : 1)).map(nombre).join(' con ')
+    + (x.alumno.alumnos?.curso ? ` · ${x.alumno.alumnos.curso}${x.alumno.alumnos.aula || ''} ${x.alumno.alumnos.etapa || ''}` : '');
+  const asignadas = parejas.filter(x => x.alumno.asignada_a_mano);
+  const libres = ev.plazas_reservadas - asignadas.length;
+  const pendientes = parejas.filter(x => !x.alumno.asignada_a_mano && x.alumno.estado === 'pendiente');
+
+  panel.innerHTML = `<p class="section-label">Plazas reservadas: ${asignadas.length} de ${ev.plazas_reservadas} asignadas</p>
+    <p class="ayuda" style="margin:0 0 10px;">No entran en el sorteo. Si el evento tiene documentos, la familia los rellena después: le aparecen como pendientes en Inicio.</p>
+    <p class="resMsg msg-error" hidden></p>
+    <div class="puesto-caja"><div class="puesto-cab"><b>Asignadas</b></div>
+      ${asignadas.length ? asignadas.map(x => `<div class="puesto-fila" style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:center;">
+        <span>${esc(texto(x))}${x.alumno.creada_por_junta ? '' : ' <small style="color:var(--ink-soft);">(se había apuntado)</small>'}</span>
+        <button type="button" class="btn-danger-link" data-quitar="${x.g}">Quitar la plaza</button></div>`).join('')
+        : '<div class="puesto-fila"><span class="empty-hint">Todavía no has asignado ninguna.</span></div>'}</div>
+    ${libres > 0 ? `<div class="puesto-caja"><div class="puesto-cab"><b>Dar una plaza a una pareja apuntada</b></div>
+      ${pendientes.length ? pendientes.map(x => `<div class="puesto-fila" style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:center;">
+        <span>${esc(texto(x))}</span><button type="button" class="btn btn-outline" data-dar="${x.g}">Dar plaza reservada</button></div>`).join('')
+        : '<div class="puesto-fila"><span class="empty-hint">No hay parejas apuntadas pendientes de sorteo.</span></div>'}</div>
+    <div class="puesto-caja"><div class="puesto-cab"><b>Dar una plaza a otro alumno/a socio</b></div>
+      <div class="puesto-fila">
+        <input type="search" class="resBuscar" placeholder="Nombre, apellidos o nº de socio del alumno/a">
+        <div class="resResultados" style="margin-top:8px;"></div>
+      </div></div>` : ''}`;
+  const msg = panel.querySelector('.resMsg');
+  const fallo = (e) => { msg.textContent = (e.message || String(e)).replace(/^.*?ERROR:\s*/, ''); msg.hidden = false; };
+  panel.querySelectorAll('[data-quitar]').forEach(b => b.addEventListener('click', async () => {
+    const x = parejas.find(p => p.g === b.dataset.quitar);
+    if (!confirm(`¿Quitar la plaza reservada a ${texto(x)}?` + (x.alumno.creada_por_junta ? '' : ' Vuelve a la lista del sorteo.'))) return;
+    const ids = x.filas.map(i => i.id);
+    const { error } = x.alumno.creada_por_junta
+      ? await sb.from('evento_inscripciones').delete().in('id', ids)
+      : await sb.from('evento_inscripciones').update({ asignada_a_mano: false, estado: ev.sorteo_realizado ? 'no_ganador' : 'pendiente' }).in('id', ids);
+    if (error) { fallo(error); return; }
+    renderReservadas(panel, ev);
+  }));
+  panel.querySelectorAll('[data-dar]').forEach(b => b.addEventListener('click', async () => {
+    const x = parejas.find(p => p.g === b.dataset.dar);
+    b.disabled = true;
+    const { error } = await sb.from('evento_inscripciones').update({ asignada_a_mano: true, estado: 'ganador' }).in('id', x.filas.map(i => i.id));
+    if (error) { fallo(error); b.disabled = false; return; }
+    renderReservadas(panel, ev);
+  }));
+  const buscar = panel.querySelector('.resBuscar');
+  if (!buscar) return;
+  const res = panel.querySelector('.resResultados');
+  const yaEnEvento = new Set(parejas.map(x => x.alumno.alumno_id));
+  buscar.addEventListener('input', async () => {
+    if (!alumnosSociosCache) alumnosSociosCache = await todasLasFilas(() => sb.from('alumnos')
+      .select('id, nombre, apellidos, etapa, curso, aula, fecha_nacimiento, socio_id, socios!inner(numero_socio_completo, estado)')
+      .eq('socios.estado', 'activa').order('apellidos').order('nombre'));
+    const q = buscar.value.trim().toLowerCase();
+    if (q.length < 2) { res.innerHTML = ''; return; }
+    const lista = alumnosSociosCache.filter(a => (a.nombre + ' ' + a.apellidos + ' ' + numeroSocioBonito(a.socios?.numero_socio_completo) + ' ' + (a.socios?.numero_socio_completo || '')).toLowerCase().includes(q)).slice(0, 15);
+    res.innerHTML = lista.length ? lista.map(a => `<div class="res-fila"><span><b>${esc(a.nombre)} ${esc(a.apellidos)}</b>
+        <small>${esc([a.curso, a.etapa, a.aula].filter(Boolean).join(' '))} · Socio nº ${esc(numeroSocioBonito(a.socios?.numero_socio_completo))}${cumpleCursoEvento(a, ev) ? '' : ' · <b class="fuera">no es de las edades del evento</b>'}</small></span>
+        ${yaEnEvento.has(a.id) ? '<span class="ya">Ya está apuntado/a: dale la plaza en la lista de arriba</span>' : `<button type="button" class="btn btn-outline" data-alumno="${a.id}">Elegir</button>`}</div>`).join('')
+      : '<p class="empty-hint">No hay ningún alumno/a de una familia activa con ese nombre.</p>';
+  });
+  res.addEventListener('click', async (e) => {
+    const b = e.target.closest('button[data-alumno]');
+    if (!b) return;
+    const al = alumnosSociosCache.find(a => a.id === b.dataset.alumno);
+    const { data: adultosFam } = await sb.from('adultos').select('id, nombre, apellidos').eq('socio_id', al.socio_id).order('created_at');
+    const ocupados = new Set(filas.filter(i => i.adulto_id).map(i => i.adulto_id));
+    res.innerHTML = `<div class="mini-form" style="margin-top:6px;"><p style="margin:0 0 8px;"><b>${esc(al.nombre)} ${esc(al.apellidos)}</b></p>
+      <div class="field"><label>Adulto que le acompaña</label><select class="resAdulto">${(adultosFam || []).map(a =>
+        `<option value="${a.id}"${ocupados.has(a.id) ? ' disabled' : ''}>${esc(a.nombre + ' ' + a.apellidos)}${ocupados.has(a.id) ? ' (ya está en el evento)' : ''}</option>`).join('')}</select></div>
+      <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;"><button type="button" class="btn btn-primary resOk">Dar plaza reservada</button>
+      <button type="button" class="linklike resCancel">Cancelar</button></div></div>`;
+    res.querySelector('.resCancel').addEventListener('click', () => { res.innerHTML = ''; buscar.value = ''; });
+    res.querySelector('.resOk').addEventListener('click', async (ev2) => {
+      const adultoId = res.querySelector('.resAdulto').value;
+      if (!adultoId || ocupados.has(adultoId)) { fallo('Elige el adulto que le acompaña.'); return; }
+      ev2.target.disabled = true; msg.hidden = true;
+      const grupo = nuevoUuid();
+      const comun = { evento_id: ev.id, socio_id: al.socio_id, grupo_id: grupo, estado: 'ganador', asignada_a_mano: true, creada_por_junta: true };
+      const r1 = await sb.from('evento_inscripciones').insert({ ...comun, tipo_miembro: 'alumno', alumno_id: al.id });
+      if (r1.error) { fallo(r1.error); ev2.target.disabled = false; return; }
+      const r2 = await sb.from('evento_inscripciones').insert({ ...comun, tipo_miembro: 'adulto', adulto_id: adultoId });
+      if (r2.error) {
+        await sb.from('evento_inscripciones').delete().eq('grupo_id', grupo).eq('evento_id', ev.id);   // nunca un alumno sin su adulto
+        fallo(r2.error); ev2.target.disabled = false; return;
+      }
+      renderReservadas(panel, ev);
+    });
+  });
+}
+
+/* ================= Postulaciones (Cabalgata) =================
+   Los adultos socios se postulan a un puesto desde la web; la Junta elige
+   aquí, como mucho las plazas de cada puesto (lo comprueba la base de datos). */
+const PUESTOS = { responsable: ['Responsable del Evento', 1], baltasar: ['Rey Baltasar', 1], gaspar: ['Rey Gaspar', 1],
+  melchor: ['Rey Melchor', 1], paje: ['Paje Real', 2] };
+async function renderPostulaciones(panel, ev) {
+  panel.innerHTML = '<p class="loading">Cargando postulaciones...</p>';
+  const { data, error } = await sb.rpc('evento_postulaciones_junta', { p_evento: ev.id });
+  if (error) {
+    panel.innerHTML = '<p class="msg-error">No se pudieron cargar: ' + esc(error.message) + (/evento_postulaciones_junta/.test(error.message) ? ' ¿Has ejecutado supabase/pendientes/migracion-cabalgata-puestos.sql?' : '') + '</p>';
+    return;
+  }
+  const lista = data || [];
+  // Los puestos se sortean; antes del sorteo, a mano solo los pajes reservados
+  const maxAMano = (p) => ev.sorteo_realizado ? PUESTOS[p][1] : p === 'paje' ? (ev.pajes_reservados || 0) : 0;
+  panel.innerHTML = `<p class="section-label">Postulaciones</p>
+    <p class="ayuda" style="margin:0 0 10px;">${ev.sorteo_realizado ? 'Los puestos ya se han sorteado. Puedes cambiar a quien haga falta.'
+      : 'Los puestos se sortean con el sorteo del evento' + (ev.pajes_reservados ? `, menos ${ev.pajes_reservados === 1 ? 'el paje reservado' : 'los 2 pajes reservados'}, que asignas aquí a mano` : '') + '.'}</p>
+    <p class="postMsg msg-error" hidden></p>` +
+    (ev.puestos || []).filter(p => PUESTOS[p]).map(p => {
+      const [nombre, plazas] = PUESTOS[p];
+      const de = lista.filter(x => x.puesto === p);
+      const elegidos = de.filter(x => x.estado === 'elegido').length;
+      const puedeElegir = elegidos < maxAMano(p);
+      return `<div class="puesto-caja"><div class="puesto-cab" style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:center;">
+          <span><b>${esc(nombre)}</b> · ${elegidos} de ${plazas} asignado${plazas > 1 ? 's' : ''} · ${de.length} postulado${de.length === 1 ? '' : 's'}${p === 'paje' && ev.pajes_reservados ? ` · ${ev.pajes_reservados} reservado${ev.pajes_reservados > 1 ? 's' : ''}` : ''}</span>
+          ${p === 'paje' && puedeElegir ? '<button type="button" class="btn btn-outline asignarPaje">Asignar paje reservado</button>' : ''}</div>
+        <div class="pajeZona"></div>` +
+        (de.length ? de.map(x => `<div class="puesto-fila" style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:center;">
+            <span><b>${esc(x.nombre)} ${esc(x.apellidos)}</b>${x.estado === 'elegido' ? ' <b style="color:#1E7A46;">✓ Tiene el puesto</b>' : x.estado === 'no_elegido' ? ' <span style="color:var(--ink-soft);">No salió en el sorteo</span>' : ''}<br>
+              <small style="color:var(--ink-soft);">Socio nº ${esc(numeroSocioBonito(x.numero_socio))}${x.movil ? ' · ' + esc(x.movil) : ''}${x.acompana ? ' · acompaña a un alumno/a' : ''}</small></span>
+            <span style="display:flex; gap:8px; flex-wrap:wrap;">
+              ${x.estado === 'elegido' ? `<button type="button" class="btn btn-outline" data-elegir="${x.id}" data-estado="${ev.sorteo_realizado ? 'no_elegido' : 'postulado'}">Quitar el puesto</button>`
+                : puedeElegir ? `<button type="button" class="btn btn-outline" data-elegir="${x.id}" data-estado="elegido">Darle el puesto</button>` : ''}
+              <button type="button" class="btn btn-outline" data-email="${x.adulto_id}" data-nombre="${esc(x.nombre)}" data-titulo="${esc(x.nombre + ' ' + x.apellidos)}">Enviar email</button>
+            </span></div>`).join('') : '<div class="puesto-fila"><span class="empty-hint">Nadie se ha postulado todavía.</span></div>') + '</div>';
+    }).join('');
+  const msg = panel.querySelector('.postMsg');
+  const fallo = (e) => { msg.textContent = (e.message || String(e)).replace(/^.*?ERROR:\s*/, ''); msg.hidden = false; };
+  panel.querySelectorAll('[data-elegir]').forEach(b => b.addEventListener('click', async () => {
+    b.disabled = true; msg.hidden = true;
+    const { error } = await sb.from('evento_postulaciones').update({ estado: b.dataset.estado }).eq('id', b.dataset.elegir);
+    if (error) { fallo(error); b.disabled = false; return; }
+    renderPostulaciones(panel, ev);
+  }));
+  panel.querySelectorAll('[data-email]').forEach(b => b.addEventListener('click', () => abrirEmailDialogo({
+    titulo: 'Email a ' + b.dataset.titulo, saludo: b.dataset.nombre, destino: { adultoId: b.dataset.email } })));
+
+  // Paje reservado: a cualquier adulto socio, se haya postulado o no
+  const btnPaje = panel.querySelector('.asignarPaje');
+  if (btnPaje) btnPaje.addEventListener('click', async () => {
+    const zona = btnPaje.closest('.puesto-caja').querySelector('.pajeZona');
+    zona.innerHTML = `<div class="puesto-fila"><input type="search" class="pajeBuscar" placeholder="Nombre, apellidos o nº de socio del adulto"><div class="pajeRes" style="margin-top:8px;"></div></div>`;
+    const { data: adultos } = await sb.from('adultos').select('id, nombre, apellidos, socio_id, socios!inner(numero_socio_completo, estado)').eq('socios.estado', 'activa').order('apellidos');
+    const buscar = zona.querySelector('.pajeBuscar'), res = zona.querySelector('.pajeRes');
+    buscar.focus();
+    buscar.addEventListener('input', () => {
+      const q = buscar.value.trim().toLowerCase();
+      if (q.length < 2) { res.innerHTML = ''; return; }
+      const l = (adultos || []).filter(a => (a.nombre + ' ' + a.apellidos + ' ' + numeroSocioBonito(a.socios?.numero_socio_completo) + ' ' + (a.socios?.numero_socio_completo || '')).toLowerCase().includes(q)).slice(0, 15);
+      res.innerHTML = l.length ? l.map(a => {
+        const ya = lista.find(x => x.adulto_id === a.id);
+        return `<div style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:center; padding:6px 0; border-bottom:1px solid var(--line);">
+          <span><b>${esc(a.nombre)} ${esc(a.apellidos)}</b> <small style="color:var(--ink-soft);">Socio nº ${esc(numeroSocioBonito(a.socios?.numero_socio_completo))}${ya ? ' · se ha postulado a ' + esc(PUESTOS[ya.puesto][0]) : ''}</small></span>
+          ${ya && ya.puesto !== 'paje' ? '' : `<button type="button" class="btn btn-outline" data-paje="${a.id}">Darle el puesto de paje</button>`}</div>`;
+      }).join('') : '<p class="empty-hint">No hay ningún adulto de una familia activa con ese nombre.</p>';
+    });
+    res.addEventListener('click', async (e) => {
+      const b = e.target.closest('button[data-paje]');
+      if (!b) return;
+      b.disabled = true; msg.hidden = true;
+      const a = adultos.find(x => x.id === b.dataset.paje);
+      const ya = lista.find(x => x.adulto_id === a.id);
+      const { error } = ya
+        ? await sb.from('evento_postulaciones').update({ estado: 'elegido' }).eq('id', ya.id)
+        : await sb.from('evento_postulaciones').insert({ evento_id: ev.id, puesto: 'paje', socio_id: a.socio_id, adulto_id: a.id, estado: 'elegido' });
+      if (error) { fallo(error); b.disabled = false; return; }
+      renderPostulaciones(panel, ev);
+    });
   });
 }
 

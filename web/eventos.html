@@ -1051,11 +1051,20 @@ async function renderEventoPareja(evento) {
   const card = cabeceraEvento(evento);
   const elegibles = miembrosElegiblesEvento(evento);
   const gate = estadoInscripcionSocio(evento);
-  etiqueta(card, evento.sorteo_realizado ? 'Sorteo hecho' : `Por sorteo${evento.aforo_total ? `, ${evento.aforo_total} plazas para alumnos` : ''}`);
+  // Las plazas reservadas las da la Junta: se anuncian las que van a sorteo
+  const plazasSorteo = evento.aforo_total ? Math.max(0, evento.aforo_total - (evento.plazas_reservadas || 0)) : null;
+  etiqueta(card, evento.sorteo_realizado ? 'Sorteo hecho' : `Por sorteo${plazasSorteo ? `, ${plazasSorteo} plazas para alumnos` : ''}`);
   if (!gate.abierta && !evento.sorteo_realizado) etiqueta(card, gate.mensaje.replace(/\.$/, ''), true);
 
   const { data } = await sb.from('evento_inscripciones').select('*').eq('evento_id', evento.id).eq('socio_id', ctxGlobal.socio.id);
   const ins = (data || []).filter(i => !i.actividad_id && !i.es_voluntario);
+  // Cabalgata: puestos a los que se postulan los adultos (sin la migración, no hay bloque)
+  let postulaciones = null;
+  if ((evento.puestos || []).length) {
+    const r = await sb.from('evento_postulaciones').select('*').eq('evento_id', evento.id).eq('socio_id', ctxGlobal.socio.id);
+    if (!r.error) postulaciones = r.data || [];
+  }
+  const puestoQueImpideAcompanar = (adultoId) => (postulaciones || []).find(p => p.adulto_id === adultoId);
   const grupos = {};
   ins.forEach(i => { const g = i.grupo_id || i.id; (grupos[g] = grupos[g] || []).push(i); });
 
@@ -1080,7 +1089,9 @@ async function renderEventoPareja(evento) {
     fila.className = 'miembro';
     fila.innerHTML = `<div class="miembro-fila"><span class="nombre">${esc(filas.map(nombreDe).join(' con '))}<span class="detalle">${esc(filas.map(f => detalleInscripcion(f, evento)).filter(Boolean).join('. '))}</span></span><span class="accion"></span></div>`;
     const accion = fila.querySelector('.accion');
-    if (evento.sorteo_realizado) {
+    if (filas.some(f => f.asignada_a_mano)) {
+      accion.innerHTML = '<span class="estado-ok">Tienen plaza (la ha dado la Junta)</span>';
+    } else if (evento.sorteo_realizado) {
       accion.innerHTML = est === 'ganador' ? '<span class="estado-ok">Tienen plaza</span>' : est === 'no_ganador' ? '<span class="estado-no">No salieron en el sorteo</span>' : '';
     } else if (gate.abierta) {
       const q = document.createElement('button'); q.className = 'btn-danger-link'; q.textContent = 'Quitar';
@@ -1131,7 +1142,10 @@ async function renderEventoPareja(evento) {
       f.className = 'mini-form';
       f.innerHTML = `<div class="field"><label>Alumno o alumna</label><select class="selAl">${alumnosLibres.map(a => `<option value="${a.id}">${esc(nombreCompleto(a))}</option>`).join('')}</select></div>
         <div class="alDatos"></div>
-        <div class="field"><label>Adulto que le acompaña</label><select class="selAd">${adultosLibres.map(a => `<option value="${a.id}">${esc(nombreCompleto(a))}</option>`).join('')}<option value="otro">Otro adulto, no socio (abuelo, tía...)</option></select></div>
+        <div class="field"><label>Adulto que le acompaña</label><select class="selAd">${adultosLibres.map(a => {
+          const p = puestoQueImpideAcompanar(a.id);
+          return `<option value="${a.id}"${p ? ' disabled' : ''}>${esc(nombreCompleto(a))}${p ? ` (se ha postulado como ${esc(NOMBRE_PUESTO[p.puesto])})` : ''}</option>`;
+        }).join('')}<option value="otro">Otro adulto, no socio (abuelo, tía...)</option></select></div>
         <div class="adDatos"></div>
         <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;"><button type="button" class="btn btn-primary ok">Apuntar a los dos</button><button type="button" class="linklike cancel">Cancelar</button></div>
         <p class="msg-error" hidden></p>`;
@@ -1179,10 +1193,72 @@ async function renderEventoPareja(evento) {
     });
   }
   card.appendChild(b);
+  if (postulaciones) card.appendChild(bloquePuestos(evento, ins, postulaciones, gate, card));
 
   const docs = await bloqueDocumentos(evento, ins);
   if (docs) card.appendChild(docs);
   return card;
+}
+
+/* ---------- Cabalgata: postularse a un puesto ----------
+   Cada adulto socio, a un solo puesto. Acompañante de un alumno/a, Responsable,
+   Rey y Paje son excluyentes (lo impone la base de datos). */
+const NOMBRE_PUESTO = { responsable: 'Responsable del Evento', baltasar: 'Rey Baltasar', gaspar: 'Rey Gaspar', melchor: 'Rey Melchor', paje: 'Paje Real' };
+const PLAZAS_PUESTO = { paje: 2 };
+function bloquePuestos(evento, ins, postulaciones, gate, card) {
+  const b = document.createElement('div');
+  b.className = 'bloque';
+  const puestos = (evento.puestos || []).filter(p => NOMBRE_PUESTO[p]);
+  b.innerHTML = `<h3>Postularse a un puesto</h3><p class="ayuda">Los adultos de la familia pueden postularse a: ${esc(puestos.map(p => NOMBRE_PUESTO[p] + (PLAZAS_PUESTO[p] ? ` (${PLAZAS_PUESTO[p]} plazas)` : '')).join(', '))}. Cada persona, a un solo puesto. Quien va como acompañante de un alumno/a no puede postularse. Los puestos se sortean con el sorteo del evento.</p>`;
+  // Acompaña a un alumno/a: está en una pareja con un alumno/a que no ha quedado fuera del sorteo
+  const acompana = (adultoId) => ins.some(i => i.tipo_miembro === 'adulto' && i.adulto_id === adultoId && i.grupo_id && i.estado !== 'no_ganador'
+    && ins.some(n => n.grupo_id === i.grupo_id && n.tipo_miembro === 'alumno' && n.estado !== 'no_ganador'));
+  misAdultos.forEach(a => {
+    const p = postulaciones.find(x => x.adulto_id === a.id);
+    const fila = document.createElement('div');
+    fila.className = 'miembro';
+    fila.innerHTML = `<div class="miembro-fila"><span class="persona">${avatar(nombreCompleto(a))}<span>${esc(nombreCompleto(a))}</span></span><span class="accion"></span></div>`;
+    const accion = fila.querySelector('.accion');
+    const msg = document.createElement('p'); msg.className = 'msg-error'; msg.hidden = true;
+    if (p) {
+      accion.innerHTML = p.estado === 'elegido'
+        ? `<span class="estado-ok">${esc(NOMBRE_PUESTO[p.puesto])}</span>`
+        : p.estado === 'no_elegido'
+          ? `<span class="estado-no">No salió en el sorteo de ${esc(NOMBRE_PUESTO[p.puesto])}</span>`
+          : `<span class="estado-gris">Se ha postulado: ${esc(NOMBRE_PUESTO[p.puesto])}</span>`;
+      if (gate.abierta && p.estado === 'postulado') {
+        const q = document.createElement('button'); q.className = 'btn-danger-link'; q.textContent = 'Quitar';
+        q.addEventListener('click', async () => {
+          const { error } = await sb.from('evento_postulaciones').delete().eq('id', p.id);
+          if (error) { msg.textContent = textoError(error); msg.hidden = false; return; }
+          repintar(card, evento);
+        });
+        accion.appendChild(q);
+      }
+    } else if (!gate.abierta) {
+      accion.innerHTML = '<span class="estado-gris">Inscripción cerrada</span>';
+    } else {
+      if (acompana(a.id)) {
+        accion.innerHTML = '<span class="estado-gris aviso-vol">Va como acompañante de un alumno/a: no puede postularse</span>';
+      } else {
+        accion.innerHTML = `<select class="selPuesto" aria-label="Puesto para ${esc(nombreCompleto(a))}" style="width:auto;"><option value="">Elige un puesto</option>${puestos.map(x => `<option value="${x}">${esc(NOMBRE_PUESTO[x])}</option>`).join('')}</select>`;
+        const btn = document.createElement('button'); btn.className = 'btn btn-outline'; btn.textContent = 'Postularse';
+        btn.addEventListener('click', async () => {
+          const puesto = accion.querySelector('.selPuesto').value;
+          msg.hidden = true;
+          if (!puesto) { msg.textContent = 'Elige un puesto.'; msg.hidden = false; return; }
+          btn.disabled = true;
+          const { error } = await sb.from('evento_postulaciones').insert({ evento_id: evento.id, puesto, socio_id: ctxGlobal.socio.id, adulto_id: a.id });
+          if (error) { msg.textContent = textoError(error); msg.hidden = false; btn.disabled = false; return; }
+          repintar(card, evento);
+        });
+        accion.appendChild(btn);
+      }
+    }
+    fila.appendChild(msg);
+    b.appendChild(fila);
+  });
+  return b;
 }
 
 // Lector de Word (solo se descarga si alguien sube un .docx)

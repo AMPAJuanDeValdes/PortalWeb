@@ -9,12 +9,21 @@
 //
 // Una fila también puede ser { celdas: [...], alto: 6 } (alto en puntos).
 // letra: tamaño de letra base. margen: margen de impresión en pulgadas.
-// Estilos: normal, titulo, cabecera, naranja, amarillo, seccion, nota, gris.
+// Estilos: normal, titulo, cabecera, seccion, nota, y un fondo de color:
+// naranja, amarillo, gris, azul, verde, lila, rosa.
 // { v, e, ajustar: true }: el texto pasa a varias líneas dentro de la celda
-// (solo normal, naranja y amarillo; la altura de la fila la pone quien llama).
+// (normal y los de color; la altura de la fila la pone quien llama).
 
-const XLSX_ESTILOS = { normal: 0, titulo: 1, cabecera: 2, naranja: 3, amarillo: 4, seccion: 5, nota: 6, gris: 7,
-  normal_ajustar: 8, naranja_ajustar: 9, amarillo_ajustar: 10 };
+const XLSX_COLORES = { naranja: 'FFF9CB9C', amarillo: 'FFFFFF00', gris: 'FFEFEFEF', azul: 'FF9FC5E8', verde: 'FFB6D7A8', lila: 'FFD9C3EE', rosa: 'FFF4C2D7' };
+// Estilos de celda en el orden de <cellXfs>: [nombre, fuente, relleno, borde, alineación]
+const XLSX_XFS = (() => {
+  const centrado = '<alignment vertical="center"/>', ajustado = '<alignment vertical="center" wrapText="1"/>';
+  const xfs = [['normal', 0, 0, 0, centrado], ['titulo', 1, 0, 0, '<alignment shrinkToFit="1"/>'], ['cabecera', 2, 0, 1, ''],
+    ['seccion', 3, 0, 0, '<alignment horizontal="center"/>'], ['nota', 4, 0, 0, ''], ['normal_ajustar', 0, 0, 0, ajustado]];
+  Object.keys(XLSX_COLORES).forEach((c, k) => xfs.push([c, 0, k + 2, 0, centrado], [c + '_ajustar', 0, k + 2, 0, ajustado]));
+  return xfs;
+})();
+const XLSX_ESTILOS = Object.fromEntries(XLSX_XFS.map((x, i) => [x[0], i]));
 
 function crearXlsx({ hoja = 'Hoja1', filas = [], anchos = [], unir = [], letra = 11, margen = 0.5 }) {
   const xml = (t) => String(t ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
@@ -47,21 +56,11 @@ ${unir.length ? `<mergeCells count="${unir.length}">` + unir.map(u => `<mergeCel
   const styles = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
 <fonts count="5"><font><sz val="${letra}"/><name val="Arial"/></font><font><b/><sz val="${letra + 2}"/><name val="Arial"/></font><font><b/><sz val="${letra}"/><name val="Arial"/></font><font><b/><sz val="${letra * 2}"/><name val="Arial"/></font><font><i/><sz val="${letra - 1}"/><name val="Arial"/></font></fonts>
-<fills count="5"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFF9CB9C"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFFFF00"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFEFEFEF"/><bgColor indexed="64"/></patternFill></fill></fills>
+<fills count="${2 + Object.keys(XLSX_COLORES).length}"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>${Object.values(XLSX_COLORES).map(rgb => `<fill><patternFill patternType="solid"><fgColor rgb="${rgb}"/><bgColor indexed="64"/></patternFill></fill>`).join('')}</fills>
 <borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left/><right/><top/><bottom style="thin"><color auto="1"/></bottom><diagonal/></border></borders>
 <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
-<cellXfs count="11">
-<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="center"/></xf>
-<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment shrinkToFit="1"/></xf>
-<xf numFmtId="0" fontId="2" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1"/>
-<xf numFmtId="0" fontId="0" fillId="2" borderId="0" xfId="0" applyFill="1" applyAlignment="1"><alignment vertical="center"/></xf>
-<xf numFmtId="0" fontId="0" fillId="3" borderId="0" xfId="0" applyFill="1" applyAlignment="1"><alignment vertical="center"/></xf>
-<xf numFmtId="0" fontId="3" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center"/></xf>
-<xf numFmtId="0" fontId="4" fillId="0" borderId="0" xfId="0" applyFont="1"/>
-<xf numFmtId="0" fontId="0" fillId="4" borderId="0" xfId="0" applyFill="1"/>
-<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf>
-<xf numFmtId="0" fontId="0" fillId="2" borderId="0" xfId="0" applyFill="1" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf>
-<xf numFmtId="0" fontId="0" fillId="3" borderId="0" xfId="0" applyFill="1" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf>
+<cellXfs count="${XLSX_XFS.length}">
+${XLSX_XFS.map(([, f, r, b, al]) => `<xf numFmtId="0" fontId="${f}" fillId="${r}" borderId="${b}" xfId="0"${f ? ' applyFont="1"' : ''}${r ? ' applyFill="1"' : ''}${b ? ' applyBorder="1"' : ''}${al ? ' applyAlignment="1">' + al + '</xf>' : '/>'}`).join('\n')}
 </cellXfs>
 <cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
 </styleSheet>`;
