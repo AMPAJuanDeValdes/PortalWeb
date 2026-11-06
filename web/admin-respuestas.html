@@ -184,14 +184,12 @@ async function cargarAlumnos() {
     if (!lista.length) { alert('No hay alumnos en esta lista.'); return; }
     const filtro = document.getElementById('filtroMatricula').value;
     descargarCSV(lista.map(a => ({
-      numero_socio: a.numero, familia: a.familia, email: a.email,
-      dni_adulto_principal: a.dni, movil_adulto_principal: a.movil,
-      nombre: a.nombre, apellidos: a.apellidos, fecha_nacimiento: a.fecha_nacimiento || '',
-      etapa: a.etapa, curso: a.curso || '', aula: a.aula || '',
-      datos_confirmados: a.confirmados ? new Date(a.confirmados).toLocaleDateString('es-ES') : 'no',
-      matricula_verificada: a.verificado ? 'si' : 'no',
-      _numero: a.numero, _apellidos: a.apellidos, _nombre: a.nombre
-    })), filtro === 'pendientes' ? 'alumnos-datos-confirmados-sin-verificar.csv' : 'alumnos-matricula.csv', { orden: true });
+      'Adulto': a.familia, 'DNI Adulto': a.dni, 'Movil Adulto': a.movil,
+      'Nombre': a.nombre, 'Apellidos': a.apellidos, 'Fecha_nacimiento': a.fecha_nacimiento || '',
+      'etapa': a.etapa || '', 'curso': a.curso || '', 'aula': a.aula || '',
+      _apellidos: a.apellidos, _nombre: a.nombre, _etapa: a.etapa, _curso: a.curso, _aula: a.aula
+    })), filtro === 'pendientes' ? 'alumnos-datos-confirmados-sin-verificar.csv' : 'alumnos-matricula.csv',
+    { orden: true, ordenes: [['clase', 'Por etapa, curso y aula'], ['apellidos', 'Por apellidos y nombre']] });
   });
   pintarAlumnos();
 }

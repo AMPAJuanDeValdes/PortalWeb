@@ -10,7 +10,7 @@
 function descargarCSV(filas, nombreArchivo, opciones) {
   if (!filas || filas.length === 0) return;
   if (opciones && opciones.orden) {
-    elegirOrdenCSV().then(orden => { if (orden) descargarCSV(ordenarFilasCSV(filas, orden), nombreArchivo); });
+    elegirOrdenCSV(opciones.ordenes).then(orden => { if (orden) descargarCSV(ordenarFilasCSV(filas, orden), nombreArchivo); });
     return;
   }
   const columnas = Object.keys(filas[0]).filter(c => !c.startsWith('_'));
@@ -38,22 +38,28 @@ function ordenarFilasCSV(filas, orden) {
   const alfa = (a, b) => _cmpES(a._apellidos, b._apellidos) || _cmpES(a._nombre, b._nombre);
   // El número de socio son las 4 últimas cifras (0042): el año de delante cambia con la cuota
   const num = (f) => String(f._numero || '').replace(/\D/g, '').slice(-4);
+  // Por clase: etapa (en su orden), curso y aula; dentro, por apellidos
+  const ETAPAS = { Infantil: 1, Primaria: 2, ESO: 3, Bachillerato: 4 };
+  const clase = (a, b) => (ETAPAS[a._etapa] || 9) - (ETAPAS[b._etapa] || 9)
+    || (parseInt(a._curso, 10) || 99) - (parseInt(b._curso, 10) || 99) || _cmpES(a._aula, b._aula) || alfa(a, b);
   return [...filas].sort(orden === 'numero'
     ? (a, b) => (!num(a)) - (!num(b)) || _cmpES(num(a), num(b)) || alfa(a, b)
-    : alfa);
+    : orden === 'clase' ? clase : alfa);
 }
 
-// Ventana para elegir el orden (recuerda la última elección en este navegador)
-function elegirOrdenCSV() {
+// Ventana para elegir el orden (recuerda la última elección en este navegador).
+// ordenes: [['clase', 'Por etapa, curso y aula'], ['apellidos', 'Alfabético, por apellidos y nombre']]
+// (por defecto: número de socio o apellidos)
+function elegirOrdenCSV(ordenes) {
+  ordenes = ordenes || [['numero', 'Por número de socio'], ['apellidos', 'Alfabético, por apellidos']];
   return new Promise(resolve => {
-    let ultimo = 'numero';
-    try { ultimo = localStorage.getItem('ampa_orden_csv') || 'numero'; } catch (e) { /* sin almacenamiento */ }
+    let ultimo = ordenes[0][0];
+    try { const g = localStorage.getItem('ampa_orden_csv'); if (ordenes.some(o => o[0] === g)) ultimo = g; } catch (e) { /* sin almacenamiento */ }
     const d = document.createElement('dialog');
     d.className = 'dialogo-orden';
     d.innerHTML = `<form method="dialog" style="margin:0; min-width:min(360px, 80vw);">
         <p style="font-family:var(--font-title); font-weight:700; font-size:20px; margin:0 0 12px;">¿En qué orden lo saco?</p>
-        <label class="check" style="display:flex; gap:8px; align-items:center; margin:0 0 8px;"><input type="radio" name="orden" value="numero" ${ultimo === 'numero' ? 'checked' : ''}> Por número de socio</label>
-        <label class="check" style="display:flex; gap:8px; align-items:center; margin:0 0 16px;"><input type="radio" name="orden" value="apellidos" ${ultimo === 'apellidos' ? 'checked' : ''}> Alfabético, por apellidos</label>
+        ${ordenes.map(([v, t], k) => `<label class="check" style="display:flex; gap:8px; align-items:center; margin:0 0 ${k === ordenes.length - 1 ? 16 : 8}px;"><input type="radio" name="orden" value="${v}" ${ultimo === v ? 'checked' : ''}> ${t}</label>`).join('')}
         <div style="display:flex; gap:10px; flex-wrap:wrap;">
           <button class="btn btn-primary" value="ok">Descargar</button>
           <button class="btn btn-outline" value="cancelar" formnovalidate>Cancelar</button>
