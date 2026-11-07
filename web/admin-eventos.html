@@ -28,10 +28,10 @@
   .apuntar-alumno{ margin:0 0 14px; padding-bottom:14px; border-bottom:1px solid var(--line); display:grid; gap:10px; }
   .apuntar-alumno .chk{ display:flex; gap:8px; align-items:center; font-weight:400; }
   .apuntar-alumno .chk input{ width:auto; }
-  .apuntar-alumno .res-fila, .reservadasPanel .res-fila{ display:flex; justify-content:space-between; align-items:center; gap:12px; padding:8px 0; border-bottom:1px solid var(--line); flex-wrap:wrap; }
-  .apuntar-alumno .res-fila small, .reservadasPanel .res-fila small{ display:block; color:var(--ink-soft); font-size:14px; }
-  .apuntar-alumno .fuera, .reservadasPanel .fuera{ color:var(--red); }
-  .apuntar-alumno .ya, .reservadasPanel .ya{ color:var(--green); font-weight:700; font-size:14px; }
+  .apuntar-alumno .res-fila{ display:flex; justify-content:space-between; align-items:center; gap:12px; padding:8px 0; border-bottom:1px solid var(--line); flex-wrap:wrap; }
+  .apuntar-alumno .res-fila small{ display:block; color:var(--ink-soft); font-size:14px; }
+  .apuntar-alumno .fuera{ color:var(--red); }
+  .apuntar-alumno .ya{ color:var(--green); font-weight:700; font-size:14px; }
   .apuntar-alumno .abrir, .apuntar-alumno .cerrar{ justify-self:start; }
   .puesto-caja{ border:1px solid var(--line); border-radius:12px; margin-bottom:10px; overflow:hidden; }
   .puesto-cab{ background:#F7F5EF; padding:8px 12px; }
@@ -1330,15 +1330,10 @@ async function renderSesiones(panel, ev) {
   });
 }
 
-// Id para agrupar alumno y adulto (crypto.randomUUID solo existe en https)
-const nuevoUuid = () => (window.crypto && crypto.randomUUID) ? crypto.randomUUID()
-  : '10000000-1000-4000-8000-100000000000'.replace(/[018]/g, c => (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16));
-
 /* ================= Plazas reservadas (Cabalgata) =================
-   No se sortean: la Junta da cada una a una pareja (alumno/a socio con un
-   adulto de su familia), se haya apuntado o no. Si la pareja ya estaba
-   apuntada, sale del sorteo. Los documentos los rellena luego la familia
-   (les aparece como pendiente en Inicio). */
+   No se sortean: en vez de sortearla, la Junta da cada una a mano a una de
+   las parejas que se han apuntado, que sale así del sorteo. Los documentos
+   los rellena luego la familia (les aparece como pendiente en Inicio). */
 async function renderReservadas(panel, ev) {
   panel.innerHTML = '<p class="loading">Cargando...</p>';
   const { data: ins, error } = await sb.from('evento_inscripciones')
@@ -1365,18 +1360,13 @@ async function renderReservadas(panel, ev) {
     <p class="resMsg msg-error" hidden></p>
     <div class="puesto-caja"><div class="puesto-cab"><b>Asignadas</b></div>
       ${asignadas.length ? asignadas.map(x => `<div class="puesto-fila" style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:center;">
-        <span>${esc(texto(x))}${x.alumno.creada_por_junta ? '' : ' <small style="color:var(--ink-soft);">(se había apuntado)</small>'}</span>
+        <span>${esc(texto(x))}</span>
         <button type="button" class="btn-danger-link" data-quitar="${x.g}">Quitar la plaza</button></div>`).join('')
         : '<div class="puesto-fila"><span class="empty-hint">Todavía no has asignado ninguna.</span></div>'}</div>
     ${libres > 0 ? `<div class="puesto-caja"><div class="puesto-cab"><b>Dar una plaza a una pareja apuntada</b></div>
       ${pendientes.length ? pendientes.map(x => `<div class="puesto-fila" style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:center;">
         <span>${esc(texto(x))}</span><button type="button" class="btn btn-outline" data-dar="${x.g}">Dar plaza reservada</button></div>`).join('')
-        : '<div class="puesto-fila"><span class="empty-hint">No hay parejas apuntadas pendientes de sorteo.</span></div>'}</div>
-    <div class="puesto-caja"><div class="puesto-cab"><b>Dar una plaza a otro alumno/a socio</b></div>
-      <div class="puesto-fila">
-        <input type="search" class="resBuscar" placeholder="Nombre, apellidos o nº de socio del alumno/a">
-        <div class="resResultados" style="margin-top:8px;"></div>
-      </div></div>` : ''}`;
+        : '<div class="puesto-fila"><span class="empty-hint">No hay parejas apuntadas pendientes de sorteo.</span></div>'}</div>` : ''}`;
   const msg = panel.querySelector('.resMsg');
   const fallo = (e) => { msg.textContent = (e.message || String(e)).replace(/^.*?ERROR:\s*/, ''); msg.hidden = false; };
   panel.querySelectorAll('[data-quitar]').forEach(b => b.addEventListener('click', async () => {
@@ -1396,50 +1386,6 @@ async function renderReservadas(panel, ev) {
     if (error) { fallo(error); b.disabled = false; return; }
     renderReservadas(panel, ev);
   }));
-  const buscar = panel.querySelector('.resBuscar');
-  if (!buscar) return;
-  const res = panel.querySelector('.resResultados');
-  const yaEnEvento = new Set(parejas.map(x => x.alumno.alumno_id));
-  buscar.addEventListener('input', async () => {
-    if (!alumnosSociosCache) alumnosSociosCache = await todasLasFilas(() => sb.from('alumnos')
-      .select('id, nombre, apellidos, etapa, curso, aula, fecha_nacimiento, socio_id, socios!inner(numero_socio_completo, estado)')
-      .eq('socios.estado', 'activa').order('apellidos').order('nombre'));
-    const q = buscar.value.trim().toLowerCase();
-    if (q.length < 2) { res.innerHTML = ''; return; }
-    const lista = alumnosSociosCache.filter(a => (a.nombre + ' ' + a.apellidos + ' ' + numeroSocioBonito(a.socios?.numero_socio_completo) + ' ' + (a.socios?.numero_socio_completo || '')).toLowerCase().includes(q)).slice(0, 15);
-    res.innerHTML = lista.length ? lista.map(a => `<div class="res-fila"><span><b>${esc(a.nombre)} ${esc(a.apellidos)}</b>
-        <small>${esc([a.curso, a.etapa, a.aula].filter(Boolean).join(' '))} · Socio nº ${esc(numeroSocioBonito(a.socios?.numero_socio_completo))}${cumpleCursoEvento(a, ev) ? '' : ' · <b class="fuera">no es de las edades del evento</b>'}</small></span>
-        ${yaEnEvento.has(a.id) ? '<span class="ya">Ya está apuntado/a: dale la plaza en la lista de arriba</span>' : `<button type="button" class="btn btn-outline" data-alumno="${a.id}">Elegir</button>`}</div>`).join('')
-      : '<p class="empty-hint">No hay ningún alumno/a de una familia activa con ese nombre.</p>';
-  });
-  res.addEventListener('click', async (e) => {
-    const b = e.target.closest('button[data-alumno]');
-    if (!b) return;
-    const al = alumnosSociosCache.find(a => a.id === b.dataset.alumno);
-    const { data: adultosFam } = await sb.from('adultos').select('id, nombre, apellidos').eq('socio_id', al.socio_id).order('created_at');
-    const ocupados = new Set(filas.filter(i => i.adulto_id).map(i => i.adulto_id));
-    res.innerHTML = `<div class="mini-form" style="margin-top:6px;"><p style="margin:0 0 8px;"><b>${esc(al.nombre)} ${esc(al.apellidos)}</b></p>
-      <div class="field"><label>Adulto que le acompaña</label><select class="resAdulto">${(adultosFam || []).map(a =>
-        `<option value="${a.id}"${ocupados.has(a.id) ? ' disabled' : ''}>${esc(a.nombre + ' ' + a.apellidos)}${ocupados.has(a.id) ? ' (ya está en el evento)' : ''}</option>`).join('')}</select></div>
-      <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;"><button type="button" class="btn btn-primary resOk">Dar plaza reservada</button>
-      <button type="button" class="linklike resCancel">Cancelar</button></div></div>`;
-    res.querySelector('.resCancel').addEventListener('click', () => { res.innerHTML = ''; buscar.value = ''; });
-    res.querySelector('.resOk').addEventListener('click', async (ev2) => {
-      const adultoId = res.querySelector('.resAdulto').value;
-      if (!adultoId || ocupados.has(adultoId)) { fallo('Elige el adulto que le acompaña.'); return; }
-      ev2.target.disabled = true; msg.hidden = true;
-      const grupo = nuevoUuid();
-      const comun = { evento_id: ev.id, socio_id: al.socio_id, grupo_id: grupo, estado: 'ganador', asignada_a_mano: true, creada_por_junta: true };
-      const r1 = await sb.from('evento_inscripciones').insert({ ...comun, tipo_miembro: 'alumno', alumno_id: al.id });
-      if (r1.error) { fallo(r1.error); ev2.target.disabled = false; return; }
-      const r2 = await sb.from('evento_inscripciones').insert({ ...comun, tipo_miembro: 'adulto', adulto_id: adultoId });
-      if (r2.error) {
-        await sb.from('evento_inscripciones').delete().eq('grupo_id', grupo).eq('evento_id', ev.id);   // nunca un alumno sin su adulto
-        fallo(r2.error); ev2.target.disabled = false; return;
-      }
-      renderReservadas(panel, ev);
-    });
-  });
 }
 
 /* ================= Postulaciones (Cabalgata) =================
