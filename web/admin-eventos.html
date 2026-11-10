@@ -682,11 +682,14 @@ async function cargarEventos() {
   const { data: eventos, error } = await sb.from('eventos').select('*').order('fecha', { ascending: true });
   if (error) { wrap.innerHTML = '<p class="msg-error">No se pudieron cargar.</p>'; return; }
   eventosCache = eventos || [];
-  const [{ data: parejas }, { data: sesInc }, ses] = await Promise.all([
+  const [{ data: parejas }, { data: sesInc }, ses, { data: conDocs }] = await Promise.all([
     sb.from('evento_incompatibles').select('evento_a, evento_b'),
     sb.from('evento_sesion_incompatibles').select('evento_id, sesion_id'),
-    cargarSesiones(eventosCache.filter(ES_CURSO).map(e => e.id))
+    cargarSesiones(eventosCache.filter(ES_CURSO).map(e => e.id)),
+    sb.from('documentos_evento').select('evento_id')
   ]);
+  // Eventos con documentos para firmar: la inscripción solo está completa con ellos firmados
+  const eventosConDocs = new Set((conDocs || []).map(d => d.evento_id));
   incompatCache = parejas || []; sesIncCache = sesInc || []; sesionesCursos = ses || {};
   pintarIncompat(editandoId ? marcadosIncompat() : []);
   if (!eventos || eventos.length === 0) { wrap.innerHTML = '<p class="empty-hint">Todavía no hay eventos.</p>'; return; }
@@ -731,6 +734,7 @@ async function cargarEventos() {
           (ev.plantilla === 'warhammer' ? '<button class="btn btn-outline toggleSesionesBtn">Sesiones</button>' : '') +
           (!ev.sin_inscripcion && !ev.usa_concurso_texto ? '<button class="btn btn-outline toggleActividadesBtn">Subactividades</button>' : '') +
           (ev.requiere_pareja_adulto_alumno && ev.plazas_reservadas > 0 ? '<button class="btn btn-outline toggleReservadasBtn">Plazas reservadas</button>' : '') +
+          (eventosConDocs.has(ev.id) ? '<button class="btn btn-outline toggleIncompletasBtn">Inscripciones sin terminar</button>' : '') +
           ((ev.puestos || []).length ? '<button class="btn btn-outline togglePostulacionesBtn">Postulaciones</button>' : '') +
           '<button class="btn btn-outline togglePremiosBtn">Premios</button>' +
           '<button class="btn btn-outline toggleFotosBtn">Fotos</button>' +
@@ -750,6 +754,7 @@ async function cargarEventos() {
       '<div class="sesionesPanel" style="display:none; margin-top:14px;"></div>' +
       '<div class="actividadesPanel" style="display:none; margin-top:14px;"></div>' +
       '<div class="reservadasPanel" style="display:none; margin-top:14px;"></div>' +
+      '<div class="incompletasPanel" style="display:none; margin-top:14px;"></div>' +
       '<div class="postulacionesPanel" style="display:none; margin-top:14px;"></div>' +
       '<div class="premiosPanel" style="display:none; margin-top:14px;"></div>' +
       '<div class="fotosPanel" style="display:none; margin-top:14px;"></div>' +
@@ -805,6 +810,14 @@ async function cargarEventos() {
         if (!visible) await renderActividades(panel, ev);
       });
     }
+
+    const incPanel = row.querySelector('.incompletasPanel');
+    const toggleIncBtn = row.querySelector('.toggleIncompletasBtn');
+    if (toggleIncBtn) toggleIncBtn.addEventListener('click', async () => {
+      const visible = incPanel.style.display === 'block';
+      incPanel.style.display = visible ? 'none' : 'block';
+      if (!visible) await renderIncompletas(incPanel, ev);
+    });
 
     const resPanel = row.querySelector('.reservadasPanel');
     const toggleResBtn = row.querySelector('.toggleReservadasBtn');
@@ -919,7 +932,7 @@ async function cargarEventos() {
     const sortearBtn = row.querySelector('.sortearBtn');
     if (sortearBtn) {
       sortearBtn.addEventListener('click', async () => {
-        if (!confirm('Esto reparte el evento por sorteo, una sola vez. ¿Continuar?')) return;
+        if (!confirm('Esto reparte el evento por sorteo, una sola vez.' + (eventosConDocs.has(ev.id) ? ' Solo entran las inscripciones completas: con todos los documentos firmados.' : '') + ' ¿Continuar?')) return;
         const msg = row.querySelector('.sortearMsg');
         sortearBtn.disabled = true;
         const session = await getSession();
@@ -932,7 +945,7 @@ async function cargarEventos() {
           const data = await resp.json();
           if (!resp.ok) throw new Error(data.error || 'Error al sortear');
           msg.style.display = 'block'; msg.className = 'sortearMsg msg-ok';
-          msg.textContent = `Sorteado ✓ — ${data.ganadores} ganador(es), ${data.noGanadores} sin plaza${data.puestos ? `, ${data.puestos} puesto(s) asignados` : ''}.`;
+          msg.textContent = `Sorteado ✓ — ${data.ganadores} ganador(es), ${data.noGanadores} sin plaza${data.puestos ? `, ${data.puestos} puesto(s) asignados` : ''}${data.sinDocumentos ? `. No entraron por no tener los documentos firmados: ${data.sinDocumentos} persona(s)` : ''}.`;
           cargarEventos();
         } catch (err) {
           msg.style.display = 'block'; msg.className = 'sortearMsg msg-error'; msg.textContent = err.message;
@@ -1329,6 +1342,87 @@ async function renderSesiones(panel, ev) {
     }
     e.target.disabled = false;
     msg.className = 'sMsg msg-ok'; msg.textContent = 'Sesiones guardadas ✓';
+  });
+}
+
+/* ================= Inscripciones sin terminar =================
+   En un evento con documentos, una inscripción solo está completa cuando
+   están firmados todos los que le tocan (evento_inscripciones_incompletas,
+   la misma regla que usa el sorteo: las incompletas no entran). Desde aquí
+   se avisa a esas familias por email (con vista previa) y en el móvil. */
+async function renderIncompletas(panel, ev) {
+  panel.innerHTML = '<p class="loading">Cargando...</p>';
+  const { data, error } = await sb.rpc('evento_inscripciones_incompletas', { p_evento: ev.id });
+  if (error) {
+    panel.innerHTML = '<p class="msg-error">' + esc(error.message) + (/evento_inscripciones_incompletas/.test(error.message) ? ' ¿Has ejecutado supabase/pendientes/migracion-inscripcion-completa.sql?' : '') + '</p>';
+    return;
+  }
+  const porFamilia = new Map();
+  (data || []).forEach(x => porFamilia.set(x.socio_id || 'sin', [...(porFamilia.get(x.socio_id || 'sin') || []), ...(x.faltan || [])]));
+  const ids = [...porFamilia.keys()].filter(k => k !== 'sin');
+  const [{ data: ads }, { data: socs }] = ids.length ? await Promise.all([
+    sb.from('adultos').select('socio_id, nombre, apellidos, created_at').in('socio_id', ids).order('created_at'),
+    sb.from('socios').select('id, numero_socio_completo').in('id', ids)
+  ]) : [{ data: [] }, { data: [] }];
+  const familia = (sid) => (a => a ? a.nombre + ' ' + a.apellidos : 'Familia')((ads || []).find(a => a.socio_id === sid));
+  const numero = (sid) => (s => s ? numeroSocioBonito(s.numero_socio_completo) : '')((socs || []).find(s => s.id === sid));
+  panel.innerHTML = `<p class="section-label">Inscripciones sin terminar: ${porFamilia.size} familia${porFamilia.size === 1 ? '' : 's'}</p>
+    <p class="ayuda" style="margin:0 0 10px;">Les falta firmar algún documento. ${ev.metodo_asignacion === 'sorteo' && !ev.sorteo_realizado ? 'Si no los firman antes del sorteo, no entran.' : ''}</p>
+    ${porFamilia.size ? `<div class="puesto-caja">${[...porFamilia].map(([sid, faltan]) => `<div class="puesto-fila">
+      <b>${sid === 'sin' ? 'Sin familia socia' : esc(familia(sid))}</b>${sid !== 'sin' && numero(sid) ? ` <small style="color:var(--ink-soft);">· Socio nº ${esc(numero(sid))}</small>` : ''}<br>
+      <small>Falta: ${esc([...new Set(faltan)].join(', '))}</small></div>`).join('')}</div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;">
+        <button type="button" class="btn btn-outline incVista">Vista previa del aviso</button>
+        <button type="button" class="btn btn-primary incEnviar" disabled title="Mira antes la vista previa">Enviar email y aviso al móvil</button>
+      </div>
+      <p class="incMsg" hidden></p>
+      <div class="incVistaZona" hidden style="margin-top:12px;"></div>` : '<p class="msg-ok">Todas las inscripciones tienen los documentos firmados.</p>'}`;
+  if (!porFamilia.size) return;
+  const msg = panel.querySelector('.incMsg');
+  const aviso = (ok, t) => { msg.hidden = false; msg.className = 'incMsg ' + (ok ? 'msg-ok' : 'msg-error'); msg.textContent = t; };
+  const llamar = async (cuerpo) => {
+    const session = await getSession();
+    const r = await fetch('/.netlify/functions/evento-avisar-incompletas', { method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
+      body: JSON.stringify({ eventoId: ev.id, ...cuerpo }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || 'No se pudo completar (error ' + r.status + ').');
+    return j;
+  };
+  panel.querySelector('.incVista').addEventListener('click', async (e) => {
+    e.target.disabled = true; msg.hidden = true;
+    try {
+      const r = await llamar({ vista: true });
+      const zona = panel.querySelector('.incVistaZona');
+      zona.hidden = false;
+      zona.innerHTML = `<p style="margin:0 0 6px;">Se enviará a <b>${r.vista.length}</b> familia${r.vista.length === 1 ? '' : 's'} (cada una con lo que le falta) y un aviso a sus móviles. Así le llega a la primera:</p>
+        <p style="margin:0 0 6px; font-size:14px;"><b>Para:</b> ${esc(r.vista[0].a)}<br><b>Asunto:</b> ${esc(r.vista[0].asunto)}</p>
+        <iframe title="Vista previa del email" sandbox="" style="width:100%; min-height:300px; border:1px solid var(--line); border-radius:12px; background:#fff;"></iframe>`;
+      zona.querySelector('iframe').srcdoc = '<!doctype html><meta charset="utf-8"><body style="margin:16px;">' + r.vista[0].html + '</body>';
+      panel.querySelector('.incEnviar').disabled = false;
+    } catch (err) { aviso(false, err.message); }
+    e.target.disabled = false;
+  });
+  // Un mismo envío aunque haya que reintentar: no se repite a quien ya lo recibió
+  const envioId = (window.crypto && crypto.randomUUID) ? crypto.randomUUID()
+    : '10000000-1000-4000-8000-100000000000'.replace(/[018]/g, c => (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16));
+  panel.querySelector('.incEnviar').addEventListener('click', async (e) => {
+    if (!confirm('¿Enviar ahora el email y el aviso al móvil a estas familias?')) return;
+    e.target.disabled = true;
+    let inicio = 0, enviados = 0, moviles = null; const fallos = [];
+    try {
+      while (inicio !== null) {
+        aviso(true, `Enviando… ${enviados} de ${porFamilia.size}`);
+        const r = await llamar({ envioId, inicio });
+        enviados += r.enviados; fallos.push(...(r.fallos || []));
+        if (r.moviles != null) moviles = r.moviles;
+        inicio = r.siguiente;
+      }
+      aviso(!fallos.length, `Enviado a ${enviados} familia${enviados === 1 ? '' : 's'}${moviles != null ? `; aviso al móvil a ${moviles}` : ''}.` + (fallos.length ? ` No se pudo enviar a: ${fallos.join(', ')}` : ''));
+    } catch (err) {
+      aviso(false, err.message + ' Puedes volver a pulsar «Enviar»: no se repite a quien ya lo recibió.');
+      e.target.disabled = false;
+    }
   });
 }
 

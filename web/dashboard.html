@@ -78,6 +78,9 @@
     <span class="btn btn-grande">Ir a Mis datos</span>
   </a>
 
+  <!-- Inscripciones sin terminar (faltan documentos por firmar): sale cada vez que entran -->
+  <div id="avisoIncompletas"></div>
+
   <!-- Invitación a activar los avisos en el móvil (hasta que se activan o se dice «Ahora no») -->
   <section class="aviso-avisos" id="avisoAvisos" hidden aria-live="polite"></section>
 
@@ -270,37 +273,19 @@ async function estadoUniformes(socioId) {
 }
 
 // ¿Puede alguien de la familia apuntarse de verdad a este evento ahora?
-// Plazas que ha dado la Junta (p. ej. reservadas de la Cabalgata): si el evento
-// tiene documentos sin firmar, es lo primero que hay que hacer
-async function estadoDocumentosPlazaJunta(socioId, alumnos) {
-  const { data: ins, error } = await sb.from('evento_inscripciones')
-    .select('id, evento_id, tipo_miembro, alumno_id, adulto_id').eq('socio_id', socioId).eq('asignada_a_mano', true);
-  if (error || !ins || !ins.length) return [];
-  const eventoIds = [...new Set(ins.map(i => i.evento_id))];
-  const [{ data: docs }, { data: resp }, { data: evs }] = await Promise.all([
-    sb.from('documentos_evento').select('*').in('evento_id', eventoIds),
-    sb.from('documentos_evento_respuestas').select('documento_evento_id, alumno_id, adulto_id, evento_inscripcion_id').eq('socio_id', socioId),
-    sb.from('eventos').select('id, titulo, fecha').in('id', eventoIds)
-  ]);
-  const pend = [];
-  for (const ev of evs || []) {
-    if (ev.fecha && new Date(ev.fecha) < ahora()) continue;
-    const faltan = (docs || []).filter(d => d.evento_id === ev.id).filter(d => ins.filter(i => i.evento_id === ev.id).some(i => {
-      if (d.aplica_a === 'adulto' && i.tipo_miembro === 'adulto')
-        return !(resp || []).some(r => r.documento_evento_id === d.id && r.adulto_id === i.adulto_id);
-      if (d.aplica_a === 'adulto' && i.tipo_miembro === 'invitado')
-        return !(resp || []).some(r => r.documento_evento_id === d.id && r.evento_inscripcion_id === i.id);
-      if ((d.aplica_a === 'alumno' || d.aplica_a === 'pareja') && i.tipo_miembro === 'alumno') {
-        const al = alumnos.find(a => a.id === i.alumno_id);
-        if (al && d.elegibilidad_modo && !alumnoCumple(al, d)) return false;
-        return !(resp || []).some(r => r.documento_evento_id === d.id && r.alumno_id === i.alumno_id);
-      }
-      return false;
-    }));
-    if (faltan.length) pend.push({ tipo: 'eventos', href: 'eventos.html#ev-' + ev.id, titulo: `Falta firmar: ${ev.titulo}`,
-      accion: 'Firmar', detalle: `La Junta os ha dado plaza. Para completar la inscripción, rellenad y firmad: ${nombres(faltan.map(d => d.titulo))}.` });
-  }
-  return pend;
+// Inscripciones sin terminar: les falta firmar algún documento (p. ej. la Cabalgata).
+// Aviso grande arriba cada vez que entran, hasta que lo firmen. La regla es la
+// de la base de datos (mis_inscripciones_incompletas), la misma que usa el sorteo.
+async function avisoInscripcionesIncompletas() {
+  const caja = document.getElementById('avisoIncompletas');
+  const { data, error } = await sb.rpc('mis_inscripciones_incompletas');
+  if (error || !data || !data.length) { caja.innerHTML = ''; return; }
+  const fechaCierre = (f) => f ? new Date(f).toLocaleString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }) : '';
+  caja.innerHTML = data.map(x => `<a class="aviso-revisar" href="eventos.html#ev-${x.evento_id}" style="display:block; text-decoration:none;">
+      <h2>NO HABÉIS TERMINADO LA INSCRIPCIÓN: ${esc(x.titulo).toUpperCase()}</h2>
+      <p>Falta firmar: ${esc((x.faltan || []).join(', '))}.${x.por_sorteo && !x.sorteo_realizado
+        ? ' Solo entran en el sorteo las inscripciones con todos los documentos firmados' + (x.cierre ? ` (el plazo termina el ${esc(fechaCierre(x.cierre))})` : '') + '.' : ''}</p>
+      <span class="btn btn-grande">Firmar los documentos</span></a>`).join('');
 }
 
 function alumnoCumple(al, e) {
@@ -483,6 +468,7 @@ document.getElementById('comentarioBtn').addEventListener('click', async () => {
   const socioId = ctx.socio.id;
   document.getElementById('saludo').textContent = 'Hola, ' + ctx.adulto.nombre;
   if (!ctx.socio.datos_revisados_en) document.getElementById('avisoRevisar').hidden = false;
+  avisoInscripcionesIncompletas().catch(() => {});
   // Al entrar: pantalla breve para activar los avisos; si no se muestra, la invitación en Inicio
   preguntarAvisosAlEntrar().then(mostrado => { if (!mostrado) montarAvisoInicio(document.getElementById('avisoAvisos')); });
   refrescarAvisos();
@@ -512,8 +498,6 @@ document.getElementById('comentarioBtn').addEventListener('click', async () => {
   ]);
   const pendientes = resultados.slice(0, 4).flat();
   if (pendienteMochila) pendientes.unshift(pendienteMochila);
-  // Lo urgente, primero: documentos de una plaza que ha dado la Junta
-  pendientes.unshift(...await estadoDocumentosPlazaJunta(socioId, alumnos || []).catch(() => []));
   if (pendientes.length) {
     const sec = document.getElementById('pendientes');
     sec.innerHTML = pendientes.map(htmlPendiente).join('');

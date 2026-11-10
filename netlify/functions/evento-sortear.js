@@ -77,6 +77,15 @@ exports.handler = async (event) => {
     return { statusCode: 400, body: JSON.stringify({ error: 'El plazo de inscripción sigue abierto. Sortea cuando haya cerrado.' }) };
   }
 
+  // Solo se sortean las inscripciones completas: con todos sus documentos firmados.
+  // Se mira antes de empezar: si falla, no se toca nada.
+  const { data: sinTerminar, error: incErr } = await supabaseAdmin.rpc('evento_inscripciones_incompletas', { p_evento: eventoId });
+  if (incErr) {
+    return { statusCode: 500, body: JSON.stringify({ error: 'No se pudo comprobar qué inscripciones están completas: ' + incErr.message +
+      (/evento_inscripciones_incompletas/.test(incErr.message) ? ' ¿Has ejecutado supabase/pendientes/migracion-inscripcion-completa.sql?' : '') }) };
+  }
+  const incompletas = new Set((sinTerminar || []).map(x => x.grupo));
+
   // Reclamo atómico: si sorteo_realizado ya era true, esta actualización
   // no afecta a ninguna fila y sabemos que ya se sorteó antes.
   const { data: reclamado, error: claimError } = await supabaseAdmin
@@ -95,7 +104,7 @@ exports.handler = async (event) => {
     return { statusCode: 400, body: JSON.stringify({ error: 'Este evento no usa sorteo, o ya se sorteó antes.' }) };
   }
 
-  const { data: inscripciones, error: insError } = await supabaseAdmin
+  const { data: todasPendientes, error: insError } = await supabaseAdmin
     .from('evento_inscripciones')
     .select('id, tipo_miembro, adulto_id, grupo_id')
     .eq('evento_id', eventoId)
@@ -105,6 +114,9 @@ exports.handler = async (event) => {
   if (insError) {
     return { statusCode: 500, body: JSON.stringify({ error: insError.message }) };
   }
+  // Las que no están completas no entran en el sorteo (se quedan sin plaza)
+  const inscripciones = todasPendientes.filter(i => !incompletas.has(i.grupo_id || i.id));
+  const fueraPorDocumentos = todasPendientes.filter(i => incompletas.has(i.grupo_id || i.id));
 
   const cupo = reclamado.aforo_total; // null = sin límite (no debería pasar en un sorteo real, pero por si acaso)
   let ganadoresIds = [];
@@ -153,7 +165,7 @@ exports.handler = async (event) => {
   }
 
   const ganadoresSet = new Set(ganadoresIds);
-  await actualizarEnLotes(inscripciones, async (i) => {
+  await actualizarEnLotes(todasPendientes, async (i) => {
     await supabaseAdmin.from('evento_inscripciones')
       .update({ estado: ganadoresSet.has(i.id) ? 'ganador' : 'no_ganador' })
       .eq('id', i.id);
@@ -196,6 +208,7 @@ exports.handler = async (event) => {
       totalInscripciones: inscripciones.length,
       ganadores: ganadoresIds.length,
       noGanadores: inscripciones.length - ganadoresIds.length,
+      sinDocumentos: fueraPorDocumentos.length,   // filas (alumnos y adultos) que no entraron por no tener los documentos firmados
       puestos: puestosSorteados
     })
   };

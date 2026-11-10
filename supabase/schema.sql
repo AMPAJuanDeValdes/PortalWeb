@@ -6812,10 +6812,120 @@ create table if not exists pruebas_familias (
   created_at timestamptz not null default now()
 );
 alter table pruebas_familias enable row level security;   -- sin políticas: solo la clave secreta
+-- La clave secreta (los scripts de prueba) tiene que poder leerla y escribirla
+grant select, insert, update, delete on pruebas_familias to service_role;
 
 create or replace function es_cuenta_de_pruebas()
 returns boolean language sql stable security definer set search_path = public as $$
   select exists (select 1 from adultos where id = auth.uid() and email ilike '%ampa-prueba-%')
       or exists (select 1 from pruebas_familias where socio_id = mi_socio_id());
 $$;
+
+
+-- ==================================================================
+-- INSCRIPCIÓN COMPLETA = DOCUMENTOS FIRMADOS
+--  · En un evento con documentos para firmar (p. ej. la Cabalgata: la
+--    autorización de menores y el cordón de seguridad), una inscripción
+--    (un alumno/a con su adulto, o una persona sola) solo está completa
+--    cuando están firmados todos los documentos que le tocan.
+--  · Solo entran en el sorteo las inscripciones completas.
+--  · evento_inscripciones_incompletas(evento): las inscripciones que no
+--    están completas y qué les falta (la Junta ve todas; cada familia, las
+--    suyas; la función del sorteo, todas).
+--  · mis_inscripciones_incompletas(): para el aviso a la familia cada vez
+--    que entra en la web.
+--  · La Junta puede avisarles (email y aviso en el móvil) desde el panel:
+--    avisos_enviados evita repetir un email si se corta el envío, y el
+--    historial (difusiones) lo apunta con el canal 'incompletas'.
+-- Un documento le toca a una persona igual que en la página de Eventos:
+--   adulto → cada adulto apuntado (socio o no socio)
+--   alumno y pareja → cada alumno/a apuntado (si el documento es solo para
+--   ciertos cursos o edades, solo a quien los cumple)
+-- Se puede ejecutar varias veces.
+-- ==================================================================
+
+create or replace function _documento_le_toca(d documentos_evento, i evento_inscripciones)
+returns boolean language sql stable security definer set search_path = public as $$
+  select case
+    when d.aplica_a = 'adulto' then i.tipo_miembro in ('adulto', 'invitado')
+    when d.aplica_a in ('alumno', 'pareja') then i.tipo_miembro = 'alumno' and (
+      d.elegibilidad_modo is null
+      or (d.elegibilidad_modo = 'curso' and (
+            jsonb_typeof(d.cursos_permitidos) is distinct from 'array' or jsonb_array_length(d.cursos_permitidos) = 0
+            or exists (select 1 from alumnos al, jsonb_array_elements(d.cursos_permitidos) c
+                       where al.id = i.alumno_id and c->>'etapa' = al.etapa and c->>'curso' = al.curso)))
+      or (d.elegibilidad_modo = 'edad' and exists (
+            select 1 from alumnos al where al.id = i.alumno_id and al.fecha_nacimiento is not null
+              and (d.edad_min is null or _edad_en(al.fecha_nacimiento, current_date) >= d.edad_min)
+              and (d.edad_max is null or _edad_en(al.fecha_nacimiento, current_date) <= d.edad_max))))
+    else false end;
+$$;
+revoke all on function _documento_le_toca(documentos_evento, evento_inscripciones) from public, anon, authenticated;
+
+create or replace function _documento_firmado(d documentos_evento, i evento_inscripciones)
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (select 1 from documentos_evento_respuestas r
+    where r.documento_evento_id = d.id
+      and ((i.tipo_miembro = 'adulto' and r.adulto_id = i.adulto_id)
+        or (i.tipo_miembro = 'invitado' and r.evento_inscripcion_id = i.id)
+        or (i.tipo_miembro = 'alumno' and r.alumno_id = i.alumno_id)));
+$$;
+revoke all on function _documento_firmado(documentos_evento, evento_inscripciones) from public, anon, authenticated;
+
+create or replace function _nombre_inscrito(i evento_inscripciones)
+returns text language sql stable security definer set search_path = public as $$
+  select case i.tipo_miembro
+    when 'alumno' then (select al.nombre || ' ' || al.apellidos from alumnos al where al.id = i.alumno_id)
+    when 'adulto' then (select a.nombre || ' ' || a.apellidos from adultos a where a.id = i.adulto_id)
+    else coalesce(i.nombre_invitado, '') || ' ' || coalesce(i.apellidos_invitado, '') end;
+$$;
+revoke all on function _nombre_inscrito(evento_inscripciones) from public, anon, authenticated;
+
+-- grupo: la pareja (grupo_id) o la persona sola (id de su inscripción)
+drop function if exists evento_inscripciones_incompletas(uuid);
+create function evento_inscripciones_incompletas(p_evento uuid)
+returns table (grupo uuid, socio_id uuid, faltan text[])
+language sql stable security definer set search_path = public as $$
+  select coalesce(i.grupo_id, i.id), i.socio_id,
+         array_agg(distinct d.titulo || ' de ' || btrim(_nombre_inscrito(i)))
+  from evento_inscripciones i
+  join documentos_evento d on d.evento_id = i.evento_id
+  where i.evento_id = p_evento and i.actividad_id is null and not i.es_voluntario
+    and (auth.uid() is null or coalesce(is_admin(), false) or i.socio_id = mi_socio_id())
+    and _documento_le_toca(d, i) and not _documento_firmado(d, i)
+  group by 1, 2;
+$$;
+grant execute on function evento_inscripciones_incompletas(uuid) to authenticated;
+
+-- La familia: eventos que aún no han pasado con alguna inscripción sin terminar
+drop function if exists mis_inscripciones_incompletas();
+create function mis_inscripciones_incompletas()
+returns table (evento_id uuid, titulo text, fecha timestamptz, por_sorteo boolean, sorteo_realizado boolean, cierre timestamptz, faltan text[])
+language sql stable security definer set search_path = public as $$
+  select e.id, e.titulo, e.fecha, e.metodo_asignacion = 'sorteo', e.sorteo_realizado, e.fecha_cierre_inscripcion,
+         array_agg(distinct d.titulo || ' de ' || btrim(_nombre_inscrito(i)))
+  from evento_inscripciones i
+  join eventos e on e.id = i.evento_id
+  join documentos_evento d on d.evento_id = i.evento_id
+  where i.socio_id = mi_socio_id() and i.actividad_id is null and not i.es_voluntario
+    and i.estado <> 'no_ganador' and (not e.sorteo_realizado or i.estado = 'ganador')
+    and (e.fecha is null or e.fecha >= now())
+    and _documento_le_toca(d, i) and not _documento_firmado(d, i)
+  group by e.id, e.titulo, e.fecha, e.metodo_asignacion, e.sorteo_realizado, e.fecha_cierre_inscripcion;
+$$;
+grant execute on function mis_inscripciones_incompletas() to authenticated;
+
+-- Emails ya enviados en un envío por tandas (si se repite una tanda, no se reenvía)
+create table if not exists avisos_enviados (
+  envio_id uuid not null,
+  ref_id uuid,
+  socio_id uuid not null references socios(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (envio_id, socio_id)
+);
+alter table avisos_enviados enable row level security;   -- sin políticas: solo las funciones de Netlify
+grant select, insert, update, delete on avisos_enviados to service_role;
+
+alter table difusiones drop constraint if exists difusiones_canal_check;
+alter table difusiones add constraint difusiones_canal_check check (canal in ('aviso', 'circular', 'recogida', 'incompletas'));
 

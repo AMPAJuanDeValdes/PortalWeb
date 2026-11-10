@@ -47,13 +47,17 @@ start "" notepad "pruebas\cabalgata\cuentas-de-prueba.txt"
 
 echo.
 echo ============================================================
-echo   La web esta abierta en http://localhost:8888
+echo   La web esta abierta en http://localhost:8888  ^(NO en la web publicada^)
 echo   Las cuentas de prueba estan en el Bloc de notas.
 echo.
-echo   Cuando TERMINES de probar, vuelve a esta ventana y pulsa
-echo   una tecla: se borra la Cabalgata y las cuentas de prueba.
+echo   NO cierres esta ventana mientras pruebas.
+echo   Cuando TERMINES, escribe BORRAR y pulsa Enter: se borra la
+echo   Cabalgata y las cuentas de prueba.
 echo ============================================================
-pause >nul
+:esperar
+set "RESP="
+set /p "RESP=Escribe BORRAR cuando termines: "
+if /i not "%RESP%"=="BORRAR" goto esperar
 
 taskkill /fi "WINDOWTITLE eq Web del AMPA - prueba Cabalgata*" /t /f >nul 2>nul
 echo Borrando los datos de prueba...

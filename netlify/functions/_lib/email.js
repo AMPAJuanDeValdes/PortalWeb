@@ -253,6 +253,20 @@ function plantillaUniformesRecogida({ nombre, prendas, cuando, lugar, nota }) {
   };
 }
 
+// Inscripción sin terminar: faltan documentos por firmar (p. ej. la Cabalgata).
+// Sin ellos la inscripción no entra en el sorteo.
+function plantillaInscripcionIncompleta({ nombre, evento, faltan, cierre, sorteo, url }) {
+  return {
+    subject: `Falta terminar la inscripción: ${evento}`,
+    text:
+      `Hola${nombre ? ' ' + nombre : ''},\n\n` +
+      `La inscripción en «${evento}» no está terminada: falta firmar estos documentos en la web:\n` +
+      faltan.map(f => `  - ${f}`).join('\n') + `\n\n` +
+      (sorteo ? `Solo entran en el sorteo las inscripciones con todos los documentos firmados` + (cierre ? `, y el plazo termina el ${cierre}` : '') + `.\n\n` : '') +
+      `Se firman en la web, en el evento:\n${url}\n`
+  };
+}
+
 // Al devolver la Mochila Jugona Exploradora: encuesta sobre los juegos
 function plantillaMochilaEncuesta({ nombre, url }) {
   return {
@@ -361,7 +375,7 @@ function plantillaRecordatorioDevolucion({ nombre, libros }) {
 
 module.exports = {
   componerBorrador, conFirma, textoAHtml, srcLogoFirma, rutaAsset,
-  plantillaLoteria, plantillaJustificanteRechazado, plantillaMochilaEncuesta, plantillaUniformesRecogida,
+  plantillaLoteria, plantillaJustificanteRechazado, plantillaMochilaEncuesta, plantillaUniformesRecogida, plantillaInscripcionIncompleta,
   enviarEmail, numeroSocioBonito, plantillaCredenciales, plantillaMochilaTurno, plantillaComentario, plantillaDonacion,
   plantillaBienvenida, plantillaRechazo, plantillaRecuperarPassword, plantillaRecordatorioDevolucion
 };

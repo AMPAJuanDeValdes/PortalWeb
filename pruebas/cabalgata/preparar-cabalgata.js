@@ -15,6 +15,15 @@ const { admin, crearFamilia, PASSWORD } = require('../ayudantes/datos');
 const RAIZ = path.join(__dirname, '..', '..');
 const SALIDA = path.join(__dirname, 'cuentas-de-prueba.txt');
 
+// Todo lo que sale por pantalla queda también en registro-prueba.txt (aquí al lado),
+// para poder ver después qué pasó aunque se cierre la ventana
+const REGISTRO = path.join(__dirname, 'registro-prueba.txt');
+for (const tipo of ['log', 'error']) {
+  const original = console[tipo].bind(console);
+  console[tipo] = (...a) => { original(...a); try { fs.appendFileSync(REGISTRO, a.join(' ') + '\n', 'utf8'); } catch (e) { /* sin registro */ } };
+}
+console.log(`\n=== Preparar la Cabalgata de prueba (${new Date().toLocaleString('es-ES')}) ===`);
+
 // Las plantillas de documentos de la web (las mismas que usa el panel)
 function plantillas() {
   const codigo = fs.readFileSync(path.join(RAIZ, 'web', 'shared', 'plantillas-documentos.js'), 'utf8');
@@ -34,12 +43,20 @@ async function comprobarMigraciones() {
     ['migracion-cabalgata-reservas.sql', () => admin.from('eventos').select('plazas_reservadas, pajes_reservados').limit(1)],
     ['migracion-documentos-pareja.sql', () => admin.from('evento_inscripciones').select('parentesco, movil_invitado').limit(1)],
     ['migracion-eventos-prueba.sql', () => admin.from('eventos').select('solo_pruebas').limit(1)],
-    ['migracion-pruebas-familia-real.sql', () => admin.from('pruebas_familias').select('socio_id').limit(1)]
+    ['migracion-pruebas-familia-real.sql', () => admin.from('pruebas_familias').select('socio_id').limit(1)],
+    ['migracion-inscripcion-completa.sql', () => admin.rpc('evento_inscripciones_incompletas', { p_evento: '00000000-0000-0000-0000-000000000000' })]
   ];
   const faltan = [];
-  for (const [archivo, consulta] of pruebas) { const { error } = await consulta(); if (error) faltan.push(archivo); }
+  for (const [archivo, consulta] of pruebas) {
+    const { error } = await consulta();
+    // Con el motivo exacto que da Supabase (p. ej. si la migración está pero Supabase aún no la ha cargado)
+    if (error) faltan.push(`${archivo} (Supabase dice: ${error.message}${error.code ? ' · código ' + error.code : ''})`);
+  }
   if (faltan.length) throw new Error('Antes hay que ejecutar en Supabase (supabase/pendientes): ' + faltan.join(', '));
 }
+
+// Imagen mínima (1×1 px) para los documentos «firmados» de las familias ya apuntadas
+const PNG_PRUEBA = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
 
 const nacido = (edad) => `${2027 - edad - 1}-0${1 + (edad % 9)}-15`;   // tendrá «edad» años el 4 de enero de 2027
 
@@ -60,6 +77,7 @@ async function familia(etiqueta, adultos, alumnos, opciones = {}) {
 
 (async () => {
   await comprobarMigraciones();
+  console.log('Migraciones: bien.');
 
   // Si quedó una Cabalgata de prueba de otra vez, fuera (con sus inscripciones)
   await admin.from('eventos').delete().eq('solo_pruebas', true).ilike('titulo', 'Cabalgata%');
@@ -78,14 +96,16 @@ async function familia(etiqueta, adultos, alumnos, opciones = {}) {
     fecha_cierre_inscripcion: new Date(ahora + 14 * 86400e3).toISOString(),
     descripcion: 'Evento de prueba: solo lo ven la Junta y las cuentas de prueba.'
   }).select('*').single(), 'crear el evento');
+  console.log('Evento creado: ' + ev.titulo + ' (' + ev.id + ')');
 
   // Los dos documentos, ya preparados
+  const docs = [];
   for (const t of plantillas()) {
     const archivo = fs.readFileSync(path.join(RAIZ, 'web', t.archivo));
     const ruta = `${ev.id}/${Date.now()}-${path.basename(t.archivo)}`;
     await ok(admin.storage.from('documentos-evento').upload(ruta, archivo, { contentType: 'application/pdf' }), 'subir ' + t.titulo);
-    await ok(admin.from('documentos_evento').insert({ evento_id: ev.id, titulo: t.titulo, aplica_a: t.aplica_a,
-      tipo_documento: 'plantilla_firma', pagina_rellenable: t.pagina, archivo_base_url: ruta, campos: t.campos }), 'documento ' + t.titulo);
+    docs.push(await ok(admin.from('documentos_evento').insert({ evento_id: ev.id, titulo: t.titulo, aplica_a: t.aplica_a,
+      tipo_documento: 'plantilla_firma', pagina_rellenable: t.pagina, archivo_base_url: ruta, campos: t.campos }).select('*').single(), 'documento ' + t.titulo));
   }
 
   // Cuentas para probar a mano
@@ -109,6 +129,21 @@ async function familia(etiqueta, adultos, alumnos, opciones = {}) {
     await ok(admin.from('evento_inscripciones').insert(noSocio
       ? { ...base, tipo_miembro: 'invitado', nombre_invitado: 'Abuela', apellidos_invitado: ap + ' Mayor', dni_invitado: '00000000T', movil_invitado: '600000001', parentesco: 'Abuelo/a' }
       : { ...base, tipo_miembro: 'adulto', adulto_id: f.adultos[0].id, parentesco: 'Madre' }), 'apuntar adulto');
+    // Las 9 primeras, con los documentos ya firmados (inscripción terminada); las 3 últimas,
+    // sin firmar: no entran en el sorteo y salen en «Inscripciones sin terminar»
+    if (k < 9) {
+      const filas = await ok(admin.from('evento_inscripciones').select('id, tipo_miembro, alumno_id, adulto_id').eq('grupo_id', base.grupo_id), 'leer pareja');
+      for (const d of docs) for (const i of filas) {
+        const clave = d.aplica_a === 'adulto'
+          ? (i.tipo_miembro === 'adulto' ? { adulto_id: i.adulto_id } : i.tipo_miembro === 'invitado' ? { evento_inscripcion_id: i.id } : null)
+          : (i.tipo_miembro === 'alumno' ? { alumno_id: i.alumno_id } : null);
+        if (!clave) continue;
+        const ruta = `${f.socio.id}/${d.id}/${Date.now()}-${i.id.slice(0, 8)}.png`;
+        await ok(admin.storage.from('documentos-evento').upload(ruta, PNG_PRUEBA, { contentType: 'image/png' }), 'documento firmado');
+        await ok(admin.from('documentos_evento_respuestas').insert({ documento_evento_id: d.id, socio_id: f.socio.id, ...clave,
+          archivo_final_url: ruta, datos_finales: {}, aviso_diferencias: false }), 'firma de prueba');
+      }
+    }
     if (puestos[k]) await ok(admin.from('evento_postulaciones').insert({ evento_id: ev.id, puesto: puestos[k], socio_id: f.socio.id, adulto_id: f.adultos[1].id }), 'postulación');
     apuntadas.push(f);
   }
@@ -137,9 +172,13 @@ async function familia(etiqueta, adultos, alumnos, opciones = {}) {
     `  Segundo adulto de la familia García: ${garcia.adultos[1].email} (misma contraseña)\n`,
     linea('Familia López (Hugo 13 años y Lía 5)', lopez, 'que no deja apuntar a alumnos fuera de 6 a 12 años.'),
     linea('Familia sin datos confirmados', sinConfirmar, 'que no puede apuntarse ni postularse hasta confirmar sus datos.'),
-    `Además hay 12 familias ya apuntadas (2 con un adulto no socio) y 5 postulaciones (Rey Gaspar y Paje Real).`,
+    `Además hay 12 familias ya apuntadas (2 con un adulto no socio): 9 con los documentos firmados y 3 sin firmar (inscripción sin terminar),`,
+    `y 5 postulaciones (Rey Gaspar y Paje Real).`,
     `Ejemplo de familia ya apuntada: ${apuntadas[0].adultos[0].email} (misma contraseña).`
   ].join('\n');
+  // Comprobación final: el evento existe y lo ve la base de datos
+  const { data: comprueba } = await admin.from('eventos').select('id').eq('id', ev.id).maybeSingle();
+  if (!comprueba) throw new Error('El evento no aparece después de crearlo.');
   fs.writeFileSync(SALIDA, texto, 'utf8');
   console.log('\n' + texto + '\n\nGuardado en ' + SALIDA + '\n');
 })().catch(e => { console.error('\n[!] ' + e.message + '\n'); process.exit(1); });

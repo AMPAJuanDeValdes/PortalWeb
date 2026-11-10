@@ -1112,6 +1112,9 @@ async function renderEventoPareja(evento) {
     if (!r.error) postulaciones = r.data || [];
   }
   const puestoQueImpideAcompanar = (adultoId) => (postulaciones || []).find(p => p.adulto_id === adultoId);
+  // Inscripciones sin terminar: les falta firmar algún documento (no entran en el sorteo)
+  const { data: sinTerminar } = await sb.rpc('evento_inscripciones_incompletas', { p_evento: evento.id });
+  const faltanDe = new Map((sinTerminar || []).map(x => [x.grupo, x.faltan || []]));
   const grupos = {};
   ins.forEach(i => { const g = i.grupo_id || i.id; (grupos[g] = grupos[g] || []).push(i); });
 
@@ -1127,7 +1130,8 @@ async function renderEventoPareja(evento) {
     ? ` Solo pueden ir alumnos de ${evento.edad_min ?? 0} a ${evento.edad_max ?? 99} años (edad el día del evento).` : '';
   const sinFecha = evento.elegibilidad_modo === 'edad' && misAlumnos.some(a => !a.fecha_nacimiento)
     ? ' <b>A algún alumno le falta la fecha de nacimiento: añadidla en <a href="mis-datos.html">Mis datos</a>.</b>' : '';
-  b.innerHTML = '<h3>Quién va de tu familia</h3><p class="ayuda">Cada alumno o alumna tiene que ir con un adulto. También pueden ir adultos solos.' + rangoEdad + ' Las plazas son para alumnos y se sortean al cerrar el plazo; cada alumno que sale va con su adulto.' + sinFecha + '</p>';
+  b.innerHTML = '<h3>Quién va de tu familia</h3><p class="ayuda">Cada alumno o alumna tiene que ir con un adulto. También pueden ir adultos solos.' + rangoEdad + ' Las plazas son para alumnos y se sortean al cerrar el plazo; cada alumno que sale va con su adulto.' +
+    (sinTerminar !== null ? ' La inscripción solo está terminada cuando están firmados todos los documentos de abajo: solo entran en el sorteo las inscripciones terminadas.' : '') + sinFecha + '</p>';
   const ordenTipo = { alumno: 0, adulto: 1, invitado: 1 };
   Object.entries(grupos).forEach(([g, filas]) => {
     filas.sort((x, y) => ordenTipo[x.tipo_miembro] - ordenTipo[y.tipo_miembro]);
@@ -1136,6 +1140,10 @@ async function renderEventoPareja(evento) {
     fila.className = 'miembro';
     fila.innerHTML = `<div class="miembro-fila"><span class="nombre">${esc(filas.map(nombreDe).join(' con '))}<span class="detalle">${esc(filas.map(f => detalleInscripcion(f, evento)).filter(Boolean).join('. '))}</span></span><span class="accion"></span></div>`;
     const accion = fila.querySelector('.accion');
+    const faltan = faltanDe.get(g);
+    if (faltan && faltan.length && filas[0].estado !== 'no_ganador') {
+      fila.insertAdjacentHTML('beforeend', `<p class="msg-error" style="margin:6px 0 0;">Inscripción sin terminar: falta firmar ${esc(faltan.join(', '))}.</p>`);
+    }
     if (filas.some(f => f.asignada_a_mano)) {
       accion.innerHTML = '<span class="estado-ok">Tienen plaza (la ha dado la Junta)</span>';
     } else if (evento.sorteo_realizado) {
