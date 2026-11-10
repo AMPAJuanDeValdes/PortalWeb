@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prueba de documentos (local)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700&family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/shared/styles.css">
+<style>
+  main{ max-width:1000px; margin:0 auto; padding:24px 16px 60px; }
+  .aviso-local{ background:#FFF4D6; border:1px solid #E7C66B; border-radius:12px; padding:12px 16px; margin-bottom:18px; }
+  .datos{ display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:10px 16px; margin:12px 0 18px; }
+  .datos fieldset{ border:1px solid var(--line); border-radius:12px; padding:10px 14px; margin:0; }
+  .datos legend{ font-weight:700; padding:0 6px; }
+  .datos label{ display:block; font-size:14px; margin-top:6px; }
+  .datos input{ width:100%; box-sizing:border-box; }
+  .doc-zona{ border:1px solid var(--line); border-radius:12px; padding:14px; background:#fff; }
+  #resultado img{ max-width:100%; border:1px solid var(--line); margin-top:10px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Prueba de documentos</h1>
+  <div class="aviso-local">Solo funciona en tu ordenador (<code>herramientas\probar-documentos.bat</code>). No lee ni guarda nada en la base de datos: los datos son de prueba y el documento firmado solo se muestra aquí.</div>
+
+  <div class="two-col">
+    <div class="field"><label for="plantilla">Documento</label><select id="plantilla"></select></div>
+    <div class="field"><label for="caso">Quién va</label><select id="caso"></select></div>
+  </div>
+
+  <div class="datos" id="datos"></div>
+  <button type="button" class="btn btn-primary" id="abrir">Abrir el documento con estos datos</button>
+
+  <div class="doc-zona" id="zona" hidden style="margin-top:18px;"></div>
+  <div id="resultado"></div>
+</main>
+
+<script src="/shared/datos-ampa.js"></script>
+<script src="/shared/documentoRellenable.js"></script>
+<script src="/shared/plantillas-documentos.js"></script>
+<script>
+// Datos de prueba (inventados). Se pueden cambiar en la página antes de abrir el documento.
+const EVENTO = { id: 'prueba', titulo: 'Cabalgata (prueba)', fecha: '2027-01-04T16:00:00' };
+const PRUEBA = {
+  adulto: { nombre: 'Lucía', apellidos: 'Fernández Gómez', dni_nie: '12345678Z', direccion: 'C/ Alcalá 500, 3ºB', codigo_postal: '28027', ciudad: 'Madrid', movil: '600111222' },
+  alumno: { nombre: 'Marta', apellidos: 'Ruiz Fernández', fecha_nacimiento: '2018-03-14' },
+  noSocio: { nombre: 'Antonio', apellidos: 'Ruiz Pérez', dni: '87654321X', movil: '611222333', parentesco: 'Abuelo/a' },
+  parentescoSocio: 'Madre'
+};
+const CASOS = {
+  pareja: [['socio', 'Alumno/a socio con un adulto socio'], ['nosocio', 'Alumno/a socio con un adulto NO socio']],
+  adulto: [['socio', 'Adulto socio'], ['nosocio', 'Adulto NO socio']],
+  alumno: [['socio', 'Alumno/a socio']]
+};
+const $ = (id) => document.getElementById(id);
+const esc = (t) => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+$('plantilla').innerHTML = PLANTILLAS_DOCUMENTOS.map(p => `<option value="${p.id}">${esc(p.titulo)}</option>`).join('');
+const plantilla = () => PLANTILLAS_DOCUMENTOS.find(p => p.id === $('plantilla').value);
+function pintarCasos() {
+  $('caso').innerHTML = (CASOS[plantilla().aplica_a] || []).map(([v, t]) => `<option value="${v}">${t}</option>`).join('');
+  pintarDatos();
+}
+// Campos de prueba: lo que en la web sale de Mis datos (socios) o de la inscripción (no socios)
+function pintarDatos() {
+  const t = plantilla(), caso = $('caso').value;
+  const campo = (grupo, k, label, v) => `<label>${label}<input data-g="${grupo}" data-k="${k}" value="${esc(v)}"></label>`;
+  const a = PRUEBA.adulto, al = PRUEBA.alumno, ns = PRUEBA.noSocio;
+  let html = `<fieldset><legend>Adulto socio${t.aplica_a === 'pareja' ? ' (firma como padre/madre/tutor)' : ''}</legend>
+    ${campo('adulto', 'nombre', 'Nombre', a.nombre)}${campo('adulto', 'apellidos', 'Apellidos', a.apellidos)}${campo('adulto', 'dni_nie', 'DNI/NIE', a.dni_nie)}
+    ${campo('adulto', 'direccion', 'Dirección', a.direccion)}${campo('adulto', 'codigo_postal', 'Código postal', a.codigo_postal)}
+    ${campo('adulto', 'ciudad', 'Ciudad', a.ciudad)}${campo('adulto', 'movil', 'Móvil', a.movil)}</fieldset>`;
+  if (t.aplica_a === 'pareja' || t.aplica_a === 'alumno')
+    html += `<fieldset><legend>Alumno/a</legend>${campo('alumno', 'nombre', 'Nombre', al.nombre)}${campo('alumno', 'apellidos', 'Apellidos', al.apellidos)}
+      ${campo('alumno', 'fecha_nacimiento', 'Fecha de nacimiento (AAAA-MM-DD)', al.fecha_nacimiento)}</fieldset>`;
+  if (caso === 'nosocio')
+    html += `<fieldset><legend>Adulto no socio (lo escribe la familia al apuntarse)</legend>${campo('nosocio', 'nombre', 'Nombre', ns.nombre)}${campo('nosocio', 'apellidos', 'Apellidos', ns.apellidos)}
+      ${campo('nosocio', 'dni', 'DNI/NIE', ns.dni)}${t.aplica_a === 'pareja' ? campo('nosocio', 'movil', 'Móvil', ns.movil) + campo('nosocio', 'parentesco', 'Parentesco', ns.parentesco) : ''}</fieldset>`;
+  else if (t.aplica_a === 'pareja')
+    html += `<fieldset><legend>Al apuntarse</legend>${campo('socio', 'parentesco', 'Parentesco del adulto socio', PRUEBA.parentescoSocio)}</fieldset>`;
+  $('datos').innerHTML = html;
+}
+const leer = (g) => Object.fromEntries([...document.querySelectorAll(`#datos input[data-g="${g}"]`)].map(i => [i.dataset.k, i.value.trim()]));
+
+// La misma inscripción que crearía la web, y los mismos datos del documento (personaParaDocumento)
+function contextoPrueba() {
+  const t = plantilla(), caso = $('caso').value;
+  const adulto = { id: 'ad1', ...leer('adulto') };
+  const alumno = { id: 'al1', ...leer('alumno') };
+  const ns = leer('nosocio');
+  const filaAlumno = { id: 'i1', tipo_miembro: 'alumno', alumno_id: 'al1', grupo_id: 'g1' };
+  const filaAdulto = caso === 'nosocio'
+    ? { id: 'i2', tipo_miembro: 'invitado', grupo_id: 'g1', nombre_invitado: ns.nombre, apellidos_invitado: ns.apellidos, dni_invitado: ns.dni, movil_invitado: ns.movil, parentesco: ns.parentesco }
+    : { id: 'i2', tipo_miembro: 'adulto', adulto_id: 'ad1', grupo_id: 'g1', parentesco: leer('socio').parentesco };
+  const inscripcion = t.aplica_a === 'adulto' ? filaAdulto : filaAlumno;
+  return { evento: EVENTO, inscripcion, inscripciones: [filaAlumno, filaAdulto], adultos: [adulto], alumnos: [alumno], firmante: adulto };
+}
+
+$('plantilla').addEventListener('change', pintarCasos);
+$('caso').addEventListener('change', pintarDatos);
+$('abrir').addEventListener('click', async () => {
+  const t = plantilla();
+  const zona = $('zona');
+  zona.hidden = false; zona.innerHTML = '<p class="loading">Cargando documento...</p>';
+  $('resultado').innerHTML = '';
+  try {
+    const persona = personaParaDocumento(t, contextoPrueba());
+    const fondos = await renderizarPaginasPDF('/' + t.archivo, paginasDeCampos(t.campos, t.pagina));
+    zona.innerHTML = `<p><a href="/${t.archivo}" target="_blank" rel="noopener">Leer el documento completo</a> antes de firmar.</p><div class="docZona"></div>`;
+    abrirFormularioRelleno(zona.querySelector('.docZona'), fondos, t.campos, persona, (blob) => {
+      const url = URL.createObjectURL(blob);
+      $('resultado').innerHTML = `<h2 style="margin-top:24px;">Así queda guardado</h2>
+        <p><a href="${url}" download="${t.id}-prueba.png">Descargar la imagen</a></p><img src="${url}" alt="Documento firmado de prueba">`;
+      $('resultado').scrollIntoView({ behavior: 'smooth' });
+    }, { soloFirma: true, dondeCorregir: 'En la web se completa en Mis datos.' });
+  } catch (err) {
+    zona.innerHTML = '<p class="msg-error">No se pudo abrir: ' + esc(err.message) + '</p>';
+  }
+});
+pintarCasos();
+</script>
+</body>
+</html>

@@ -64,7 +64,14 @@ exports.handler = async (event) => {
   if (!ev.activo) return json(400, { error: 'El evento no está publicado: actívalo antes de avisar.' });
 
   try {
-    const { socios, alumnos } = await familiasActivas(sb);
+    let { socios, alumnos } = await familiasActivas(sb);
+    // Evento de prueba: solo se avisa a las familias de prueba
+    if (ev.solo_pruebas) {
+      const { data: prueba } = await sb.from('adultos').select('socio_id').ilike('email', '%ampa-prueba-%');
+      const deprueba = new Set((prueba || []).map(a => a.socio_id));
+      socios = socios.filter(s => deprueba.has(s.id));
+      alumnos = alumnos.filter(a => deprueba.has(a.socio_id));
+    }
     // Familia → nombres de sus alumnos/as que pueden apuntarse
     const nombres = new Map();
     if (ev.tipo_elegibilidad === 'adultos' || ev.sin_inscripcion || (ev.tipo_elegibilidad === 'toda_familia' && ev.elegibilidad_modo !== 'edad')) {

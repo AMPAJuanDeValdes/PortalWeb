@@ -37,6 +37,13 @@ module.exports = async function limpiar() {
   // a las familias, que si no quedan referenciadas
   // También «Venta de <campaña de prueba>», creados desde Lotería
   await admin.from('eventos').delete().ilike('titulo', `%${MARCA}%`);
+  // Eventos de prueba ocultos (los de herramientas\probar-cabalgata.bat), con sus documentos
+  const { data: ocultos, error: errOcultos } = await admin.from('eventos').select('id').eq('solo_pruebas', true);
+  if (!errOcultos) for (const ev of ocultos || []) {
+    const { data: arch } = await admin.storage.from('documentos-evento').list(ev.id);
+    if (arch && arch.length) await admin.storage.from('documentos-evento').remove(arch.map(a => `${ev.id}/${a.name}`));
+    await admin.from('eventos').delete().eq('id', ev.id);
+  }
   // Campañas de lotería de prueba (con sus talonarios, ingresos, historial y mensajes)
   await admin.from('loteria_campanas').delete().ilike('nombre', `${MARCA}%`);
   await admin.from('loteria_mensajes').delete().ilike('email', `%${MARCA}%`);
@@ -51,6 +58,15 @@ module.exports = async function limpiar() {
   }
 
   // 4. Borrar usuarios (sus fichas de adulto se borran en cascada) y familias
+  // Documentos de eventos firmados por familias de prueba (carpeta = familia/documento/)
+  for (const socioId of socios) {
+    const { data: carpetas } = await admin.storage.from('documentos-evento').list(socioId);
+    for (const c of carpetas || []) {
+      const { data: arch } = await admin.storage.from('documentos-evento').list(`${socioId}/${c.name}`);
+      const rutas = (arch || []).map(a => `${socioId}/${c.name}/${a.name}`);
+      if (rutas.length) await admin.storage.from('documentos-evento').remove(rutas);
+    }
+  }
   for (const id of ids) await admin.auth.admin.deleteUser(id);
   if (socios.length) await admin.from('socios').delete().in('id', socios);
 

@@ -231,7 +231,7 @@ exports.handler = async (event) => {
       sb.from('evento_sesiones').select('numero, fecha').eq('evento_id', ev.id).order('numero'),
       sb.from('evento_actividades').select('nombre, horario, aforo, elegibilidad_modo, cursos_permitidos, edad_min, edad_max, created_at').eq('evento_id', ev.id).order('created_at')
     ]);
-    asunto = ev.titulo; circular = circularEvento(ev, ses || [], acts || [], web); tipoRef = 'evento'; refId = ev.id;
+    asunto = (ev.solo_pruebas ? '[PRUEBA] ' : '') + ev.titulo; circular = circularEvento(ev, ses || [], acts || [], web); tipoRef = 'evento'; refId = ev.id;
     correo = { destinatarios: destinatariosEvento(ev, acts || []), limite: !ev.sin_inscripcion && ev.fecha_cierre_inscripcion ? diaLimite(ev.fecha_cierre_inscripcion) : null };
   }
   try {

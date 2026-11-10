@@ -248,6 +248,7 @@
 <script src="shared/csv.js"></script>
 <script src="shared/xlsx.js"></script>
 <script src="shared/documentoRellenable.js"></script>
+<script src="shared/plantillas-documentos.js"></script>
 <script src="shared/email-dialogo.js"></script>
 <script>
 const $ = (id) => document.getElementById(id);
@@ -712,7 +713,8 @@ async function cargarEventos() {
     if (eventoTerminadoAdmin(ev)) row.dataset.pasado = '1';
     row.innerHTML =
       '<div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap;">' +
-        '<div><b>' + esc(ev.titulo) + '</b> ' + (ev.activo ? '' : '<span class="badge badge-socio">Oculto</span>') + '<br>' +
+        '<div><b>' + esc(ev.titulo) + '</b> ' + (ev.activo ? '' : '<span class="badge badge-socio">Oculto</span>') +
+          (ev.solo_pruebas ? ' <span class="badge badge-socio" title="Solo lo ven la Junta y las cuentas de prueba">PRUEBA</span>' : '') + '<br>' +
           '<span style="font-size:14px; color:var(--ink-soft);">' +
             (ev.plantilla === 'warhammer' ? 'Curso por sesiones' : ev.fecha ? new Date(ev.fecha).toLocaleDateString('es-ES', { dateStyle: 'medium' }) + ', ' + horarioEvento(ev) : 'Sin fecha') +
             (ev.sin_inscripcion ? ', informativo' : ev.usa_concurso_texto ? ', concurso' : ', ' + QUIEN[ev.tipo_elegibilidad]) +
@@ -1643,10 +1645,19 @@ async function renderDocsEvento(panel, evento) {
   const { data: docs } = await sb.from('documentos_evento').select('*').eq('evento_id', evento.id).order('created_at');
 
   panel.innerHTML = `
-    <p class="section-label">Añadir documento a rellenar y firmar</p>
+    <p class="section-label">Usar un documento preparado</p>
+    <p class="ayuda" style="margin:0 0 8px;">Con los datos ya colocados: la familia solo tiene que firmar. Se puede ajustar luego con «Editar plantilla».</p>
+    <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+      <select class="nDocPlantilla" style="max-width:420px;"><option value="">Elige un documento</option>${(typeof PLANTILLAS_DOCUMENTOS !== 'undefined' ? PLANTILLAS_DOCUMENTOS : [])
+        .map(t => `<option value="${t.id}">${esc(t.titulo)}</option>`).join('')}</select>
+      <button type="button" class="btn btn-outline nDocPlantillaBtn">Añadir al evento</button>
+    </div>
+    <p class="nDocPlantillaMsg" hidden style="margin-top:8px;"></p>
+
+    <p class="section-label" style="margin-top:22px;">Añadir documento a rellenar y firmar</p>
     <div class="field"><label>Título (ej. "Autorización de menores")</label><input type="text" class="nDocTitulo"></div>
     <div class="two-col" style="margin-top:10px;">
-      <div class="field"><label>Se rellena por</label><select class="nDocAplicaA"><option value="adulto">Un adulto</option><option value="alumno">Un alumno</option></select></div>
+      <div class="field"><label>Se rellena por</label><select class="nDocAplicaA"><option value="adulto">Un adulto</option><option value="alumno">Un alumno</option><option value="pareja">Un alumno con su adulto (Cabalgata)</option></select></div>
       <div class="field"><label>Página del PDF que hay que rellenar</label><input type="number" class="nDocPagina" value="1" min="1" style="max-width:100px;"></div>
     </div>
     <div class="field" style="margin-top:10px;">
@@ -1699,7 +1710,7 @@ async function renderDocsEvento(panel, evento) {
       evento_id: evento.id, titulo, aplica_a, tipo_documento: 'plantilla_firma',
       pagina_rellenable: pagina, archivo_base_url: path, campos: []
     };
-    if (aplica_a === 'alumno') {
+    if (aplica_a === 'alumno' || aplica_a === 'pareja') {
       nuevoDoc.elegibilidad_modo = modo;
       if (modo === 'curso') {
         nuevoDoc.cursos_permitidos = Array.from(panel.querySelectorAll('.nDocCursoCb:checked')).map(cb => ({ etapa: cb.dataset.etapa, curso: cb.dataset.curso }));
@@ -1727,6 +1738,32 @@ async function renderDocsEvento(panel, evento) {
     }
   });
 
+  // Documento preparado: se sube su PDF al evento con los campos ya colocados
+  panel.querySelector('.nDocPlantillaBtn').addEventListener('click', async (e) => {
+    const t = (typeof PLANTILLAS_DOCUMENTOS !== 'undefined' ? PLANTILLAS_DOCUMENTOS : []).find(x => x.id === panel.querySelector('.nDocPlantilla').value);
+    const msg = panel.querySelector('.nDocPlantillaMsg');
+    const aviso = (ok, texto) => { msg.hidden = false; msg.className = ok ? 'msg-ok' : 'msg-error'; msg.textContent = texto; };
+    if (!t) { aviso(false, 'Elige un documento.'); return; }
+    if ((docs || []).some(d => d.titulo === t.titulo) && !confirm('Este evento ya tiene «' + t.titulo + '». ¿Añadirlo otra vez?')) return;
+    e.target.disabled = true;
+    try {
+      const resp = await fetch(t.archivo);
+      if (!resp.ok) throw new Error('no se encuentra ' + t.archivo);
+      const path = `${evento.id}/${Date.now()}-${t.archivo.split('/').pop()}`;
+      const { error: upErr } = await sb.storage.from('documentos-evento').upload(path, await resp.blob(), { contentType: 'application/pdf' });
+      if (upErr) throw upErr;
+      const { error: insErr } = await sb.from('documentos_evento').insert({
+        evento_id: evento.id, titulo: t.titulo, aplica_a: t.aplica_a, tipo_documento: 'plantilla_firma',
+        pagina_rellenable: t.pagina, archivo_base_url: path, campos: t.campos
+      });
+      if (insErr) throw insErr;
+      renderDocsEvento(panel, evento);
+    } catch (err) {
+      aviso(false, 'No se pudo añadir: ' + (err.message || err) + (/aplica_a/.test(err.message || '') ? ' ¿Has ejecutado supabase/pendientes/migracion-documentos-pareja.sql?' : ''));
+      e.target.disabled = false;
+    }
+  });
+
   const lista = panel.querySelector('.docsLista');
   (docs || []).forEach(doc => {
     const item = document.createElement('div');
@@ -1737,7 +1774,7 @@ async function renderDocsEvento(panel, evento) {
         <button class="btn-danger-link docBorrarBtn">Borrar</button>
       </div>
       <p style="font-size:14px; color:var(--ink-soft); margin:4px 0;">
-        Rellena: ${doc.aplica_a === 'adulto' ? 'un adulto' : 'un alumno'} · página ${doc.pagina_rellenable} · ${(doc.campos || []).length} campos
+        Rellena: ${doc.aplica_a === 'adulto' ? 'un adulto' : doc.aplica_a === 'pareja' ? 'un alumno con su adulto' : 'un alumno'} · ${(p => p.length > 1 ? 'páginas ' + p.join(' y ') : 'página ' + p[0])(paginasDeCampos(doc.campos, doc.pagina_rellenable))} · ${(doc.campos || []).length} campos
       </p>
       <button class="btn btn-outline docEditarBtn">Editar plantilla</button>
       <div class="docEditorEdicion" style="margin-top:10px;"></div>
@@ -1751,8 +1788,8 @@ async function renderDocsEvento(panel, evento) {
       const wrap = item.querySelector('.docEditorEdicion');
       wrap.innerHTML = '<p class="loading">Cargando...</p>';
       try {
-        const { dataUrl } = await renderizarPaginaPDF(await urlArchivo('documentos-evento', doc.archivo_base_url), doc.pagina_rellenable);
-        abrirEditorPlantilla(wrap, dataUrl, doc.campos || [], async (campos) => {
+        const fondos = await renderizarPaginasPDF(await urlArchivo('documentos-evento', doc.archivo_base_url), paginasDeCampos(doc.campos, doc.pagina_rellenable));
+        abrirEditorPlantilla(wrap, fondos, doc.campos || [], async (campos) => {
           await sb.from('documentos_evento').update({ campos }).eq('id', doc.id);
           alert('Plantilla actualizada ✓');
         });

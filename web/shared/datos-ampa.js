@@ -4,6 +4,8 @@
 
 var AMPA_IBAN = 'ES41 0049 4078 5026 1410 8578';
 var AMPA_TITULAR_CUENTA = 'APA del Colegio Evangélico Juan de Valdés';
+// Nombre de la entidad en los documentos para firmar (p. ej. los de la Cabalgata)
+var AMPA_ENTIDAD = 'AMPA Juan de Valdés';
 var AMPA_CUOTA_ANUAL = '25 €';
 // Contacto (pie de las circulares)
 var AMPA_EMAIL = 'ampa_j_valdes@fapaginerdelosrios.org';
@@ -119,5 +121,5 @@ function notaEdad(input) {
 
 // Las funciones de Netlify (circulares) usan los mismos datos
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { AMPA_IBAN, AMPA_TITULAR_CUENTA, AMPA_CUOTA_ANUAL, AMPA_EMAIL, AMPA_INSTAGRAM, AMPA_WHATSAPP };
+  module.exports = { AMPA_IBAN, AMPA_TITULAR_CUENTA, AMPA_CUOTA_ANUAL, AMPA_EMAIL, AMPA_INSTAGRAM, AMPA_WHATSAPP, AMPA_ENTIDAD };
 }

@@ -79,8 +79,19 @@ async function ejecutarFuncion(nombre, req, res, url) {
 const TIPOS = { '.html': 'text/html; charset=utf-8', '.js': 'application/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
   '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.svg': 'image/svg+xml', '.pdf': 'application/pdf',
   '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.ico': 'image/x-icon', '.webp': 'image/webp', '.csv': 'text/csv; charset=utf-8' };
+// Páginas de prueba que solo existen en local (no se publican en Netlify):
+// http://localhost:8888/pruebas-local/documentos.html → herramientas/pruebas-web/documentos.html
+const PRUEBAS_WEB = path.join(__dirname, 'pruebas-web');
 function servirArchivo(url, res) {
   let ruta = decodeURIComponent(url.pathname);
+  if (ruta.startsWith('/pruebas-local/')) {
+    const archivo = path.normalize(path.join(PRUEBAS_WEB, ruta.slice('/pruebas-local/'.length)));
+    if (archivo.startsWith(PRUEBAS_WEB + path.sep) && fs.existsSync(archivo) && !fs.statSync(archivo).isDirectory()) {
+      res.writeHead(200, { 'Content-Type': TIPOS[path.extname(archivo).toLowerCase()] || 'application/octet-stream', 'Cache-Control': 'no-store' });
+      fs.createReadStream(archivo).pipe(res);
+      return;
+    }
+  }
   if (ruta.endsWith('/')) ruta += 'index.html';
   const archivo = path.normalize(path.join(WEB, ruta));
   // Como en Netlify: solo se publica la carpeta web/

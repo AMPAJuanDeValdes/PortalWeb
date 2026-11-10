@@ -6736,3 +6736,63 @@ begin
   return new;
 end;
 $$;
+
+-- ==================================================================
+-- DOCUMENTOS DE UN ALUMNO CON SU ADULTO (CABALGATA)
+--  · documentos_evento.aplica_a admite 'pareja': un documento por cada
+--    alumno/a apuntado con el adulto que le acompaña (p. ej. la
+--    autorización de menores de la Cabalgata). Lleva los datos del
+--    alumno/a, de su acompañante (socio o no) y de quien firma.
+--  · Al apuntar a un alumno/a con su adulto se guarda el parentesco del
+--    adulto (evento_inscripciones.parentesco) y, si no es socio, su móvil
+--    (movil_invitado): los dos salen en la autorización.
+-- Se puede ejecutar varias veces.
+-- ==================================================================
+
+alter table documentos_evento drop constraint if exists documentos_evento_aplica_a_check;
+alter table documentos_evento add constraint documentos_evento_aplica_a_check
+  check (aplica_a in ('adulto', 'alumno', 'pareja'));
+
+alter table evento_inscripciones add column if not exists parentesco text;
+alter table evento_inscripciones add column if not exists movil_invitado text;
+
+
+-- ==================================================================
+-- EVENTOS DE PRUEBA (SOLO LOS VE LA JUNTA Y LAS CUENTAS DE PRUEBA)
+--  · eventos.solo_pruebas: el evento existe en la base de datos real pero
+--    solo lo ven la Junta y las cuentas de prueba (las que llevan
+--    «ampa-prueba-» en el email, que crean y borran los scripts de
+--    pruebas). Las familias reales no lo ven en ningún sitio.
+--  · Lo usa herramientas\probar-cabalgata.bat para probar la Cabalgata
+--    entera en tu ordenador antes de subirla.
+-- Se puede ejecutar varias veces.
+-- ==================================================================
+
+alter table eventos add column if not exists solo_pruebas boolean not null default false;
+
+-- ¿La sesión es de una cuenta de prueba?
+create or replace function es_cuenta_de_pruebas()
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (select 1 from adultos where id = auth.uid() and email ilike '%ampa-prueba-%');
+$$;
+grant execute on function es_cuenta_de_pruebas() to authenticated, anon;
+
+drop policy if exists "todos ven eventos activos" on eventos;
+create policy "todos ven eventos activos" on eventos for select
+  using ((activo = true and (not solo_pruebas or es_cuenta_de_pruebas())) or is_admin());
+
+-- Y nadie que no sea de prueba se puede apuntar a uno (aunque supiera su id)
+create or replace function eventos_solo_pruebas_inscripcion()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if exists (select 1 from eventos where id = new.evento_id and solo_pruebas)
+     and auth.uid() is not null and not coalesce(is_admin(), false) and not es_cuenta_de_pruebas() then
+    raise exception 'Este evento no está disponible.';
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists trg_eventos_solo_pruebas_inscripcion on evento_inscripciones;
+create trigger trg_eventos_solo_pruebas_inscripcion before insert on evento_inscripciones
+  for each row execute function eventos_solo_pruebas_inscripcion();
+

@@ -279,7 +279,7 @@ async function estadoDocumentosPlazaJunta(socioId, alumnos) {
   const eventoIds = [...new Set(ins.map(i => i.evento_id))];
   const [{ data: docs }, { data: resp }, { data: evs }] = await Promise.all([
     sb.from('documentos_evento').select('*').in('evento_id', eventoIds),
-    sb.from('documentos_evento_respuestas').select('documento_evento_id, alumno_id, adulto_id').eq('socio_id', socioId),
+    sb.from('documentos_evento_respuestas').select('documento_evento_id, alumno_id, adulto_id, evento_inscripcion_id').eq('socio_id', socioId),
     sb.from('eventos').select('id, titulo, fecha').in('id', eventoIds)
   ]);
   const pend = [];
@@ -288,7 +288,9 @@ async function estadoDocumentosPlazaJunta(socioId, alumnos) {
     const faltan = (docs || []).filter(d => d.evento_id === ev.id).filter(d => ins.filter(i => i.evento_id === ev.id).some(i => {
       if (d.aplica_a === 'adulto' && i.tipo_miembro === 'adulto')
         return !(resp || []).some(r => r.documento_evento_id === d.id && r.adulto_id === i.adulto_id);
-      if (d.aplica_a === 'alumno' && i.tipo_miembro === 'alumno') {
+      if (d.aplica_a === 'adulto' && i.tipo_miembro === 'invitado')
+        return !(resp || []).some(r => r.documento_evento_id === d.id && r.evento_inscripcion_id === i.id);
+      if ((d.aplica_a === 'alumno' || d.aplica_a === 'pareja') && i.tipo_miembro === 'alumno') {
         const al = alumnos.find(a => a.id === i.alumno_id);
         if (al && d.elegibilidad_modo && !alumnoCumple(al, d)) return false;
         return !(resp || []).some(r => r.documento_evento_id === d.id && r.alumno_id === i.alumno_id);

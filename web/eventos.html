@@ -444,7 +444,14 @@ function camposPersona(evento, tipo, opciones = {}) {
       ${opciones.pideDni
         ? `<div class="field"><label for="${id}d">DNI/NIE *</label><input type="text" id="${id}d" required></div>`
         : `<div class="field"><label for="${id}e">Edad *</label><input type="number" id="${id}e" min="0" max="110" required></div>`}
+      ${opciones.pareja ? `<div class="field"><label for="${id}m">Móvil *</label><input type="tel" id="${id}m" required></div>` : ''}
       </div>`;
+  }
+  // Acompañante de un alumno/a (Cabalgata): el parentesco va en la autorización
+  if (opciones.pareja) {
+    html += `<div class="field"><label for="${id}pa">Parentesco con el alumno/a *</label>
+      <select id="${id}pa"><option value="">Elige</option>${['Padre', 'Madre', 'Tutor/a legal', 'Abuelo/a', 'Tío/a', 'Hermano/a', 'Otro'].map(o => `<option>${o}</option>`).join('')}</select>
+      <input type="text" id="${id}pao" placeholder="¿Cuál?" hidden style="margin-top:8px;"></div>`;
   }
   if (evento.pide_alergias) {
     html += `<div><span style="font-weight:700;">¿Tiene alguna alergia o intolerancia?</span>
@@ -464,6 +471,7 @@ function camposPersona(evento, tipo, opciones = {}) {
   const q = (s) => wrap.querySelector('#' + id + s);
   wrap.querySelectorAll('input').forEach(i => i.addEventListener('input', () => i.classList.remove('campo-error')));
   wrap.querySelectorAll(`input[name="${id}al"]`).forEach(r => r.addEventListener('change', () => { q('alt').hidden = r.value !== 'si' || !r.checked; }));
+  if (q('pa')) q('pa').addEventListener('change', () => { q('pao').hidden = q('pa').value !== 'Otro'; });
 
   wrap.leer = () => {
     const datos = {};
@@ -479,11 +487,20 @@ function camposPersona(evento, tipo, opciones = {}) {
       if (opciones.pideDni) {
         datos.dni_invitado = q('d').value.trim();
         if (!datos.dni_invitado) return { error: 'Escribe el DNI/NIE del adulto (hace falta para el documento).' };
+        if (opciones.pareja) {
+          datos.movil_invitado = q('m').value.trim();
+          if (!datos.movil_invitado) return { error: 'Escribe el móvil del adulto (hace falta para el documento).' };
+        }
       } else {
         const e = q('e').value;
         if (e === '') return { error: 'Escribe la edad.' };
         datos.edad = parseInt(e, 10);
       }
+    }
+    if (opciones.pareja) {
+      const pa = q('pa').value;
+      datos.parentesco = pa === 'Otro' ? q('pao').value.trim() : pa;
+      if (!datos.parentesco) return { error: 'Indica el parentesco del adulto con el alumno/a (hace falta para la autorización).' };
     }
     if (evento.pide_alergias) {
       const sel = wrap.querySelector(`input[name="${id}al"]:checked`);
@@ -986,15 +1003,18 @@ async function bloqueDocumentos(evento, inscripciones) {
   let alguno = false;
   for (const doc of documentos) {
     const personas = [];
+    // Los datos del documento salen de la web (personaParaDocumento, en documentoRellenable.js)
+    const datos = (i) => personaParaDocumento(doc, { evento, inscripcion: i, inscripciones, adultos: misAdultos, alumnos: misAlumnos, firmante: ctxGlobal.adulto });
     validas.forEach(i => {
       if (doc.aplica_a === 'adulto' && i.tipo_miembro === 'adulto') {
-        const a = misAdultos.find(x => x.id === i.adulto_id); if (a) personas.push({ persona: a, clave: { adulto_id: a.id } });
+        const a = misAdultos.find(x => x.id === i.adulto_id); if (a) personas.push({ persona: datos(i), clave: { adulto_id: a.id } });
       } else if (doc.aplica_a === 'adulto' && i.tipo_miembro === 'invitado') {
-        personas.push({ persona: { id: null, nombre: i.nombre_invitado, apellidos: i.apellidos_invitado || '', dni_nie: i.dni_invitado || '' }, clave: { evento_inscripcion_id: i.id } });
-      } else if (doc.aplica_a === 'alumno' && i.tipo_miembro === 'alumno') {
+        personas.push({ persona: datos(i), clave: { evento_inscripcion_id: i.id } });
+      } else if ((doc.aplica_a === 'alumno' || doc.aplica_a === 'pareja') && i.tipo_miembro === 'alumno') {
+        // Pareja (Cabalgata): un documento por alumno/a, con los datos de su acompañante
         const a = misAlumnos.find(x => x.id === i.alumno_id);
         if (a && (!doc.elegibilidad_modo || cumpleElegibilidad(a, doc.elegibilidad_modo, doc.cursos_permitidos, doc.edad_min, doc.edad_max) || !(doc.cursos_permitidos || []).length && doc.elegibilidad_modo === 'curso'))
-          personas.push({ persona: a, clave: { alumno_id: a.id } });
+          personas.push({ persona: datos(i), clave: { alumno_id: a.id } });
       }
     });
     if (!personas.length) continue;
@@ -1008,7 +1028,15 @@ async function bloqueDocumentos(evento, inscripciones) {
       const fila = document.createElement('div');
       fila.className = 'miembro';
       fila.innerHTML = `<div class="miembro-fila"><span>${esc(nombreCompleto(persona))}</span><span class="accion"></span></div>`;
-      if (hecho) fila.querySelector('.accion').innerHTML = '<span class="estado-ok">Firmado</span>';
+      if (hecho) {
+        // Firmado: la familia puede descargar su copia
+        const acc = fila.querySelector('.accion');
+        acc.innerHTML = '<span class="estado-ok">Firmado</span>';
+        const dl = document.createElement('button'); dl.type = 'button'; dl.className = 'btn btn-outline'; dl.textContent = 'Descargar copia';
+        dl.style.marginLeft = '10px';
+        dl.addEventListener('click', () => descargarDocumentoFirmado(hecho, `${doc.titulo} - ${nombreCompleto(persona)}`, dl));
+        acc.appendChild(dl);
+      }
       else {
         const btn = document.createElement('button'); btn.className = 'btn btn-outline'; btn.textContent = 'Rellenar y firmar';
         btn.addEventListener('click', () => abrirRellenoDocumento(doc, persona, clave, box));
@@ -1023,12 +1051,31 @@ async function bloqueDocumentos(evento, inscripciones) {
   return alguno ? b : null;
 }
 
+// Copia del documento firmado (la imagen que se guardó al firmar)
+async function descargarDocumentoFirmado(respuesta, nombre, boton) {
+  boton.disabled = true;
+  const archivo = nombre.replace(/[\\/:*?"<>|]/g, '').trim() + '.png';
+  const { data, error } = await sb.storage.from('documentos-evento').createSignedUrl(respuesta.archivo_final_url, 120, { download: archivo });
+  boton.disabled = false;
+  if (error || !data) { alert('No se pudo descargar el documento' + (error ? ': ' + error.message : '.')); return; }
+  const a = document.createElement('a'); a.href = data.signedUrl; a.download = archivo;
+  document.body.appendChild(a); a.click(); a.remove();
+}
+
 async function abrirRellenoDocumento(doc, persona, clave, box) {
   const zona = box.querySelector('.docRellenoZona');
   zona.innerHTML = '<p class="loading">Cargando documento...</p>';
   try {
-    const { dataUrl } = await renderizarPaginaPDF(await urlArchivo('documentos-evento', doc.archivo_base_url), doc.pagina_rellenable);
-    abrirFormularioRelleno(zona, dataUrl, doc.campos || [], persona, async (blob, datosFinales, avisoDiferencias) => {
+    const url = await urlArchivo('documentos-evento', doc.archivo_base_url);
+    // Todas las páginas que llevan datos o firma (p. ej. el cordón: datos en la 1, firma en la 2)
+    const fondos = await renderizarPaginasPDF(url, paginasDeCampos(doc.campos, doc.pagina_rellenable));
+    zona.innerHTML = '';
+    const leer = document.createElement('p');
+    leer.innerHTML = `<a href="${url}" target="_blank" rel="noopener">Leer el documento completo</a> antes de firmar.`;
+    const docZona = document.createElement('div');
+    zona.append(leer, docZona);
+    // Los datos salen de la web: la familia solo firma
+    abrirFormularioRelleno(docZona, fondos, doc.campos || [], persona, async (blob, datosFinales, avisoDiferencias) => {
       const path = `${ctxGlobal.socio.id}/${doc.id}/${Date.now()}.png`;
       const { error: upErr } = await sb.storage.from('documentos-evento').upload(path, blob);
       if (upErr) { alert('No se pudo subir el documento: ' + upErr.message); return; }
@@ -1038,9 +1085,9 @@ async function abrirRellenoDocumento(doc, persona, clave, box) {
         archivo_final_url: path, datos_finales: datosFinales, aviso_diferencias: avisoDiferencias
       });
       if (insErr) { alert('No se pudo guardar: ' + insErr.message); return; }
-      zona.innerHTML = '<p class="msg-ok">Documento firmado y guardado.</p>';
+      zona.innerHTML = '<p class="msg-ok">Documento firmado y guardado. Lo podéis descargar cuando queráis con «Descargar copia».</p>';
       setTimeout(() => cargarEventos(), 800);
-    });
+    }, { soloFirma: true, dondeCorregir: 'Los datos de los adultos socios y de los alumnos se completan en Mis datos.' });
   } catch (err) {
     zona.innerHTML = '<p class="msg-error">No se pudo abrir el documento: ' + esc(err.message) + '</p>';
   }
@@ -1154,7 +1201,7 @@ async function renderEventoPareja(evento) {
       let adForm = null;
       const pintarAdulto = () => {
         const otro = f.querySelector('.selAd').value === 'otro';
-        adForm = camposPersona(evento, otro ? 'invitado' : 'adulto', { pideDni: true });
+        adForm = camposPersona(evento, otro ? 'invitado' : 'adulto', { pideDni: true, pareja: true });
         const cont = f.querySelector('.adDatos'); cont.innerHTML = '';
         if (!adForm.vacio) cont.appendChild(adForm);
       };
