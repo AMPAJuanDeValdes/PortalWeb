@@ -6796,3 +6796,26 @@ drop trigger if exists trg_eventos_solo_pruebas_inscripcion on evento_inscripcio
 create trigger trg_eventos_solo_pruebas_inscripcion before insert on evento_inscripciones
   for each row execute function eventos_solo_pruebas_inscripcion();
 
+
+
+-- ==================================================================
+-- EVENTOS DE PRUEBA: TAMBIÉN PARA UNA FAMILIA REAL QUE PRUEBA
+--  · pruebas_familias: familias reales que, mientras dura una prueba,
+--    ven los eventos de prueba (solo_pruebas) y se pueden apuntar, como
+--    las cuentas de prueba. Las añade y las quita herramientas\probar-cabalgata.bat
+--    (solo la clave secreta puede tocar esta tabla).
+-- Requiere migracion-eventos-prueba.sql. Se puede ejecutar varias veces.
+-- ==================================================================
+
+create table if not exists pruebas_familias (
+  socio_id uuid primary key references socios(id) on delete cascade,
+  created_at timestamptz not null default now()
+);
+alter table pruebas_familias enable row level security;   -- sin políticas: solo la clave secreta
+
+create or replace function es_cuenta_de_pruebas()
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (select 1 from adultos where id = auth.uid() and email ilike '%ampa-prueba-%')
+      or exists (select 1 from pruebas_familias where socio_id = mi_socio_id());
+$$;
+

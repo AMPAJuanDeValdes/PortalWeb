@@ -33,7 +33,8 @@ async function comprobarMigraciones() {
     ['migracion-cabalgata-puestos.sql', () => admin.from('eventos').select('puestos').limit(1)],
     ['migracion-cabalgata-reservas.sql', () => admin.from('eventos').select('plazas_reservadas, pajes_reservados').limit(1)],
     ['migracion-documentos-pareja.sql', () => admin.from('evento_inscripciones').select('parentesco, movil_invitado').limit(1)],
-    ['migracion-eventos-prueba.sql', () => admin.from('eventos').select('solo_pruebas').limit(1)]
+    ['migracion-eventos-prueba.sql', () => admin.from('eventos').select('solo_pruebas').limit(1)],
+    ['migracion-pruebas-familia-real.sql', () => admin.from('pruebas_familias').select('socio_id').limit(1)]
   ];
   const faltan = [];
   for (const [archivo, consulta] of pruebas) { const { error } = await consulta(); if (error) faltan.push(archivo); }
@@ -68,8 +69,10 @@ async function familia(etiqueta, adultos, alumnos, opciones = {}) {
     titulo: 'Cabalgata de Reyes 2027 (PRUEBA)', plantilla: 'cabalgata', solo_pruebas: true, activo: true,
     tipo_elegibilidad: 'toda_familia', metodo_asignacion: 'sorteo', requiere_pareja_adulto_alumno: true,
     elegibilidad_modo: 'edad', edad_min: 6, edad_max: 12,
-    aforo_total: 12, plazas_reservadas: 3, pajes_reservados: 1,
-    puestos: ['responsable', 'baltasar', 'gaspar', 'melchor', 'paje'],
+    // Como la de verdad: 12 alumnos/as con 12 adultos, 1 Rey (Gaspar) y 2 Pajes.
+    // Edades: de 6 a 12 años el 4/1/2027 = nacidos del 5/1/2014 al 4/1/2021
+    aforo_total: 12, plazas_reservadas: 0, pajes_reservados: 0,
+    puestos: ['gaspar', 'paje'],
     fecha: '2027-01-04T15:00:00Z', lugar: 'Centro Cultural Antonio Machado',
     fecha_apertura_socios: new Date(ahora - 3600e3).toISOString(),
     fecha_cierre_inscripcion: new Date(ahora + 14 * 86400e3).toISOString(),
@@ -95,7 +98,7 @@ async function familia(etiqueta, adultos, alumnos, opciones = {}) {
 
   // 12 familias ya apuntadas (la de 3 y la de 9, con un adulto no socio) y postulaciones
   const nombres = ['Álvarez', 'Benítez', 'Castro', 'Delgado', 'Escobar', 'Fuentes', 'Gómez', 'Herrera', 'Iglesias', 'Jiménez', 'Lara', 'Molina'];
-  const puestos = ['baltasar', 'gaspar', 'melchor', 'paje', 'paje', 'responsable', 'baltasar', 'paje'];
+  const puestos = ['gaspar', 'paje', 'paje', 'gaspar', 'paje'];
   const apuntadas = [];
   for (let k = 0; k < 12; k++) {
     const ap = nombres[k];
@@ -110,16 +113,31 @@ async function familia(etiqueta, adultos, alumnos, opciones = {}) {
     apuntadas.push(f);
   }
 
+  // Tu familia real (si pusiste su email): ve la Cabalgata de prueba mientras dura
+  let tuFamilia = '';
+  const email = (process.env.AMPA_FAMILIA_PRUEBA || '').trim();
+  if (email) {
+    const { data: ad } = await admin.from('adultos').select('socio_id, nombre, apellidos').ilike('email', email).limit(1);
+    if (!ad || !ad.length) throw new Error('No hay ningún adulto con el email ' + email);
+    await ok(admin.from('pruebas_familias').upsert({ socio_id: ad[0].socio_id }), 'añadir tu familia');
+    const { data: s } = await admin.from('socios').select('datos_revisados_en, estado').eq('id', ad[0].socio_id).single();
+    tuFamilia = `TU FAMILIA (${ad[0].nombre} ${ad[0].apellidos}, ${email}): entra con tu contraseña de siempre; ve la Cabalgata de prueba.` +
+      (s && s.estado !== 'activa' ? ' OJO: la cuenta no está activa.' : '') +
+      (s && !s.datos_revisados_en ? ' OJO: no tiene los datos confirmados, así que no podrá apuntarse.' : '') +
+      '\n  Al terminar se borran sus inscripciones y documentos de la prueba (nada más de tu familia).\n';
+  }
+
   const linea = (quien, f, para) => `${quien}\n  Email: ${f.adultos[0].email}\n  Contraseña: ${PASSWORD}\n  Para probar: ${para}\n`;
   const texto = [
     'CABALGATA DE PRUEBA — cuentas para entrar en http://localhost:8888/login.html',
     `(se crearon el ${new Date().toLocaleString('es-ES')}; todas se borran al terminar)\n`,
+    tuFamilia,
     linea('JUNTA (administración)', junta, 'Panel → Eventos → «Cabalgata de Reyes 2027 (PRUEBA)»: Inscritos, Plazas reservadas, Postulaciones, Documentos, Listado (Excel), Sortear (antes cambia la fecha de cierre a una pasada).'),
-    linea('Familia García (2 adultos, Lucas 7 años y Sofía 10)', garcia, 'apuntar a un alumno con un adulto socio y otro con un adulto no socio; postularse a un puesto con el adulto que no acompaña; firmar los documentos y descargarlos.'),
+    linea('Familia García (2 adultos, Lucas 7 años y Sofía 10)', garcia, 'apuntar a un alumno con un adulto socio y otro con un adulto no socio; postularse a Rey Gaspar o Paje Real con el adulto que no acompaña; firmar los documentos y descargarlos.'),
     `  Segundo adulto de la familia García: ${garcia.adultos[1].email} (misma contraseña)\n`,
     linea('Familia López (Hugo 13 años y Lía 5)', lopez, 'que no deja apuntar a alumnos fuera de 6 a 12 años.'),
     linea('Familia sin datos confirmados', sinConfirmar, 'que no puede apuntarse ni postularse hasta confirmar sus datos.'),
-    `Además hay 12 familias ya apuntadas (2 con un adulto no socio) y 8 postulaciones (Reyes, Pajes y Responsable).`,
+    `Además hay 12 familias ya apuntadas (2 con un adulto no socio) y 5 postulaciones (Rey Gaspar y Paje Real).`,
     `Ejemplo de familia ya apuntada: ${apuntadas[0].adultos[0].email} (misma contraseña).`
   ].join('\n');
   fs.writeFileSync(SALIDA, texto, 'utf8');

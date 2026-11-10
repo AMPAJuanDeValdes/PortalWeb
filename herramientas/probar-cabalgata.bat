@@ -31,6 +31,11 @@ if not exist "node_modules\@supabase\supabase-js" (
 )
 
 echo.
+echo Si quieres probar tambien con TU familia real, escribe el email de tu cuenta de socio.
+echo ^(Enter para no usarla: solo cuentas de prueba^)
+set "AMPA_FAMILIA_PRUEBA="
+set /p "AMPA_FAMILIA_PRUEBA=Email: "
+echo.
 echo Preparando la Cabalgata de prueba...
 node "pruebas\cabalgata\preparar-cabalgata.js"
 if errorlevel 1 ( pause & exit /b 1 )

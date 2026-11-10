@@ -40,10 +40,19 @@ module.exports = async function limpiar() {
   // Eventos de prueba ocultos (los de herramientas\probar-cabalgata.bat), con sus documentos
   const { data: ocultos, error: errOcultos } = await admin.from('eventos').select('id').eq('solo_pruebas', true);
   if (!errOcultos) for (const ev of ocultos || []) {
+    // Documentos firmados en el evento de prueba (también los de una familia real que probó)
+    const { data: docsEv } = await admin.from('documentos_evento').select('id').eq('evento_id', ev.id);
+    if (docsEv && docsEv.length) {
+      const { data: firmados } = await admin.from('documentos_evento_respuestas').select('archivo_final_url').in('documento_evento_id', docsEv.map(d => d.id));
+      const rutas = (firmados || []).map(f => f.archivo_final_url).filter(Boolean);
+      if (rutas.length) await admin.storage.from('documentos-evento').remove(rutas);
+    }
     const { data: arch } = await admin.storage.from('documentos-evento').list(ev.id);
     if (arch && arch.length) await admin.storage.from('documentos-evento').remove(arch.map(a => `${ev.id}/${a.name}`));
     await admin.from('eventos').delete().eq('id', ev.id);
   }
+  // Familias reales que estaban probando: dejan de ver los eventos de prueba
+  await admin.from('pruebas_familias').delete().neq('socio_id', '00000000-0000-0000-0000-000000000000');
   // Campañas de lotería de prueba (con sus talonarios, ingresos, historial y mensajes)
   await admin.from('loteria_campanas').delete().ilike('nombre', `${MARCA}%`);
   await admin.from('loteria_mensajes').delete().ilike('email', `%${MARCA}%`);
