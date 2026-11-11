@@ -37,7 +37,12 @@ async function notificarNuevoTurno(supabaseAdmin, nuevoP1Id) {
     email = entrada.email_contacto;
   }
 
-  const { subject, text } = plantillaMochilaTurno({ nombre, entrega: entrada.fecha_entrega, devolucion: entrada.fecha_devolucion_prevista });
+  // El horario lo pone la Junta (mochila_config); si no se puede leer, el de siempre
+  const { data: conf } = await supabaseAdmin.from('mochila_config').select('recogida_desde, recogida_hasta, devolucion_desde, devolucion_hasta').eq('id', 1).maybeSingle();
+  const tramo = (d, h) => `de ${String(d).slice(0, 5)} a ${String(h).slice(0, 5)}`;
+  const horario = conf && conf.recogida_desde
+    ? { horaRecogida: tramo(conf.recogida_desde, conf.recogida_hasta), horaDevolucion: tramo(conf.devolucion_desde, conf.devolucion_hasta) } : {};
+  const { subject, text } = plantillaMochilaTurno({ nombre, entrega: entrada.fecha_entrega, devolucion: entrada.fecha_devolucion_prevista, ...horario });
   // Si el correo falla, la acción sobre la cola YA se ha hecho: no debe
   // devolver error al usuario (antes, un fallo de SMTP hacía que
   // "Apuntarme" mostrara error aunque sí se hubiera apuntado).

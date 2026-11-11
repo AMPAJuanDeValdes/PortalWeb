@@ -64,9 +64,22 @@
 <body>
 <div class="wrap">
   <h1>Mochila Jugona Exploradora</h1>
-  <p class="lede">La lista de espera, quién la tiene y los juegos que lleva. Se recoge los viernes de 17:30 a 18:00 y se devuelve el viernes siguiente de 16:00 a 16:30.</p>
+  <p class="lede">La lista de espera, quién la tiene y los juegos que lleva. Se recoge los viernes <span data-mochila-hora="recogida">de 17:30 a 18:00</span> y se devuelve el viernes siguiente <span data-mochila-hora="devolucion">de 16:00 a 16:30</span>.</p>
 
   <section class="ahora" id="ahora"><p class="loading">Cargando...</p></section>
+
+  <div class="card">
+    <p class="section-label">Horario</p>
+    <p style="color:var(--ink-soft); margin:-6px 0 12px;">Lo ven las familias en la web y en el email que les avisa del turno. Si un viernes cambia, cámbialo aquí.</p>
+    <div class="dos">
+      <div class="field"><label for="hRecDesde">Recogida (viernes), desde</label><input type="time" id="hRecDesde"></div>
+      <div class="field"><label for="hRecHasta">hasta</label><input type="time" id="hRecHasta"></div>
+      <div class="field"><label for="hDevDesde">Devolución (viernes siguiente), desde</label><input type="time" id="hDevDesde"></div>
+      <div class="field"><label for="hDevHasta">hasta</label><input type="time" id="hDevHasta"></div>
+    </div>
+    <div class="acciones"><button type="button" class="btn btn-primary" id="hGuardar">Guardar horario</button></div>
+    <p id="hMsg" hidden></p>
+  </div>
 
   <div class="card">
     <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
@@ -154,7 +167,44 @@ async function cargar() {
   pintarLista();
 }
 
-const HORA_RECOGIDA = 'de 17:30 a 18:00', HORA_DEVOLUCION = 'de 16:00 a 16:30';
+// Horario de recogida y devolución (lo cambia la Junta aquí: mochila_config)
+let HORA_RECOGIDA = MOCHILA_HORA_RECOGIDA, HORA_DEVOLUCION = MOCHILA_HORA_DEVOLUCION;
+async function cargarHorario() {
+  const { data, error } = await sb.from('mochila_config').select('recogida_desde, recogida_hasta, devolucion_desde, devolucion_hasta').eq('id', 1).maybeSingle();
+  const msg = document.getElementById('hMsg');
+  if (error || !data || !data.recogida_desde) {
+    msg.className = 'msg-error'; msg.hidden = false;
+    msg.textContent = 'No se pudo leer el horario' + (error ? ': ' + error.message : '') + '. ¿Has ejecutado supabase/pendientes/migracion-mochila-horario.sql?';
+    return;
+  }
+  document.getElementById('hRecDesde').value = mochilaHora(data.recogida_desde);
+  document.getElementById('hRecHasta').value = mochilaHora(data.recogida_hasta);
+  document.getElementById('hDevDesde').value = mochilaHora(data.devolucion_desde);
+  document.getElementById('hDevHasta').value = mochilaHora(data.devolucion_hasta);
+  HORA_RECOGIDA = mochilaTramo(data.recogida_desde, data.recogida_hasta);
+  HORA_DEVOLUCION = mochilaTramo(data.devolucion_desde, data.devolucion_hasta);
+  document.querySelectorAll('[data-mochila-hora]').forEach(el => {
+    el.textContent = el.dataset.mochilaHora === 'recogida' ? HORA_RECOGIDA : HORA_DEVOLUCION;
+  });
+}
+document.getElementById('hGuardar').addEventListener('click', async () => {
+  const v = (id) => document.getElementById(id).value;
+  const msg = document.getElementById('hMsg');
+  msg.hidden = true;
+  const [rd, rh, dd, dh] = ['hRecDesde', 'hRecHasta', 'hDevDesde', 'hDevHasta'].map(v);
+  const fallo = (t) => { msg.className = 'msg-error'; msg.textContent = t; msg.hidden = false; };
+  if (!rd || !rh || !dd || !dh) return fallo('Pon las cuatro horas.');
+  if (rd >= rh) return fallo('La hora de fin de la recogida tiene que ser después de la de inicio.');
+  if (dd >= dh) return fallo('La hora de fin de la devolución tiene que ser después de la de inicio.');
+  const btn = document.getElementById('hGuardar');
+  btn.disabled = true;
+  const { error } = await sb.from('mochila_config').update({ recogida_desde: rd, recogida_hasta: rh, devolucion_desde: dd, devolucion_hasta: dh, updated_at: new Date().toISOString() }).eq('id', 1);
+  btn.disabled = false;
+  if (error) return fallo('No se pudo guardar: ' + error.message);
+  await cargarHorario();
+  pintarAhora();
+  msg.className = 'msg-ok'; msg.textContent = 'Horario guardado.'; msg.hidden = false;
+});
 const viernes = (f) => f ? new Date(f + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }).replace(',', '') : '';
 let cartas = {};   // socio_id -> { archivo_url, firmado_en }
 // Fechas por defecto al asignar: el viernes en que la devuelve quien la tiene
@@ -495,6 +545,7 @@ function pintarValoraciones() {
   const ctx = await requireAdmin();
   if (!ctx) return;
   renderNav('admin-mochila', ctx);
+  await cargarHorario();   // antes de pintar quién la tiene (usa el horario)
   await Promise.all([cargar(), cargarJuegos(), cargarHistorial(), cargarValoraciones()]);
 })();
 </script>

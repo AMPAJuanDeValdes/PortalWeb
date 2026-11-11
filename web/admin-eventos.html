@@ -733,7 +733,8 @@ async function cargarEventos() {
           (ev.usa_concurso_texto ? '<button class="btn btn-outline toggleConcursoBtn">Concurso</button>' : '') +
           (ev.plantilla === 'warhammer' ? '<button class="btn btn-outline toggleSesionesBtn">Sesiones</button>' : '') +
           (!ev.sin_inscripcion && !ev.usa_concurso_texto ? '<button class="btn btn-outline toggleActividadesBtn">Subactividades</button>' : '') +
-          (ev.requiere_pareja_adulto_alumno && ev.plazas_reservadas > 0 ? '<button class="btn btn-outline toggleReservadasBtn">Plazas reservadas</button>' : '') +
+          (ev.requiere_pareja_adulto_alumno && ev.sorteo_realizado ? '<button class="btn btn-outline toggleReservadasBtn">Plazas</button>'
+            : ev.requiere_pareja_adulto_alumno && ev.plazas_reservadas > 0 ? '<button class="btn btn-outline toggleReservadasBtn">Plazas reservadas</button>' : '') +
           (eventosConDocs.has(ev.id) ? '<button class="btn btn-outline toggleIncompletasBtn">Inscripciones sin terminar</button>' : '') +
           ((ev.puestos || []).length ? '<button class="btn btn-outline togglePostulacionesBtn">Postulaciones</button>' : '') +
           '<button class="btn btn-outline togglePremiosBtn">Premios</button>' +
@@ -824,7 +825,7 @@ async function cargarEventos() {
     if (toggleResBtn) toggleResBtn.addEventListener('click', async () => {
       const visible = resPanel.style.display === 'block';
       resPanel.style.display = visible ? 'none' : 'block';
-      if (!visible) await renderReservadas(resPanel, ev);
+      if (!visible) await (ev.sorteo_realizado ? renderPlazasTrasSorteo(resPanel, ev) : renderReservadas(resPanel, ev));
     });
 
     const postPanel = row.querySelector('.postulacionesPanel');
@@ -1484,6 +1485,71 @@ async function renderReservadas(panel, ev) {
   }));
 }
 
+/* ================= Plazas después del sorteo (Cabalgata) =================
+   Ya sorteado, la Junta puede quitar la plaza a una pareja y dársela a otra
+   de las apuntadas (también a una que no entró por no tener los documentos
+   firmados). La base de datos no deja pasar del aforo. */
+async function renderPlazasTrasSorteo(panel, ev) {
+  panel.innerHTML = '<p class="loading">Cargando...</p>';
+  const [{ data: ins, error }, { data: sinTerminar }] = await Promise.all([
+    sb.from('evento_inscripciones')
+      .select('id, grupo_id, tipo_miembro, socio_id, alumno_id, adulto_id, estado, asignada_a_mano, creada_por_junta, nombre_invitado, apellidos_invitado, actividad_id, es_voluntario, alumnos(nombre, apellidos, etapa, curso, aula)')
+      .eq('evento_id', ev.id),
+    sb.rpc('evento_inscripciones_incompletas', { p_evento: ev.id })
+  ]);
+  if (error) { panel.innerHTML = '<p class="msg-error">' + esc(error.message) + '</p>'; return; }
+  const faltan = new Map((sinTerminar || []).map(x => [x.grupo, x.faltan || []]));
+  const filas = (ins || []).filter(i => !i.actividad_id && !i.es_voluntario);
+  const adIds = [...new Set(filas.filter(i => i.adulto_id).map(i => i.adulto_id))];
+  const { data: ads } = adIds.length ? await sb.from('adultos').select('id, nombre, apellidos').in('id', adIds) : { data: [] };
+  const nombre = (i) => i.tipo_miembro === 'alumno' ? `${i.alumnos?.nombre || ''} ${i.alumnos?.apellidos || ''}`.trim()
+    : i.tipo_miembro === 'adulto' ? (a => a ? a.nombre + ' ' + a.apellidos : '')((ads || []).find(a => a.id === i.adulto_id))
+    : `${i.nombre_invitado || ''} ${i.apellidos_invitado || ''} (no socio)`.trim();
+  const grupos = {};
+  filas.forEach(i => { const g = i.grupo_id || i.id; (grupos[g] = grupos[g] || []).push(i); });
+  const parejas = Object.entries(grupos).map(([g, l]) => ({ g, filas: l, alumno: l.find(i => i.tipo_miembro === 'alumno') })).filter(x => x.alumno);
+  const texto = (x) => x.filas.slice().sort((a, b) => (a.tipo_miembro === 'alumno' ? 0 : 1) - (b.tipo_miembro === 'alumno' ? 0 : 1)).map(nombre).join(' con ')
+    + (x.alumno.alumnos?.curso ? ` · ${x.alumno.alumnos.curso}${x.alumno.alumnos.aula || ''} ${x.alumno.alumnos.etapa || ''}` : '');
+  const aviso = (x) => faltan.has(x.g) ? `<br><small style="color:#B42318;">Falta firmar: ${esc(faltan.get(x.g).join(', '))}</small>` : '';
+  const conPlaza = parejas.filter(x => x.alumno.estado === 'ganador');
+  const sinPlaza = parejas.filter(x => x.alumno.estado !== 'ganador');
+  const libres = ev.aforo_total != null ? ev.aforo_total - conPlaza.length : Infinity;
+  const fila = (x, boton) => `<div class="puesto-fila" style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:center;">
+      <span>${esc(texto(x))}${aviso(x)}</span>${boton}</div>`;
+
+  panel.innerHTML = `<p class="section-label">Plazas: ${conPlaza.length}${ev.aforo_total != null ? ' de ' + ev.aforo_total : ''} ocupadas</p>
+    <p class="ayuda" style="margin:0 0 10px;">El sorteo ya está hecho. Puedes quitar la plaza a una pareja y dársela a otra de las apuntadas.${libres > 0 ? '' : ' Para dar una plaza, quita antes otra.'}</p>
+    <p class="resMsg msg-error" hidden></p>
+    <div class="puesto-caja"><div class="puesto-cab"><b>Con plaza</b></div>
+      ${conPlaza.length ? conPlaza.map(x => fila(x, `<button type="button" class="btn-danger-link" data-quitar="${x.g}">Quitar la plaza</button>`)).join('')
+        : '<div class="puesto-fila"><span class="empty-hint">Ninguna pareja tiene plaza.</span></div>'}</div>
+    <div class="puesto-caja"><div class="puesto-cab"><b>Sin plaza</b></div>
+      ${sinPlaza.length ? sinPlaza.map(x => fila(x, libres > 0 ? `<button type="button" class="btn btn-outline" data-dar="${x.g}">Darle plaza</button>` : '')).join('')
+        : '<div class="puesto-fila"><span class="empty-hint">Todas las parejas apuntadas tienen plaza.</span></div>'}</div>`;
+  const msg = panel.querySelector('.resMsg');
+  const fallo = (e) => { msg.textContent = (e.message || String(e)).replace(/^.*?ERROR:\s*/, ''); msg.hidden = false; };
+  panel.querySelectorAll('[data-quitar]').forEach(b => b.addEventListener('click', async () => {
+    const x = parejas.find(p => p.g === b.dataset.quitar);
+    if (!confirm(`¿Quitar la plaza a ${texto(x)}?`)) return;
+    b.disabled = true; msg.hidden = true;
+    const ids = x.filas.map(i => i.id);
+    // Las que creó la Junta (la familia no se había apuntado) se borran; las demás se quedan sin plaza
+    const { error } = x.alumno.creada_por_junta
+      ? await sb.from('evento_inscripciones').delete().in('id', ids)
+      : await sb.from('evento_inscripciones').update({ estado: 'no_ganador', asignada_a_mano: false }).in('id', ids);
+    if (error) { fallo(error); b.disabled = false; return; }
+    renderPlazasTrasSorteo(panel, ev);
+  }));
+  panel.querySelectorAll('[data-dar]').forEach(b => b.addEventListener('click', async () => {
+    const x = parejas.find(p => p.g === b.dataset.dar);
+    if (faltan.has(x.g) && !confirm(`A ${texto(x)} le falta firmar: ${faltan.get(x.g).join(', ')}. ¿Darle la plaza igualmente?`)) return;
+    b.disabled = true; msg.hidden = true;
+    const { error } = await sb.from('evento_inscripciones').update({ estado: 'ganador' }).in('id', x.filas.map(i => i.id));
+    if (error) { fallo(error); b.disabled = false; return; }
+    renderPlazasTrasSorteo(panel, ev);
+  }));
+}
+
 /* ================= Postulaciones (Cabalgata) =================
    Los adultos socios se postulan a un puesto desde la web; la Junta elige
    aquí, como mucho las plazas de cada puesto (lo comprueba la base de datos). */
@@ -1500,7 +1566,7 @@ async function renderPostulaciones(panel, ev) {
   // Los puestos se sortean; antes del sorteo, a mano solo los pajes reservados
   const maxAMano = (p) => ev.sorteo_realizado ? PUESTOS[p][1] : p === 'paje' ? (ev.pajes_reservados || 0) : 0;
   panel.innerHTML = `<p class="section-label">Postulaciones</p>
-    <p class="ayuda" style="margin:0 0 10px;">${ev.sorteo_realizado ? 'Los puestos ya se han sorteado. Puedes cambiar a quien haga falta.'
+    <p class="ayuda" style="margin:0 0 10px;">${ev.sorteo_realizado ? 'Los puestos ya se han sorteado. Puedes cambiar a quien haga falta, también a un adulto socio que no se había postulado.'
       : 'Los puestos se sortean con el sorteo del evento' + (ev.pajes_reservados ? `, menos ${ev.pajes_reservados === 1 ? 'el paje reservado' : 'los 2 pajes reservados'}, que asignas aquí a mano` : '') + '.'}</p>
     <p class="postMsg msg-error" hidden></p>` +
     (ev.puestos || []).filter(p => PUESTOS[p]).map(p => {
@@ -1510,7 +1576,7 @@ async function renderPostulaciones(panel, ev) {
       const puedeElegir = elegidos < maxAMano(p);
       return `<div class="puesto-caja"><div class="puesto-cab" style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:center;">
           <span><b>${esc(nombre)}</b> · ${elegidos} de ${plazas} asignado${plazas > 1 ? 's' : ''} · ${de.length} postulado${de.length === 1 ? '' : 's'}${p === 'paje' && ev.pajes_reservados ? ` · ${ev.pajes_reservados} reservado${ev.pajes_reservados > 1 ? 's' : ''}` : ''}</span>
-          ${p === 'paje' && puedeElegir ? '<button type="button" class="btn btn-outline asignarPaje">Asignar paje reservado</button>' : ''}</div>
+          ${puedeElegir && (ev.sorteo_realizado || p === 'paje') ? `<button type="button" class="btn btn-outline asignarPuesto" data-puesto="${p}">${ev.sorteo_realizado ? 'Asignar a mano' : 'Asignar paje reservado'}</button>` : ''}</div>
         <div class="pajeZona"></div>` +
         (de.length ? de.map(x => `<div class="puesto-fila" style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:center;">
             <span><b>${esc(x.nombre)} ${esc(x.apellidos)}</b>${x.estado === 'elegido' ? ' <b style="color:#1E7A46;">✓ Tiene el puesto</b>' : x.estado === 'no_elegido' ? ' <span style="color:var(--ink-soft);">No salió en el sorteo</span>' : ''}<br>
@@ -1532,10 +1598,11 @@ async function renderPostulaciones(panel, ev) {
   panel.querySelectorAll('[data-email]').forEach(b => b.addEventListener('click', () => abrirEmailDialogo({
     titulo: 'Email a ' + b.dataset.titulo, saludo: b.dataset.nombre, destino: { adultoId: b.dataset.email } })));
 
-  // Paje reservado: a cualquier adulto socio, se haya postulado o no
-  const btnPaje = panel.querySelector('.asignarPaje');
-  if (btnPaje) btnPaje.addEventListener('click', async () => {
-    const zona = btnPaje.closest('.puesto-caja').querySelector('.pajeZona');
+  // A mano: antes del sorteo, los pajes reservados; después, cualquier puesto libre.
+  // A cualquier adulto socio, se haya postulado o no
+  panel.querySelectorAll('.asignarPuesto').forEach(btn => btn.addEventListener('click', async () => {
+    const puesto = btn.dataset.puesto, nombrePuesto = PUESTOS[puesto][0];
+    const zona = btn.closest('.puesto-caja').querySelector('.pajeZona');
     zona.innerHTML = `<div class="puesto-fila"><input type="search" class="pajeBuscar" placeholder="Nombre, apellidos o nº de socio del adulto"><div class="pajeRes" style="margin-top:8px;"></div></div>`;
     const { data: adultos } = await sb.from('adultos').select('id, nombre, apellidos, socio_id, socios!inner(numero_socio_completo, estado)').eq('socios.estado', 'activa').order('apellidos');
     const buscar = zona.querySelector('.pajeBuscar'), res = zona.querySelector('.pajeRes');
@@ -1548,22 +1615,22 @@ async function renderPostulaciones(panel, ev) {
         const ya = lista.find(x => x.adulto_id === a.id);
         return `<div style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:center; padding:6px 0; border-bottom:1px solid var(--line);">
           <span><b>${esc(a.nombre)} ${esc(a.apellidos)}</b> <small style="color:var(--ink-soft);">Socio nº ${esc(numeroSocioBonito(a.socios?.numero_socio_completo))}${ya ? ' · se ha postulado a ' + esc(PUESTOS[ya.puesto][0]) : ''}</small></span>
-          ${ya && ya.puesto !== 'paje' ? '' : `<button type="button" class="btn btn-outline" data-paje="${a.id}">Darle el puesto de paje</button>`}</div>`;
+          ${ya && ya.puesto !== puesto ? '' : `<button type="button" class="btn btn-outline" data-dar-puesto="${a.id}">Darle el puesto de ${esc(nombrePuesto)}</button>`}</div>`;
       }).join('') : '<p class="empty-hint">No hay ningún adulto de una familia activa con ese nombre.</p>';
     });
     res.addEventListener('click', async (e) => {
-      const b = e.target.closest('button[data-paje]');
+      const b = e.target.closest('button[data-dar-puesto]');
       if (!b) return;
       b.disabled = true; msg.hidden = true;
-      const a = adultos.find(x => x.id === b.dataset.paje);
+      const a = adultos.find(x => x.id === b.dataset.darPuesto);
       const ya = lista.find(x => x.adulto_id === a.id);
       const { error } = ya
         ? await sb.from('evento_postulaciones').update({ estado: 'elegido' }).eq('id', ya.id)
-        : await sb.from('evento_postulaciones').insert({ evento_id: ev.id, puesto: 'paje', socio_id: a.socio_id, adulto_id: a.id, estado: 'elegido' });
+        : await sb.from('evento_postulaciones').insert({ evento_id: ev.id, puesto, socio_id: a.socio_id, adulto_id: a.id, estado: 'elegido' });
       if (error) { fallo(error); b.disabled = false; return; }
       renderPostulaciones(panel, ev);
     });
-  });
+  }));
 }
 
 /* ================= Premios (concursos y torneos) ================= */

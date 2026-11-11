@@ -1,11 +1,31 @@
 // Mochila Jugona Exploradora: lo comparten Inicio (dashboard.html) y mochila.html.
 // Necesita sb, getSession y SUPABASE_ANON_KEY (shared/supabaseClient.js).
 
-// Horarios de la Mochila Jugona Exploradora (los viernes)
-const MOCHILA_HORA_RECOGIDA = 'de 17:30 a 18:00';
-const MOCHILA_HORA_DEVOLUCION = 'de 16:00 a 16:30';
+// Horarios de la Mochila Jugona Exploradora (los viernes). Los cambia la Junta
+// (mochila_config); mientras se leen, o si no se pueden leer, valen estos.
+let MOCHILA_HORA_RECOGIDA = 'de 17:30 a 18:00';
+let MOCHILA_HORA_DEVOLUCION = 'de 16:00 a 16:30';
+const mochilaHora = (t) => String(t || '').slice(0, 5);
+const mochilaTramo = (desde, hasta) => `de ${mochilaHora(desde)} a ${mochilaHora(hasta)}`;
+let mochilaHorarioCargado = null;
+// Lee el horario una vez y lo pone también en los textos fijos de la página
+// (elementos con data-mochila-hora="recogida" o "devolucion")
+function mochilaHorario() {
+  if (!mochilaHorarioCargado) mochilaHorarioCargado = (async () => {
+    const { data } = await sb.from('mochila_config').select('recogida_desde, recogida_hasta, devolucion_desde, devolucion_hasta').eq('id', 1).maybeSingle();
+    if (data && data.recogida_desde) {
+      MOCHILA_HORA_RECOGIDA = mochilaTramo(data.recogida_desde, data.recogida_hasta);
+      MOCHILA_HORA_DEVOLUCION = mochilaTramo(data.devolucion_desde, data.devolucion_hasta);
+    }
+    document.querySelectorAll('[data-mochila-hora]').forEach(el => {
+      el.textContent = el.dataset.mochilaHora === 'recogida' ? MOCHILA_HORA_RECOGIDA : MOCHILA_HORA_DEVOLUCION;
+    });
+  })().catch(() => {});
+  return mochilaHorarioCargado;
+}
 
 async function mochilaEstado() {
+  await mochilaHorario();
   const { data, error } = await sb.rpc('mochila_mi_estado');
   if (error) throw error;
   return data;

@@ -166,13 +166,14 @@ function plantillaCredenciales({ nombre, email, password, urlPortal, inactiva })
 // Aviso de que le toca la Mochila Jugona Exploradora a una familia (la Junta le da el
 // turno, o le llega porque otra familia lo pasa, se desapunta o no
 // contesta). Tiene 24 horas para aceptarla en la web.
-function plantillaMochilaTurno({ nombre, urlPortal, entrega, devolucion }) {
+// horaRecogida / horaDevolucion: «de 17:30 a 18:00» (el horario que ha puesto la Junta)
+function plantillaMochilaTurno({ nombre, urlPortal, entrega, devolucion, horaRecogida = 'de 17:30 a 18:00', horaDevolucion = 'de 16:00 a 16:30' }) {
   const url = urlPortal || (process.env.SITE_URL || '');
   // entrega / devolucion: 'YYYY-MM-DD' (las pone la Junta al asignar)
   const dia = (f) => new Date(f + 'T12:00:00Z').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Madrid' }).replace(',', '');
   const fechas = entrega
-    ? `La recogeréis el ${dia(entrega)}, de 17:30 a 18:00, y la devolveréis el ${devolucion ? dia(devolucion) : 'viernes siguiente'}, de 16:00 a 16:30.\n\n`
-    : `Se recoge el viernes de 17:30 a 18:00 y se devuelve el viernes siguiente de 16:00 a 16:30.\n\n`;
+    ? `La recogeréis el ${dia(entrega)}, ${horaRecogida}, y la devolveréis el ${devolucion ? dia(devolucion) : 'viernes siguiente'}, ${horaDevolucion}.\n\n`
+    : `Se recoge el viernes ${horaRecogida} y se devuelve el viernes siguiente ${horaDevolucion}.\n\n`;
   return {
     subject: 'Os toca la Mochila Jugona Exploradora: tenéis 24 horas para aceptarla',
     text:

@@ -213,7 +213,12 @@ async function uniformes() {
 
 async function mochila() {
   const c = cuerpo('mochila');
-  const { data } = await sb.from('mochila_cola').select('posicion, tipo, estado, nombre_contacto, notificado_en, fecha_entrega, fecha_devolucion_prevista, socios(numero_socio_completo)').order('posicion');
+  const [{ data }, { data: conf }] = await Promise.all([
+    sb.from('mochila_cola').select('posicion, tipo, estado, nombre_contacto, notificado_en, fecha_entrega, fecha_devolucion_prevista, socios(numero_socio_completo)').order('posicion'),
+    sb.from('mochila_config').select('recogida_desde, recogida_hasta').eq('id', 1).maybeSingle()
+  ]);
+  // Horario de recogida (lo cambia la Junta en la página de la Mochila)
+  const horaRecogida = conf && conf.recogida_desde ? `de ${String(conf.recogida_desde).slice(0, 5)} a ${String(conf.recogida_hasta).slice(0, 5)}` : 'de 17:30 a 18:00';
   const cola = data || [];
   const tiene = cola.find(x => x.estado === 'la_tiene');
   const turno = cola.find(x => x.estado === 'asignada' || x.estado === 'aceptada');
@@ -227,7 +232,7 @@ async function mochila() {
   if (!turno && cola.some(x => x.estado === 'espera'))
     tarea('socios', '!', 'Asignar la Mochila Jugona Exploradora', 'Hay familias esperando y nadie tiene el turno de la semana siguiente.', 'admin-mochila.html', 'Asignar');
   if (!tiene && turno)
-    tarea('socios', '!', 'Entregar la Mochila Jugona Exploradora', `${nombre(turno)} la recoge${turno.fecha_entrega ? ' el ' + fCorta(turno.fecha_entrega) : ''} de 17:30 a 18:00.`, 'admin-mochila.html', 'Ver');
+    tarea('socios', '!', 'Entregar la Mochila Jugona Exploradora', `${nombre(turno)} la recoge${turno.fecha_entrega ? ' el ' + fCorta(turno.fecha_entrega) : ''} ${horaRecogida}.`, 'admin-mochila.html', 'Ver');
   html += `<div class="linea"><span>Familias en la lista de espera</span><b>${cola.filter(x => x.estado !== 'la_tiene').length}</b></div>`;
   c.innerHTML = html;
 }

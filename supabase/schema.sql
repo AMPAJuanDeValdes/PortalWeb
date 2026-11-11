@@ -6929,3 +6929,88 @@ grant select, insert, update, delete on avisos_enviados to service_role;
 alter table difusiones drop constraint if exists difusiones_canal_check;
 alter table difusiones add constraint difusiones_canal_check check (canal in ('aviso', 'circular', 'recogida', 'incompletas'));
 
+
+
+-- ==================================================================
+-- CABALGATA: LA JUNTA ASIGNA PLAZAS A MANO DESPUÉS DEL SORTEO
+--  · Después del sorteo la Junta puede dar una plaza a una pareja que no
+--    salió (o que no entró por no tener los documentos firmados) y quitarla
+--    a otra. Nunca más alumnos/as con plaza que el aforo del evento.
+--  · Los puestos (Responsable, Reyes, Pajes) ya se podían cambiar después
+--    del sorteo; ahora también se pueden dar a un adulto socio que no se
+--    había postulado (lo hace la pantalla, la base de datos ya lo admitía).
+-- Se puede ejecutar varias veces.
+-- ==================================================================
+
+create or replace function evento_inscripciones_reservadas()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare
+  v_admin boolean := auth.uid() is null or coalesce(is_admin(), false);
+  v_reservadas integer;
+  v_usadas integer;
+  e eventos;
+begin
+  if tg_op = 'DELETE' then
+    if not v_admin and old.asignada_a_mano then
+      raise exception 'Esta plaza os la ha dado la Junta. Si no podéis ir, escribid a la Junta.';
+    end if;
+    return old;
+  end if;
+  if not v_admin then
+    if tg_op = 'INSERT' and (new.estado <> 'pendiente' or new.asignada_a_mano or new.creada_por_junta) then
+      raise exception 'Esta inscripción no se puede hacer así.';
+    end if;
+    if tg_op = 'UPDATE' and (new.asignada_a_mano is distinct from old.asignada_a_mano or new.creada_por_junta is distinct from old.creada_por_junta) then
+      raise exception 'Esta inscripción no se puede cambiar.';
+    end if;
+    return new;
+  end if;
+  if new.asignada_a_mano and new.tipo_miembro = 'alumno' and new.actividad_id is null and not new.es_voluntario
+     and (tg_op = 'INSERT' or not old.asignada_a_mano) then
+    select plazas_reservadas into v_reservadas from eventos where id = new.evento_id;
+    select count(*) into v_usadas from evento_inscripciones
+    where evento_id = new.evento_id and asignada_a_mano and tipo_miembro = 'alumno' and actividad_id is null and id <> new.id;
+    if v_usadas >= coalesce(v_reservadas, 0) then
+      raise exception 'Ya están asignadas todas las plazas reservadas (%).', coalesce(v_reservadas, 0);
+    end if;
+  end if;
+  -- Después del sorteo la Junta puede dar y quitar plazas a mano, pero sin pasar del aforo
+  if new.estado = 'ganador' and new.tipo_miembro = 'alumno' and new.actividad_id is null and not new.es_voluntario
+     and (tg_op = 'INSERT' or old.estado is distinct from 'ganador') then
+    select * into e from eventos where id = new.evento_id;
+    if e.requiere_pareja_adulto_alumno and e.aforo_total is not null then
+      select count(*) into v_usadas from evento_inscripciones
+      where evento_id = new.evento_id and estado = 'ganador' and tipo_miembro = 'alumno'
+        and actividad_id is null and not es_voluntario and id <> new.id;
+      if v_usadas >= e.aforo_total then
+        raise exception 'Ya están ocupadas todas las plazas (%). Quita antes una plaza a otra pareja.', e.aforo_total;
+      end if;
+    end if;
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists trg_evento_inscripciones_reservadas on evento_inscripciones;
+create trigger trg_evento_inscripciones_reservadas before insert or update or delete on evento_inscripciones
+  for each row execute function evento_inscripciones_reservadas();
+
+
+-- ==================================================================
+-- MOCHILA JUGONA EXPLORADORA: HORARIO EDITABLE
+--  · La hora de recogida y la de devolución (los viernes) se guardan en
+--    mochila_config y la Junta las cambia en Panel → Mochila Jugona
+--    Exploradora. Las ven la web (Inicio, la página de la Mochila y el
+--    panel) y el email que avisa del turno.
+-- Se puede ejecutar varias veces.
+-- ==================================================================
+
+alter table mochila_config add column if not exists recogida_desde time not null default '17:30';
+alter table mochila_config add column if not exists recogida_hasta time not null default '18:00';
+alter table mochila_config add column if not exists devolucion_desde time not null default '16:00';
+alter table mochila_config add column if not exists devolucion_hasta time not null default '16:30';
+alter table mochila_config drop constraint if exists mochila_config_horario_check;
+alter table mochila_config add constraint mochila_config_horario_check
+  check (recogida_desde < recogida_hasta and devolucion_desde < devolucion_hasta);
+insert into mochila_config (id) values (1) on conflict (id) do nothing;
+grant select on mochila_config to anon, authenticated;
+grant update on mochila_config to authenticated;
