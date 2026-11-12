@@ -156,13 +156,6 @@ test.describe('Lotería (Junta)', () => {
 });
 
 test.describe('Quiero comprar Lotería', () => {
-  test('La función de mensajes pide los datos a quien no es socio (o dice que no hay lotería)', async () => {
-    const { data: abierta } = await admin.rpc('loteria_publica');
-    const r = await llamarFuncion('loteria-mensaje', { mensaje: 'Quiero 2 participaciones', nombre: 'Sin', apellidos: '', email: 'x@x.es', movil: '600000000' });
-    expect(r.status).toBe(400);
-    expect(r.json.error).toContain(abierta && abierta.length ? 'nombre y tus apellidos' : 'no hay lotería a la venta');
-  });
-
   test('Sin campaña abierta la página lo dice; con campaña, sale el reparto 4 € + 1 € de donativo', async ({ page }) => {
     const { data: abierta } = await admin.rpc('loteria_publica');
     await page.goto('/loteria.html');

@@ -19,15 +19,6 @@
   /* El calendario ya va dentro de una tarjeta */
   #fechas .calendario{ border:0; padding:0; margin:0; background:none; }
   .sin-fechas{ margin:0; color:var(--ink-soft); }
-  .soy-socio{ display:flex; flex-wrap:wrap; gap:6px 12px; align-items:center; justify-content:space-between; margin:0 0 14px; }
-  .soy-socio p{ margin:0; color:var(--ink-soft); }
-  .soy-socio a{ font-size:15px; font-weight:700; border:2px solid var(--line); border-radius:999px; padding:6px 14px; text-decoration:none; color:var(--ink); }
-  .soy-socio a:hover{ border-color:var(--ink); }
-  .tus-datos{ background:#F6F8FB; border-radius:14px; padding:12px 16px; margin:0 0 14px; }
-  .tus-datos p{ margin:0; }
-  .trampa{ position:absolute; left:-9999px; width:1px; height:1px; overflow:hidden; }
-  .hecho{ text-align:center; padding:24px 10px; }
-  .hecho b{ display:block; font-family:var(--font-title); font-size:26px; margin-bottom:8px; }
 </style>
 </head>
 <body>
@@ -49,29 +40,6 @@
       <p class="section-label">Dónde y cuándo comprarla</p>
       <div id="fechas"><p class="loading">Cargando...</p></div>
     </div>
-
-    <div class="card" id="formWrap">
-      <p class="section-label">Escríbenos</p>
-      <div class="soy-socio" id="soySocio">
-        <p>Cuéntanos cuántas participaciones quieres o cualquier duda, y te contestamos.</p>
-        <a href="login.html?volver=loteria.html">Soy socio</a>
-      </div>
-      <div class="tus-datos" id="tusDatos" hidden></div>
-      <form id="form" novalidate>
-        <div class="field"><label for="mensaje">Tu mensaje *</label><textarea id="mensaje" rows="4" maxlength="2000" placeholder="Por ejemplo: quiero 4 participaciones"></textarea></div>
-        <div id="datosNoSocio">
-          <div class="dos" style="margin-top:14px;">
-            <div class="field"><label for="nombre">Nombre *</label><input type="text" id="nombre" autocomplete="given-name"></div>
-            <div class="field"><label for="apellidos">Apellidos *</label><input type="text" id="apellidos" autocomplete="family-name"></div>
-            <div class="field"><label for="email">Email *</label><input type="email" id="email" autocomplete="email"></div>
-            <div class="field"><label for="movil">Móvil *</label><input type="tel" id="movil" autocomplete="tel" inputmode="tel"></div>
-          </div>
-        </div>
-        <div class="trampa" aria-hidden="true"><label for="web">No rellenar</label><input type="text" id="web" tabindex="-1" autocomplete="off"></div>
-        <button type="submit" class="btn btn-primary" id="enviarBtn" style="margin-top:18px;">Enviar mensaje</button>
-        <p id="msg" class="msg-error" hidden style="margin-top:14px;"></p>
-      </form>
-    </div>
   </div>
 
   <div class="card" id="cerrada" hidden>
@@ -87,7 +55,6 @@
 <script>
 const esc = (t) => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const eur = (n) => Number(n || 0).toLocaleString('es-ES', { minimumFractionDigits: Number(n) % 1 ? 2 : 0, maximumFractionDigits: 2 }) + ' €';
-let token = null, adulto = null;
 
 // Días de venta de esta campaña en el calendario (shared/calendario.js)
 async function pintarFechas(c) {
@@ -96,7 +63,7 @@ async function pintarFechas(c) {
     .gte('fecha', c.inicio).order('fecha');
   // Solo las ventas de lotería, nada más del calendario del AMPA
   const ventas = (data || []).filter(e => e.fecha && e.plantilla === 'loteria');
-  if (!ventas.length) { wrap.innerHTML = '<p class="sin-fechas">Todavía no hay fechas de venta. Escríbenos y te decimos cómo conseguirla.</p>'; return; }
+  if (!ventas.length) { wrap.innerHTML = '<p class="sin-fechas">Todavía no hay fechas de venta.</p>'; return; }
   pintarCalendarioAMPA(wrap, ventas, {
     href: null,   // sin enlace a Eventos: aquí solo se ve la lotería
     detalle: (e) => e.lugar || '',
@@ -111,47 +78,11 @@ async function socioConSesion() {
     if (!session) return;
     const a = await getAdulto();
     if (!a) return;
-    token = session.access_token; adulto = a;
     document.getElementById('navLinks').innerHTML = '<a href="index.html">Página principal</a><a href="dashboard.html" class="pub-pill">Mi perfil</a>';
     const m = document.getElementById('migaInicio'); m.href = 'dashboard.html'; m.textContent = 'Inicio';
     const v = document.getElementById('volverCerrada'); v.href = 'dashboard.html'; v.textContent = 'Volver a Mi perfil';
-    document.getElementById('soySocio').hidden = true;
-    document.getElementById('datosNoSocio').hidden = true;
-    const t = document.getElementById('tusDatos');
-    t.innerHTML = `<p>Te contestaremos a <b>${esc(a.email)}</b>${a.movil ? ' o al <b>' + esc(a.movil) + '</b>' : ''}.</p>
-      <p style="font-size:15px; color:var(--ink-soft); margin-top:4px;">${esc(a.nombre)} ${esc(a.apellidos || '')}. Para cambiar estos datos, ve a <a href="mis-datos.html">Mis datos</a>.</p>`;
-    t.hidden = false;
-  } catch (e) { /* sin sesión: se piden los datos */ }
+  } catch (e) { /* sin sesión: página pública */ }
 }
-
-document.getElementById('form').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const msg = document.getElementById('msg'), btn = document.getElementById('enviarBtn');
-  const error = (t) => { msg.textContent = t; msg.hidden = false; };
-  msg.hidden = true;
-  const val = (id) => document.getElementById(id).value.trim();
-  const datos = { mensaje: val('mensaje'), web: val('web') };
-  if (datos.mensaje.length < 3) return error('Escribe tu mensaje.');
-  if (!adulto) {
-    Object.assign(datos, { nombre: val('nombre'), apellidos: val('apellidos'), email: val('email'), movil: val('movil') });
-    if (!datos.nombre || !datos.apellidos) return error('Escribe tu nombre y tus apellidos.');
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(datos.email)) return error('Escribe un email válido.');
-    if (!movilValido(datos.movil)) return error('Escribe un móvil válido (9 cifras).');
-  }
-  btn.disabled = true; btn.textContent = 'Enviando...';
-  try {
-    const headers = { 'Content-Type': 'application/json' };
-    if (token) headers.Authorization = 'Bearer ' + token;
-    const r = await fetch('/.netlify/functions/loteria-mensaje', { method: 'POST', headers, body: JSON.stringify(datos) });
-    let d = {}; try { d = await r.json(); } catch (e2) { /* respuesta no JSON */ }
-    if (!r.ok) throw new Error(d.error || 'No se pudo enviar. Inténtalo de nuevo en unos minutos.');
-    document.getElementById('formWrap').innerHTML = `<div class="hecho"><b>Mensaje enviado</b>
-      <p>Te contestaremos a ${esc(d.email || datos.email || '')}.</p>
-      <p><a href="${adulto ? 'dashboard.html' : 'index.html'}">${adulto ? 'Volver a Mi perfil' : 'Volver a la página principal'}</a></p></div>`;
-  } catch (e2) {
-    error(e2.message); btn.disabled = false; btn.textContent = 'Enviar mensaje';
-  }
-});
 
 (async () => {
   await socioConSesion();

@@ -682,10 +682,9 @@ web/                      → Lo que se publica (Netlify publish = "web").
   admin-uniformes.html    → Banco de Uniformes: catálogo, convocatoria y reparto.
   admin-donaciones.html   → Donaciones anunciadas y stock donado.
   loteria.html            → «Quiero comprar Lotería» (pública y para socios) mientras la campaña está
-                            abierta: fechas de venta (eventos con plantilla «loteria») y un mensaje para
-                            la Junta (netlify/functions/loteria-mensaje.js → loteria_mensajes + email).
+                            abierta: fechas de venta (eventos con plantilla «loteria»).
   admin-loteria.html      → Lotería: campañas, talonarios (de 25 participaciones de 5 €), quién tiene
-                            cada uno, ventas, ingresos en la cuenta e historial; comenzar y cerrar la campaña; mensajes. Tablas loteria_*;
+                            cada uno, ventas, ingresos en la cuenta e historial; comenzar y cerrar la campaña. Tablas loteria_*;
                             las reglas (no ingresar más de lo vendido, etc.) están en la base de datos.
   admin-encuestas.html    → Crear encuestas / resultados.
   admin-respuestas.html   → Préstamo / Eventos / Alumnos.

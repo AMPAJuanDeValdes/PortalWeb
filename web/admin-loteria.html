@@ -25,14 +25,6 @@
   .fila-venta{ display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end; margin-top:14px; }
   .fila-venta label{ display:grid; gap:4px; font-weight:700; font-size:14px; }
   .fila-venta .crece{ flex:1 1 220px; }
-  .msj{ border-bottom:1px solid var(--line); padding:14px 0; display:grid; gap:6px; }
-  .msj:last-child{ border-bottom:0; }
-  .msj-cab{ display:flex; flex-wrap:wrap; gap:4px 12px; align-items:baseline; }
-  .msj-cab small{ color:var(--ink-soft); }
-  .msj p{ margin:0; white-space:pre-wrap; }
-  .msj-acc{ display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
-  .msj-acc input{ flex:1 1 240px; width:auto; }
-  .msj.atendido{ opacity:.65; }
   .form-grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); gap:12px 16px; margin:12px 0; }
   .form-grid label{ display:grid; gap:4px; font-weight:700; font-size:15px; }
   .resumen{ display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:12px; margin:0; }
@@ -138,12 +130,6 @@
       <p class="msg-error" id="ventaMsg" hidden></p>
     </div>
 
-    <div class="card" id="mensajesCard">
-      <p class="section-label" id="mensajesTit">Mensajes de «Quiero comprar Lotería» <span id="mensajesN" style="color:#B3261E;"></span></p>
-      <div id="mensajes"><p class="loading">Cargando...</p></div>
-      <button type="button" class="linklike" id="verAtendidos" hidden style="margin-top:10px;"></button>
-    </div>
-
     <div class="card">
       <p class="section-label">Asignar talonarios</p>
       <p style="color:var(--ink-soft); margin:-4px 0 10px;">Por participaciones: de la 1 a la 300 son los talonarios 1 a 12. Solo talonarios enteros.</p>
@@ -239,7 +225,7 @@ async function elegirCampana(id) {
     ? `${camp.numeros ? 'Número ' + camp.numeros + '. ' : ''}Participaciones de ${eur(camp.precio)}${Number(camp.donativo) ? ` (se juegan ${eur(camp.precio - camp.donativo)} y ${eur(camp.donativo)} es donativo para el AMPA)` : ''}, ${camp.participaciones_por_talonario} por talonario (${eur(camp.precio * camp.participaciones_por_talonario)} el talonario entero).`
     : 'Crea la campaña de este año para empezar a repartir talonarios.';
   pintarEstado();
-  if (camp) await Promise.all([cargarTalonarios(), cargarMovs(), cargarMensajes(), cargarVentas()]);
+  if (camp) await Promise.all([cargarTalonarios(), cargarMovs(), cargarVentas()]);
 }
 document.getElementById('campSel').addEventListener('change', (e) => elegirCampana(e.target.value));
 
@@ -528,40 +514,6 @@ document.getElementById('ventaForm').addEventListener('submit', async (e) => {
   f.reset();
   cargarVentas();
 });
-
-/* ---------- Mensajes de «Quiero comprar Lotería» ---------- */
-let verAtendidos = false;
-async function cargarMensajes() {
-  const wrap = document.getElementById('mensajes');
-  const { data, error } = await sb.from('loteria_mensajes').select('*').eq('campana_id', camp.id).order('created_at', { ascending: false });
-  if (error) { wrap.innerHTML = '<p class="msg-error">No se pudieron cargar los mensajes.</p>'; return; }
-  const pendientes = data.filter(m => !m.atendido_en);
-  document.getElementById('mensajesN').textContent = pendientes.length ? `(${pendientes.length} sin atender)` : '';
-  const lista = verAtendidos ? data : pendientes;
-  document.getElementById('verAtendidos').textContent = verAtendidos ? 'Ocultar los atendidos' : `Ver también los atendidos (${data.length - pendientes.length})`;
-  document.getElementById('verAtendidos').hidden = data.length === pendientes.length && !verAtendidos;
-  if (!lista.length) { wrap.innerHTML = '<p class="nada">No hay mensajes sin atender.</p>'; return; }
-  wrap.innerHTML = lista.map(m => `<div class="msj${m.atendido_en ? ' atendido' : ''}" data-id="${m.id}">
-    <div class="msj-cab"><b>${esc(m.nombre)} ${esc(m.apellidos)}</b>${m.socio_id ? '<small>Familia socia</small>' : ''}<small>${new Date(m.created_at).toLocaleString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</small>${m.atendido_en ? `<small>Atendido el ${fecha(m.atendido_en)}</small>` : ''}</div>
-    <p>${esc(m.mensaje)}</p>
-    <div><a href="mailto:${esc(m.email)}?subject=${encodeURIComponent('Lotería del AMPA')}">${esc(m.email)}</a> · <a href="tel:${esc(String(m.movil).replace(/\s/g, ''))}">${esc(m.movil)}</a></div>
-    <div class="msj-acc">
-      <input type="text" placeholder="Nota de la Junta (solo la veis vosotros)" aria-label="Nota de la Junta" value="${esc(m.nota_junta || '')}">
-      <button type="button" class="btn ${m.atendido_en ? 'btn-outline' : 'btn-primary'}" data-m="${m.atendido_en ? 'pendiente' : 'atendido'}">${m.atendido_en ? 'Marcar sin atender' : 'Marcar como atendido'}</button>
-    </div>
-  </div>`).join('');
-}
-document.getElementById('mensajes').addEventListener('click', async (e) => {
-  const b = e.target.closest('button[data-m]'); if (!b) return;
-  const caja = b.closest('.msj');
-  const { error } = await sb.from('loteria_mensajes').update({
-    atendido_en: b.dataset.m === 'atendido' ? new Date().toISOString() : null,
-    nota_junta: caja.querySelector('input').value.trim() || null
-  }).eq('id', caja.dataset.id);
-  if (error) { alert('No se pudo guardar: ' + error.message); return; }
-  cargarMensajes();
-});
-document.getElementById('verAtendidos').addEventListener('click', () => { verAtendidos = !verAtendidos; cargarMensajes(); });
 
 /* ---------- Asignar un grupo de talonarios ---------- */
 const grupoForm = document.getElementById('grupoForm');
