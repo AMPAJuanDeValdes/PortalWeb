@@ -267,7 +267,11 @@ async function cargarConvocatoria() {
       html += resumenHtml(c) + `<p style="font-size:14px;">Resultados publicados el ${fechaHora(c.finalizada_en)}${c.finalizada_por ? ' por ' + esc(c.finalizada_por) : ''}. Solo lectura. Las familias ya ven su resultado.</p>
         <div class="recogida" style="border-top:1px solid var(--line); margin-top:16px; padding-top:16px;">
           <p class="section-label">Avisar de la recogida</p>
-          <p style="font-size:14px; color:var(--ink-soft); margin:-6px 0 10px;">Cada familia que pidió uniformes recibe un email con qué ha recibido cada alumno/a y cuándo y dónde recogerlo.</p>
+          <p style="font-size:14px; color:var(--ink-soft); margin:-6px 0 10px;">Un email con qué prendas tiene cada alumno/a y cuándo y dónde recogerlas.</p>
+          <div class="field" style="margin-bottom:10px;"><label>A quién</label>
+            <label class="check"><input type="radio" name="rQuien" value="todas" checked> A todas las familias que pidieron uniformes</label>
+            <label class="check"><input type="radio" name="rQuien" value="sinRecoger"> Solo a las familias con prendas sin recoger (sale solo lo que les falta por recoger)</label>
+          </div>
           <div class="fila" style="flex-wrap:wrap; gap:10px 14px;">
             <div class="field"><label for="rDia">Día</label><input type="date" id="rDia"></div>
             <div class="field"><label for="rDesde">Desde</label><input type="time" id="rDesde"></div>
@@ -275,7 +279,7 @@ async function cargarConvocatoria() {
             <div class="field" style="flex:1; min-width:220px;"><label for="rLugar">Dónde</label><input type="text" id="rLugar" placeholder="Ej.: en la puerta del colegio"></div>
           </div>
           <div class="field" style="margin-top:10px;"><label for="rNota">Algo más (opcional)</label><textarea id="rNota" rows="2" placeholder="Ej.: si no podéis venir ese día, escribidnos"></textarea></div>
-          <label class="check" style="margin-top:8px;"><input type="checkbox" id="rSinPrenda" checked> Avisar también a las familias que esta vez no han recibido prenda</label>
+          <label class="check" style="margin-top:8px;" id="rSinPrendaFila"><input type="checkbox" id="rSinPrenda" checked> Avisar también a las familias que esta vez no han recibido prenda</label>
           <div class="acciones"><button class="btn btn-primary" id="recogidaBtn">Ver cómo queda y enviar</button><small class="difusion-info" id="recogidaHist"></small></div>
           <div id="recogidaVista" hidden style="margin-top:14px;">
             <p class="section-label" style="margin:0 0 6px;">Vista previa</p>
@@ -318,8 +322,9 @@ const nuevoUuid = () => (window.crypto && crypto.randomUUID) ? crypto.randomUUID
   : '10000000-1000-4000-8000-100000000000'.replace(/[018]/g, c => (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16));
 async function montarRecogida(c) {
   const hist = document.getElementById('recogidaHist');
+  const sinRecoger = () => document.querySelector('input[name="rQuien"]:checked').value === 'sinRecoger';
   const pintarHist = async () => {
-    const { data } = await sb.from('difusiones').select('created_at, familias, creado_por_nombre').eq('tipo', 'uniformes').eq('ref_id', c.id).eq('canal', 'recogida').order('created_at', { ascending: false });
+    const { data } = await sb.from('difusiones').select('created_at, familias, creado_por_nombre').eq('tipo', 'uniformes').eq('ref_id', c.id).eq('canal', sinRecoger() ? 'sin_recoger' : 'recogida').order('created_at', { ascending: false });
     hist.textContent = data && data.length
       ? `Enviado ${data.length === 1 ? '1 vez' : data.length + ' veces'} · la última, ${fechaHora(data[0].created_at)} a ${data[0].familias} familia${data[0].familias === 1 ? '' : 's'}`
       : '';
@@ -336,7 +341,9 @@ async function montarRecogida(c) {
   };
   const leer = () => {
     const v = (id) => document.getElementById(id).value.trim();
-    return { convocatoriaId: c.id, dia: v('rDia'), desde: v('rDesde'), hasta: v('rHasta'), lugar: v('rLugar'), nota: v('rNota'), incluirSinPrenda: document.getElementById('rSinPrenda').checked };
+    const solo = sinRecoger();
+    return { convocatoriaId: c.id, dia: v('rDia'), desde: v('rDesde'), hasta: v('rHasta'), lugar: v('rLugar'), nota: v('rNota'),
+      soloSinRecoger: solo, incluirSinPrenda: !solo && document.getElementById('rSinPrenda').checked };
   };
   const caja = document.getElementById('recogidaVista');
   let datosVista = null;
@@ -352,7 +359,9 @@ async function montarRecogida(c) {
       const d = await llamar({ ...datos, vista: true });
       datosVista = { ...datos, total: d.vista.length }; envio = null;
       const con = d.vista.filter(x => !x.sinPrenda).length, sin = d.vista.length - con;
-      document.getElementById('rvResumen').textContent = `Se enviará a ${d.vista.length} familia${d.vista.length === 1 ? '' : 's'}: ${con} con prendas${sin ? ` y ${sin} sin prenda` : ''}.`;
+      document.getElementById('rvResumen').textContent = datos.soloSinRecoger
+        ? `Se enviará a ${d.vista.length} familia${d.vista.length === 1 ? '' : 's'} con prendas sin recoger.`
+        : `Se enviará a ${d.vista.length} familia${d.vista.length === 1 ? '' : 's'}: ${con} con prendas${sin ? ` y ${sin} sin prenda` : ''}.`;
       const sel = document.getElementById('rvFamilia');
       sel.innerHTML = d.vista.map((x, k) => `<option value="${k}">${esc(x.familia)}${x.sinPrenda ? ' (sin prenda)' : ''}</option>`).join('');
       const pintar = () => {
@@ -370,6 +379,12 @@ async function montarRecogida(c) {
   document.getElementById('rvCancelar').addEventListener('click', () => { caja.hidden = true; datosVista = null; envio = null; });
   // 2. Enviar lo que se ha visto (si se cambia algo del formulario, hay que volver a verlo)
   ['rDia', 'rDesde', 'rHasta', 'rLugar', 'rNota', 'rSinPrenda'].forEach(id => document.getElementById(id).addEventListener('input', () => { caja.hidden = true; datosVista = null; envio = null; }));
+  // A quién: con «solo sin recoger» no hay familias sin prenda, y el historial es el de ese envío
+  document.querySelectorAll('input[name="rQuien"]').forEach(r => r.addEventListener('change', () => {
+    caja.hidden = true; datosVista = null; envio = null;
+    document.getElementById('rSinPrendaFila').hidden = sinRecoger();
+    pintarHist();
+  }));
   // Se envía por tandas de pocas familias (Netlify corta cada llamada a los 10 s).
   // Si se corta, «Enviar» sigue donde se quedó; a quien ya lo recibió no le llega otra vez (envioId).
   document.getElementById('rvEnviar').addEventListener('click', async (e) => {

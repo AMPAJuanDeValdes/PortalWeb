@@ -9,11 +9,13 @@
 //   con inicio = 0, TANDA, 2·TANDA… hasta que «siguiente» es null. Cada familia
 //   enviada queda en uniformes_recogida_enviados (envioId): repetir una tanda
 //   no la vuelve a enviar.
+//   Con { soloSinRecoger: true }: solo a las familias con prendas asignadas que no han
+//   recogido (ni se han devuelto al stock), con solo esas prendas (canal sin_recoger).
 //   Con { vista: true }: no envía nada; devuelve cada email tal como saldrá
 //   → { ok, vista: [{ familia, a, asunto, html, sinPrenda }] }
 
 const { createClient } = require('@supabase/supabase-js');
-const { enviarEmail, conFirma, plantillaUniformesRecogida } = require('./_lib/email');
+const { enviarEmail, conFirma, plantillaUniformesRecogida, plantillaUniformesSinRecoger } = require('./_lib/email');
 const { registrarDifusion } = require('./_lib/avisos');
 
 const json = (statusCode, obj) => ({ statusCode, body: JSON.stringify(obj) });
@@ -42,11 +44,14 @@ exports.handler = async (event) => {
   if (!conv) return json(404, { error: 'La convocatoria no existe.' });
   if (conv.estado !== 'finalizada') return json(400, { error: 'Primero publica los resultados del reparto.' });
 
+  const soloSinRecoger = !!p.soloSinRecoger;
   const { data: pedidos, error } = await sb.from('uniformes_pedidos')
-    .select('socio_id, alumno_id, estado, devuelto_stock_en, alumnos(nombre), prendas_catalogo(tipo, talla)').eq('convocatoria_id', conv.id);
+    .select('socio_id, alumno_id, estado, devuelto_stock_en, entregado_en, alumnos(nombre), prendas_catalogo(tipo, talla)').eq('convocatoria_id', conv.id);
   if (error) return json(500, { error: error.message });
-  const socios = [...new Set((pedidos || []).map(x => x.socio_id))].sort();   // orden fijo: las tandas no cambian
-  if (!socios.length) return json(400, { error: 'Nadie pidió uniformes en esta convocatoria.' });
+  // Las prendas que le tocan a cada familia en este email
+  const deLaFamilia = (sid) => (pedidos || []).filter(x => x.socio_id === sid && x.estado === 'asignado' && !x.devuelto_stock_en && (!soloSinRecoger || !x.entregado_en));
+  const socios = [...new Set((pedidos || []).map(x => x.socio_id))].filter(sid => !soloSinRecoger || deLaFamilia(sid).length).sort();   // orden fijo: las tandas no cambian
+  if (!socios.length) return json(400, { error: soloSinRecoger ? 'No hay ninguna familia con prendas sin recoger.' : 'Nadie pidió uniformes en esta convocatoria.' });
   const { data: adultos } = await sb.from('adultos').select('socio_id, nombre, email, created_at').in('socio_id', socios).order('created_at');
 
   const diaTxt = new Date(dia + 'T12:00:00Z').toLocaleDateString('es-ES', { ...ZONA, weekday: 'long', day: 'numeric', month: 'long' }).replace(',', '');
@@ -54,12 +59,12 @@ exports.handler = async (event) => {
   // Primero se preparan todos los emails (los mismos para la vista previa y para el envío)
   const mensajes = [];
   for (const sid of socios) {
-    const suyos = (pedidos || []).filter(x => x.socio_id === sid && x.estado === 'asignado' && !x.devuelto_stock_en);
-    if (!suyos.length && !p.incluirSinPrenda) continue;
+    const suyos = deLaFamilia(sid);
+    if (!suyos.length && (soloSinRecoger || !p.incluirSinPrenda)) continue;
     const ads = (adultos || []).filter(a => a.socio_id === sid && a.email);
     if (!ads.length) continue;
     const prendas = suyos.map(x => `${x.alumnos?.nombre || 'Alumno/a'}: ${x.prendas_catalogo?.tipo || 'prenda'} talla ${x.prendas_catalogo?.talla || ''}`.trim());
-    const pl = plantillaUniformesRecogida({ nombre: ads.length === 1 ? ads[0].nombre : '', prendas, cuando, lugar, nota });
+    const pl = (soloSinRecoger ? plantillaUniformesSinRecoger : plantillaUniformesRecogida)({ nombre: ads.length === 1 ? ads[0].nombre : '', prendas, cuando, lugar, nota });
     mensajes.push({ socio: sid, familia: ads.map(a => a.nombre).join(' y '), a: ads.map(a => a.email).join(', '), sinPrenda: !suyos.length, ...pl });
   }
   if (!mensajes.length) return json(400, { error: 'No hay ninguna familia a la que enviarlo.' });
@@ -91,7 +96,7 @@ exports.handler = async (event) => {
   // Al terminar, al historial (con el total de familias de este envío)
   if (siguiente === null) {
     const { count } = await sb.from('uniformes_recogida_enviados').select('socio_id', { count: 'exact', head: true }).eq('envio_id', envioId);
-    if (count) await registrarDifusion(sb, { tipo: 'uniformes', refId: conv.id, canal: 'recogida', familias: count, adultoId: u.user.id });
+    if (count) await registrarDifusion(sb, { tipo: 'uniformes', refId: conv.id, canal: soloSinRecoger ? 'sin_recoger' : 'recogida', familias: count, adultoId: u.user.id });
   }
   return json(200, { ok: true, total: mensajes.length, siguiente, enviados, sinPrenda, fallos });
 };

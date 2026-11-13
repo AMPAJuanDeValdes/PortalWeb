@@ -254,6 +254,18 @@ function plantillaUniformesRecogida({ nombre, prendas, cuando, lugar, nota }) {
   };
 }
 
+// Banco de Uniformes: prendas asignadas que la familia todavía no ha recogido
+function plantillaUniformesSinRecoger({ nombre, prendas, cuando, lugar, nota }) {
+  return {
+    subject: 'Banco de Uniformes: tenéis prendas sin recoger',
+    text:
+      `Hola${nombre ? ' ' + nombre : ''},\n\n` +
+      `Todavía no habéis recogido estas prendas del Banco de Uniformes:\n` + prendas.map(p => `  - ${p}`).join('\n') + `\n\n` +
+      `Podéis recogerlas el ${cuando}${lugar ? ', en ' + lugar : ''}.\n\n` +
+      (nota ? `${nota}\n` : '')
+  };
+}
+
 // Inscripción sin terminar: faltan documentos por firmar (p. ej. la Cabalgata).
 // Sin ellos la inscripción no entra en el sorteo.
 function plantillaInscripcionIncompleta({ nombre, evento, faltan, cierre, sorteo, url }) {
@@ -376,7 +388,7 @@ function plantillaRecordatorioDevolucion({ nombre, libros }) {
 
 module.exports = {
   componerBorrador, conFirma, textoAHtml, srcLogoFirma, rutaAsset,
-  plantillaLoteria, plantillaJustificanteRechazado, plantillaMochilaEncuesta, plantillaUniformesRecogida, plantillaInscripcionIncompleta,
+  plantillaLoteria, plantillaJustificanteRechazado, plantillaMochilaEncuesta, plantillaUniformesRecogida, plantillaUniformesSinRecoger, plantillaInscripcionIncompleta,
   enviarEmail, numeroSocioBonito, plantillaCredenciales, plantillaMochilaTurno, plantillaComentario, plantillaDonacion,
   plantillaBienvenida, plantillaRechazo, plantillaRecuperarPassword, plantillaRecordatorioDevolucion
 };
