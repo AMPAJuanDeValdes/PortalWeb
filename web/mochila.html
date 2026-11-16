@@ -117,6 +117,16 @@ async function pintarLista() {
   if (conCarta && carta.hidden) { carta.hidden = false; pintarCarta(false); }
   if (!conCarta) carta.hidden = true;
 
+  // Solo se apuntan las familias con los datos confirmados (lo impone también la base de datos)
+  if (!est.apuntada && !ctxGlobal.socio.datos_revisados_en) {
+    caja.innerHTML = `
+      <div class="lista-fila">
+        <p class="dato"><b>${est.esperan}</b><span>${mochilaFamilias(est.esperan)} en la lista de espera</span></p>
+        <a class="btn btn-cta btn-grande" href="mis-datos.html">Ir a Mis datos</a>
+      </div>
+      <p class="nota">Para apuntaros a la lista, antes tenéis que confirmar los datos de vuestra familia en Mis datos.</p>`;
+    return;
+  }
   if (!est.apuntada) {
     caja.innerHTML = `
       <div class="lista-fila">

@@ -14,6 +14,11 @@
 <link rel="stylesheet" href="shared/styles.css">
 <style>
   .two-col{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .info-bloque{ border:1.5px solid var(--line); border-radius:12px; padding:14px; margin-bottom:12px; background:#fff; }
+  .info-bloque textarea{ min-height:140px; }
+  .info-img{ display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+  .info-img img{ width:160px; height:110px; object-fit:cover; border-radius:8px; border:1px solid var(--line); }
+  .info-acciones{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top:10px; }
   @media (max-width:560px){ .two-col{ grid-template-columns:1fr; } }
   .cursos-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(110px,1fr)); gap:6px; margin-top:8px; }
   .cursos-grid label{ font-weight:400; font-size:14px; display:flex; align-items:center; gap:6px; }
@@ -739,6 +744,7 @@ async function cargarEventos() {
           ((ev.puestos || []).length ? '<button class="btn btn-outline togglePostulacionesBtn">Postulaciones</button>' : '') +
           '<button class="btn btn-outline togglePremiosBtn">Premios</button>' +
           '<button class="btn btn-outline toggleFotosBtn">Fotos</button>' +
+          '<button class="btn btn-outline toggleInfoBtn">Más información</button>' +
           (!ev.sin_inscripcion && !ev.usa_concurso_texto ? '<button class="btn btn-outline toggleDocsBtn">Documentos</button>' : '') +
           // El listado se puede sacar siempre; si aún se pueden apuntar, se avisa de que puede cambiar
           (ev.tipo_elegibilidad !== 'adultos' && !ev.sin_inscripcion && !ev.usa_concurso_texto ? '<button class="btn btn-outline listadoBtn">Listado (Excel)</button>' : '') +
@@ -759,6 +765,7 @@ async function cargarEventos() {
       '<div class="postulacionesPanel" style="display:none; margin-top:14px;"></div>' +
       '<div class="premiosPanel" style="display:none; margin-top:14px;"></div>' +
       '<div class="fotosPanel" style="display:none; margin-top:14px;"></div>' +
+      '<div class="infoPanel" style="display:none; margin-top:14px;"></div>' +
       '<div class="docsPanel" style="display:none; margin-top:14px;"></div>' +
       '<div class="concursoPanel" style="display:none; margin-top:14px;"></div>' +
       '<p class="sortearMsg" style="display:none; margin-top:10px;"></p>';
@@ -841,6 +848,13 @@ async function cargarEventos() {
       const visible = premiosPanel.style.display === 'block';
       premiosPanel.style.display = visible ? 'none' : 'block';
       if (!visible) await renderPremios(premiosPanel, ev);
+    });
+
+    const infoPanel = row.querySelector('.infoPanel');
+    row.querySelector('.toggleInfoBtn').addEventListener('click', async () => {
+      const visible = infoPanel.style.display === 'block';
+      infoPanel.style.display = visible ? 'none' : 'block';
+      if (!visible) await renderInfoEvento(infoPanel, ev);
     });
 
     const fotosPanel = row.querySelector('.fotosPanel');
@@ -1015,13 +1029,23 @@ async function renderInscritos(panel, ev) {
 
   const asistentes = filas.filter(f => f['Apartado'] === 'Asistente').length;
   const voluntarios = filas.filter(f => f['Apartado'] === 'Voluntario').length;
+  // Por parejas (Cabalgata): cada plaza es un alumno/a con su adulto, así que se cuentan parejas
+  let resumenAsistentes = `<b>${asistentes}</b> asistente${asistentes === 1 ? '' : 's'}${ev.aforo_total != null ? ' de ' + ev.aforo_total + ' plazas' : ''}`;
+  if (ev.requiere_pareja_adulto_alumno) {
+    const parejas = filas.filter(f => f['Apartado'] === 'Asistente' && f._ins.tipo_miembro === 'alumno');
+    const conPlaza = parejas.filter(f => f._ins.estado === 'ganador').length;
+    const pl = (n) => n === 1 ? 'pareja' : 'parejas';
+    resumenAsistentes = ev.sorteo_realizado
+      ? `<b>${conPlaza}</b> ${pl(conPlaza)} alumno/a-adulto con plaza${ev.aforo_total != null ? ' de ' + ev.aforo_total + ' plazas' : ''} (${parejas.length} apuntada${parejas.length === 1 ? '' : 's'})`
+      : `<b>${parejas.length}</b> ${pl(parejas.length)} alumno/a-adulto apuntada${parejas.length === 1 ? '' : 's'}${ev.aforo_total != null ? ' para ' + ev.aforo_total + ' plazas' : ''}`;
+  }
   const columnas = Object.keys(filas[0]).filter(c => !c.startsWith('_') && filas.some(f => f[c] !== '' && f[c] != null));
   const orden = ['Asistente', ...new Set(filas.map(f => f['Apartado']).filter(a => a !== 'Asistente' && a !== 'Voluntario')), 'Voluntario'];
   filas.sort((a, b) => orden.indexOf(a['Apartado']) - orden.indexOf(b['Apartado']));
 
   panel.innerHTML = `
     <div style="display:flex; flex-wrap:wrap; gap:10px 20px; align-items:center; justify-content:space-between;">
-      <p style="margin:0;"><b>${asistentes}</b> asistente${asistentes === 1 ? '' : 's'}${ev.aforo_total != null ? ' de ' + ev.aforo_total + ' plazas' : ''}${voluntarios ? `, <b>${voluntarios}</b> voluntario${voluntarios === 1 ? '' : 's'}` : ''}</p>
+      <p style="margin:0;">${resumenAsistentes}${voluntarios ? `, <b>${voluntarios}</b> voluntario${voluntarios === 1 ? '' : 's'}` : ''}</p>
       <button type="button" class="btn btn-outline csvBtn">Descargar listado (CSV)</button>
     </div>
     ${filas.some(f => f._sinAdulto) ? '<p class="aviso">Hay alumnos sin ningún adulto encargado (marcados en amarillo).</p>' : ''}
@@ -1732,6 +1756,162 @@ async function renderFotosEvento(panel, evento) {
     });
     lista.appendChild(item);
   });
+}
+
+/* ================= Más información (evento_info) =================
+   Bloques que se ven en el evento, aparte de la descripción: título,
+   texto, una imagen y un enlace (p. ej. la obra de la Chocolatada). */
+// Las fotos del móvil pesan mucho: se reducen a 1600 px de lado como mucho
+function reducirImagen(file) {
+  if (!/^image\/(jpeg|png|webp)$/.test(file.type)) return Promise.resolve(file);
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const k = Math.min(1, 1600 / Math.max(img.width, img.height));
+      if (k === 1 && file.size < 900 * 1024) { URL.revokeObjectURL(img.src); return resolve(file); }
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(img.src);
+      c.toBlob(b => resolve(b ? new File([b], file.name.replace(/\.\w+$/, '') + '.jpg', { type: 'image/jpeg' }) : file), 'image/jpeg', 0.85);
+    };
+    img.onerror = () => resolve(file);
+    img.src = URL.createObjectURL(file);
+  });
+}
+async function borrarImagenInfo(url) {
+  const m = url && url.match(/\/carrusel\/(info\/.+)$/);
+  if (m) await sb.storage.from('carrusel').remove([decodeURIComponent(m[1])]);
+}
+async function renderInfoEvento(panel, evento) {
+  panel.innerHTML = '<p class="loading">Cargando...</p>';
+  const { data: bloques, error } = await sb.from('evento_info').select('*').eq('evento_id', evento.id).order('orden').order('created_at');
+  if (error) {
+    panel.innerHTML = '<p class="msg-error">' + esc(error.message) + (/evento_info/.test(error.message) ? ' ¿Has ejecutado supabase/pendientes/migracion-eventos-mas-informacion.sql?' : '') + '</p>';
+    return;
+  }
+  const lista = (bloques || []).map(b => ({ ...b }));
+  // Antes de volver a pintar, se recoge lo escrito en todos los bloques (aunque no se haya guardado)
+  const recoger = () => panel.querySelectorAll('.info-bloque').forEach((caja, k) => {
+    const b = lista[k];
+    if (!b) return;
+    b.titulo = caja.querySelector('.iTitulo').value; b.texto = caja.querySelector('.iTexto').value;
+    b.enlace_url = caja.querySelector('.iEnlace').value; b.enlace_texto = caja.querySelector('.iEnlaceTexto').value;
+  });
+  const pintar = () => {
+    panel.innerHTML = `<p class="section-label">Más información</p>
+      <p class="ayuda" style="margin:0 0 12px;">Aparece en el evento, debajo de la descripción, en un apartado «Más información» que se despliega. Cada bloque puede tener título, texto, una imagen y un enlace. Lo ven los socios y, si el evento está abierto a no socios, también ellos.</p>
+      <div class="infoBloques"></div>
+      <button type="button" class="btn btn-outline infoAnadir">+ Añadir bloque</button>`;
+    const cont = panel.querySelector('.infoBloques');
+    lista.forEach((b, k) => {
+      const caja = document.createElement('div');
+      caja.className = 'info-bloque';
+      caja.innerHTML = `
+        <div class="field"><label>Título</label><input type="text" class="iTitulo" maxlength="150" value="${esc(b.titulo || '')}"></div>
+        <div class="field"><label>Texto</label><textarea class="iTexto">${esc(b.texto || '')}</textarea></div>
+        <div class="field"><label>Imagen</label>
+          <div class="info-img">${b.imagen_url ? `<img src="${esc(b.imagen_url)}" alt="">` : ''}
+            <input type="file" class="iFoto" accept="image/*">
+            ${b.imagen_url ? '<button type="button" class="btn-danger-link iQuitarFoto">Quitar imagen</button>' : ''}</div></div>
+        <div class="two-col">
+          <div class="field"><label>Enlace (opcional)</label><input type="url" class="iEnlace" placeholder="https://..." value="${esc(b.enlace_url || '')}"></div>
+          <div class="field"><label>Texto del enlace</label><input type="text" class="iEnlaceTexto" maxlength="120" placeholder="Ver el tráiler de la obra" value="${esc(b.enlace_texto || '')}"></div>
+        </div>
+        <div class="info-acciones">
+          <button type="button" class="btn btn-primary iGuardar">${b.id ? 'Guardar' : 'Guardar bloque'}</button>
+          ${k > 0 && b.id ? '<button type="button" class="btn btn-outline iSubir">Subir</button>' : ''}
+          ${k < lista.length - 1 && b.id && lista[k + 1].id ? '<button type="button" class="btn btn-outline iBajar">Bajar</button>' : ''}
+          <button type="button" class="btn-danger-link iBorrar">${b.id ? 'Borrar bloque' : 'Descartar'}</button>
+          <span class="iMsg" hidden></span>
+        </div>`;
+      const msg = caja.querySelector('.iMsg');
+      const decir = (t, ok) => { msg.className = 'iMsg ' + (ok ? 'msg-ok' : 'msg-error'); msg.textContent = t; msg.hidden = false; };
+      const leer = () => {
+        b.titulo = caja.querySelector('.iTitulo').value.trim() || null;
+        b.texto = caja.querySelector('.iTexto').value.trim() || null;
+        b.enlace_url = caja.querySelector('.iEnlace').value.trim() || null;
+        b.enlace_texto = caja.querySelector('.iEnlaceTexto').value.trim() || null;
+      };
+      caja.querySelector('.iFoto').addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        recoger();
+        decir('Subiendo la imagen...', true);
+        const peque = await reducirImagen(file);
+        const path = `info/${evento.id}/${Date.now()}-${peque.name.replace(/[^a-zA-Z0-9.\-_]/g, '_')}`;
+        const { error } = await sb.storage.from('carrusel').upload(path, peque, { contentType: peque.type });
+        if (error) { decir('No se pudo subir la imagen: ' + error.message); return; }
+        b._imagenAnterior = b._imagenAnterior ?? b.imagen_url ?? '';
+        b.imagen_url = sb.storage.from('carrusel').getPublicUrl(path).data.publicUrl;
+        b._sinGuardar = true;
+        pintar();
+      });
+      const quitar = caja.querySelector('.iQuitarFoto');
+      if (quitar) quitar.addEventListener('click', () => {
+        recoger();
+        b._imagenAnterior = b._imagenAnterior ?? b.imagen_url ?? '';
+        b.imagen_url = null; b._sinGuardar = true;
+        pintar();
+      });
+      caja.querySelector('.iGuardar').addEventListener('click', async (e) => {
+        leer();
+        if (b.enlace_url && !/^https?:\/\//i.test(b.enlace_url)) return decir('El enlace tiene que empezar por https:// (o http://).');
+        if (!b.titulo && !b.texto && !b.imagen_url && !b.enlace_url) return decir('Pon al menos un título, un texto, una imagen o un enlace.');
+        e.target.disabled = true;
+        const datos = { titulo: b.titulo, texto: b.texto, imagen_url: b.imagen_url || null, enlace_url: b.enlace_url, enlace_texto: b.enlace_url ? b.enlace_texto : null };
+        const r = b.id
+          ? await sb.from('evento_info').update(datos).eq('id', b.id).select().single()
+          : await sb.from('evento_info').insert({ ...datos, evento_id: evento.id, orden: Math.max(-1, ...lista.filter(x => x.id).map(x => x.orden)) + 1 }).select().single();
+        e.target.disabled = false;
+        if (r.error) return decir('No se pudo guardar: ' + r.error.message);
+        // La imagen que se ha cambiado o quitado ya no hace falta
+        if (b._imagenAnterior && b._imagenAnterior !== r.data.imagen_url) await borrarImagenInfo(b._imagenAnterior);
+        recoger();
+        Object.keys(b).forEach(x => delete b[x]); Object.assign(b, r.data);
+        pintar();
+        const m2 = panel.querySelector('.infoBloques').children[lista.indexOf(b)].querySelector('.iMsg');
+        m2.className = 'iMsg msg-ok'; m2.textContent = 'Guardado.'; m2.hidden = false;
+      });
+      caja.querySelector('.iBorrar').addEventListener('click', async () => {
+        if (b.id) {
+          if (!confirm('¿Borrar este bloque' + (b.titulo ? ' («' + b.titulo + '»)' : '') + '?')) return;
+          const { error } = await sb.from('evento_info').delete().eq('id', b.id);
+          if (error) return decir('No se pudo borrar: ' + error.message);
+          await borrarImagenInfo(b._imagenAnterior);
+        }
+        // La imagen del bloque (y la que se subió sin guardar) ya no hace falta
+        await borrarImagenInfo(b.imagen_url);
+        recoger();
+        lista.splice(lista.indexOf(b), 1);
+        pintar();
+      });
+      const mover = async (d) => {
+        const otro = lista[k + d];
+        const [o1, o2] = [b.orden, otro.orden === b.orden ? b.orden + d : otro.orden];
+        const r1 = await sb.from('evento_info').update({ orden: o2 }).eq('id', b.id);
+        const r2 = await sb.from('evento_info').update({ orden: o1 }).eq('id', otro.id);
+        if (r1.error || r2.error) return decir('No se pudo cambiar el orden: ' + (r1.error || r2.error).message);
+        b.orden = o2; otro.orden = o1;
+        recoger();
+        lista.sort((x, y) => (x.id ? 0 : 1) - (y.id ? 0 : 1) || x.orden - y.orden);
+        pintar();
+      };
+      const sub = caja.querySelector('.iSubir'), baj = caja.querySelector('.iBajar');
+      if (sub) sub.addEventListener('click', () => mover(-1));
+      if (baj) baj.addEventListener('click', () => mover(1));
+      if (b._sinGuardar) decir('Imagen cambiada: pulsa Guardar para que se vea en el evento.', true);
+      cont.appendChild(caja);
+    });
+    panel.querySelector('.infoAnadir').addEventListener('click', () => {
+      recoger();
+      lista.push({ titulo: '', texto: '', imagen_url: null, enlace_url: '', enlace_texto: '' });
+      pintar();
+      const ultimo = cont.lastElementChild;
+      if (ultimo) ultimo.querySelector('.iTitulo').focus();
+    });
+  };
+  pintar();
 }
 
 async function renderActividades(panel, evento) {

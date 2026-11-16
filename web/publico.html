@@ -61,6 +61,7 @@
 <script src="shared/datos-ampa.js"></script>
 <script src="shared/catalogo.js"></script>
 <script src="shared/carrusel.js"></script>
+<script src="shared/evento-info.js"></script>
 <script>
 const esc = (t) => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const euros = (n) => Number(n).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
@@ -102,6 +103,7 @@ async function tarjetaEvento(ev) {
     <h2>${esc(ev.titulo)}</h2>
     <div class="eventoCarrusel" style="max-width:420px; margin:10px 0;"></div>
     ${ev.descripcion ? `<p style="white-space:pre-line; margin:0;">${esc(ev.descripcion)}</p>` : ''}
+    <div class="ev-info-hueco"></div>
     ${ev.aviso_no_socios ? `<p class="aviso">${esc(ev.aviso_no_socios)}</p>` : ''}
     ${ES_CURSO(ev) && SESIONES[ev.id] ? `<div class="bloque-sesiones"><h3>Las ${SESIONES[ev.id].length} sesiones del curso</h3><p style="margin:0; font-size:15px; color:var(--ink-soft);">Quien se apunta va a todas las sesiones, aunque el curso ya haya empezado.</p>${htmlSesiones(SESIONES[ev.id])}</div>` : ''}
     <div class="etiquetas"></div>`;
@@ -110,6 +112,7 @@ async function tarjetaEvento(ev) {
     const c = card.querySelector('.eventoCarrusel');
     if (fotos && fotos.length) renderCarrusel(c, fotos.map(f => f.url)); else c.remove();
   });
+  pintarInfoEvento(card.querySelector('.ev-info-hueco'), ev.id);
 
   // Sin inscripción (p. ej. la venta de lotería): solo se informa
   if (ev.sin_inscripcion) { etiqueta('No hace falta apuntarse'); return card; }

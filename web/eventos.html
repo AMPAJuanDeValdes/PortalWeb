@@ -106,6 +106,7 @@
 <script src="shared/recogida.js"></script>
 <script src="shared/datos-ampa.js"></script>
 <script src="shared/carrusel.js"></script>
+<script src="shared/evento-info.js"></script>
 <script src="shared/documentoRellenable.js"></script>
 <script src="shared/nav.js"></script>
 <script>
@@ -402,6 +403,7 @@ function cabeceraEvento(evento) {
     </header>
     <div class="eventoCarrusel ev-fotos"></div>
     ${evento.descripcion ? `<p class="ev-desc">${esc(evento.descripcion)}</p>` : ''}
+    <div class="ev-info-hueco"></div>
     ${precios ? `<p class="precios">${esc(precios)}</p>` : ''}
     ${curso && SESIONES[evento.id] ? `<div class="bloque-sesiones"><h3>Las ${SESIONES[evento.id].length} sesiones del curso</h3><p class="ayuda">Al apuntarse, el alumno o alumna va a todas las sesiones, aunque el curso ya haya empezado. Pulsa una sesión para ver qué se hace.</p>${htmlSesiones(SESIONES[evento.id], Object.fromEntries(choquesDe(evento.id).map(c => [c.id, (CHOQUES.filter(x => x.id === c.id).map(x => '«' + (TITULO_EVENTO[x.evento_id] || 'otro taller') + '»').join(', '))])))}</div>` : ''}
     ${!curso && choquesDe(evento.id).length ? `<p class="ev-incompat">Coincide con ${esc(choquesDe(evento.id).map(c => 'la sesión ' + c.numero + ' de «' + (TITULO_EVENTO[c.curso_id] || 'el curso') + '»').join(' y '))}: quien va al curso no puede apuntarse a este evento.</p>` : ''}
@@ -413,6 +415,7 @@ function cabeceraEvento(evento) {
     const c = card.querySelector('.eventoCarrusel');
     if (fotos && fotos.length) renderCarrusel(c, fotos.map(f => f.url)); else c.remove();
   });
+  pintarInfoEvento(card.querySelector('.ev-info-hueco'), evento.id);
   premiosDe(evento.id).then(lista => {
     const delEvento = lista.filter(p => !p.actividad_id);
     const hueco = card.querySelector('.ev-premios');
