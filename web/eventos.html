@@ -1014,10 +1014,11 @@ async function bloqueDocumentos(evento, inscripciones) {
       } else if (doc.aplica_a === 'adulto' && i.tipo_miembro === 'invitado') {
         personas.push({ persona: datos(i), clave: { evento_inscripcion_id: i.id } });
       } else if ((doc.aplica_a === 'alumno' || doc.aplica_a === 'pareja') && i.tipo_miembro === 'alumno') {
-        // Pareja (Cabalgata): un documento por alumno/a, con los datos de su acompañante
+        // Pareja (Cabalgata): un documento por alumno/a, con los datos de su acompañante.
+        // Va ligado a esa inscripción: si se desapuntan o cambian de acompañante, hay que firmarlo de nuevo
         const a = misAlumnos.find(x => x.id === i.alumno_id);
         if (a && (!doc.elegibilidad_modo || cumpleElegibilidad(a, doc.elegibilidad_modo, doc.cursos_permitidos, doc.edad_min, doc.edad_max) || !(doc.cursos_permitidos || []).length && doc.elegibilidad_modo === 'curso'))
-          personas.push({ persona: datos(i), clave: { alumno_id: a.id } });
+          personas.push({ persona: datos(i), clave: doc.aplica_a === 'pareja' ? { alumno_id: a.id, evento_inscripcion_id: i.id } : { alumno_id: a.id } });
       }
     });
     if (!personas.length) continue;

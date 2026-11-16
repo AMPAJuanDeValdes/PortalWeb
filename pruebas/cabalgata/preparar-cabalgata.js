@@ -136,7 +136,7 @@ async function familia(etiqueta, adultos, alumnos, opciones = {}) {
       for (const d of docs) for (const i of filas) {
         const clave = d.aplica_a === 'adulto'
           ? (i.tipo_miembro === 'adulto' ? { adulto_id: i.adulto_id } : i.tipo_miembro === 'invitado' ? { evento_inscripcion_id: i.id } : null)
-          : (i.tipo_miembro === 'alumno' ? { alumno_id: i.alumno_id } : null);
+          : (i.tipo_miembro === 'alumno' ? (d.aplica_a === 'pareja' ? { alumno_id: i.alumno_id, evento_inscripcion_id: i.id } : { alumno_id: i.alumno_id }) : null);
         if (!clave) continue;
         const ruta = `${f.socio.id}/${d.id}/${Date.now()}-${i.id.slice(0, 8)}.png`;
         await ok(admin.storage.from('documentos-evento').upload(ruta, PNG_PRUEBA, { contentType: 'image/png' }), 'documento firmado');

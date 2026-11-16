@@ -7269,3 +7269,42 @@ begin
   return new;
 end;
 $$;
+
+
+-- ==================================================================
+-- DOCUMENTOS DE PAREJA (CABALGATA) LIGADOS A LA INSCRIPCIÓN
+--  · El documento firmado de un alumno/a con su acompañante va ligado a
+--    esa inscripción (evento_inscripcion_id). Si se desapuntan y se
+--    vuelven a apuntar (con el mismo acompañante o con otro), el anterior
+--    se descarta y hay que firmarlo de nuevo con los datos de ese momento.
+--    Antes seguía valiendo el firmado la primera vez.
+--  · Los ya firmados se ligan a la inscripción actual del alumno/a.
+-- Requiere migracion-inscripcion-completa.sql. Se puede ejecutar varias veces.
+-- ==================================================================
+
+update documentos_evento_respuestas r
+set evento_inscripcion_id = (
+  select i.id from evento_inscripciones i
+  where i.evento_id = d.evento_id and i.alumno_id = r.alumno_id and i.tipo_miembro = 'alumno' and i.actividad_id is null
+    and i.created_at <= r.created_at   -- firmado después de apuntarse; si se volvieron a apuntar después, no vale
+  order by i.created_at desc limit 1)
+from documentos_evento d
+where d.id = r.documento_evento_id and d.aplica_a = 'pareja'
+  and r.alumno_id is not null and r.evento_inscripcion_id is null;
+
+-- Los firmados de pareja cuya inscripción ya no existe (se desapuntaron) se descartan
+delete from documentos_evento_respuestas r
+using documentos_evento d
+where d.id = r.documento_evento_id and d.aplica_a = 'pareja' and r.evento_inscripcion_id is null;
+
+create or replace function _documento_firmado(d documentos_evento, i evento_inscripciones)
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (select 1 from documentos_evento_respuestas r
+    where r.documento_evento_id = d.id
+      and ((i.tipo_miembro = 'adulto' and r.adulto_id = i.adulto_id)
+        or (i.tipo_miembro = 'invitado' and r.evento_inscripcion_id = i.id)
+        -- pareja (Cabalgata): el documento es de esa inscripción (alumno/a con ese acompañante)
+        or (i.tipo_miembro = 'alumno' and d.aplica_a = 'pareja' and r.evento_inscripcion_id = i.id)
+        or (i.tipo_miembro = 'alumno' and d.aplica_a <> 'pareja' and r.alumno_id = i.alumno_id)));
+$$;
+revoke all on function _documento_firmado(documentos_evento, evento_inscripciones) from public, anon, authenticated;
