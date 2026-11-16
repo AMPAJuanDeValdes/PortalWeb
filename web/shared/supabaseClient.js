@@ -150,6 +150,11 @@ async function requireAdmin() {
     window.location.href = 'dashboard.html';
     return null;
   }
+  // Superadmin: la cuenta principal (socio 0000). Lo que solo puede hacer él
+  // lleva la clase «solo-super» y la Junta no lo ve (la base de datos y las
+  // funciones lo impiden igualmente)
+  try { const { data } = await sb.rpc('es_admin_principal'); ctx.esSuperadmin = data === true; } catch (e) { ctx.esSuperadmin = false; }
+  document.body.classList.toggle('superadmin', ctx.esSuperadmin);
   return ctx;
 }
 

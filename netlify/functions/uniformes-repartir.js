@@ -14,6 +14,7 @@
 // abierta -> repartida), igual que en el préstamo de libros.
 
 const { createClient } = require('@supabase/supabase-js');
+const { esSuperadmin, SOLO_SUPERADMIN } = require('./_lib/superadmin');
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -112,6 +113,10 @@ exports.handler = async (event) => {
     .from('adultos').select('role, nombre, apellidos').eq('id', userData.user.id).single();
   if (!adulto || adulto.role !== 'admin') {
     return { statusCode: 403, body: JSON.stringify({ error: 'Solo un admin puede hacer esto' }) };
+  }
+  // Solo la cuenta principal (superadmin); el resto de la Junta no
+  if (!(await esSuperadmin(supabaseAdmin, userData.user.id))) {
+    return { statusCode: 403, body: JSON.stringify({ error: SOLO_SUPERADMIN }) };
   }
 
   let payload;

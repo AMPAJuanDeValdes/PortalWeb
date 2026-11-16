@@ -17,6 +17,9 @@ const AREAS_JUNTA = [
     ['admin-carrusel', 'Fotos y vídeos de portada'], ['admin-respuestas', 'Listados'], ['admin-visitas', 'Visitas a la web'] ] }
 ];
 
+// Páginas que solo usa la cuenta principal (superadmin)
+const SOLO_SUPERADMIN_PAGINAS = ['admin-importar'];
+
 function renderNav(activePage, ctx) {
   const adulto = ctx?.adulto || ctx; // admite pasar solo el adulto por compatibilidad
   const esAdminPage = activePage === 'admin' || String(activePage).startsWith('admin-');
@@ -101,7 +104,7 @@ function montarMenuJunta(activePage) {
     AREAS_JUNTA.map(a => `
       <div class="admin-menu-grupo area-${a.color}">
         <p class="admin-menu-titulo">${a.titulo}</p>
-        ${a.enlaces.map(([id, nombre]) => `<a href="${id}.html"${id === activePage ? ' class="activo" aria-current="page"' : ''}>${nombre}</a>`).join('')}
+        ${a.enlaces.map(([id, nombre]) => `<a href="${id}.html" class="${[id === activePage ? 'activo' : '', SOLO_SUPERADMIN_PAGINAS.includes(id) ? 'solo-super' : ''].join(' ').trim()}"${id === activePage ? ' aria-current="page"' : ''}>${nombre}</a>`).join('')}
       </div>`).join('');
   contenido.parentNode.insertBefore(shell, contenido);
   shell.appendChild(menu);

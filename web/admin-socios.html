@@ -299,9 +299,9 @@ async function pintarSolicitudes() {
       <p class="section-label" style="margin:14px 0 4px;">Alumnos (${s.alumnos.length})</p>
       ${s.alumnos.length ? '<ul style="margin:4px 0; padding-left:18px; font-size:14px;">' + s.alumnos.map(resumenAlumno).join('') + '</ul>' : '<p class="empty-hint">Sin alumnos.</p>'}
       <div class="acciones">
-        <button class="btn btn-primary activarBtn">Activar cuenta y enviar bienvenida</button>
-        <button class="btn btn-outline rechazarAbrirBtn">Rechazar…</button>
-        <button class="linklike editarBtn" style="font-size:14px;">Editar datos</button>
+        <button class="btn btn-primary activarBtn solo-super">Activar cuenta y enviar bienvenida</button>
+        <button class="btn btn-outline rechazarAbrirBtn solo-super">Rechazar…</button>
+        <button class="linklike editarBtn solo-super" style="font-size:14px;">Editar datos</button>
       </div>
       <div class="rechazoZona" style="display:none; margin-top:12px;">
         <label style="font-size:14px;">Motivo del rechazo (se enviará por email a la familia) *</label>
@@ -724,6 +724,13 @@ function pintarDetalle(s, td) {
     alWrap.appendChild(div);
     div.querySelector('[data-f="nombre"]').focus();
   });
+  // La Junta solo consulta: modificar datos y cuentas es de la cuenta principal
+  if (!ctxGlobal.esSuperadmin) {
+    td.querySelectorAll('input, select, textarea').forEach(el => { el.disabled = true; });
+    td.querySelectorAll('button:not(.emailBtn)').forEach(b => b.classList.add('solo-super'));
+    td.querySelectorAll('[data-b="estado"]').forEach(b => b.classList.add('solo-super'));
+    td.insertAdjacentHTML('afterbegin', '<p class="aviso" style="font-size:14px; margin:0 0 12px;">Solo la cuenta principal del AMPA (socio 0000) puede modificar los datos y el estado de las cuentas.</p>');
+  }
 }
 
 (async () => {

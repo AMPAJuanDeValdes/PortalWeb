@@ -446,7 +446,7 @@ function pintarEstado() {
     cont.innerHTML = `<span class="chip ${e === 'abierta' ? 'ok' : 'venta'}">${e === 'abierta' ? 'Abierta' : 'Programada'}</span>
       <span>Participaciones disponibles desde el ${fecha(camp.inicio)}.${e === 'abierta' ? ' Se ve «Quiero comprar Lotería».' : ''}</span>
       <button type="button" class="btn btn-outline" data-c="cerrar">Cerrar la campaña</button>
-      ${e === 'programada' ? '<button type="button" class="linklike" data-c="anular">Anular el comienzo</button>' : ''}`;
+      ${e === 'programada' ? '<button type="button" class="linklike solo-super" data-c="anular">Anular el comienzo</button>' : ''}`;
   } else {
     cont.innerHTML = `<span class="chip dev">Cerrada</span>
       <span>Cerrada el ${fecha(camp.cerrada_en)}. Ya no sale «Quiero comprar Lotería». Se pueden seguir apuntando ventas e ingresos.</span>

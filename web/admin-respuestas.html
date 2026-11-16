@@ -257,7 +257,7 @@ async function cargarDatosSinConfirmar() {
       <td style="font-size:14px;">${motivo}${f.ultimo_error ? `<br><span style="color:var(--ink-soft);">Último error que vio: «${escA(f.ultimo_error)}» (${fechaHora(f.ultimo_intento)})</span>` : ''}</td>
       <td>${f.intentos_fallidos || 0}</td>
       <td style="font-size:14px;">${f.ultimo_acceso ? fechaHora(f.ultimo_acceso) : 'Nunca'}</td>
-      <td>${puedeJunta ? `<button class="btn-danger-link confirmarJuntaBtn" style="color:var(--navy);" data-id="${escA(f.socio_id)}">Confirmar por la familia</button>` : ''}</td>
+      <td>${puedeJunta ? `<button class="btn-danger-link confirmarJuntaBtn solo-super" style="color:var(--navy);" data-id="${escA(f.socio_id)}">Confirmar por la familia</button>` : ''}</td>
     </tr>`).join('')}</tbody></table></div>` : '<p class="empty-hint">Todas las familias activas tienen los datos confirmados.</p>'}
     <p class="msg-error datosMsg" hidden></p>`;
   wrap.querySelectorAll('.confirmarJuntaBtn').forEach(b => b.addEventListener('click', async () => {

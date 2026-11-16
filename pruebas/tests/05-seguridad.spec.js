@@ -35,6 +35,22 @@ test.describe('Seguridad', () => {
     expect(r.error?.message).toContain('0000');
   });
 
+  test('La Junta (Admin que no es la cuenta principal) no puede tocar datos de otras familias, ni plazas, ni sortear', async () => {
+    const junta = await crearFamilia({ etiqueta: 'juntanosuper', esAdmin: true });
+    const { cliente, token } = await clienteComo(junta.adultos[0].email);
+    let r = await cliente.from('adultos').update({ movil: '611111111' }).eq('id', b.adultos[0].id);
+    expect(r.error?.message).toContain('cuenta principal');
+    r = await cliente.rpc('junta_confirmar_datos', { p_socio: b.socio.id });
+    expect(r.error?.message).toContain('cuenta principal');
+    // Su propia familia sí la puede cambiar
+    r = await cliente.from('adultos').update({ movil: '622222222' }).eq('id', junta.adultos[0].id);
+    expect(r.error).toBeNull();
+    for (const f of ['evento-sortear', 'prestamo-repartir', 'uniformes-repartir', 'admin-gestionar-cuenta', 'admin-import-socios']) {
+      const res = await llamarFuncion(f, { accion: 'baja', socioId: b.socio.id, eventoId: '00000000-0000-0000-0000-000000000000' }, token);
+      expect(res.status, f + ' con la Junta').toBe(403);
+    }
+  });
+
   test('Un socio no puede reactivar su propia cuenta', async () => {
     const { cliente } = await clienteComo(impago.adultos[0].email);
     const { error } = await cliente.from('socios').update({ estado: 'activa' }).eq('id', impago.socio.id);

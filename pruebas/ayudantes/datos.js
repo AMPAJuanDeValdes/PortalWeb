@@ -54,7 +54,9 @@ async function conReintentos(fn, intentos = 3) {
 
 // Crea una familia completa directamente en la base de datos.
 async function crearFamilia({ etiqueta = 'fam', estado = 'activa', adultos = 1, alumnos = 0,
-  esAdmin = false, forzarCambioClave = false, conNumero = false, datosRevisados = true } = {}) {
+  esAdmin = false, esSuperadmin = false, forzarCambioClave = false, conNumero = false, datosRevisados = true } = {}) {
+  // esSuperadmin: Admin que puede hacer lo de la cuenta principal (superadmins_prueba)
+  if (esSuperadmin) esAdmin = true;
   const socio = await ok(admin.from('socios').insert({
     anio_ultima_cuota: new Date().getFullYear(), estado,
     datos_revisados_en: datosRevisados ? new Date().toISOString() : null,
@@ -77,6 +79,7 @@ async function crearFamilia({ etiqueta = 'fam', estado = 'activa', adultos = 1, 
       force_password_change: forzarCambioClave
     };
     await ok(admin.from('adultos').insert(fila), 'crear adulto');
+    if (esSuperadmin && i === 0) await ok(admin.from('superadmins_prueba').insert({ adulto_id: u.user.id }), 'superadmin de prueba (¿has ejecutado migracion-superadmin.sql?)');
     listaAdultos.push({ ...fila, password: PASSWORD });
   }
 

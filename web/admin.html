@@ -99,6 +99,8 @@ const ahora = new Date();
 const tareas = [];
 function cuerpo(id) { return document.querySelector('#' + id + ' .area-cuerpo'); }
 function tarea(area, num, titulo, detalle, href, ir) { tareas.push({ area, num, titulo, detalle, href, ir }); }
+// Lo que solo puede hacer la cuenta principal (superadmin): al resto de la Junta no le sale
+function tareaSuper(...args) { if (document.body.classList.contains('superadmin')) tarea(...args); }
 const cuenta = async (q) => { const { count } = await q; return count || 0; };
 
 async function socios() {
@@ -110,8 +112,8 @@ async function socios() {
   // Familias que intentaron confirmar sus datos y no pudieron: necesitan ayuda
   const { data: sinConfirmar } = await sb.rpc('familias_sin_confirmar');
   const atascadas = (sinConfirmar || []).filter(f => f.intentos_fallidos > 0).length;
-  if (atascadas) tarea('socios', atascadas, atascadas === 1 ? 'Familia que no consigue confirmar sus datos' : 'Familias que no consiguen confirmar sus datos', 'Lo intentaron en Mis datos y les falló. Sin eso no pueden apuntarse a eventos.', 'admin-respuestas.html#datos', 'Ver por qué');
-  if (solicitudes) tarea('socios', solicitudes, solicitudes === 1 ? 'Solicitud de alta o reactivación' : 'Solicitudes de alta o reactivación', 'Revisa el justificante y activa o rechaza.', 'admin-socios.html?tab=solicitudes', 'Revisar');
+  if (atascadas) tareaSuper('socios', atascadas, atascadas === 1 ? 'Familia que no consigue confirmar sus datos' : 'Familias que no consiguen confirmar sus datos', 'Lo intentaron en Mis datos y les falló. Sin eso no pueden apuntarse a eventos.', 'admin-respuestas.html#datos', 'Ver por qué');
+  if (solicitudes) tareaSuper('socios', solicitudes, solicitudes === 1 ? 'Solicitud de alta o reactivación' : 'Solicitudes de alta o reactivación', 'Revisa el justificante y activa o rechaza.', 'admin-socios.html?tab=solicitudes', 'Revisar');
   const [alumnos, comprobantes] = await Promise.all([
     cuenta(sb.from('alumnos').select('id, socios!inner(estado)', { count: 'exact', head: true }).eq('socios.estado', 'activa')),
     cuenta(sb.from('comprobantes_pago').select('id', { count: 'exact', head: true }).eq('tipo', 'invitado_evento').eq('verificado', false).eq('reembolsado', false))
@@ -132,7 +134,7 @@ async function eventos() {
     sb.from('eventos').select('id, titulo, fecha, aforo_total, metodo_asignacion, requiere_pareja_adulto_alumno, sin_inscripcion, usa_concurso_texto, voluntariado_modo, evento_actividades(voluntariado_habilitado)').eq('activo', true).gte('fecha', ahora.toISOString()).order('fecha').limit(5),
     sb.from('eventos').select('id, titulo, fecha_cierre_inscripcion').eq('activo', true).eq('metodo_asignacion', 'sorteo').eq('sorteo_realizado', false).lt('fecha_cierre_inscripcion', ahora.toISOString())
   ]);
-  (sinSortear || []).forEach(e => tarea('eventos', '!', 'Sortear: ' + e.titulo, 'El plazo cerró el ' + fCorta(e.fecha_cierre_inscripcion) + '. Las familias esperan el resultado.', 'admin-eventos.html', 'Sortear'));
+  (sinSortear || []).forEach(e => tareaSuper('eventos', '!', 'Sortear: ' + e.titulo, 'El plazo cerró el ' + fCorta(e.fecha_cierre_inscripcion) + '. Las familias esperan el resultado.', 'admin-eventos.html', 'Sortear'));
   const c = cuerpo('aEventos');
   if (!prox || !prox.length) { c.innerHTML = '<p class="nada">No hay eventos próximos.</p>'; return; }
   const filas = await Promise.all(prox.map(async e => {
@@ -179,7 +181,7 @@ async function libros() {
     const cerrada = new Date(conv.fecha_cierre) <= ahora;
     const estado = conv.estado === 'abierta' ? (cerrada ? 'Plazo cerrado, falta repartir' : 'Plazo abierto hasta el ' + fCorta(conv.fecha_cierre))
       : conv.estado === 'repartida' ? 'Repartida' : 'Cancelada';
-    if (conv.estado === 'abierta' && cerrada) tarea('libros', '!', 'Repartir los libros de lectura', `El plazo cerró el ${fCorta(conv.fecha_cierre)} con ${solicitudes} peticiones.`, 'admin-libros.html', 'Repartir');
+    if (conv.estado === 'abierta' && cerrada) tareaSuper('libros', '!', 'Repartir los libros de lectura', `El plazo cerró el ${fCorta(conv.fecha_cierre)} con ${solicitudes} peticiones.`, 'admin-libros.html', 'Repartir');
     html += `<p class="estado-conv">${estado}</p><div class="linea"><span>Peticiones en la convocatoria</span><b>${solicitudes}</b></div>`;
   }
   html += `<div class="linea"><span>Libros en manos de las familias</span><b>${prestados}</b></div>`;
@@ -202,8 +204,8 @@ async function uniformes() {
     const alumnos = new Set((ped || []).map(p => p.alumno_id)).size;
     const cerrada = new Date(conv.fecha_cierre) <= ahora;
     const estado = { abierta: cerrada ? 'Plazo cerrado, falta repartir' : 'Plazo abierto hasta el ' + fCorta(conv.fecha_cierre), repartida: 'Repartida, falta cerrar y guardar', finalizada: 'Cerrada: las familias ven el resultado', cancelada: 'Cancelada' }[conv.estado] || conv.estado;
-    if (conv.estado === 'abierta' && cerrada) tarea('uniformes', '!', 'Repartir los uniformes', `El plazo cerró el ${fCorta(conv.fecha_cierre)}. ${alumnos} alumnos han pedido prendas.`, 'admin-uniformes.html', 'Repartir');
-    if (conv.estado === 'repartida') tarea('uniformes', '!', 'Publicar los resultados del reparto de uniformes', 'Las familias no ven lo que ha recibido cada alumno/a hasta que los publiques.', 'admin-uniformes.html', 'Revisar');
+    if (conv.estado === 'abierta' && cerrada) tareaSuper('uniformes', '!', 'Repartir los uniformes', `El plazo cerró el ${fCorta(conv.fecha_cierre)}. ${alumnos} alumnos han pedido prendas.`, 'admin-uniformes.html', 'Repartir');
+    if (conv.estado === 'repartida') tareaSuper('uniformes', '!', 'Publicar los resultados del reparto de uniformes', 'Las familias no ven lo que ha recibido cada alumno/a hasta que los publiques.', 'admin-uniformes.html', 'Revisar');
     html += `<p class="estado-conv">${estado}</p><div class="linea"><span>Alumnos con pedido</span><b>${alumnos}</b></div>`;
   }
   html += `<div class="linea"><span>Prendas en stock</span><b>${stock}</b></div>`;

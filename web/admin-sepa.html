@@ -43,7 +43,7 @@
         <div class="field"><label>CP, población y provincia</label><input type="text" id="acCp"></div>
         <div class="field"><label>País</label><input type="text" id="acPais" value="España"></div>
       </div>
-      <button type="button" class="btn btn-primary" id="guardarAcreedorBtn" style="margin-top:16px;">Guardar datos del acreedor</button>
+      <button type="button" class="btn btn-primary solo-super" id="guardarAcreedorBtn" style="margin-top:16px;">Guardar datos del acreedor</button>
       <p id="acreedorMsg" style="display:none; margin-top:14px;"></p>
     </div>
 
@@ -152,6 +152,8 @@ async function cargarMandatos() {
   if (!ctx) return;
   renderNav('admin-sepa', ctx);
   await cargarConfig();
+  // Los datos del acreedor solo los cambia la cuenta principal (superadmin)
+  if (!ctx.esSuperadmin) ['acIdentificador', 'acNombre', 'acDireccion', 'acCp', 'acPais'].forEach(id => { document.getElementById(id).disabled = true; });
 })();
 </script>
 <script src="shared/sonido.js"></script>

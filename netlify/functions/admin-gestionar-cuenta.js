@@ -24,6 +24,7 @@
 // hace admin-socios.html directamente desde el navegador (políticas RLS).
 
 const { createClient } = require('@supabase/supabase-js');
+const { esSuperadmin, SOLO_SUPERADMIN } = require('./_lib/superadmin');
 const { enviarEmail, plantillaBienvenida, plantillaRechazo } = require('./_lib/email');
 const { anioCuotaActual } = require('./_lib/cuota');
 const { esAdultoPrincipal } = require('./_lib/familia');
@@ -46,6 +47,8 @@ exports.handler = async (event) => {
 
   const { data: quien } = await supabaseAdmin.from('adultos').select('role').eq('id', userData.user.id).single();
   if (!quien || quien.role !== 'admin') return json(403, { error: 'Solo un admin puede hacer esto' });
+  // Cuentas y datos de las familias: solo la cuenta principal (superadmin)
+  if (!(await esSuperadmin(supabaseAdmin, userData.user.id))) return json(403, { error: SOLO_SUPERADMIN });
 
   let payload;
   try { payload = JSON.parse(event.body); } catch { return json(400, { error: 'JSON no válido' }); }

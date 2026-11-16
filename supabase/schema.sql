@@ -7308,3 +7308,438 @@ returns boolean language sql stable security definer set search_path = public as
         or (i.tipo_miembro = 'alumno' and d.aplica_a <> 'pareja' and r.alumno_id = i.alumno_id)));
 $$;
 revoke all on function _documento_firmado(documentos_evento, evento_inscripciones) from public, anon, authenticated;
+
+
+-- ==================================================================
+-- DOS TIPOS DE ADMIN: SUPERADMIN (CUENTA PRINCIPAL, SOCIO 0000) Y JUNTA
+--  Solo el superadmin puede (la Junta no, aunque lo intente desde fuera
+--  de la web; el servidor y las tareas automáticas no tienen límite):
+--  · Modificar datos de otras familias: socios, adultos y alumnos/as
+--    (la Junta sí puede marcar la matrícula de un alumno/a como verificada),
+--    y «Confirmar por la familia».
+--  · Eventos: apuntar o desapuntar a otras familias, dar o quitar plazas y
+--    puestos a mano, marcar un evento como sorteado y borrar eventos
+--    (menos las fechas de venta de lotería).
+--  · Banco de Libros y Banco de Uniformes: cerrar, cancelar o publicar una
+--    convocatoria, anular el reparto, asignar o quitar a mano, quitar una
+--    reserva de libro y borrar el pedido de una familia.
+--  · Datos del acreedor SEPA, borrar donaciones y anular el comienzo de una
+--    campaña de lotería.
+--  (Hacer el sorteo, el reparto, gestionar cuentas e importar socios se
+--  comprueba en las funciones de Netlify.)
+--  Para las pruebas automáticas: superadmins_prueba (solo cuentas de prueba).
+-- Se puede ejecutar varias veces.
+-- ==================================================================
+
+-- Pruebas automáticas: un adulto de prueba (email «ampa-prueba-») puede hacer
+-- de superadmin si está en esta tabla. Solo el servidor puede escribirla;
+-- la Junta no puede apuntarse.
+create table if not exists superadmins_prueba (
+  adulto_id uuid primary key references adultos(id) on delete cascade,
+  created_at timestamptz not null default now()
+);
+alter table superadmins_prueba enable row level security;
+revoke all on superadmins_prueba from anon, authenticated;
+grant select, insert, delete on superadmins_prueba to service_role;
+
+create or replace function es_admin_principal() returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from adultos a join socios s on s.id = a.socio_id
+                  where a.id = auth.uid() and a.role = 'admin' and s.numero_secuencial = '0000')
+      or exists (select 1 from superadmins_prueba p join adultos a on a.id = p.adulto_id
+                  where a.id = auth.uid() and a.role = 'admin' and a.email ilike '%ampa-prueba-%');
+$$;
+grant execute on function es_admin_principal() to authenticated;
+
+-- Sin sesión de usuario (servidor, tareas automáticas) no hay límite
+create or replace function _exigir_superadmin(p_que text) returns void
+language plpgsql stable security definer set search_path = public as $$
+begin
+  if auth.uid() is not null and not es_admin_principal() then
+    raise exception 'Solo la cuenta principal del AMPA (socio 0000) puede %.', p_que;
+  end if;
+end;
+$$;
+revoke all on function _exigir_superadmin(text) from public, anon;
+grant execute on function _exigir_superadmin(text) to authenticated;
+
+-- Un admin de la Junta tocando datos de otra familia (no la suya)
+create or replace function _junta_en_otra_familia(p_socio uuid) returns boolean
+language sql stable security definer set search_path = public as $$
+  select auth.uid() is not null and coalesce(is_admin(), false) and not es_admin_principal()
+     and p_socio is distinct from mi_socio_id();
+$$;
+revoke all on function _junta_en_otra_familia(uuid) from public, anon, authenticated;
+
+-- Datos de las familias
+create or replace function solo_superadmin_datos_familia() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare
+  v_fila jsonb := to_jsonb(coalesce(new, old));
+  v_socio uuid := (case when tg_table_name = 'socios' then v_fila->>'id' else v_fila->>'socio_id' end)::uuid;
+begin
+  if not _junta_en_otra_familia(v_socio) then return coalesce(new, old); end if;
+  -- La Junta sí puede verificar la matrícula de un alumno/a (solo esa marca)
+  if tg_table_name = 'alumnos' and tg_op = 'UPDATE'
+     and (to_jsonb(new) - 'verificado' - 'updated_at') = (to_jsonb(old) - 'verificado' - 'updated_at') then
+    return new;
+  end if;
+  raise exception 'Solo la cuenta principal del AMPA (socio 0000) puede modificar los datos de otras familias.';
+end;
+$$;
+drop trigger if exists solo_superadmin_datos_familia on socios;
+create trigger solo_superadmin_datos_familia before insert or update or delete on socios
+  for each row execute function solo_superadmin_datos_familia();
+drop trigger if exists solo_superadmin_datos_familia on adultos;
+create trigger solo_superadmin_datos_familia before insert or update or delete on adultos
+  for each row execute function solo_superadmin_datos_familia();
+drop trigger if exists solo_superadmin_datos_familia on alumnos;
+create trigger solo_superadmin_datos_familia before insert or update or delete on alumnos
+  for each row execute function solo_superadmin_datos_familia();
+
+-- Inscripciones y puestos de otras familias (apuntar, desapuntar, dar o quitar plazas y puestos)
+create or replace function solo_superadmin_inscripciones() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if _junta_en_otra_familia(coalesce(new.socio_id, old.socio_id)) then
+    raise exception 'Solo la cuenta principal del AMPA (socio 0000) puede apuntar, desapuntar o asignar plazas y puestos a mano.';
+  end if;
+  return coalesce(new, old);
+end;
+$$;
+drop trigger if exists solo_superadmin_inscripciones on evento_inscripciones;
+create trigger solo_superadmin_inscripciones before insert or update or delete on evento_inscripciones
+  for each row execute function solo_superadmin_inscripciones();
+drop trigger if exists solo_superadmin_inscripciones on evento_postulaciones;
+create trigger solo_superadmin_inscripciones before insert or update or delete on evento_postulaciones
+  for each row execute function solo_superadmin_inscripciones();
+
+-- Eventos: borrar (menos las fechas de venta de lotería) y marcar como sorteado
+create or replace function solo_superadmin_eventos() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if tg_op = 'DELETE' and old.plantilla is distinct from 'loteria' then
+    perform _exigir_superadmin('borrar un evento');
+  elsif tg_op = 'UPDATE' and new.sorteo_realizado is distinct from old.sorteo_realizado then
+    perform _exigir_superadmin('hacer el sorteo');
+  end if;
+  return coalesce(new, old);
+end;
+$$;
+drop trigger if exists solo_superadmin_eventos on eventos;
+create trigger solo_superadmin_eventos before update or delete on eventos
+  for each row execute function solo_superadmin_eventos();
+
+-- Datos del acreedor SEPA
+create or replace function solo_superadmin_sepa_config() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  perform _exigir_superadmin('cambiar los datos del acreedor SEPA');
+  return coalesce(new, old);
+end;
+$$;
+drop trigger if exists solo_superadmin_sepa_config on mandato_sepa_config;
+create trigger solo_superadmin_sepa_config before insert or update or delete on mandato_sepa_config
+  for each row execute function solo_superadmin_sepa_config();
+
+-- Borrar donaciones
+create or replace function solo_superadmin_borrar_donacion() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  perform _exigir_superadmin('borrar una donación');
+  return old;
+end;
+$$;
+drop trigger if exists solo_superadmin_borrar_donacion on donaciones;
+create trigger solo_superadmin_borrar_donacion before delete on donaciones
+  for each row execute function solo_superadmin_borrar_donacion();
+
+-- Lotería: anular el comienzo de una campaña
+create or replace function solo_superadmin_loteria_campana() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if old.inicio is not null and new.inicio is null then
+    perform _exigir_superadmin('anular el comienzo de una campaña de lotería');
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists solo_superadmin_loteria_campana on loteria_campanas;
+create trigger solo_superadmin_loteria_campana before update on loteria_campanas
+  for each row execute function solo_superadmin_loteria_campana();
+
+-- Acciones de los repartos y de los datos de las familias (funciones)
+create or replace function prestamo_admin_quitar_reserva(p_item_id uuid)
+returns void
+language plpgsql security definer set search_path = public as $$
+declare v_item prestamo_items;
+begin
+  perform _exigir_superadmin('quitar la reserva de un libro');
+  if not is_admin() then raise exception 'Solo un admin puede hacer esto.'; end if;
+  select * into v_item from prestamo_items where id = p_item_id;
+  if not found then raise exception 'La reserva no existe.'; end if;
+  if v_item.entregado_en is not null then raise exception 'Ese libro ya se entregó a la familia: registra antes su devolución.'; end if;
+  if v_item.ejemplar_id is not null then
+    update libros_ejemplares set estado = 'disponible' where id = v_item.ejemplar_id;
+  end if;
+  if v_item.a_mano then
+    delete from prestamo_items where id = p_item_id;
+  else
+    update prestamo_items set ejemplar_id = null, estado = 'no_asignado', fecha_asignacion = null where id = p_item_id;
+  end if;
+end;
+$$;
+
+create or replace function prestamo_admin_asignar(p_item_id uuid, p_ejemplar_id uuid)
+returns void
+language plpgsql security definer set search_path = public as $$
+declare
+  v_item prestamo_items;
+  v_ejemplar libros_ejemplares;
+begin
+  perform _exigir_superadmin('asignar a mano un libro del reparto');
+  if not is_admin() then raise exception 'Solo un admin puede hacer esto.'; end if;
+  select * into v_item from prestamo_items where id = p_item_id;
+  if not found then raise exception 'La solicitud no existe.'; end if;
+  if v_item.entregado_en is not null then raise exception 'Ese libro ya se entregó a la familia: no se puede cambiar.'; end if;
+
+  select * into v_ejemplar from libros_ejemplares where id = p_ejemplar_id;
+  if not found then raise exception 'El ejemplar no existe.'; end if;
+  if v_ejemplar.libro_id <> v_item.libro_id then raise exception 'Ese ejemplar no es del mismo título que la solicitud.'; end if;
+  if v_ejemplar.estado <> 'disponible' and v_item.ejemplar_id is distinct from p_ejemplar_id then
+    raise exception 'Ese ejemplar no está disponible.';
+  end if;
+
+  if v_item.ejemplar_id is not null and v_item.ejemplar_id <> p_ejemplar_id then
+    update libros_ejemplares set estado = 'disponible' where id = v_item.ejemplar_id;
+  end if;
+  update libros_ejemplares set estado = 'prestado' where id = p_ejemplar_id;
+  update prestamo_items
+    set ejemplar_id = p_ejemplar_id, estado = 'asignado', fecha_asignacion = coalesce(fecha_asignacion, current_date)
+    where id = p_item_id;
+end;
+$$;
+
+create or replace function prestamo_admin_quitar(p_item_id uuid)
+returns void
+language plpgsql security definer set search_path = public as $$
+declare v_item prestamo_items;
+begin
+  perform _exigir_superadmin('quitar a mano un libro del reparto');
+  if not is_admin() then raise exception 'Solo un admin puede hacer esto.'; end if;
+  select * into v_item from prestamo_items where id = p_item_id;
+  if not found then raise exception 'La solicitud no existe.'; end if;
+  if v_item.entregado_en is not null then raise exception 'Ese libro ya se entregó a la familia: registra antes su devolución.'; end if;
+  if v_item.ejemplar_id is not null then
+    update libros_ejemplares set estado = 'disponible' where id = v_item.ejemplar_id;
+  end if;
+  update prestamo_items set ejemplar_id = null, estado = 'no_asignado', fecha_asignacion = null where id = p_item_id;
+end;
+$$;
+
+create or replace function prestamo_admin_resetear_reparto(p_convocatoria_id uuid)
+returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  perform _exigir_superadmin('anular el reparto del Banco de Libros');
+  if not is_admin() then raise exception 'Solo un admin puede hacer esto.'; end if;
+  if exists (select 1 from prestamo_items where convocatoria_id = p_convocatoria_id and entregado_en is not null) then
+    raise exception 'Ya hay libros de esta convocatoria entregados a las familias: el reparto no se puede anular entero.';
+  end if;
+  update libros_ejemplares set estado = 'disponible'
+    where id in (select ejemplar_id from prestamo_items where convocatoria_id = p_convocatoria_id and ejemplar_id is not null);
+  update prestamo_items set ejemplar_id = null, estado = 'pendiente', fecha_asignacion = null
+    where convocatoria_id = p_convocatoria_id and tipo = 'solicitud';
+  update prestamo_convocatorias set estado = 'abierta' where id = p_convocatoria_id;
+end;
+$$;
+
+create or replace function uniformes_admin_resetear_reparto(p_convocatoria_id uuid)
+returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  perform _exigir_superadmin('anular el reparto del Banco de Uniformes');
+  if not is_admin() then raise exception 'Solo un admin puede hacer esto.'; end if;
+  perform _uniformes_comprobar_editable(p_convocatoria_id);
+  if (select estado from uniformes_convocatorias where id = p_convocatoria_id) <> 'repartida' then
+    raise exception 'Esta convocatoria no está repartida.';
+  end if;
+  update prendas_catalogo p set stock = stock + x.n
+    from (select prenda_id, count(*)::int n from uniformes_pedidos
+          where convocatoria_id = p_convocatoria_id and estado = 'asignado' group by prenda_id) x
+    where p.id = x.prenda_id;
+  delete from uniformes_pedidos where convocatoria_id = p_convocatoria_id and prioridad = 0;
+  update uniformes_pedidos set estado = 'pendiente' where convocatoria_id = p_convocatoria_id and prioridad in (1, 2, 3);
+  update uniformes_convocatorias set estado = 'abierta', resumen_reparto = null where id = p_convocatoria_id;
+end;
+$$;
+
+create or replace function uniformes_admin_asignar(p_alumno_id uuid, p_convocatoria_id uuid, p_prenda_id uuid)
+returns void
+language plpgsql security definer set search_path = public as $$
+declare
+  v_socio_id uuid;
+  v_actual uniformes_pedidos;
+  v_stock integer;
+begin
+  perform _exigir_superadmin('asignar a mano una prenda del reparto');
+  if not is_admin() then raise exception 'Solo un admin puede hacer esto.'; end if;
+  perform _uniformes_comprobar_editable(p_convocatoria_id);
+
+  select socio_id into v_socio_id from alumnos where id = p_alumno_id;
+  if v_socio_id is null then raise exception 'El alumno no existe.'; end if;
+
+  select * into v_actual from uniformes_pedidos
+    where alumno_id = p_alumno_id and convocatoria_id = p_convocatoria_id and estado = 'asignado';
+  if found and v_actual.prenda_id = p_prenda_id then return; end if;
+
+  select stock into v_stock from prendas_catalogo where id = p_prenda_id for update;
+  if v_stock is null or v_stock < 1 then raise exception 'Esa prenda no tiene stock disponible.'; end if;
+
+  if v_actual.id is not null then
+    update prendas_catalogo set stock = stock + 1 where id = v_actual.prenda_id;
+    if v_actual.prioridad = 0 then
+      delete from uniformes_pedidos where id = v_actual.id;
+    else
+      update uniformes_pedidos set estado = 'no_asignado' where id = v_actual.id;
+    end if;
+  end if;
+
+  update prendas_catalogo set stock = stock - 1 where id = p_prenda_id;
+  insert into uniformes_pedidos (convocatoria_id, socio_id, alumno_id, prioridad, prenda_id, estado)
+  values (p_convocatoria_id, v_socio_id, p_alumno_id, 0, p_prenda_id, 'asignado')
+  on conflict (alumno_id, convocatoria_id, prioridad)
+  do update set prenda_id = excluded.prenda_id, estado = 'asignado';
+end;
+$$;
+
+create or replace function uniformes_admin_quitar(p_alumno_id uuid, p_convocatoria_id uuid)
+returns void
+language plpgsql security definer set search_path = public as $$
+declare v_actual uniformes_pedidos;
+begin
+  perform _exigir_superadmin('quitar a mano una prenda del reparto');
+  if not is_admin() then raise exception 'Solo un admin puede hacer esto.'; end if;
+  perform _uniformes_comprobar_editable(p_convocatoria_id);
+  select * into v_actual from uniformes_pedidos
+    where alumno_id = p_alumno_id and convocatoria_id = p_convocatoria_id and estado = 'asignado';
+  if not found then raise exception 'Este alumno no tiene ninguna prenda asignada.'; end if;
+  update prendas_catalogo set stock = stock + 1 where id = v_actual.prenda_id;
+  if v_actual.prioridad = 0 then
+    delete from uniformes_pedidos where id = v_actual.id;
+  else
+    update uniformes_pedidos set estado = 'no_asignado' where id = v_actual.id;
+  end if;
+end;
+$$;
+
+create or replace function uniformes_admin_borrar_pedido(p_socio_id uuid, p_convocatoria_id uuid)
+returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  perform _exigir_superadmin('borrar el pedido de una familia');
+  if not is_admin() then raise exception 'Solo un admin puede hacer esto.'; end if;
+  perform _uniformes_comprobar_editable(p_convocatoria_id);
+  update prendas_catalogo p set stock = stock + x.n
+    from (select prenda_id, count(*)::int n from uniformes_pedidos
+          where convocatoria_id = p_convocatoria_id and socio_id = p_socio_id and estado = 'asignado' group by prenda_id) x
+    where p.id = x.prenda_id;
+  delete from uniformes_pedidos where convocatoria_id = p_convocatoria_id and socio_id = p_socio_id;
+end;
+$$;
+
+create or replace function convocatoria_admin_accion(p_tipo text, p_convocatoria_id uuid, p_accion text)
+returns void
+language plpgsql security definer set search_path = public as $$
+declare
+  v_tabla text;
+  v_estado text;
+  v_nombre text;
+begin
+  perform _exigir_superadmin('cerrar, cancelar o publicar una convocatoria');
+  if not is_admin() then raise exception 'Solo un admin puede hacer esto.'; end if;
+  if p_tipo = 'prestamo' then v_tabla := 'prestamo_convocatorias';
+  elsif p_tipo = 'uniformes' then v_tabla := 'uniformes_convocatorias';
+  else raise exception 'Tipo de convocatoria no válido.'; end if;
+
+  execute format('select estado from %I where id = $1', v_tabla) into v_estado using p_convocatoria_id;
+  if v_estado is null then raise exception 'La convocatoria no existe.'; end if;
+
+  if p_accion = 'cerrar' then
+    if v_estado <> 'abierta' then raise exception 'Solo se puede cerrar el plazo de una convocatoria abierta.'; end if;
+    execute format('update %I set fecha_cierre = now() where id = $1', v_tabla) using p_convocatoria_id;
+  elsif p_accion = 'cancelar' then
+    if v_estado <> 'abierta' then raise exception 'Solo se puede cancelar una convocatoria que todavía no se ha repartido.'; end if;
+    execute format('update %I set estado = ''cancelada'' where id = $1', v_tabla) using p_convocatoria_id;
+  elsif p_accion = 'finalizar' and p_tipo = 'uniformes' then
+    if v_estado <> 'repartida' then raise exception 'Solo se puede cerrar y guardar una convocatoria ya repartida.'; end if;
+    select nombre || ' ' || apellidos into v_nombre from adultos where id = auth.uid();
+    update uniformes_convocatorias set estado = 'finalizada', finalizada_en = now(), finalizada_por = v_nombre
+      where id = p_convocatoria_id;
+  else
+    raise exception 'Acción no reconocida.';
+  end if;
+end;
+$$;
+
+create or replace function junta_confirmar_datos(p_socio uuid)
+returns text language plpgsql security definer set search_path = public as $$
+declare v_faltan text;
+begin
+  perform _exigir_superadmin('confirmar los datos de una familia');
+  if not coalesce(is_admin(), false) then raise exception 'Solo la Junta puede hacer esto.'; end if;
+  v_faltan := _faltan_datos_familia(p_socio);
+  if v_faltan is not null then
+    return 'No se puede confirmar: falta la etapa, el curso o el aula de ' || v_faltan || '. Completadlo antes en la ficha de la familia.';
+  end if;
+  perform set_config('ampa.confirmando_datos', 'si', true);
+  update socios set datos_revisados_en = now() where id = p_socio;
+  perform set_config('ampa.confirmando_datos', '', true);
+  insert into datos_confirmacion_intentos (socio_id, adulto_id, ok, por_la_junta) values (p_socio, auth.uid(), true, true);
+  return null;
+end;
+$$;
+
+
+
+-- ==================================================================
+-- MOCHILA JUGONA EXPLORADORA: EDITAR LA LISTA, SOLO EL SUPERADMIN
+--  · Cambiar el orden de la lista de espera o quitar familias solo lo puede
+--    hacer la cuenta principal del AMPA (socio 0000). La Junta sigue
+--    asignando, entregando y recibiendo la mochila.
+--  · La Junta ya no puede escribir directamente en mochila_cola (lo hace
+--    todo a través de las funciones de la Mochila); sí verla entera.
+-- Requiere migracion-superadmin.sql. Se puede ejecutar varias veces.
+-- ==================================================================
+
+drop policy if exists "admins gestionan toda la mochila" on mochila_cola;
+drop policy if exists "admins ven toda la mochila" on mochila_cola;
+create policy "admins ven toda la mochila" on mochila_cola for select using (is_admin());
+drop policy if exists "superadmin gestiona la mochila" on mochila_cola;
+create policy "superadmin gestiona la mochila" on mochila_cola for all
+  using (es_admin_principal()) with check (es_admin_principal());
+
+create or replace function mochila_admin_guardar_lista(p_ids uuid[])
+returns void language plpgsql security definer set search_path = public as $$
+declare v_tiene uuid;
+begin
+  perform _exigir_superadmin('editar la lista de la Mochila Jugona Exploradora');
+  if not is_admin() then raise exception 'Solo la Junta puede hacer esto.'; end if;
+  lock table mochila_cola in share row exclusive mode;
+  if exists (select 1 from mochila_cola where estado in ('asignada', 'aceptada')) then
+    raise exception 'Hay una familia con el turno asignado: la lista no se puede cambiar hasta que lo rechace o se le entregue la mochila.';
+  end if;
+  p_ids := coalesce(p_ids, '{}');
+  select id into v_tiene from mochila_cola where estado = 'la_tiene';
+  if v_tiene is not null and (array_length(p_ids, 1) is null or p_ids[1] <> v_tiene) then
+    raise exception 'La familia que tiene la mochila no se puede mover ni quitar: márcala antes como recibida.';
+  end if;
+  if exists (select 1 from unnest(p_ids) x where not exists (select 1 from mochila_cola c where c.id = x)) then
+    raise exception 'La lista ha cambiado mientras la editabas. Recarga la página.';
+  end if;
+  delete from mochila_cola where not (id = any(p_ids));
+  set constraints mochila_cola_posicion_unica deferred;
+  update mochila_cola c set posicion = o.n
+  from unnest(p_ids) with ordinality as o(id, n) where c.id = o.id;
+end;
+$$;

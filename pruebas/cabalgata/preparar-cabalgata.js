@@ -44,7 +44,8 @@ async function comprobarMigraciones() {
     ['migracion-documentos-pareja.sql', () => admin.from('evento_inscripciones').select('parentesco, movil_invitado').limit(1)],
     ['migracion-eventos-prueba.sql', () => admin.from('eventos').select('solo_pruebas').limit(1)],
     ['migracion-pruebas-familia-real.sql', () => admin.from('pruebas_familias').select('socio_id').limit(1)],
-    ['migracion-inscripcion-completa.sql', () => admin.rpc('evento_inscripciones_incompletas', { p_evento: '00000000-0000-0000-0000-000000000000' })]
+    ['migracion-inscripcion-completa.sql', () => admin.rpc('evento_inscripciones_incompletas', { p_evento: '00000000-0000-0000-0000-000000000000' })],
+    ['migracion-superadmin.sql', () => admin.from('superadmins_prueba').select('adulto_id').limit(1)]
   ];
   const faltan = [];
   for (const [archivo, consulta] of pruebas) {
@@ -109,7 +110,8 @@ async function familia(etiqueta, adultos, alumnos, opciones = {}) {
   }
 
   // Cuentas para probar a mano
-  const junta = await crearFamilia({ etiqueta: 'junta', esAdmin: true, conNumero: true });
+  // Superadmin de prueba: puede sortear y asignar plazas y puestos a mano
+  const junta = await crearFamilia({ etiqueta: 'junta', esSuperadmin: true, conNumero: true });
   await ok(admin.from('adultos').update({ nombre: 'Junta', apellidos: 'De Prueba' }).eq('id', junta.adultos[0].id), 'junta');
   const garcia = await familia('garcia', [['Ana', 'García Ruiz'], ['Pedro', 'Martín Sanz']],
     [['Lucas', 'Martín García', 7, '2º', 'A'], ['Sofía', 'Martín García', 10, '5º', 'B']]);

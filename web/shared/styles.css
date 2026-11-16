@@ -783,3 +783,6 @@ body > .wrap, body > main{ position:relative; z-index:0; isolation:isolate; }
 .ev-bloque p{ margin:0; white-space:pre-line; font-size:17px; }
 .ev-bloque .ev-bloque-enlace{ margin-top:8px; }
 .ev-bloque .ev-bloque-enlace a{ font-weight:700; word-break:break-word; }
+
+/* Lo que solo puede hacer la cuenta principal (superadmin): la Junta no lo ve */
+body:not(.superadmin) .solo-super{ display:none !important; }

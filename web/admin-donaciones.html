@@ -176,7 +176,7 @@ async function cargar() {
         <input type="text" placeholder="Nota de la Junta (solo la veis vosotros)" aria-label="Nota de la Junta" value="${esc(d.nota_junta || '')}">
         <button type="button" class="btn btn-outline" data-a="guardar">Guardar</button>
         ${!recibida && d.estado !== 'rechazada' ? '<button type="button" class="btn btn-primary" data-a="recibir">Ha llegado a la caja</button>' : ''}
-        <button type="button" class="btn-danger-link" data-a="borrar">Borrar</button>
+        <button type="button" class="btn-danger-link solo-super" data-a="borrar">Borrar</button>
       </div>
     </div>`;
   }).join('');

@@ -9,7 +9,7 @@ test.describe.serial('Administración de socios', () => {
   let jefe, pendiente, pendiente2, otra, conNumero;
 
   test.beforeAll(async () => {
-    jefe = await crearFamilia({ etiqueta: 'admin', esAdmin: true });
+    jefe = await crearFamilia({ etiqueta: 'admin', esSuperadmin: true });   // gestionar cuentas y datos: solo el superadmin
     pendiente = await crearFamilia({ etiqueta: 'pendiente', estado: 'recien_creada', alumnos: 1 });
     pendiente2 = await crearFamilia({ etiqueta: 'pendiente2', estado: 'recien_creada' });
     otra = await crearFamilia({ etiqueta: 'editar', adultos: 2, alumnos: 2 });

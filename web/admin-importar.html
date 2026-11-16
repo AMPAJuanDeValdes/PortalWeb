@@ -356,6 +356,11 @@ document.getElementById('manualBtn').addEventListener('click', async () => {
   const ctx = await requireAdmin();
   if (!ctx) return;
   renderNav('admin-importar', ctx);
+  // Dar de alta socios es de la cuenta principal (superadmin)
+  if (!ctx.esSuperadmin) {
+    document.querySelector('.wrap').querySelectorAll(':scope > .card').forEach(c => c.remove());
+    document.querySelector('.wrap').insertAdjacentHTML('beforeend', '<div class="card"><p style="margin:0;">Dar de alta socios solo lo puede hacer la cuenta principal del AMPA (socio 0000).</p></div>');
+  }
 })();
 </script>
 <script>

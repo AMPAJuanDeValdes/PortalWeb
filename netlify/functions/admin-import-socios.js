@@ -3,6 +3,7 @@
 // Solo puede ejecutarla un adulto con role = 'admin'.
 
 const { createClient } = require('@supabase/supabase-js');
+const { esSuperadmin, SOLO_SUPERADMIN } = require('./_lib/superadmin');
 const { enviarEmail, numeroSocioBonito, plantillaCredenciales } = require('./_lib/email');
 const { normalizarNombre } = require('./_lib/nombres');
 
@@ -80,6 +81,8 @@ exports.handler = async (event) => {
 
   const { data: adminAdulto } = await supabaseAdmin.from('adultos').select('role').eq('id', userData.user.id).single();
   if (adminAdulto?.role !== 'admin') return { statusCode: 403, body: JSON.stringify({ error: 'Solo un administrador puede dar de alta socios' }) };
+  // Dar de alta socios: solo la cuenta principal (superadmin)
+  if (!(await esSuperadmin(supabaseAdmin, userData.user.id))) return { statusCode: 403, body: JSON.stringify({ error: SOLO_SUPERADMIN }) };
 
   let payload;
   try { payload = JSON.parse(event.body); } catch { return { statusCode: 400, body: JSON.stringify({ error: 'JSON no válido' }) }; }
