@@ -5,6 +5,8 @@
 // del buzón del AMPA. La Junta lo abre en su correo, lo revisa, pone los
 // destinatarios y lo envía desde allí.
 //   POST { eventoId }  (con la sesión de alguien de la Junta)
+//   POST { eventoId, conjuntaCon: [ids] } → circular conjunta con eventos a la
+//        misma hora (excluyentes) que eventoId: una sección por evento
 //   POST { tipo: 'uniformes' | 'libros', convocatoriaId }  → circular de la
 //        convocatoria del Banco de Uniformes o del Banco de Libros
 //   → { ok, carpeta, asunto }
@@ -202,6 +204,96 @@ function circularEvento(ev, sesiones, actividades, web) {
   return c;
 }
 
+// Circular conjunta de eventos a la misma hora (un alumno/a solo puede ir a uno):
+// cada apartado (Plazas disponibles, Coste, Inscripción…) agrupa lo de todos
+// los eventos. Lo que es distinto va con el nombre del evento delante,
+// «(Taller de rol) 12 plazas…»; lo que es igual en todos sale una vez al final.
+function circularConjunta(partes) {
+  const titulos = partes.map(x => x.ev.titulo);
+  const fechas = [...new Set(partes.map(x => x.circular.subtitulo).filter(Boolean))];
+  const clave = (v) => JSON.stringify(v);
+  const conNombre = (titulo, p) => typeof p === 'string'
+    ? { etiqueta: `(${titulo})`, texto: p }
+    : { ...p, etiqueta: `(${titulo})${p.etiqueta ? ' ' + p.etiqueta : ''}` };
+  // Agrupa una lista de valores por evento: [{ titulo, valores: [...] }]
+  const agrupar = (porEvento, conPrefijo) => {
+    const con = porEvento.filter(x => x.valores.length);
+    const comunes = con.length > 1 ? con[0].valores.filter(v => con.every(x => x.valores.some(w => clave(w) === clave(v)))) : [];
+    const esComun = (v) => comunes.some(c => clave(c) === clave(v));
+    return [...con.flatMap(x => x.valores.filter(v => !esComun(v)).map(v => conPrefijo(x.titulo, v))), ...comunes];
+  };
+  // Cada evento: «Cuándo y dónde» (primera línea de su entrada) y «En qué consiste» (la descripción)
+  const apartadosDe = (x) => {
+    const [cuando, ...desc] = x.circular.entrada || [];
+    return [
+      ...(cuando ? [{ titulo: 'Cuándo y dónde', puntos: [cuando] }] : []),
+      ...(desc.length ? [{ titulo: 'En qué consiste', parrafos: desc }] : []),
+      ...(x.circular.apartados || [])
+    ];
+  };
+  const porEvento = partes.map(x => ({ titulo: x.ev.titulo, apartados: apartadosDe(x) }));
+  const nombres = [];
+  porEvento.forEach(x => x.apartados.forEach(a => { if (!nombres.includes(a.titulo)) nombres.push(a.titulo); }));
+  const apartados = nombres.map(nombre => {
+    const de = porEvento.map(x => ({ titulo: x.titulo, a: x.apartados.find(a => a.titulo === nombre) || {} }));
+    const parrafos = agrupar(de.map(x => ({ titulo: x.titulo, valores: x.a.parrafos || [] })), (t, v) => `(${t}) ${v}`);
+    const puntos = agrupar(de.map(x => ({ titulo: x.titulo, valores: x.a.puntos || [] })), conNombre);
+    return { titulo: nombre, ...(parrafos.length ? { parrafos } : {}), ...(puntos.length ? { puntos } : {}) };
+  });
+  return {
+    titulo: lista(titulos),
+    subtitulo: fechas.length === 1 ? fechas[0] : null,
+    entrada: ['Son a la misma hora: cada alumno o alumna puede apuntarse solo a uno.'],
+    apartados
+  };
+}
+
+// La circular de un evento (y, si se pide, conjunta con eventos a la misma
+// hora): lo que va en el PDF y en el email. La usan esta función y
+// herramientas/probar-circular.bat (para ver en local qué quedaría escrito).
+//   → { asunto, circular, correo, refs: [ids de los eventos] } o { status, error }
+async function prepararCircularEventos(sb, eventoId, conjuntaCon, web) {
+  const { data: ev } = await sb.from('eventos').select('*').eq('id', eventoId).maybeSingle();
+  if (!ev) return { status: 404, error: 'El evento no existe.' };
+  const datosDe = async (e) => {
+    const [{ data: ses }, { data: acts }] = await Promise.all([
+      sb.from('evento_sesiones').select('numero, fecha').eq('evento_id', e.id).order('numero'),
+      sb.from('evento_actividades').select('nombre, horario, aforo, elegibilidad_modo, cursos_permitidos, edad_min, edad_max, created_at').eq('evento_id', e.id).order('created_at')
+    ]);
+    return { ev: e, acts: acts || [], circular: circularEvento(e, ses || [], acts || [], web) };
+  };
+  // Circular conjunta: solo con eventos marcados como «a la misma hora» que este
+  const pedidos = [...new Set((Array.isArray(conjuntaCon) ? conjuntaCon : []).map(String))].filter(id => id !== ev.id);
+  let otros = [];
+  if (pedidos.length) {
+    const { data: pares } = await sb.from('evento_incompatibles').select('evento_a, evento_b').or(`evento_a.eq.${ev.id},evento_b.eq.${ev.id}`);
+    const excluyentes = new Set((pares || []).map(x => x.evento_a === ev.id ? x.evento_b : x.evento_a));
+    if (pedidos.some(id => !excluyentes.has(id))) return { status: 400, error: 'Solo se pueden juntar en una circular eventos que son a la misma hora que este.' };
+    const { data } = await sb.from('eventos').select('*').in('id', pedidos);
+    otros = (data || []).sort((a, b) => pedidos.indexOf(a.id) - pedidos.indexOf(b.id));
+  }
+  const partes = await Promise.all([ev, ...otros].map(datosDe));
+  const prueba = partes.some(x => x.ev.solo_pruebas) ? '[PRUEBA] ' : '';
+  // Fecha límite en el email solo si es la misma para todos (si no, va en cada sección)
+  const limites = [...new Set(partes.map(x => !x.ev.sin_inscripcion && x.ev.fecha_cierre_inscripcion ? diaLimite(x.ev.fecha_cierre_inscripcion) : null))];
+  const circular = partes.length === 1 ? partes[0].circular : circularConjunta(partes);
+  const correo = {
+    // A quién: los cursos de todos los eventos (y de sus actividades)
+    destinatarios: destinatariosEvento(ev, [...partes[0].acts, ...partes.slice(1).flatMap(x => [x.ev, ...x.acts])]),
+    limite: limites.length === 1 ? limites[0] : null,
+    entrada: partes.length === 1 ? undefined
+      : [`Os presentamos ${lista(partes.map(x => '«' + x.ev.titulo + '»'))}, que son a la misma hora: cada alumno o alumna puede apuntarse solo a uno.`,
+         ...partes.map(x => `«${x.ev.titulo}»${x.circular.entrada && x.circular.entrada[0] ? ': ' + x.circular.entrada[0].replace(/^./, ch => ch.toLowerCase()) : '.'}`)]
+  };
+  // Enlaces del email: en la conjunta, con el nombre de cada evento
+  correo.enlaces = partes.length === 1 ? enlacesCircular(circular)
+    : partes.flatMap(x => enlacesCircular(x.circular).map(e => ({ ...e, texto: `${e.texto} («${x.ev.titulo}»)` })));
+  return { asunto: prueba + (partes.length === 1 ? ev.titulo : circular.titulo), circular, correo, refs: partes.map(x => x.ev.id) };
+}
+
+// Nombre del PDF adjunto: «Título - fecha.pdf»
+const nombrePdfCircular = (c) => [c.titulo, c.subtitulo].filter(Boolean).join(' - ').replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim() + '.pdf';
+
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') return { statusCode: 405, body: 'Método no permitido' };
   const token = String(event.headers.authorization || event.headers.Authorization || '').replace(/^Bearer\s+/i, '');
@@ -225,26 +317,22 @@ exports.handler = async (event) => {
     asunto = b.asunto; circular = b.circular(conv, web); tipoRef = p.tipo; refId = conv.id;
     correo = { destinatarios: 'todas las familias', limite: diaLimite(conv.fecha_cierre), etiquetaLimite: 'Fecha límite para pedir:' };
   } else {
-    const { data: ev } = await sb.from('eventos').select('*').eq('id', String(p.eventoId || '')).single();
-    if (!ev) return json(404, { error: 'El evento no existe.' });
-    const [{ data: ses }, { data: acts }] = await Promise.all([
-      sb.from('evento_sesiones').select('numero, fecha').eq('evento_id', ev.id).order('numero'),
-      sb.from('evento_actividades').select('nombre, horario, aforo, elegibilidad_modo, cursos_permitidos, edad_min, edad_max, created_at').eq('evento_id', ev.id).order('created_at')
-    ]);
-    asunto = (ev.solo_pruebas ? '[PRUEBA] ' : '') + ev.titulo; circular = circularEvento(ev, ses || [], acts || [], web); tipoRef = 'evento'; refId = ev.id;
-    correo = { destinatarios: destinatariosEvento(ev, acts || []), limite: !ev.sin_inscripcion && ev.fecha_cierre_inscripcion ? diaLimite(ev.fecha_cierre_inscripcion) : null };
+    const r = await prepararCircularEventos(sb, String(p.eventoId || ''), p.conjuntaCon, web);
+    if (r.error) return json(r.status, { error: r.error });
+    ({ asunto, circular, correo } = r);
+    tipoRef = 'evento'; refId = r.refs[0]; correo.refsExtra = r.refs.slice(1);
   }
   try {
     // Como se mandaban: email corto (nota al colegio + mensaje a las familias) y la circular en PDF adjunta
     const pdf = pdfCircular(circular, { logo: rutaAsset('logo-ampa-circular.png') });
-    const nombrePdf = [circular.titulo, circular.subtitulo].filter(Boolean).join(' - ').replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim() + '.pdf';
-    const { texto, html } = correoCircular({ ...correo, entrada: circular.entrada, circular, enlaces: enlacesCircular(circular) });
+    const nombrePdf = nombrePdfCircular(circular);
+    const { texto, html } = correoCircular({ ...correo, entrada: correo.entrada || circular.entrada, circular, enlaces: correo.enlaces || enlacesCircular(circular) });
     const mensaje = await componerBorrador({
       subject: asunto, text: texto, html,
       adjuntos: [{ filename: nombrePdf, content: pdf, contentType: 'application/pdf' }]
     });
     const carpeta = await guardarBorrador(mensaje);
-    await registrarDifusion(sb, { tipo: tipoRef, refId, canal: 'circular', adultoId: u.user.id });
+    for (const id of [refId, ...(correo.refsExtra || [])]) await registrarDifusion(sb, { tipo: tipoRef, refId: id, canal: 'circular', adultoId: u.user.id });
     return json(200, { ok: true, carpeta, asunto });
   } catch (e) {
     return json(500, { error: e.message || 'No se pudo guardar el borrador.' });
@@ -252,5 +340,9 @@ exports.handler = async (event) => {
 };
 
 module.exports.circularEvento = circularEvento;
+module.exports.circularConjunta = circularConjunta;
+module.exports.prepararCircularEventos = prepararCircularEventos;
+module.exports.nombrePdfCircular = nombrePdfCircular;
+module.exports.enlacesCircular = enlacesCircular;
 module.exports.destinatariosEvento = destinatariosEvento;
 module.exports.paraQuien = paraQuien;

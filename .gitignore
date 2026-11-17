@@ -3,3 +3,4 @@ node_modules/
 *.csv
 pruebas/cabalgata/cuentas-de-prueba.txt
 pruebas/cabalgata/registro-prueba.txt
+herramientas/circulares-de-prueba/

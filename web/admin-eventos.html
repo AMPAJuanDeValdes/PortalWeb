@@ -887,15 +887,15 @@ async function cargarEventos() {
     // Circular: el email con la información del evento queda en Borradores
     // del buzón del AMPA para revisarlo y enviarlo desde el correo
     const circularBtn = row.querySelector('.circularBtn');
-    if (circularBtn) circularBtn.addEventListener('click', async () => {
+    // Con eventos a la misma hora (excluyentes), se puede hacer una circular conjunta
+    const prepararCircular = async (conjuntaCon) => {
       const msg = row.querySelector('.sortearMsg');
-      if (!confirm(`Se va a preparar un email con la información de «${ev.titulo}» y se dejará en Borradores del correo del AMPA para que lo reviséis y lo enviéis desde allí. ¿Seguir?`)) return;
       circularBtn.disabled = true; circularBtn.textContent = 'Preparando...';
       try {
         const session = await getSession();
         const resp = await fetch('/.netlify/functions/circular-borrador', {
           method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
-          body: JSON.stringify({ eventoId: ev.id })
+          body: JSON.stringify({ eventoId: ev.id, conjuntaCon })
         });
         const data = await resp.json().catch(() => ({}));
         if (!resp.ok) throw new Error(data.error || 'No se pudo preparar la circular.');
@@ -906,6 +906,37 @@ async function cargarEventos() {
       }
       circularBtn.disabled = false; circularBtn.textContent = 'Enviar circular';
       refrescarDifusion(row, ev.id);
+      (conjuntaCon || []).forEach(id => { const r = document.getElementById("adm-ev-" + id); if (r) refrescarDifusion(r, id); });
+    };
+    if (circularBtn) circularBtn.addEventListener('click', () => {
+      const excluyentes = incompatiblesDe(ev.id).map(id => eventosCache.find(e => e.id === id))
+        .filter(e => e && !ES_CURSO(e) && !eventoTerminadoAdmin(e));
+      const aviso = 'Se va a preparar un email con la circular y se dejará en Borradores del correo del AMPA para que lo reviséis y lo enviéis desde allí.';
+      if (!excluyentes.length) {
+        if (confirm(`Se va a preparar un email con la información de «${ev.titulo}» y se dejará en Borradores del correo del AMPA para que lo reviséis y lo enviéis desde allí. ¿Seguir?`)) prepararCircular([]);
+        return;
+      }
+      // Elegir si va sola o junto con los eventos a la misma hora
+      let caja = row.querySelector('.circularConjunta');
+      if (caja) { caja.remove(); return; }
+      caja = document.createElement('div');
+      caja.className = 'circularConjunta';
+      caja.style.cssText = 'margin-top:12px; padding:12px 14px; border:1.5px solid var(--line); border-radius:12px; background:#fff;';
+      caja.innerHTML = `<p style="margin:0 0 8px;"><b>Circular de «${esc(ev.titulo)}»</b></p>
+        <p class="ayuda" style="margin:0 0 8px;">Estos eventos son a la misma hora. Marca los que quieras incluir en la misma circular:</p>
+        ${excluyentes.map(e => `<label class="check"><input type="checkbox" value="${e.id}"> ${esc(e.titulo)}</label>`).join('')}
+        <p class="ayuda" style="margin:8px 0 10px;">${aviso}</p>
+        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+          <button type="button" class="btn btn-primary cPreparar">Preparar circular</button>
+          <button type="button" class="linklike cCancelar">Cancelar</button>
+        </div>`;
+      circularBtn.closest('.difusion-par').parentElement.after(caja);
+      caja.querySelector('.cCancelar').addEventListener('click', () => caja.remove());
+      caja.querySelector('.cPreparar').addEventListener('click', () => {
+        const ids = [...caja.querySelectorAll('input:checked')].map(c => c.value);
+        caja.remove();
+        prepararCircular(ids);
+      });
     });
 
     // Aviso en el móvil a las familias con algún alumno/a que puede apuntarse

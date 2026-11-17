@@ -77,11 +77,24 @@ function leerPng(buf) {
 
 // ---------- Página y maquetación ----------
 const A4 = { w: 595.28, h: 841.89 };
-const M = 50;                       // márgenes
-const PIE = 46;                     // alto reservado al pie
 const COL = { titulo: '#4A4F9E', fecha: '#E0218A', texto: '#1F2A6B' };
 
+// Si no cabe en una página: primero se quita el pie (email, Instagram y
+// WhatsApp); si aun así no cabe, se reduce la letra, los espacios y los
+// márgenes poco a poco hasta que quepa (sin bajar de ESCALA_MIN)
+const ESCALA_MIN = 0.6;
 function pdfCircular(c, { logo } = {}) {
+  let img = null;
+  if (logo) { try { img = leerPng(fs.readFileSync(logo)); } catch (e) { img = null; } }
+  let r = maquetar(c, img, 1, true);
+  for (let k = 1; r.paginas.length > 1 && k >= ESCALA_MIN - 1e-9; k -= 0.025) r = maquetar(c, img, k, false);
+  return construir(r.paginas, img, c.titulo);
+}
+
+// Maqueta la circular con todo a escala k (1 = tamaño normal), con o sin el pie
+function maquetar(c, img, k, conPie) {
+  const M = Math.max(28, 50 * k), PIE = conPie ? Math.max(34, 46 * k) : 0;   // márgenes y alto del pie
+  const z = (v) => v * k;
   const paginas = [];
   let pag, y;
   const nuevaPagina = () => { pag = { ops: ['q /Fondo sh Q'], enlaces: [] }; paginas.push(pag); y = M; };
@@ -104,7 +117,7 @@ function pdfCircular(c, { logo } = {}) {
   }
 
   // Párrafo con ajuste de línea. trozos: [{ t, f, enlace }]; avanza y (y cambia de página si no cabe)
-  function parrafo(trozos, x, ancho, { tam = 11.5, alto = 17.5, color = COL.texto, centrado = false, vineta = null } = {}) {
+  function parrafo(trozos, x, ancho, { tam = z(11.5), alto = z(17.5), color = COL.texto, centrado = false, vineta = null } = {}) {
     const palabras = [];
     trozos.forEach(t => String(t.t).split(/(?<=\s)/).forEach(p => p && palabras.push({ ...t, t: p })));
     const lineas = []; let actual = [], usado = 0;
@@ -121,7 +134,7 @@ function pdfCircular(c, { logo } = {}) {
       l.forEach(p => { const u = junt[junt.length - 1]; if (u && u.f === p.f && u.enlace === p.enlace) u.t += p.t; else junt.push({ ...p }); });
       const anchoL = junt.reduce((s, t) => s + anchoTexto(t.t.replace(/\s+$/, ''), t.f, tam), 0);
       const base = y + tam;
-      if (i === 0 && vineta) pintarLinea([{ t: vineta, f: 'normal' }], x - 13, base, tam, color);
+      if (i === 0 && vineta) pintarLinea([{ t: vineta, f: 'normal' }], x - z(13), base, tam, color);
       pintarLinea(junt, centrado ? x + (ancho - anchoL) / 2 : x, base, tam, color);
       y += alto;
     });
@@ -135,32 +148,33 @@ function pdfCircular(c, { logo } = {}) {
   };
 
   // Cabecera: título y fecha centrados, logo a la derecha
-  let img = null;
-  if (logo) { try { img = leerPng(fs.readFileSync(logo)); } catch (e) { img = null; } }
-  const anchoLogo = img ? 118 : 0, altoLogo = img ? anchoLogo * img.h / img.w : 0;
+  // Reducida (no cabía en una página): el título y el logo suben un poco
+  const subir = k < 1 ? z(14) : 0;
+  const anchoLogo = img ? z(118) : 0, altoLogo = img ? anchoLogo * img.h / img.w : 0;
   const anchoTitulo = A4.w - 2 * M - (img ? anchoLogo + 14 : 0);
-  if (img) pag.ops.push(`q ${anchoLogo} 0 0 ${n(altoLogo)} ${n(A4.w - M - anchoLogo + 10)} ${Y(M - 14 + altoLogo)} cm /Logo Do Q`);
-  y = M - 6;
-  parrafo([{ t: String(c.titulo || '').toUpperCase(), f: 'negrita' }], M, anchoTitulo, { tam: 23, alto: 27, color: COL.titulo, centrado: true });
-  if (c.subtitulo) { y += 4; parrafo([{ t: c.subtitulo, f: 'normal' }], M, anchoTitulo, { tam: 15, alto: 19, color: COL.fecha, centrado: true }); }
-  y = Math.max(y, M - 14 + altoLogo) + 16;
+  if (img) pag.ops.push(`q ${anchoLogo} 0 0 ${n(altoLogo)} ${n(A4.w - M - anchoLogo + 10)} ${Y(M - z(14) - subir + altoLogo)} cm /Logo Do Q`);
+  y = M - z(6) - subir;
+  parrafo([{ t: String(c.titulo || '').toUpperCase(), f: 'negrita' }], M, anchoTitulo, { tam: z(23), alto: z(27), color: COL.titulo, centrado: true });
+  if (c.subtitulo) { y += z(4); parrafo([{ t: c.subtitulo, f: 'normal' }], M, anchoTitulo, { tam: z(15), alto: z(19), color: COL.fecha, centrado: true }); }
+  y = Math.max(y, M - z(14) - subir + altoLogo) + z(16);
 
   const ancho = A4.w - 2 * M;
-  (c.entrada || []).forEach(t => { parrafo([{ t, f: 'normal' }], M, ancho); y += 6; });
+  (c.entrada || []).forEach(t => { parrafo([{ t, f: 'normal' }], M, ancho); y += z(6); });
   (c.apartados || []).forEach(a => {
-    y += 8;
-    if (y + 40 > A4.h - M - PIE) nuevaPagina();   // el título del apartado no se queda solo al final
-    parrafo([{ t: a.titulo, f: 'negrita' }], M, ancho, { tam: 12.5, alto: 19 });
-    (a.parrafos || []).forEach(t => { parrafo([{ t, f: 'normal' }], M + 6, ancho - 6); y += 2; });
+    y += z(8);
+    if (y + z(40) > A4.h - M - PIE) nuevaPagina();   // el título del apartado no se queda solo al final
+    parrafo([{ t: a.titulo, f: 'negrita' }], M, ancho, { tam: z(12.5), alto: z(19) });
+    (a.parrafos || []).forEach(t => { parrafo([{ t, f: 'normal' }], M + z(6), ancho - z(6)); y += z(2); });
     (a.puntos || []).forEach(p => {
       const { trozos, sub } = trozosPunto(p);
-      parrafo(trozos, M + 20, ancho - 20, { vineta: '•' });
-      sub.forEach(s => parrafo([{ t: s, f: 'normal' }], M + 40, ancho - 40, { vineta: '–' }));
-      y += 2;
+      parrafo(trozos, M + z(20), ancho - z(20), { vineta: '•' });
+      sub.forEach(s => parrafo([{ t: s, f: 'normal' }], M + z(40), ancho - z(40), { vineta: '–' }));
+      y += z(2);
     });
   });
 
   // Pie: email, Instagram y WhatsApp (abajo de la última página)
+  if (!conPie) return { paginas };
   const pie = [{ t: AMPA_EMAIL, enlace: 'mailto:' + AMPA_EMAIL }, { t: 'Instagram', enlace: AMPA_INSTAGRAM }, { t: 'WhatsApp', enlace: AMPA_WHATSAPP }];
   const basePie = A4.h - M + 6, tamPie = 10.5;
   const anchos = pie.map(p => anchoTexto(p.t, 'negrita', tamPie));
@@ -168,7 +182,7 @@ function pdfCircular(c, { logo } = {}) {
   let px = M;
   pie.forEach((p, i) => { pintarLinea([{ t: p.t, f: 'negrita', enlace: p.enlace }], px, basePie, tamPie, COL.texto); px += anchos[i] + hueco; });
 
-  return construir(paginas, img, c.titulo);
+  return { paginas };
 }
 
 // ---------- Escribir el archivo PDF ----------
