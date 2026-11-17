@@ -22,6 +22,7 @@ async function rellenarAlta(page, email) {
   await al.locator('input[id^="alF_"]').fill('2016-09-15');
   await al.locator('select[id^="alE_"]').selectOption('Primaria');
   await al.locator('select[id^="alC_"]').selectOption('4º');
+  await al.locator('select[id^="alU_"]').selectOption('B');
   await page.setInputFiles('#comprobanteFile', COMPROBANTE);
 }
 

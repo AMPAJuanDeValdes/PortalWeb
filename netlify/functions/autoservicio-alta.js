@@ -83,8 +83,8 @@ exports.handler = async (event) => {
     }
   }
   for (const al of alumnos) {
-    if (!al.nombre || !al.apellidos || !ETAPAS_VALIDAS.includes(al.etapa) || !al.curso) {
-      return json(400, { error: 'Cada alumno necesita nombre, apellidos, etapa y curso válidos' });
+    if (!al.nombre || !al.apellidos || !ETAPAS_VALIDAS.includes(al.etapa) || !al.curso || !/^[A-D]$/.test(al.aula || '')) {
+      return json(400, { error: 'Cada alumno necesita nombre, apellidos, etapa, curso y aula válidos' });
     }
     if (!al.fecha_nacimiento) {
       return json(400, { error: 'La fecha de nacimiento de cada alumno es obligatoria' });
@@ -138,7 +138,9 @@ exports.handler = async (event) => {
 
     // 3) Ahora sí, el socio
     const { data: socio, error: socioError } = await supabaseAdmin.from('socios').insert({
-      anio_ultima_cuota: anioCuotaActual(), estado: 'recien_creada', forma_pago, sepa_pendiente: eligeDomiciliacion
+      anio_ultima_cuota: anioCuotaActual(), estado: 'recien_creada', forma_pago, sepa_pendiente: eligeDomiciliacion,
+      // Acaban de rellenar todos sus datos: no hace falta que los confirmen en Mis datos
+      datos_revisados_en: new Date().toISOString()
     }).select('id').single();
     if (socioError) throw socioError;
     socioId = socio.id;
@@ -185,7 +187,7 @@ exports.handler = async (event) => {
       const { error: alError } = await supabaseAdmin.from('alumnos').insert(alumnos.map(al => ({
         socio_id: socioId, nombre: al.nombre, apellidos: al.apellidos || '',
         fecha_nacimiento: al.fecha_nacimiento, sexo: al.sexo || null,
-        etapa: al.etapa, curso: al.curso, aula: al.aula || null
+        etapa: al.etapa, curso: al.curso, aula: al.aula
       })));
       if (alError) throw alError;
     }

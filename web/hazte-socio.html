@@ -141,7 +141,7 @@ function renderAlumnos() {
       Object.keys(CURSOS_POR_ETAPA).map(e => '<option>' + e + '</option>').join('') + '</select></div>' +
       '<div class="field"><label>Curso *</label><select id="alC_' + al.id + '"><option value="">Elige etapa antes</option></select></div>' +
       '</div>' +
-      '<div class="field" style="margin-top:14px; max-width:160px;"><label>Aula</label><select id="alU_' + al.id + '"><option value="">Sin especificar</option><option>A</option><option>B</option><option>C</option><option>D</option></select></div>';
+      '<div class="field" style="margin-top:14px; max-width:160px;"><label>Aula *</label><select id="alU_' + al.id + '"><option value="">Selecciona...</option><option>A</option><option>B</option><option>C</option><option>D</option></select></div>';
     div.appendChild(body);
     wrap.appendChild(div);
     div.querySelector('.btn-danger-link').addEventListener('click', () => { alumnos = alumnos.filter(x => x.id !== al.id); renderAlumnos(); });
@@ -195,7 +195,7 @@ document.getElementById('enviarBtn').addEventListener('click', async () => {
   OBLIGATORIOS_ADULTO.forEach(c => obligatorios.push($('a1' + c)));
   obligatorios.push($('a1Password'), $('a1Password2'));
   if (tieneAdulto2) OBLIGATORIOS_ADULTO.forEach(c => obligatorios.push($('a2' + c)));
-  alumnos.forEach(al => ['alN_', 'alA_', 'alF_', 'alE_', 'alC_'].forEach(pre => obligatorios.push($(pre + al.id))));
+  alumnos.forEach(al => ['alN_', 'alA_', 'alF_', 'alE_', 'alC_', 'alU_'].forEach(pre => obligatorios.push($(pre + al.id))));
   obligatorios.push($('comprobanteFile'));
 
   if (!marcarCamposVacios(obligatorios)) {
@@ -235,7 +235,7 @@ document.getElementById('enviarBtn').addEventListener('click', async () => {
     alumnosPayload.push({
       nombre: val('alN_' + al.id), apellidos: val('alA_' + al.id), fecha_nacimiento: fecha,
       sexo: $('alS_' + al.id).value || null, etapa: $('alE_' + al.id).value,
-      curso: $('alC_' + al.id).value, aula: $('alU_' + al.id).value || null
+      curso: $('alC_' + al.id).value, aula: $('alU_' + al.id).value
     });
   }
 
