@@ -7743,3 +7743,25 @@ begin
   from unnest(p_ids) with ordinality as o(id, n) where c.id = o.id;
 end;
 $$;
+
+
+-- ==================================================================
+-- LOTERÍA: CERRAR (Y REABRIR) UNA CAMPAÑA, SOLO EL SUPERADMIN
+--  · Como cerrar las convocatorias del Banco de Libros y del Banco de
+--    Uniformes: solo la cuenta principal del AMPA (socio 0000).
+--  · Sigue siendo del superadmin anular el comienzo de una campaña.
+-- Requiere migracion-superadmin.sql. Se puede ejecutar varias veces.
+-- ==================================================================
+
+create or replace function solo_superadmin_loteria_campana() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if old.inicio is not null and new.inicio is null then
+    perform _exigir_superadmin('anular el comienzo de una campaña de lotería');
+  end if;
+  if new.cerrada_en is distinct from old.cerrada_en then
+    perform _exigir_superadmin(case when new.cerrada_en is null then 'reabrir una campaña de lotería' else 'cerrar una campaña de lotería' end);
+  end if;
+  return new;
+end;
+$$;

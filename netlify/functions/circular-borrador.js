@@ -5,6 +5,8 @@
 // del buzón del AMPA. La Junta lo abre en su correo, lo revisa, pone los
 // destinatarios y lo envía desde allí.
 //   POST { eventoId }  (con la sesión de alguien de la Junta)
+//   POST { eventoId, soloTexto: true } → { asunto, cuerpo }: la información del
+//        evento en texto, para rellenar un email (Panel → Enviar email); no guarda nada
 //   POST { eventoId, conjuntaCon: [ids] } → circular conjunta con eventos a la
 //        misma hora (excluyentes) que eventoId: una sección por evento
 //   POST { tipo: 'uniformes' | 'libros', convocatoriaId }  → circular de la
@@ -291,6 +293,23 @@ async function prepararCircularEventos(sb, eventoId, conjuntaCon, web) {
   return { asunto: prueba + (partes.length === 1 ? ev.titulo : circular.titulo), circular, correo, refs: partes.map(x => x.ev.id) };
 }
 
+// La circular en texto, para el cuerpo de un email (Panel → Enviar email)
+function textoPlanoCircular(c) {
+  const l = ['Buenos días,', ''];
+  (c.entrada || []).forEach(t => l.push(t, ''));
+  (c.apartados || []).forEach(a => {
+    l.push(a.titulo.toUpperCase());
+    (a.parrafos || []).forEach(t => l.push(t));
+    (a.puntos || []).forEach(p => {
+      if (typeof p === 'string') { l.push('- ' + p); return; }
+      l.push('- ' + [p.etiqueta, p.texto].filter(Boolean).join(' ') + (p.enlace ? ': ' + p.enlace : ''));
+      (p.sub || []).forEach(s => l.push('   · ' + s));
+    });
+    l.push('');
+  });
+  return l.join('\n').trim();
+}
+
 // Nombre del PDF adjunto: «Título - fecha.pdf»
 const nombrePdfCircular = (c) => [c.titulo, c.subtitulo].filter(Boolean).join(' - ').replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim() + '.pdf';
 
@@ -320,6 +339,13 @@ exports.handler = async (event) => {
     const r = await prepararCircularEventos(sb, String(p.eventoId || ''), p.conjuntaCon, web);
     if (r.error) return json(r.status, { error: r.error });
     ({ asunto, circular, correo } = r);
+    if (p.soloTexto) {
+      // Y lo de «Más información» del evento (la obra, el programa…), con sus enlaces
+      const { data: info } = await sb.from('evento_info').select('titulo, texto, enlace_url, enlace_texto').eq('evento_id', r.refs[0]).order('orden').order('created_at');
+      const mas = (info || []).map(b => [b.titulo ? b.titulo.toUpperCase() : '', b.texto || '', b.enlace_url ? `${b.enlace_texto || 'Más información'}: ${b.enlace_url}` : '']
+        .filter(Boolean).join('\n')).filter(Boolean);
+      return json(200, { ok: true, asunto: asunto.replace(/^\[PRUEBA\] /, ''), cuerpo: [textoPlanoCircular(circular), ...mas].join('\n\n') });
+    }
     tipoRef = 'evento'; refId = r.refs[0]; correo.refsExtra = r.refs.slice(1);
   }
   try {
@@ -342,6 +368,7 @@ exports.handler = async (event) => {
 module.exports.circularEvento = circularEvento;
 module.exports.circularConjunta = circularConjunta;
 module.exports.prepararCircularEventos = prepararCircularEventos;
+module.exports.textoPlanoCircular = textoPlanoCircular;
 module.exports.nombrePdfCircular = nombrePdfCircular;
 module.exports.enlacesCircular = enlacesCircular;
 module.exports.destinatariosEvento = destinatariosEvento;

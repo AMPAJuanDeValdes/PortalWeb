@@ -445,12 +445,12 @@ function pintarEstado() {
   } else if (e === 'programada' || e === 'abierta') {
     cont.innerHTML = `<span class="chip ${e === 'abierta' ? 'ok' : 'venta'}">${e === 'abierta' ? 'Abierta' : 'Programada'}</span>
       <span>Participaciones disponibles desde el ${fecha(camp.inicio)}.${e === 'abierta' ? ' Se ve «Quiero comprar Lotería».' : ''}</span>
-      <button type="button" class="btn btn-outline" data-c="cerrar">Cerrar la campaña</button>
+      <button type="button" class="btn btn-outline solo-super" data-c="cerrar">Cerrar la campaña</button>
       ${e === 'programada' ? '<button type="button" class="linklike solo-super" data-c="anular">Anular el comienzo</button>' : ''}`;
   } else {
     cont.innerHTML = `<span class="chip dev">Cerrada</span>
       <span>Cerrada el ${fecha(camp.cerrada_en)}. Ya no sale «Quiero comprar Lotería». Se pueden seguir apuntando ventas e ingresos.</span>
-      <button type="button" class="linklike" data-c="reabrir">Reabrir</button>`;
+      <button type="button" class="linklike solo-super" data-c="reabrir">Reabrir</button>`;
   }
   cont.insertAdjacentHTML('beforeend', '<p class="msg-error" id="estadoMsg" hidden style="flex-basis:100%; margin:0;"></p>');
 }

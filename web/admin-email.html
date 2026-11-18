@@ -267,7 +267,45 @@ document.getElementById('enviarBtn').addEventListener('click', async () => {
     sel.value = para; sel.dispatchEvent(new Event('change'));
     document.getElementById('calcularBtn').click();
   }
+  // admin-email.html?evento=… (Panel → Eventos → «Enviar email»): el mensaje
+  // ya relleno con la información del evento y, de destinatarios, sus cursos
+  const eventoId = new URLSearchParams(location.search).get('evento');
+  if (eventoId) await rellenarConEvento(eventoId);
 })();
+
+async function rellenarConEvento(eventoId) {
+  const { data: ev } = await sb.from('eventos').select('id, titulo, cursos_permitidos').eq('id', eventoId).maybeSingle();
+  if (!ev) return;
+  const cursos = (ev.cursos_permitidos || []).map(c => c.etapa + '|' + c.curso);
+  const sel = document.getElementById('tipoDestinatario');
+  if (cursos.length) {
+    sel.value = 'curso'; sel.dispatchEvent(new Event('change'));
+    cursosSel.querySelectorAll('input[data-curso]').forEach(i => { i.checked = cursos.includes(i.dataset.curso); });
+    repasarCursos();
+  } else {
+    sel.value = 'todos'; sel.dispatchEvent(new Event('change'));
+  }
+  const fEv = document.getElementById('fEvento');
+  if ([...fEv.options].some(o => o.value === ev.id)) fEv.value = ev.id;   // por si se quiere escribir solo a los inscritos
+  document.getElementById('calcularBtn').click();
+  const msg = document.getElementById('msg');
+  try {
+    const session = await getSession();
+    const resp = await fetch('/.netlify/functions/circular-borrador', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
+      body: JSON.stringify({ eventoId: ev.id, soloTexto: true })
+    });
+    const d = await resp.json();
+    if (!resp.ok) throw new Error(d.error || 'No se pudo preparar el texto');
+    document.getElementById('asunto').value = d.asunto;
+    document.getElementById('cuerpo').value = d.cuerpo;
+    msg.style.display = 'block'; msg.className = 'msg-ok';
+    msg.textContent = `Relleno con la información de «${ev.titulo}»${cursos.length ? ' y para sus cursos' : ''}. Revísalo, mira la vista previa y envíalo.`;
+  } catch (e) {
+    msg.style.display = 'block'; msg.className = 'msg-error';
+    msg.textContent = 'No se pudo rellenar con la información del evento: ' + e.message;
+  }
+}
 </script>
 <script src="shared/sonido.js"></script>
 <script src="shared/vida.js"></script>

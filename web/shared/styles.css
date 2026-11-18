@@ -786,3 +786,11 @@ body > .wrap, body > main{ position:relative; z-index:0; isolation:isolate; }
 
 /* Lo que solo puede hacer la cuenta principal (superadmin): la Junta no lo ve */
 body:not(.superadmin) .solo-super{ display:none !important; }
+
+/* Horas en 24 horas (shared/hora24.js): fecha, hora y minutos en desplegables */
+.hora24{ display:inline-flex; flex-wrap:wrap; align-items:center; gap:6px; max-width:100%; }
+.hora24 select, .hora24 input[type="date"]{ width:auto; min-width:0; }
+.hora24 select{ padding-right:28px; }
+.hora24 input[type="date"]{ max-width:12em; }
+.hora24-reloj{ display:inline-flex; align-items:center; gap:4px; white-space:nowrap; }
+.hora24-sep{ font-weight:700; }

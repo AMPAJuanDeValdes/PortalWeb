@@ -752,6 +752,7 @@ async function cargarEventos() {
           // Junto a cada botón: cuántas veces se ha hecho y la última (al pasar el ratón, todas)
           (ev.activo && !eventoTerminadoAdmin(ev) ? '<span class="difusion-par"><button class="btn btn-outline avisarBtn">Avisar a las familias</button><small class="difusion-info info-aviso" hidden></small></span>' : '') +
           (!eventoTerminadoAdmin(ev) ? '<span class="difusion-par"><button class="btn btn-outline circularBtn">Enviar circular</button><small class="difusion-info info-circular" hidden></small></span>' : '') +
+          (!eventoTerminadoAdmin(ev) ? `<a class="btn btn-outline" href="admin-email.html?evento=${ev.id}">Enviar email</a>` : '') +
           (ev.metodo_asignacion === 'sorteo' && ev.sorteo_realizado ? '<span class="badge badge-socio">Ya sorteado</span>' : '') +
           '<button class="btn-danger-link toggleActivoBtn">' + (ev.activo ? 'Ocultar' : 'Reactivar') + '</button>' +
           '<button class="btn-danger-link borrarBtn solo-super">Borrar</button>' +

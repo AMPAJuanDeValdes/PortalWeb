@@ -46,6 +46,14 @@ async function urlArchivo(bucket, ruta, segundos = 600) {
 
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+// Horas siempre en 24 horas en todos los campos de hora (shared/hora24.js)
+(function () {
+  if (document.querySelector('script[src$="shared/hora24.js"]')) return;
+  const s = document.createElement('script');
+  s.src = 'shared/hora24.js';
+  document.head.appendChild(s);
+})();
+
 async function getSession() {
   const { data } = await sb.auth.getSession();
   return data.session || null;
