@@ -7886,3 +7886,144 @@ $$;
 alter table eventos add column if not exists pregunta_para text not null default 'todos';
 alter table eventos drop constraint if exists eventos_pregunta_para_check;
 alter table eventos add constraint eventos_pregunta_para_check check (pregunta_para in ('todos', 'socios', 'no_socios'));
+
+
+-- ==================================================================
+-- CHARLA ABIERTA PARA ADULTOS (eventos.pregunta_hijos_colegio)
+--  · En la página de no socios se pregunta si tienen hijos/as en el
+--    colegio y si son socios del AMPA: los socios entran con su cuenta;
+--    los demás solo dejan nombre y teléfono (sin email).
+--  · Se guarda en evento_inscripciones.tiene_hijos_colegio.
+-- Requiere migracion-preguntas-alumno.sql. Se puede ejecutar varias veces.
+-- ==================================================================
+
+alter table eventos add column if not exists pregunta_hijos_colegio boolean not null default false;
+alter table evento_inscripciones add column if not exists tiene_hijos_colegio boolean;
+alter table evento_inscripciones drop constraint if exists evento_inscripciones_check;
+alter table evento_inscripciones add constraint evento_inscripciones_check check (
+  (tipo_miembro = 'adulto' and adulto_id is not null and socio_id is not null) or
+  (tipo_miembro = 'alumno' and alumno_id is not null and socio_id is not null) or
+  (tipo_miembro = 'invitado' and nombre_invitado is not null and socio_id is not null) or
+  -- No socios: nombre y email (en la charla abierta basta el teléfono)
+  (tipo_miembro = 'publico' and nombre_contacto is not null and (email_contacto is not null or telefono_contacto is not null))
+);
+
+create or replace function evento_inscribir_publico(p_evento_id uuid, p_datos jsonb, p_actividades uuid[] default '{}')
+returns uuid language plpgsql security definer set search_path = public as $$
+declare
+  v_grupo uuid := gen_random_uuid();
+  v_primera uuid;
+  v_id uuid;
+  v_act uuid;
+  v_solo boolean;
+  v_charla boolean;
+begin
+  select publico_solo_actividades, pregunta_hijos_colegio into v_solo, v_charla from eventos where id = p_evento_id;
+  if not found then raise exception 'El evento no existe.'; end if;
+  -- Charla abierta: basta con el nombre y el teléfono
+  if v_charla then
+    if coalesce(btrim(p_datos->>'nombre_contacto'), '') = '' or coalesce(btrim(p_datos->>'telefono_contacto'), '') = '' then
+      raise exception 'Faltan el nombre y el teléfono.';
+    end if;
+  elsif coalesce(btrim(p_datos->>'nombre_contacto'), '') = '' or coalesce(btrim(p_datos->>'email_contacto'), '') = '' then
+    raise exception 'Faltan el nombre y el email del adulto responsable.';
+  end if;
+  if v_solo and coalesce(array_length(p_actividades, 1), 0) = 0 then
+    raise exception 'Elige al menos una actividad.';
+  end if;
+
+  if not v_solo then
+    insert into evento_inscripciones (evento_id, tipo_miembro, grupo_id, nombre_contacto, email_contacto, telefono_contacto,
+      alumno_nombre, alumno_apellidos, alumno_etapa, alumno_curso, edad, tiene_alergias, alergias, respuesta_extra, respuestas_extra,
+      instrucciones, sale_solo, tiene_hijos_colegio)
+    values (p_evento_id, 'publico', v_grupo, p_datos->>'nombre_contacto', p_datos->>'email_contacto', p_datos->>'telefono_contacto',
+      p_datos->>'alumno_nombre', p_datos->>'alumno_apellidos', p_datos->>'alumno_etapa', p_datos->>'alumno_curso',
+      nullif(p_datos->>'edad', '')::integer, (p_datos->>'tiene_alergias')::boolean, p_datos->>'alergias', p_datos->>'respuesta_extra', coalesce(p_datos->'respuestas_extra', '[]'::jsonb),
+      p_datos->>'instrucciones', (p_datos->>'sale_solo')::boolean, (p_datos->>'tiene_hijos_colegio')::boolean)
+    returning id into v_primera;
+  end if;
+
+  foreach v_act in array coalesce(p_actividades, '{}') loop
+    insert into evento_inscripciones (evento_id, actividad_id, tipo_miembro, grupo_id, nombre_contacto, email_contacto, telefono_contacto,
+      alumno_nombre, alumno_apellidos, alumno_etapa, alumno_curso, edad, respuesta_extra, respuestas_extra)
+    values (p_evento_id, v_act, 'publico', v_grupo, p_datos->>'nombre_contacto', p_datos->>'email_contacto', p_datos->>'telefono_contacto',
+      p_datos->>'alumno_nombre', p_datos->>'alumno_apellidos', p_datos->>'alumno_etapa', p_datos->>'alumno_curso',
+      nullif(p_datos->>'edad', '')::integer, p_datos->>'respuesta_extra', coalesce(p_datos->'respuestas_extra', '[]'::jsonb))
+    returning id into v_id;
+    v_primera := coalesce(v_primera, v_id);
+  end loop;
+  return v_primera;
+end;
+$$;
+
+-- Cartel de cada evento (cartelera de eventos.html y publico.html).
+-- La imagen va al bucket público «carrusel» (carpeta carteles/).
+alter table eventos add column if not exists cartel_url text;
+
+-- Nombre que se pone encima del cartel en la cartelera (si no hay, el título)
+alter table eventos add column if not exists cartel_nombre text;
+
+-- Inscripción gratis para no socios según una respuesta: {"pregunta", "respuesta"}
+alter table eventos add column if not exists gratis_si jsonb;
+
+
+-- ==================================================================
+-- CHARLA SOLO PARA FAMILIAS DEL COLEGIO (eventos.charla_solo_familias)
+--  · En una charla abierta (pregunta_hijos_colegio), si se marca, no se
+--    puede apuntar quien dice que no tiene hijos/as en el colegio.
+-- Requiere migracion-charla-adultos.sql. Se puede ejecutar varias veces.
+-- ==================================================================
+
+alter table eventos add column if not exists charla_solo_familias boolean not null default false;
+
+create or replace function evento_inscribir_publico(p_evento_id uuid, p_datos jsonb, p_actividades uuid[] default '{}')
+returns uuid language plpgsql security definer set search_path = public as $$
+declare
+  v_grupo uuid := gen_random_uuid();
+  v_primera uuid;
+  v_id uuid;
+  v_act uuid;
+  v_solo boolean;
+  v_charla boolean;
+  v_solo_familias boolean;
+begin
+  select publico_solo_actividades, pregunta_hijos_colegio, charla_solo_familias into v_solo, v_charla, v_solo_familias from eventos where id = p_evento_id;
+  if not found then raise exception 'El evento no existe.'; end if;
+  -- Charla abierta: basta con el nombre y el teléfono
+  if v_charla and v_solo_familias and (p_datos->>'tiene_hijos_colegio')::boolean is not true then
+    raise exception 'Esta charla es solo para familias con alumnos o alumnas en el colegio.';
+  end if;
+  if v_charla then
+    if coalesce(btrim(p_datos->>'nombre_contacto'), '') = '' or coalesce(btrim(p_datos->>'telefono_contacto'), '') = '' then
+      raise exception 'Faltan el nombre y el teléfono.';
+    end if;
+  elsif coalesce(btrim(p_datos->>'nombre_contacto'), '') = '' or coalesce(btrim(p_datos->>'email_contacto'), '') = '' then
+    raise exception 'Faltan el nombre y el email del adulto responsable.';
+  end if;
+  if v_solo and coalesce(array_length(p_actividades, 1), 0) = 0 then
+    raise exception 'Elige al menos una actividad.';
+  end if;
+
+  if not v_solo then
+    insert into evento_inscripciones (evento_id, tipo_miembro, grupo_id, nombre_contacto, email_contacto, telefono_contacto,
+      alumno_nombre, alumno_apellidos, alumno_etapa, alumno_curso, edad, tiene_alergias, alergias, respuesta_extra, respuestas_extra,
+      instrucciones, sale_solo, tiene_hijos_colegio)
+    values (p_evento_id, 'publico', v_grupo, p_datos->>'nombre_contacto', p_datos->>'email_contacto', p_datos->>'telefono_contacto',
+      p_datos->>'alumno_nombre', p_datos->>'alumno_apellidos', p_datos->>'alumno_etapa', p_datos->>'alumno_curso',
+      nullif(p_datos->>'edad', '')::integer, (p_datos->>'tiene_alergias')::boolean, p_datos->>'alergias', p_datos->>'respuesta_extra', coalesce(p_datos->'respuestas_extra', '[]'::jsonb),
+      p_datos->>'instrucciones', (p_datos->>'sale_solo')::boolean, (p_datos->>'tiene_hijos_colegio')::boolean)
+    returning id into v_primera;
+  end if;
+
+  foreach v_act in array coalesce(p_actividades, '{}') loop
+    insert into evento_inscripciones (evento_id, actividad_id, tipo_miembro, grupo_id, nombre_contacto, email_contacto, telefono_contacto,
+      alumno_nombre, alumno_apellidos, alumno_etapa, alumno_curso, edad, respuesta_extra, respuestas_extra)
+    values (p_evento_id, v_act, 'publico', v_grupo, p_datos->>'nombre_contacto', p_datos->>'email_contacto', p_datos->>'telefono_contacto',
+      p_datos->>'alumno_nombre', p_datos->>'alumno_apellidos', p_datos->>'alumno_etapa', p_datos->>'alumno_curso',
+      nullif(p_datos->>'edad', '')::integer, p_datos->>'respuesta_extra', coalesce(p_datos->'respuestas_extra', '[]'::jsonb))
+    returning id into v_id;
+    v_primera := coalesce(v_primera, v_id);
+  end loop;
+  return v_primera;
+end;
+$$;

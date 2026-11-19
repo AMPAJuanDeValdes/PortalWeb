@@ -86,6 +86,18 @@
 
     <div class="field"><label for="eTitulo">Título</label><input type="text" id="eTitulo"></div>
     <div class="field"><label for="eDescripcion">Descripción (día, horario, qué llevar...)</label><textarea id="eDescripcion"></textarea></div>
+    <div class="field"><label for="eCartelNombre">Nombre en el cartel (opcional)</label><input type="text" id="eCartelNombre" maxlength="60" placeholder="Por ejemplo: Cabalgata 2027">
+      <p class="ayuda" style="margin:6px 0 0;">Se pone encima del cartel en la cartelera. Si lo dejas vacío, se usa el título.</p></div>
+    <div class="field"><label for="eCartelFile">Cartel (opcional)</label>
+      <div class="cartel-admin">
+        <img id="eCartelVista" alt="Cartel del evento" hidden>
+        <div>
+          <input type="file" id="eCartelFile" accept="image/*">
+          <button type="button" class="btn-danger-link" id="eCartelQuitar" hidden>Quitar cartel</button>
+          <p class="ayuda" id="eCartelMsg" style="margin:6px 0 0;">Se ve en la cartelera de Eventos (socios) y de Eventos abiertos (no socios). Al subirlo se recorta en vertical, como un cartel de cine. Se guarda al pulsar «Guardar» el evento.</p>
+        </div>
+      </div>
+    </div>
     <div class="two-col">
       <div class="field"><label for="eFecha">Fecha y hora</label><input type="datetime-local" id="eFecha"></div>
       <div class="field"><label for="eAforo">Aforo total (vacío = sin límite)</label><input type="number" id="eAforo" min="1"></div>
@@ -207,10 +219,17 @@
       <label class="check"><input type="checkbox" id="eAbiertoNoSocios"> Formulario en la web pública para familias no socias</label>
       <div id="publicoWrap" hidden style="margin-left:28px;">
         <label class="check"><input type="checkbox" id="ePublicoSoloActividades"> Solo pueden apuntarse a las subactividades, no al evento (Barbacoa)</label>
+        <label class="check"><input type="checkbox" id="ePreguntaHijos"> Charla para adultos: preguntar si tienen hijos/as en el colegio y si son socios (los socios entran con su cuenta; los demás dejan solo nombre y teléfono, y se les ofrecen los talleres a la misma hora)</label>
+        <label class="check" id="eCharlaSoloFamiliasWrap" style="margin-left:28px;"><input type="checkbox" id="eCharlaSoloFamilias"> Solo para familias con hijos o hijas en el colegio (quien no tiene no puede apuntarse)</label>
         <div class="field"><label for="eAvisoNoSocios">Aviso para no socios (opcional)</label><input type="text" id="eAvisoNoSocios" placeholder="Ej. Recordad que hay que pagar la entrada de la Barbacoa"></div>
         <div class="field" style="max-width:300px;"><label for="eFechaAperturaNoSocios">Apertura para no socios</label><input type="datetime-local" id="eFechaAperturaNoSocios"></div>
       </div>
       <div class="field" style="max-width:300px; margin-top:8px;"><label for="ePrecioInvitado">Precio por persona no socia (€)</label><input type="number" id="ePrecioInvitado" min="0" step="0.01"></div>
+      <div class="two-col">
+        <div class="field"><label for="eGratisPregunta">Gratis para no socios si responden a…</label><select id="eGratisPregunta"><option value="">Nadie: pagan todos</option></select></div>
+        <div class="field" id="eGratisRespWrap" hidden><label for="eGratisRespuesta">…con esta respuesta</label><select id="eGratisRespuesta"></select></div>
+      </div>
+      <p class="ayuda" style="margin-top:0;">Por ejemplo, el taller a la misma hora que una charla: «¿Estás apuntado/a a la charla?» → «Sí». En la lista de inscritos se ve si de verdad está apuntado/a a la charla.</p>
       <p class="ayuda">Pagan por transferencia y suben el justificante; la Junta lo revisa en Comprobantes.</p>
 
       <h3 class="subtitulo">Precio para socios (informativo)</h3>
@@ -251,6 +270,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="shared/supabaseClient.js"></script>
+<script src="shared/recortar-cartel.js"></script>
 <script src="shared/sesiones.js"></script>
 <script src="shared/recogida.js"></script>
 <script src="shared/nav.js"></script>
@@ -368,40 +388,137 @@ const PLANTILLAS = {
 };
 
 /* ---------- Más preguntas para cada alumno/a (eventos.preguntas_extra) ---------- */
+let ridPregunta = 0;
 function filaPregunta(p = {}) {
   const d = document.createElement('div');
   d.className = 'two-col mas-pregunta';
-  d.style.marginTop = '8px';
+  d.dataset.rid = 'p' + (++ridPregunta);
+  d.style.cssText = 'margin-top:12px; padding-top:12px; border-top:1px solid var(--line);';
   d.innerHTML = `<div class="field"><label>Otra pregunta para cada alumno</label><input type="text" class="mpPregunta" value="${esc(p.pregunta || '')}" placeholder="Ej. ¿Trae merienda?"></div>
     <div class="field"><label>Respuestas posibles, separadas por comas (vacío: la escriben)</label>
       <div style="display:flex; gap:8px; align-items:center;"><input type="text" class="mpOpciones" value="${esc((p.opciones || []).join(', '))}" placeholder="Sí, No">
       <button type="button" class="btn-danger-link mpQuitar">Quitar</button></div></div>
-    <span class="para-quien" style="display:flex; gap:14px; flex-wrap:wrap; font-size:14.5px;">Para: <label class="check" style="margin:0;"><input type="checkbox" class="mpS" ${(p.para || 'todos') !== 'no_socios' ? 'checked' : ''}> Socios</label><label class="check" style="margin:0;"><input type="checkbox" class="mpN" ${(p.para || 'todos') !== 'socios' ? 'checked' : ''}> No socios</label></span>`;
-  d.querySelector('.mpQuitar').addEventListener('click', () => d.remove());
+    <span class="para-quien" style="display:flex; gap:14px; flex-wrap:wrap; font-size:14.5px;">Para: <label class="check" style="margin:0;"><input type="checkbox" class="mpS" ${(p.para || 'todos') !== 'no_socios' ? 'checked' : ''}> Socios</label><label class="check" style="margin:0;"><input type="checkbox" class="mpN" ${(p.para || 'todos') !== 'socios' ? 'checked' : ''}> No socios</label></span>
+    <div class="mp-si" style="grid-column:1 / -1; display:flex; gap:8px; flex-wrap:wrap; align-items:center; font-size:14.5px;">
+      Mostrar: <select class="mpSi" style="width:auto;" aria-label="Mostrar esta pregunta"></select>
+      <span class="mpSiRespWrap" hidden>es <select class="mpSiResp" style="width:auto;" aria-label="Respuesta que la muestra"></select></span>
+    </div>`;
+  d.querySelector('.mpQuitar').addEventListener('click', () => { d.remove(); refrescarCondiciones(); });
   return d;
+}
+// Preguntas anidadas: «Mostrar: siempre» o «solo si la respuesta a <una pregunta anterior con respuestas posibles> es …»
+function refrescarCondiciones() {
+  const filas = [...document.querySelectorAll('#eMasPreguntas .mas-pregunta')];
+  const opcionesDe = (f) => f.querySelector('.mpOpciones').value.split(',').map(x => x.trim()).filter(Boolean);
+  filas.forEach((f, k) => {
+    const si = f.querySelector('.mpSi'), resp = f.querySelector('.mpSiResp');
+    const antes = f.dataset.siRid || '', antesResp = f.dataset.siResp || '';
+    const madres = filas.slice(0, k).filter(m => opcionesDe(m).length);
+    si.innerHTML = '<option value="">siempre</option>' + madres.map(m =>
+      `<option value="${m.dataset.rid}">solo si la respuesta a «${esc(m.querySelector('.mpPregunta').value.trim() || 'pregunta sin escribir')}»</option>`).join('');
+    si.value = madres.some(m => m.dataset.rid === antes) ? antes : '';
+    const madre = madres.find(m => m.dataset.rid === si.value);
+    f.querySelector('.mpSiRespWrap').hidden = !madre;
+    resp.innerHTML = madre ? opcionesDe(madre).map(o => `<option>${esc(o)}</option>`).join('') : '';
+    if (madre && opcionesDe(madre).includes(antesResp)) resp.value = antesResp;
+    f.dataset.siRid = si.value; f.dataset.siResp = resp.value;
+  });
 }
 function pintarMasPreguntas(lista) {
   const c = document.getElementById('eMasPreguntas');
   c.innerHTML = '';
-  (lista || []).forEach(p => c.appendChild(filaPregunta(p)));
+  const filas = (lista || []).map(p => { const f = filaPregunta(p); c.appendChild(f); return f; });
+  // Preguntas anidadas: de qué pregunta (por su posición) y con qué respuesta
+  (lista || []).forEach((p, k) => {
+    if (p.si && filas[p.si.indice]) { filas[k].dataset.siRid = filas[p.si.indice].dataset.rid; filas[k].dataset.siResp = p.si.respuesta; }
+  });
+  refrescarCondiciones();
 }
 function leerMasPreguntas() {
-  return [...document.querySelectorAll('#eMasPreguntas .mas-pregunta')].map(d => ({
+  const filas = [...document.querySelectorAll('#eMasPreguntas .mas-pregunta')].filter(d => d.querySelector('.mpPregunta').value.trim());
+  const indice = (rid) => filas.findIndex(f => f.dataset.rid === rid);
+  return filas.map(d => ({
     pregunta: d.querySelector('.mpPregunta').value.trim(),
+    ...(d.dataset.siRid && indice(d.dataset.siRid) >= 0 && d.dataset.siResp
+      ? { si: { indice: indice(d.dataset.siRid), respuesta: d.dataset.siResp } } : {}),
     opciones: d.querySelector('.mpOpciones').value.split(',').map(x => x.trim()).filter(Boolean),
     para: paraQuien(d.querySelector('.mpS').checked, d.querySelector('.mpN').checked)
-  })).filter(p => p.pregunta);
+  }));
 }
 // Para quién es la pregunta (sin marcar ninguno, para todos)
 const paraQuien = (socios, noSocios) => socios && !noSocios ? 'socios' : noSocios && !socios ? 'no_socios' : 'todos';
 document.getElementById('eAnadirPregunta').addEventListener('click', () => {
-  const f = filaPregunta(); document.getElementById('eMasPreguntas').appendChild(f); f.querySelector('.mpPregunta').focus();
+  const f = filaPregunta(); document.getElementById('eMasPreguntas').appendChild(f); refrescarCondiciones(); f.querySelector('.mpPregunta').focus();
 });
+// Al cambiar el texto o las respuestas de una pregunta, o la condición, se actualizan las condiciones
+document.getElementById('eMasPreguntas').addEventListener('input', (e) => { if (e.target.matches('.mpPregunta, .mpOpciones')) refrescarCondiciones(); });
+document.getElementById('eMasPreguntas').addEventListener('change', (e) => {
+  if (!e.target.matches('.mpSi, .mpSiResp')) return;
+  const f = e.target.closest('.mas-pregunta');
+  f.dataset.siRid = f.querySelector('.mpSi').value;
+  if (e.target.matches('.mpSi')) f.dataset.siResp = ''; else f.dataset.siResp = f.querySelector('.mpSiResp').value;
+  refrescarCondiciones();
+});
+
+/* Cartel del evento: se sube al bucket «carrusel» (carpeta carteles/) y la
+   dirección se guarda en eventos.cartel_url al guardar el evento */
+let CARTEL_URL = null;
+function ponerCartel(url) {
+  CARTEL_URL = url;
+  $('eCartelVista').hidden = !url;
+  if (url) $('eCartelVista').src = url; else $('eCartelVista').removeAttribute('src');
+  $('eCartelQuitar').hidden = !url;
+  $('eCartelFile').value = '';
+}
+$('eCartelFile').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const msg = $('eCartelMsg'), ayuda = msg.textContent;
+  // Primero se recorta al formato de la cartelera (vertical 2:3)
+  const peque = await recortarCartel(file);
+  if (!peque) { e.target.value = ''; return; }
+  msg.textContent = 'Subiendo el cartel...';
+  const path = `carteles/${Date.now()}-cartel.jpg`;
+  const { error } = await sb.storage.from('carrusel').upload(path, peque, { contentType: peque.type });
+  if (error) { msg.textContent = 'No se pudo subir el cartel: ' + error.message; e.target.value = ''; return; }
+  ponerCartel(sb.storage.from('carrusel').getPublicUrl(path).data.publicUrl);
+  msg.textContent = ayuda;
+});
+$('eCartelQuitar').addEventListener('click', () => ponerCartel(null));
+
+/* Gratis para no socios según una respuesta (eventos.gratis_si = {pregunta, respuesta}).
+   Se elige entre las preguntas con opciones que ven los no socios. */
+function preguntasGratis() {
+  const lista = [];
+  if ($('ePregunta').value.trim() && $('ePreguntaN').checked) lista.push({ pregunta: $('ePregunta').value.trim(), opciones: $('eOpciones').value.split(',').map(t => t.trim()).filter(Boolean) });
+  leerMasPreguntas().filter(p => p.para !== 'socios').forEach(p => lista.push(p));
+  return lista.filter(p => p.opciones.length);
+}
+function refrescarGratis(actual) {
+  const sel = actual || { pregunta: $('eGratisPregunta').value, respuesta: $('eGratisRespuesta').value };
+  const lista = preguntasGratis();
+  $('eGratisPregunta').innerHTML = '<option value="">Nadie: pagan todos</option>' + lista.map(p => `<option>${esc(p.pregunta)}</option>`).join('');
+  $('eGratisPregunta').value = lista.some(p => p.pregunta === sel.pregunta) ? sel.pregunta : '';
+  const p = lista.find(x => x.pregunta === $('eGratisPregunta').value);
+  $('eGratisRespWrap').hidden = !p;
+  $('eGratisRespuesta').innerHTML = p ? p.opciones.map(o => `<option>${esc(o)}</option>`).join('') : '';
+  if (p && p.opciones.includes(sel.respuesta)) $('eGratisRespuesta').value = sel.respuesta;
+}
+// Al cambiar las preguntas, se repasa la lista
+['ePregunta', 'eOpciones', 'ePreguntaS', 'ePreguntaN'].forEach(id => $(id).addEventListener('change', () => refrescarGratis()));
+$('eMasPreguntas').addEventListener('change', () => refrescarGratis());
+$('eMasPreguntas').addEventListener('click', (e) => { if (e.target.closest('button')) setTimeout(() => refrescarGratis(), 0); });
+document.getElementById('eAnadirPregunta').addEventListener('click', () => setTimeout(() => refrescarGratis(), 0));
+$('eGratisPregunta').addEventListener('change', () => refrescarGratis());
+
+$('ePreguntaHijos').addEventListener('change', () => { $('eCharlaSoloFamiliasWrap').hidden = !$('ePreguntaHijos').checked; });
 
 function rellenarFormulario(ev) {
   const e = { ...CAMPOS_VACIOS, ...ev };
   $('eTitulo').value = e.titulo || '';
   $('eDescripcion').value = e.descripcion || '';
+  ponerCartel(e.cartel_url || null);
+  $('eCartelNombre').value = e.cartel_nombre || '';
   $('eFecha').value = aLocal(e.fecha);
   $('eHoraFin').value = horaLocal(e.fecha_fin);
   $('eAforo').value = e.aforo_total ?? '';
@@ -430,9 +547,13 @@ function rellenarFormulario(ev) {
   $('eVoluntariadoExcluye').checked = e.voluntariado_excluye_asistencia;
   $('ePermiteInvitados').checked = e.permite_invitados;
   $('eAbiertoNoSocios').checked = e.abierto_no_socios;
+  $('ePreguntaHijos').checked = !!e.pregunta_hijos_colegio;
+  $('eCharlaSoloFamilias').checked = !!e.charla_solo_familias;
+  $('eCharlaSoloFamiliasWrap').hidden = !$('ePreguntaHijos').checked;
   $('ePublicoSoloActividades').checked = e.publico_solo_actividades;
   $('eAvisoNoSocios').value = e.aviso_no_socios || '';
   $('ePrecioInvitado').value = e.precio_invitado ?? '';
+  refrescarGratis(e.gratis_si);
   $('ePrecioAdulto').value = e.precio_adulto ?? '';
   $('ePrecioAlumno').value = e.precio_alumno ?? '';
   $('eFechaAperturaSocios').value = aLocal(e.fecha_apertura_socios);
@@ -462,6 +583,8 @@ function leerFormulario() {
     plantilla: $('ePlantilla').value || null,
     titulo: $('eTitulo').value.trim(),
     descripcion: $('eDescripcion').value.trim(),
+    cartel_url: CARTEL_URL,
+    cartel_nombre: $('eCartelNombre').value.trim() || null,
     fecha: aISO($('eFecha').value),
     fecha_fin: finISO($('eFecha').value, $('eHoraFin').value),
     aforo_total: num($('eAforo').value, true),
@@ -488,9 +611,12 @@ function leerFormulario() {
     voluntariado_excluye_asistencia: $('eVoluntariadoExcluye').checked,
     permite_invitados: $('ePermiteInvitados').checked,
     abierto_no_socios: $('eAbiertoNoSocios').checked,
+    pregunta_hijos_colegio: $('eAbiertoNoSocios').checked && $('eTipoElegibilidad').value === 'adultos' && $('ePreguntaHijos').checked,
+    charla_solo_familias: $('eAbiertoNoSocios').checked && $('eTipoElegibilidad').value === 'adultos' && $('ePreguntaHijos').checked && $('eCharlaSoloFamilias').checked,
     publico_solo_actividades: $('eAbiertoNoSocios').checked && $('ePublicoSoloActividades').checked,
     aviso_no_socios: $('eAvisoNoSocios').value.trim() || null,
     precio_invitado: num($('ePrecioInvitado').value),
+    gratis_si: $('eGratisPregunta').value && $('eGratisRespuesta').value ? { pregunta: $('eGratisPregunta').value, respuesta: $('eGratisRespuesta').value } : null,
     precio_adulto: num($('ePrecioAdulto').value),
     precio_alumno: num($('ePrecioAlumno').value),
     fecha_apertura_socios: $('fechasWrap').hidden ? null : aISO($('eFechaAperturaSocios').value),
@@ -1064,6 +1190,36 @@ async function renderInscritos(panel, ev) {
   }
 
   const pagan = Number(ev.precio_invitado) > 0;
+  // Gratis por una respuesta (p. ej. «¿Estás apuntado/a a la charla?» → «Sí»)
+  const respuestaGratis = (i) => {
+    const g = ev.gratis_si;
+    if (!g) return null;
+    if (g.pregunta === ev.pregunta_extra) return i.respuesta_extra || '';
+    const k = (ev.preguntas_extra || []).findIndex(p => p.pregunta === g.pregunta);
+    return k >= 0 ? ((i.respuestas_extra || [])[k] || '') : null;
+  };
+  const esGratis = (i) => !!ev.gratis_si && respuestaGratis(i) === ev.gratis_si.respuesta;
+  // Para comprobarlo: quién está apuntado a las charlas a la misma hora (por teléfono o por nombre)
+  let enCharla = null;
+  if (ev.gratis_si) {
+    const { data: pares } = await sb.from('evento_incompatibles').select('evento_a, evento_b').or(`evento_a.eq.${ev.id},evento_b.eq.${ev.id}`);
+    const ids = new Set((pares || []).map(x => x.evento_a === ev.id ? x.evento_b : x.evento_a));
+    // Las charlas marcadas «a la misma hora» o que se solapan con este evento ese día
+    const ms = (e) => [new Date(e.fecha).getTime(), e.fecha_fin ? new Date(e.fecha_fin).getTime() : new Date(e.fecha).getTime() + 3 * 3600 * 1000];
+    const { data: todas } = await sb.from('eventos').select('id, fecha, fecha_fin').eq('pregunta_hijos_colegio', true);
+    const charlas = (todas || []).filter(c => ids.has(c.id) || (c.fecha && ev.fecha && ms(c)[0] < ms(ev)[1] && ms(ev)[0] < ms(c)[1]));
+    if ((charlas || []).length) {
+      const { data: asistentes } = await sb.from('evento_inscripciones').select('nombre_contacto, telefono_contacto, adultos!adulto_id(nombre, apellidos, movil)').in('evento_id', charlas.map(c => c.id)).is('actividad_id', null);
+      const tel = (t) => String(t || '').replace(/\D/g, '').slice(-9);
+      const nom = (t) => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+      const tels = new Set(), noms = new Set();
+      (asistentes || []).forEach(a => {
+        [a.telefono_contacto, a.adultos && a.adultos.movil].map(tel).filter(t => t.length === 9).forEach(t => tels.add(t));
+        [a.nombre_contacto, a.adultos && (a.adultos.nombre + ' ' + (a.adultos.apellidos || ''))].map(nom).filter(Boolean).forEach(n => noms.add(n));
+      });
+      enCharla = (i) => tels.has(tel(i.telefono_contacto)) || noms.has(nom(i.nombre_contacto));
+    }
+  }
   // Familias con algún adulto socio apuntado como asistente
   const familiasConAdulto = new Set(data.filter(i => i.tipo_miembro === 'adulto' && !i.actividad_id && !i.es_voluntario).map(i => i.socio_id));
   const adultosApuntados = new Set(data.filter(i => i.tipo_miembro === 'adulto' && !i.actividad_id).map(i => i.adulto_id));
@@ -1082,7 +1238,8 @@ async function renderInscritos(panel, ev) {
       if (i.alumno_nombre) { nombre = i.alumno_nombre; apellidos = i.alumno_apellidos || ''; curso = i.alumno_curso ? `${i.alumno_curso} ${i.alumno_etapa}` : ''; edad = i.edad ?? ''; }
       else { nombre = i.nombre_contacto; }
     }
-    const debePagar = pagan && (i.tipo_miembro === 'invitado' || (i.tipo_miembro === 'publico' && !i.actividad_id));
+    const gratis = i.tipo_miembro === 'publico' && !i.actividad_id && esGratis(i);
+    const debePagar = pagan && !gratis && (i.tipo_miembro === 'invitado' || (i.tipo_miembro === 'publico' && !i.actividad_id));
     const comp = (i.comprobantes_pago || [])[0];
     const sinAdulto = ev.alumnos_requieren_adulto && i.tipo_miembro === 'alumno' && !i.actividad_id && !i.es_voluntario
       && !familiasConAdulto.has(i.socio_id) && !(i.responsable_adulto_id && adultosApuntados.has(i.responsable_adulto_id));
@@ -1095,8 +1252,10 @@ async function renderInscritos(panel, ev) {
       'Móvil responsable': i.recoge_otra ? (i.recoge_movil || '') : '',
       [ev.pregunta_extra || 'Respuesta']: i.respuesta_extra || '',
       ...Object.fromEntries((ev.preguntas_extra || []).map((p, k) => [p.pregunta, (i.respuestas_extra || [])[k] || ''])),
+      ...(ev.pregunta_hijos_colegio ? { 'Hijos en el colegio': i.tipo_miembro === 'publico' ? (i.tiene_hijos_colegio === true ? 'Sí' : i.tiene_hijos_colegio === false ? 'No' : '') : 'Socio' } : {}),
       'Notas': notasRecogida(i),
-      'Pago': debePagar ? (comp ? (comp.verificado ? 'Verificado' : 'Justificante por revisar') : 'Sin justificante') : '',
+      'Pago': gratis ? 'Gratis («' + ev.gratis_si.respuesta + '»)' : debePagar ? (comp ? (comp.verificado ? 'Verificado' : 'Justificante por revisar') : 'Sin justificante') : '',
+      ...(enCharla ? { 'En la charla': gratis ? (enCharla(i) ? 'Sí' : 'NO APARECE') : '' } : {}),
       'Sorteo': ev.metodo_asignacion === 'sorteo' && !i.es_voluntario && !i.actividad_id ? ({ pendiente: 'Pendiente', ganador: 'Con plaza', no_ganador: 'Sin plaza' }[i.estado] || '') : '',
       'Nº socio': numeroSocioBonito(i.socios?.numero_socio_completo),
       'Email': i.email_contacto || '', 'Teléfono': i.telefono_contacto || ''

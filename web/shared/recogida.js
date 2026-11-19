@@ -103,15 +103,36 @@ function textoRecogida(i) {
 const preguntaPara = (p, quien) => !p.para || p.para === 'todos' || p.para === quien;
 function htmlMasPreguntas(preguntas, id, quien) {
   const e = (t) => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  return (preguntas || []).map((p, k) => !preguntaPara(p, quien) ? '' : `<div class="field"><label for="${id}mp${k}">${e(p.pregunta)}</label>${(p.opciones || []).length
+  // Una pregunta con «si» (anidada) sale solo cuando se elige esa respuesta en la de la que depende
+  return (preguntas || []).map((p, k) => !preguntaPara(p, quien) ? '' : `<div class="field" id="${id}mpw${k}"${p.si ? ' hidden' : ''}><label for="${id}mp${k}">${e(p.pregunta)}</label>${(p.opciones || []).length
     ? `<select id="${id}mp${k}"><option value="">Elige una opción</option>${p.opciones.map(o => `<option>${e(o)}</option>`).join('')}</select>`
     : `<input type="text" id="${id}mp${k}" maxlength="300">`}</div>`).join('');
 }
 // Las respuestas van en el mismo orden que las preguntas (vacía si no es para él)
+// ¿Se ve la pregunta k? Si depende de otra, cuando esa se ve y tiene la respuesta elegida
+function preguntaVisible(preguntas, raiz, id, quien, k, vistas = new Set()) {
+  const p = preguntas[k];
+  if (!p || !preguntaPara(p, quien)) return false;
+  if (!p.si) return true;
+  if (vistas.has(k)) return false;   // por si alguna vez quedase un círculo
+  vistas.add(k);
+  const madre = raiz.querySelector('#' + CSS.escape(id + 'mp' + p.si.indice));
+  return preguntaVisible(preguntas, raiz, id, quien, p.si.indice, vistas) && !!madre && madre.value === p.si.respuesta;
+}
+// Muestra u oculta las preguntas anidadas según se va respondiendo
+function activarMasPreguntas(preguntas, raiz, id, quien) {
+  if (!(preguntas || []).some(p => p.si)) return;
+  const repasar = () => preguntas.forEach((p, k) => {
+    const w = raiz.querySelector('#' + CSS.escape(id + 'mpw' + k));
+    if (w) w.hidden = !preguntaVisible(preguntas, raiz, id, quien, k);
+  });
+  raiz.addEventListener('change', (e) => { if (e.target.id && e.target.id.startsWith(id + 'mp')) repasar(); });
+  repasar();
+}
 function leerMasPreguntas(preguntas, raiz, id, quien) {
   const respuestas = [];
   for (const [k, p] of (preguntas || []).entries()) {
-    if (!preguntaPara(p, quien)) { respuestas.push(''); continue; }
+    if (!preguntaPara(p, quien) || !preguntaVisible(preguntas, raiz, id, quien, k)) { respuestas.push(''); continue; }
     const el = raiz.querySelector('#' + CSS.escape(id + 'mp' + k));
     const v = el ? el.value.trim() : '';
     if (!v) return { error: 'Responde: ' + p.pregunta };

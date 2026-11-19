@@ -105,6 +105,7 @@
 <script src="shared/sesiones.js"></script>
 <script src="shared/recogida.js"></script>
 <script src="shared/datos-ampa.js"></script>
+<script src="shared/cartelera.js"></script>
 <script src="shared/carrusel.js"></script>
 <script src="shared/evento-info.js"></script>
 <script src="shared/documentoRellenable.js"></script>
@@ -245,6 +246,7 @@ async function cargarEventos() {
   const terminados = visibles.filter(eventoTerminado).sort((a, b) => fechaFin(b) - fechaFin(a));
   cont.innerHTML = '';
   for (const ev of [...enMarcha, ...terminados]) cont.appendChild(await renderEvento(ev));
+  montarCartelera(cont);
   activarFiltros();
   // Desde el calendario de Inicio se llega con #ev-<id> (si ya ha pasado, en «Eventos terminados»)
   const destino = location.hash && document.getElementById(location.hash.slice(1));
@@ -252,7 +254,7 @@ async function cargarEventos() {
     document.querySelectorAll('#filtros button').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.f === 'terminado')));
     aplicarFiltro();
   }
-  if (destino) destino.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  if (destino) abrirEventoCartelera(destino);
 }
 
 // Un evento ha terminado a su hora de fin o, si no tiene, 3 horas después de
@@ -387,6 +389,9 @@ function cabeceraEvento(evento) {
   const [color, icono] = TIPOS_VISUAL[evento.plantilla] || [PALETA[hash % PALETA.length], ICONO_EVENTO];
   card.className = 'card evento-card t-' + color;
   card.id = 'ev-' + evento.id;
+  if (evento.cartel_url) card.dataset.cartel = evento.cartel_url;
+  if (evento.cartel_nombre) card.dataset.cartelNombre = evento.cartel_nombre;
+  if (evento.fecha && !ES_CURSO(evento)) card.dataset.fecha = evento.fecha;
   const precios = textoPrecios(evento);
   // Curso por sesiones: se muestra la próxima sesión, no la fecha del evento
   const curso = ES_CURSO(evento), prox = curso ? proximaSesion(SESIONES[evento.id]) : null;
@@ -472,6 +477,7 @@ function camposPersona(evento, tipo, opciones = {}) {
   }
   wrap.innerHTML = html;
   activarRecogida(wrap, id);
+  if (tipo === 'alumno') activarMasPreguntas(evento.preguntas_extra, wrap, id, 'socios');
   const q = (s) => wrap.querySelector('#' + id + s);
   wrap.querySelectorAll('input').forEach(i => i.addEventListener('input', () => i.classList.remove('campo-error')));
   wrap.querySelectorAll(`input[name="${id}al"]`).forEach(r => r.addEventListener('change', () => { q('alt').hidden = r.value !== 'si' || !r.checked; }));

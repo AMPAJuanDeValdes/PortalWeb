@@ -59,6 +59,7 @@
 <script src="shared/sesiones.js"></script>
 <script src="shared/recogida.js"></script>
 <script src="shared/datos-ampa.js"></script>
+<script src="shared/cartelera.js"></script>
 <script src="shared/catalogo.js"></script>
 <script src="shared/carrusel.js"></script>
 <script src="shared/evento-info.js"></script>
@@ -88,15 +89,19 @@ async function cargarEventos() {
   if (!futuros.length) { cont.innerHTML = '<p class="empty-hint">Ahora mismo no hay eventos abiertos a no socios.</p>'; return; }
   cont.innerHTML = '';
   for (const ev of futuros) cont.appendChild(await tarjetaEvento(ev));
+  montarCartelera(cont);
   // publico.html#ev-<id> (enlace de las circulares): se va directo a ese evento
   const destino = /^#ev-[\w-]+$/.test(location.hash) && document.getElementById(location.hash.slice(1));
-  if (destino) destino.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  if (destino) abrirEventoCartelera(destino);
 }
 
 async function tarjetaEvento(ev) {
   const card = document.createElement('div');
   card.className = 'card evento-card';
   card.id = 'ev-' + ev.id;
+  if (ev.cartel_url) card.dataset.cartel = ev.cartel_url;
+  if (ev.cartel_nombre) card.dataset.cartelNombre = ev.cartel_nombre;
+  if (ev.fecha && !ES_CURSO(ev)) card.dataset.fecha = ev.fecha;
   const precio = Number(ev.precio_invitado) || 0;
   card.innerHTML = `
     <p class="evento-fecha">${ES_CURSO(ev) ? (proximaSesion(SESIONES[ev.id]) ? 'Próxima sesión: ' + fechaLarga(proximaSesion(SESIONES[ev.id]).fecha) : 'Las fechas de las sesiones se irán publicando') : fechaLarga(ev.fecha, ev.fecha_fin)}${ev.lugar ? '. Lugar: ' + esc(ev.lugar) : ''}</p>
@@ -160,7 +165,95 @@ function resumirCursos(cursos) {
   return cursos.map(c => `${c.curso} ${c.etapa}`).join(', ');
 }
 
+// Charla abierta para adultos (pregunta_hijos_colegio): ¿hijos/as en el colegio?
+// ¿socios? Los socios entran con su cuenta; los demás dejan nombre y teléfono y,
+// si tienen hijos/as en el colegio, se les ofrecen los talleres a la misma hora.
+// Dos eventos con fecha se solapan si coinciden en algún momento (sin hora
+// de fin, se cuenta 3 horas, como en el resto del portal)
+function seSolapan(a, b) {
+  if (!a.fecha || !b.fecha) return false;
+  const ini = (e) => new Date(e.fecha).getTime();
+  const fin = (e) => e.fecha_fin ? new Date(e.fecha_fin).getTime() : ini(e) + 3 * 3600 * 1000;
+  return ini(a) < fin(b) && ini(b) < fin(a);
+}
+
+function formularioCharla(ev) {
+  const f = document.createElement('div');
+  f.className = 'form-publico';
+  const n = 'ch' + String(ev.id).replace(/-/g, '').slice(0, 10);
+  const radios = (name, a, b) => `<div class="radios" style="margin-top:6px;"><label><input type="radio" name="${name}" value="si"> ${a}</label><label><input type="radio" name="${name}" value="no"> ${b}</label></div>`;
+  f.innerHTML = `
+    <div><span style="font-weight:700;">¿Tienes hijos o hijas en el colegio?</span>${radios(n + 'h', 'Sí', 'No')}</div>
+    <p class="chNoFamilias aviso" hidden style="margin-top:14px;">Esta charla es solo para familias con alumnos o alumnas en el colegio.</p>
+    <div class="chSocio" hidden style="margin-top:14px;"><span style="font-weight:700;">¿Sois socios del AMPA?</span>${radios(n + 's', 'Sí', 'No')}</div>
+    <div class="chEntrar" hidden style="margin-top:14px;">
+      <p style="margin:0 0 10px;">Entra con tu cuenta del AMPA para apuntarte.</p>
+      <a class="btn btn-primary" href="login.html?volver=${encodeURIComponent('eventos.html#ev-' + ev.id)}">Entrar como socio</a>
+    </div>
+    <div class="chDatos" hidden style="margin-top:14px;">
+      <h3>Tus datos</h3>
+      <div class="dos"><div class="field"><label>Nombre y apellidos</label><input type="text" class="cNombre"></div>
+      <div class="field"><label>Teléfono</label><input type="tel" class="cTel"></div></div>
+      <div class="chTaller" hidden></div>
+      <button type="button" class="btn btn-primary enviar">Confirmar inscripción</button><p class="msg" hidden></p>
+    </div>`;
+  const elegido = (name) => (f.querySelector(`input[name="${name}"]:checked`) || {}).value;
+  // Talleres para alumnos abiertos a no socios que coinciden con la charla:
+  // los marcados «a la misma hora» y los que, ese mismo día, se solapan con
+  // su horario (p. ej. taller a las 16:00 y charla a las 16:15)
+  let talleres = [];
+  const cargarTalleres = (async () => {
+    const { data: pares } = await sb.from('evento_incompatibles').select('evento_a, evento_b').or(`evento_a.eq.${ev.id},evento_b.eq.${ev.id}`);
+    const marcados = new Set((pares || []).map(x => x.evento_a === ev.id ? x.evento_b : x.evento_a));
+    const { data } = await sb.from('eventos').select('id, titulo, fecha, fecha_fin, cursos_permitidos, tipo_elegibilidad, abierto_no_socios, activo')
+      .eq('activo', true).eq('abierto_no_socios', true).eq('tipo_elegibilidad', 'alumnos').neq('id', ev.id);
+    talleres = (data || []).filter(t => t.id !== ev.id && t.tipo_elegibilidad === 'alumnos' && t.abierto_no_socios && (marcados.has(t.id) || seSolapan(t, ev)));
+  })();
+  const etapas = (t) => { const e = [...new Set((t.cursos_permitidos || []).map(c => c.etapa))]; return e.length > 1 ? e.slice(0, -1).join(', ') + ' o ' + e[e.length - 1] : (e[0] || ''); };
+  const repasar = async () => {
+    const hijos = elegido(n + 'h'), socio = elegido(n + 's');
+    f.querySelector('.chSocio').hidden = hijos !== 'si';
+    f.querySelector('.chEntrar').hidden = !(hijos === 'si' && socio === 'si');
+    f.querySelector('.chNoFamilias').hidden = !(hijos === 'no' && ev.charla_solo_familias);
+    f.querySelector('.chDatos').hidden = !((hijos === 'no' && !ev.charla_solo_familias) || (hijos === 'si' && socio === 'no'));
+    const caja = f.querySelector('.chTaller');
+    await cargarTalleres;
+    caja.hidden = !(hijos === 'si' && socio === 'no' && talleres.length);
+    if (!caja.hidden && !caja.innerHTML) {
+      caja.innerHTML = `<div style="margin:6px 0 14px;"><span style="font-weight:700;">¿Quieres apuntar a un alumno o alumna${talleres.length === 1 && etapas(talleres[0]) ? ' de ' + esc(etapas(talleres[0])) : ''} ${talleres.length === 1 ? 'al «' + esc(talleres[0].titulo) + '»' : 'a uno de los talleres que hay a la misma hora'}?</span>${radios(n + 't', 'Sí', 'No')}</div>`;
+    }
+  };
+  f.addEventListener('change', (e) => { if (e.target.type === 'radio') repasar(); });
+
+  const msg = f.querySelector('.msg');
+  const error = (t) => { msg.hidden = false; msg.className = 'msg msg-error'; msg.textContent = t; };
+  f.querySelector('.enviar').addEventListener('click', async () => {
+    const hijos = elegido(n + 'h');
+    const datos = { nombre_contacto: f.querySelector('.cNombre').value.trim(), telefono_contacto: f.querySelector('.cTel').value.trim(), tiene_hijos_colegio: hijos === 'si' };
+    if (!datos.nombre_contacto || !datos.telefono_contacto) return error('Escribe tu nombre y tu teléfono.');
+    if (!/^[+\d][\d\s]{6,}$/.test(datos.telefono_contacto)) return error('Revisa el teléfono.');
+    const quiereTaller = hijos === 'si' && elegido(n + 't') === 'si';
+    if (hijos === 'si' && talleres.length && !elegido(n + 't')) return error('Responde si quieres apuntar a un alumno o alumna al taller.');
+    const btn = f.querySelector('.enviar');
+    btn.disabled = true; btn.textContent = 'Enviando...';
+    const { error: e } = await sb.rpc('evento_inscribir_publico', { p_evento_id: ev.id, p_datos: datos, p_actividades: [] });
+    if (e) { btn.disabled = false; btn.textContent = 'Confirmar inscripción'; return error(textoError(e)); }
+    f.innerHTML = `<p class="msg-ok">Inscripción recibida. ${ev.aviso_no_socios ? esc(ev.aviso_no_socios) : '¡Nos vemos allí!'}</p>`
+      + (quiereTaller ? `<p style="margin:12px 0 8px;">Ahora apunta al alumno o alumna:</p>` + talleres.map(t => `<button type="button" class="btn btn-primary irTaller" data-id="${t.id}" style="margin:0 8px 8px 0;">Apuntar al «${esc(t.titulo)}»</button>`).join('') : '');
+    // Lleva a la tarjeta del taller (en esta misma página) y abre su formulario
+    f.querySelectorAll('.irTaller').forEach(b => b.addEventListener('click', () => {
+      const card = document.getElementById('ev-' + b.dataset.id);
+      if (!card) { location.hash = 'ev-' + b.dataset.id; return; }
+      abrirEventoCartelera(card);
+      const abrir = [...card.querySelectorAll('button')].find(x => x.textContent.trim() === 'Apuntarse' && !x.hidden);
+      if (abrir) abrir.click();
+    }));
+  });
+  return f;
+}
+
 function formulario(ev, acts, precio) {
+  if (ev.pregunta_hijos_colegio && ev.tipo_elegibilidad !== 'alumnos') return formularioCharla(ev);
   const esAlumno = ev.tipo_elegibilidad === 'alumnos';
   const pagan = precio > 0 && !ev.publico_solo_actividades;
   const f = document.createElement('div');
@@ -197,18 +290,37 @@ function formulario(ev, acts, precio) {
     <div class="field"><label>Nombre y apellidos</label><input type="text" class="cNombre"></div>
     <div class="dos"><div class="field"><label>Teléfono</label><input type="tel" class="cTel"></div>
     <div class="field"><label>Email</label><input type="email" class="cEmail"></div></div>`;
+  if (pagan && ev.gratis_si) html += `<p class="gratisMsg msg-ok" hidden>Esta inscripción es gratis.</p>`;
   if (pagan) {
-    html += `<h3>Pago: ${euros(precio)}${ES_CURSO(ev) ? ' (curso completo)' : ''}</h3>
+    html += `<div class="bloquePago"><h3>Pago: ${euros(precio)}${ES_CURSO(ev) ? ' (curso completo)' : ''}</h3>
       <div class="datos-pago">
         <div><span>IBAN</span><b class="iban">${AMPA_IBAN}</b></div>
         <div><span>Titular</span><b>${AMPA_TITULAR_CUENTA}</b></div>
         <div><span>Concepto</span><b>${esc(ev.titulo)} + nombre${esAlumno ? ' del alumno' : ''}</b></div>
       </div>
-      <div class="field"><label>Justificante de la transferencia</label><input type="file" class="justif" accept="image/*,.pdf"></div>`;
+      <div class="field"><label>Justificante de la transferencia</label><input type="file" class="justif" accept="image/*,.pdf"></div></div>`;
   }
   html += `<button type="button" class="btn btn-primary enviar">Confirmar inscripción</button><p class="msg" hidden></p>`;
   f.innerHTML = html;
   if (esAlumno) activarRecogida(f, idRec);
+  if (esAlumno) activarMasPreguntas(ev.preguntas_extra, f, idRec, 'no_socios');
+  // Gratis según una respuesta (eventos.gratis_si), p. ej. «¿Estás apuntado/a a la charla?» → «Sí»
+  const esGratis = () => {
+    const g = ev.gratis_si;
+    if (!g || !esAlumno) return false;
+    if (g.pregunta === ev.pregunta_extra) { const el = f.querySelector('.pregunta'); return !!el && el.value === g.respuesta; }
+    const k = (ev.preguntas_extra || []).findIndex(p => p.pregunta === g.pregunta);
+    if (k < 0 || !preguntaVisible(ev.preguntas_extra, f, idRec, 'no_socios', k)) return false;
+    const el = f.querySelector('#' + CSS.escape(idRec + 'mp' + k));
+    return !!el && el.value === g.respuesta;
+  };
+  const repasarPago = () => {
+    if (!pagan || !ev.gratis_si) return;
+    const gratis = esGratis();
+    f.querySelector('.bloquePago').hidden = gratis;
+    f.querySelector('.gratisMsg').hidden = !gratis;
+  };
+  f.addEventListener('change', repasarPago);
   f.querySelectorAll(`input[name="al-${ev.id}"]`).forEach(r => r.addEventListener('change', () => { f.querySelector('.alergias').hidden = r.value !== 'si'; }));
 
   const msg = f.querySelector('.msg');
@@ -243,8 +355,9 @@ function formulario(ev, acts, precio) {
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(datos.email_contacto)) return error('Revisa el email.');
     const actividades = [...f.querySelectorAll('.act:checked')].map(c => c.value);
     if (ev.publico_solo_actividades && !actividades.length) return error('Elige al menos una actividad.');
-    const file = pagan ? f.querySelector('.justif').files[0] : null;
-    if (pagan && !file) return error('Sube el justificante de la transferencia.');
+    const paga = pagan && !esGratis();
+    const file = paga ? f.querySelector('.justif').files[0] : null;
+    if (paga && !file) return error('Sube el justificante de la transferencia.');
 
     const btn = f.querySelector('.enviar');
     btn.disabled = true; btn.textContent = 'Enviando...';
@@ -255,7 +368,7 @@ function formulario(ev, acts, precio) {
       const { error: upErr } = await sb.storage.from('comprobantes').upload(path, file);
       if (!upErr) await sb.from('comprobantes_pago').insert({ tipo: 'invitado_evento', evento_inscripcion_id: id, archivo_url: path });
     }
-    f.innerHTML = `<p class="msg-ok">Inscripción recibida${pagan ? '. La Junta revisará el justificante' : ''}. ${ev.aviso_no_socios ? esc(ev.aviso_no_socios) : '¡Nos vemos allí!'}</p>`;
+    f.innerHTML = `<p class="msg-ok">Inscripción recibida${paga ? '. La Junta revisará el justificante' : ''}. ${ev.aviso_no_socios ? esc(ev.aviso_no_socios) : '¡Nos vemos allí!'}</p>`;
   });
   return f;
 }
