@@ -478,7 +478,7 @@ $('eCartelFile').addEventListener('change', async (e) => {
   const peque = await recortarCartel(file);
   if (!peque) { e.target.value = ''; return; }
   msg.textContent = 'Subiendo el cartel...';
-  const path = `carteles/${Date.now()}-cartel.jpg`;
+  const path = `carteles/${Date.now()}-${peque.name}`;
   const { error } = await sb.storage.from('carrusel').upload(path, peque, { contentType: peque.type });
   if (error) { msg.textContent = 'No se pudo subir el cartel: ' + error.message; e.target.value = ''; return; }
   ponerCartel(sb.storage.from('carrusel').getPublicUrl(path).data.publicUrl);

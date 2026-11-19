@@ -843,9 +843,13 @@ html.dialogo-abierto{ overflow:hidden; }
 .recorte-dialogo{ width:min(420px, calc(100vw - 24px)); padding:20px; border:0; border-radius:20px; }
 .recorte-dialogo::backdrop{ background:rgba(22,35,58,.62); }
 .recorte-dialogo h2{ margin:0 0 6px; font-size:22px; }
-.recorte-marco{ position:relative; width:min(300px, 100%); aspect-ratio:2 / 3; margin:12px auto; overflow:hidden; border-radius:12px; background:#E5ECF5; cursor:grab; touch-action:none; user-select:none; box-shadow:0 0 0 2px var(--ink); }
+.recorte-marco{ position:relative; width:min(300px, 100%, calc((100dvh - 470px) * 2 / 3)); min-width:160px; aspect-ratio:2 / 3; margin:12px auto; overflow:hidden; border-radius:12px; background:#fff; cursor:grab; touch-action:none; user-select:none; box-shadow:0 0 0 2px var(--ink); }
 .recorte-marco:active{ cursor:grabbing; }
 .recorte-marco img{ position:absolute; left:0; top:0; max-width:none; transform-origin:0 0; pointer-events:none; }
 .recorte-zoom{ display:flex; gap:12px; align-items:center; font-weight:700; margin:8px 0 16px; }
 .recorte-zoom input{ flex:1; }
 .recorte-acciones{ display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap; }
+.recorte-marco.transparente{ background:repeating-conic-gradient(#E3E7EE 0 25%, #fff 0 50%) 0 0 / 20px 20px; }
+.recorte-fondo{ display:flex; gap:16px; align-items:center; flex-wrap:wrap; margin:8px 0 0; }
+.recorte-fondo > span{ font-weight:700; }
+.recorte-fondo label{ display:flex; gap:6px; align-items:center; font-weight:400; margin:0; }
