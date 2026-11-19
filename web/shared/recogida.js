@@ -96,3 +96,26 @@ function notasRecogida(i) {
 function textoRecogida(i) {
   return [i.recoge_otra ? `Lo recoge ${nombreRecoge(i)}${i.recoge_movil ? ' (' + i.recoge_movil + ')' : ''}` : '', notasRecogida(i)].filter(Boolean).join('. ');
 }
+
+// Más preguntas para cada alumno/a (eventos.preguntas_extra): con respuestas
+// posibles, un desplegable; sin ellas, se escribe. Todas obligatorias.
+// quien: 'socios' | 'no_socios'; cada pregunta sale si su «para» es ese o «todos»
+const preguntaPara = (p, quien) => !p.para || p.para === 'todos' || p.para === quien;
+function htmlMasPreguntas(preguntas, id, quien) {
+  const e = (t) => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  return (preguntas || []).map((p, k) => !preguntaPara(p, quien) ? '' : `<div class="field"><label for="${id}mp${k}">${e(p.pregunta)}</label>${(p.opciones || []).length
+    ? `<select id="${id}mp${k}"><option value="">Elige una opción</option>${p.opciones.map(o => `<option>${e(o)}</option>`).join('')}</select>`
+    : `<input type="text" id="${id}mp${k}" maxlength="300">`}</div>`).join('');
+}
+// Las respuestas van en el mismo orden que las preguntas (vacía si no es para él)
+function leerMasPreguntas(preguntas, raiz, id, quien) {
+  const respuestas = [];
+  for (const [k, p] of (preguntas || []).entries()) {
+    if (!preguntaPara(p, quien)) { respuestas.push(''); continue; }
+    const el = raiz.querySelector('#' + CSS.escape(id + 'mp' + k));
+    const v = el ? el.value.trim() : '';
+    if (!v) return { error: 'Responde: ' + p.pregunta };
+    respuestas.push(v);
+  }
+  return { respuestas };
+}

@@ -7765,3 +7765,124 @@ begin
   return new;
 end;
 $$;
+
+
+-- ==================================================================
+-- EVENTOS A LA MISMA HORA: TAMBIÉN PARA LOS VOLUNTARIOS
+--  · Un adulto que es voluntario/a en un evento no puede apuntarse (ni
+--    ser voluntario/a) en otro que es a la misma hora, ni al revés.
+--  · Los alumnos/as ya no podían estar en dos a la vez, fueran o no
+--    voluntarios.
+-- Se puede ejecutar varias veces.
+-- ==================================================================
+
+create or replace function eventos_validar_incompatibles()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare v_titulo text; v_nombre text;
+begin
+  if new.estado = 'no_ganador' then return new; end if;
+  if new.alumno_id is not null then
+    select e.titulo into v_titulo
+    from evento_incompatibles x
+    join eventos e on e.id = case when x.evento_a = new.evento_id then x.evento_b else x.evento_a end
+    where (x.evento_a = new.evento_id or x.evento_b = new.evento_id)
+      and exists (select 1 from evento_inscripciones i
+                  where i.evento_id = e.id and i.alumno_id = new.alumno_id
+                    and i.estado <> 'no_ganador' and i.id is distinct from new.id)
+    limit 1;
+    if v_titulo is not null then
+      select nombre into v_nombre from alumnos where id = new.alumno_id;
+      raise exception '% ya está apuntado/a a «%», que es a la misma hora.', coalesce(v_nombre, 'Este alumno/a'), v_titulo;
+    end if;
+  elsif new.adulto_id is not null then
+    -- Adultos: si es voluntario/a en uno de los dos, no puede estar en el otro
+    select e.titulo into v_titulo
+    from evento_incompatibles x
+    join eventos e on e.id = case when x.evento_a = new.evento_id then x.evento_b else x.evento_a end
+    where (x.evento_a = new.evento_id or x.evento_b = new.evento_id)
+      and exists (select 1 from evento_inscripciones i
+                  where i.evento_id = e.id and i.adulto_id = new.adulto_id
+                    and i.estado <> 'no_ganador' and i.id is distinct from new.id
+                    and (i.es_voluntario or new.es_voluntario))
+    limit 1;
+    if v_titulo is not null then
+      select nombre into v_nombre from adultos where id = new.adulto_id;
+      raise exception '% ya está en «%» (como voluntario/a o apuntado/a), que es a la misma hora.', coalesce(v_nombre, 'Este adulto'), v_titulo;
+    end if;
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists trg_eventos_validar_incompatibles on evento_inscripciones;
+create trigger trg_eventos_validar_incompatibles before insert or update of alumno_id, adulto_id, evento_id, es_voluntario on evento_inscripciones
+  for each row execute function eventos_validar_incompatibles();
+
+
+-- ==================================================================
+-- EVENTOS: MÁS PREGUNTAS PARA CADA ALUMNO/A
+--  · Además de la pregunta de siempre (pregunta_extra / pregunta_opciones,
+--    que sigue igual), un evento puede tener más: preguntas_extra =
+--    [{ "pregunta": "...", "opciones": ["...", "..."] }]. Sin opciones, la
+--    respuesta se escribe.
+--  · Las respuestas, en el mismo orden: evento_inscripciones.respuestas_extra
+--    = ["...", "..."]. También desde la página de no socios.
+-- Se puede ejecutar varias veces.
+-- ==================================================================
+
+alter table eventos add column if not exists preguntas_extra jsonb not null default '[]'::jsonb;
+alter table evento_inscripciones add column if not exists respuestas_extra jsonb not null default '[]'::jsonb;
+
+create or replace function evento_inscribir_publico(p_evento_id uuid, p_datos jsonb, p_actividades uuid[] default '{}')
+returns uuid language plpgsql security definer set search_path = public as $$
+declare
+  v_grupo uuid := gen_random_uuid();
+  v_primera uuid;
+  v_id uuid;
+  v_act uuid;
+  v_solo boolean;
+begin
+  select publico_solo_actividades into v_solo from eventos where id = p_evento_id;
+  if not found then raise exception 'El evento no existe.'; end if;
+  if coalesce(btrim(p_datos->>'nombre_contacto'), '') = '' or coalesce(btrim(p_datos->>'email_contacto'), '') = '' then
+    raise exception 'Faltan el nombre y el email del adulto responsable.';
+  end if;
+  if v_solo and coalesce(array_length(p_actividades, 1), 0) = 0 then
+    raise exception 'Elige al menos una actividad.';
+  end if;
+
+  if not v_solo then
+    insert into evento_inscripciones (evento_id, tipo_miembro, grupo_id, nombre_contacto, email_contacto, telefono_contacto,
+      alumno_nombre, alumno_apellidos, alumno_etapa, alumno_curso, edad, tiene_alergias, alergias, respuesta_extra, respuestas_extra,
+      instrucciones, sale_solo)
+    values (p_evento_id, 'publico', v_grupo, p_datos->>'nombre_contacto', p_datos->>'email_contacto', p_datos->>'telefono_contacto',
+      p_datos->>'alumno_nombre', p_datos->>'alumno_apellidos', p_datos->>'alumno_etapa', p_datos->>'alumno_curso',
+      nullif(p_datos->>'edad', '')::integer, (p_datos->>'tiene_alergias')::boolean, p_datos->>'alergias', p_datos->>'respuesta_extra', coalesce(p_datos->'respuestas_extra', '[]'::jsonb),
+      p_datos->>'instrucciones', (p_datos->>'sale_solo')::boolean)
+    returning id into v_primera;
+  end if;
+
+  foreach v_act in array coalesce(p_actividades, '{}') loop
+    insert into evento_inscripciones (evento_id, actividad_id, tipo_miembro, grupo_id, nombre_contacto, email_contacto, telefono_contacto,
+      alumno_nombre, alumno_apellidos, alumno_etapa, alumno_curso, edad, respuesta_extra, respuestas_extra)
+    values (p_evento_id, v_act, 'publico', v_grupo, p_datos->>'nombre_contacto', p_datos->>'email_contacto', p_datos->>'telefono_contacto',
+      p_datos->>'alumno_nombre', p_datos->>'alumno_apellidos', p_datos->>'alumno_etapa', p_datos->>'alumno_curso',
+      nullif(p_datos->>'edad', '')::integer, p_datos->>'respuesta_extra', coalesce(p_datos->'respuestas_extra', '[]'::jsonb))
+    returning id into v_id;
+    v_primera := coalesce(v_primera, v_id);
+  end loop;
+  return v_primera;
+end;
+$$;
+
+
+-- ==================================================================
+-- EVENTOS: CADA PREGUNTA PARA CADA ALUMNO/A, PARA SOCIOS, NO SOCIOS O AMBOS
+--  · pregunta_para (la pregunta de siempre): 'todos' | 'socios' | 'no_socios'.
+--  · En preguntas_extra, cada pregunta lleva "para" con los mismos valores
+--    (sin "para" = todos).
+-- Requiere migracion-preguntas-alumno.sql. Se puede ejecutar varias veces.
+-- ==================================================================
+
+alter table eventos add column if not exists pregunta_para text not null default 'todos';
+alter table eventos drop constraint if exists eventos_pregunta_para_check;
+alter table eventos add constraint eventos_pregunta_para_check check (pregunta_para in ('todos', 'socios', 'no_socios'));

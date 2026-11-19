@@ -181,6 +181,13 @@
         <div class="field"><label for="ePregunta">Pregunta para cada alumno (opcional)</label><input type="text" id="ePregunta" placeholder="Ej. ¿Cómo llega al taller?"></div>
         <div class="field"><label for="eOpciones">Respuestas posibles, separadas por comas</label><input type="text" id="eOpciones" placeholder="Directo de clase, Pasa antes por Patines"></div>
       </div>
+      <div class="para-quien" style="display:flex; gap:14px; flex-wrap:wrap; font-size:14.5px;">Para:
+        <label class="check" style="margin:0;"><input type="checkbox" id="ePreguntaS" checked> Socios</label>
+        <label class="check" style="margin:0;"><input type="checkbox" id="ePreguntaN" checked> No socios</label>
+      </div>
+      <!-- Más preguntas para cada alumno/a -->
+      <div id="eMasPreguntas"></div>
+      <button type="button" class="linklike" id="eAnadirPregunta">+ Añadir otra pregunta para cada alumno</button>
 
       <h3 class="subtitulo">Voluntarios</h3>
       <div class="two-col">
@@ -360,6 +367,37 @@ const PLANTILLAS = {
   loteria: { titulo: 'Venta de Lotería de Navidad', sin_inscripcion: true, abierto_no_socios: true, voluntariado_modo: 'no' }
 };
 
+/* ---------- Más preguntas para cada alumno/a (eventos.preguntas_extra) ---------- */
+function filaPregunta(p = {}) {
+  const d = document.createElement('div');
+  d.className = 'two-col mas-pregunta';
+  d.style.marginTop = '8px';
+  d.innerHTML = `<div class="field"><label>Otra pregunta para cada alumno</label><input type="text" class="mpPregunta" value="${esc(p.pregunta || '')}" placeholder="Ej. ¿Trae merienda?"></div>
+    <div class="field"><label>Respuestas posibles, separadas por comas (vacío: la escriben)</label>
+      <div style="display:flex; gap:8px; align-items:center;"><input type="text" class="mpOpciones" value="${esc((p.opciones || []).join(', '))}" placeholder="Sí, No">
+      <button type="button" class="btn-danger-link mpQuitar">Quitar</button></div></div>
+    <span class="para-quien" style="display:flex; gap:14px; flex-wrap:wrap; font-size:14.5px;">Para: <label class="check" style="margin:0;"><input type="checkbox" class="mpS" ${(p.para || 'todos') !== 'no_socios' ? 'checked' : ''}> Socios</label><label class="check" style="margin:0;"><input type="checkbox" class="mpN" ${(p.para || 'todos') !== 'socios' ? 'checked' : ''}> No socios</label></span>`;
+  d.querySelector('.mpQuitar').addEventListener('click', () => d.remove());
+  return d;
+}
+function pintarMasPreguntas(lista) {
+  const c = document.getElementById('eMasPreguntas');
+  c.innerHTML = '';
+  (lista || []).forEach(p => c.appendChild(filaPregunta(p)));
+}
+function leerMasPreguntas() {
+  return [...document.querySelectorAll('#eMasPreguntas .mas-pregunta')].map(d => ({
+    pregunta: d.querySelector('.mpPregunta').value.trim(),
+    opciones: d.querySelector('.mpOpciones').value.split(',').map(x => x.trim()).filter(Boolean),
+    para: paraQuien(d.querySelector('.mpS').checked, d.querySelector('.mpN').checked)
+  })).filter(p => p.pregunta);
+}
+// Para quién es la pregunta (sin marcar ninguno, para todos)
+const paraQuien = (socios, noSocios) => socios && !noSocios ? 'socios' : noSocios && !socios ? 'no_socios' : 'todos';
+document.getElementById('eAnadirPregunta').addEventListener('click', () => {
+  const f = filaPregunta(); document.getElementById('eMasPreguntas').appendChild(f); f.querySelector('.mpPregunta').focus();
+});
+
 function rellenarFormulario(ev) {
   const e = { ...CAMPOS_VACIOS, ...ev };
   $('eTitulo').value = e.titulo || '';
@@ -385,6 +423,9 @@ function rellenarFormulario(ev) {
   $('eAlumnosRequierenAdulto').checked = e.alumnos_requieren_adulto;
   $('ePregunta').value = e.pregunta_extra || '';
   $('eOpciones').value = (e.pregunta_opciones || []).join(', ');
+  pintarMasPreguntas(e.preguntas_extra || []);
+  $('ePreguntaS').checked = e.pregunta_para !== 'no_socios';
+  $('ePreguntaN').checked = e.pregunta_para !== 'socios';
   $('eVoluntariadoModo').value = e.voluntariado_modo || 'no';
   $('eVoluntariadoExcluye').checked = e.voluntariado_excluye_asistencia;
   $('ePermiteInvitados').checked = e.permite_invitados;
@@ -440,6 +481,8 @@ function leerFormulario() {
     alumnos_requieren_adulto: $('eAlumnosRequierenAdulto').checked,
     pregunta_extra: $('ePregunta').value.trim() || null,
     pregunta_opciones: $('ePregunta').value.trim() && opciones.length ? opciones : null,
+    preguntas_extra: leerMasPreguntas(),
+    pregunta_para: paraQuien($('ePreguntaS').checked, $('ePreguntaN').checked),
     voluntariado_modo: $('eVoluntariadoModo').value,
     voluntariado_habilitado: $('eVoluntariadoModo').value !== 'no',
     voluntariado_excluye_asistencia: $('eVoluntariadoExcluye').checked,
@@ -1051,6 +1094,7 @@ async function renderInscritos(panel, ev) {
       'Adulto responsable': nombreRecoge(i) || i.responsable_nombre || (i.tipo_miembro === 'publico' && i.alumno_nombre ? i.nombre_contacto : '') || (sinAdulto ? 'FALTA ADULTO' : ''),
       'Móvil responsable': i.recoge_otra ? (i.recoge_movil || '') : '',
       [ev.pregunta_extra || 'Respuesta']: i.respuesta_extra || '',
+      ...Object.fromEntries((ev.preguntas_extra || []).map((p, k) => [p.pregunta, (i.respuestas_extra || [])[k] || ''])),
       'Notas': notasRecogida(i),
       'Pago': debePagar ? (comp ? (comp.verificado ? 'Verificado' : 'Justificante por revisar') : 'Sin justificante') : '',
       'Sorteo': ev.metodo_asignacion === 'sorteo' && !i.es_voluntario && !i.actividad_id ? ({ pendiente: 'Pendiente', ganador: 'Con plaza', no_ganador: 'Sin plaza' }[i.estado] || '') : '',

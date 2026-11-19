@@ -461,10 +461,11 @@ function camposPersona(evento, tipo, opciones = {}) {
       <div class="radios" style="margin-top:6px;"><label><input type="radio" name="${id}al" value="no"> No</label><label><input type="radio" name="${id}al" value="si"> Sí</label></div>
       <input type="text" id="${id}alt" placeholder="¿Cuáles?" hidden style="margin-top:8px;"></div>`;
   }
-  if (tipo === 'alumno' && evento.pregunta_extra && (evento.pregunta_opciones || []).length) {
+  if (tipo === 'alumno' && evento.pregunta_extra && (evento.pregunta_opciones || []).length && evento.pregunta_para !== 'no_socios') {
     html += `<div class="field"><label for="${id}p">${esc(evento.pregunta_extra)}</label>
       <select id="${id}p"><option value="">Elige una opción</option>${evento.pregunta_opciones.map(o => `<option>${esc(o)}</option>`).join('')}</select></div>`;
   }
+  if (tipo === 'alumno') html += htmlMasPreguntas(evento.preguntas_extra, id, 'socios');
   if (tipo === 'alumno') html += htmlRecogida(evento, id);   // talleres: quién lo recoge, instrucciones
   if (opciones.pideResponsable) {
     html += camposAcompanante(id);
@@ -516,6 +517,11 @@ function camposPersona(evento, tipo, opciones = {}) {
       datos.respuesta_extra = q('p').value;
       if (!datos.respuesta_extra) return { error: 'Responde: ' + evento.pregunta_extra };
     }
+    if (tipo === 'alumno' && (evento.preguntas_extra || []).length) {
+      const r = leerMasPreguntas(evento.preguntas_extra, wrap, id, 'socios');
+      if (r.error) return r;
+      datos.respuestas_extra = r.respuestas;
+    }
     if (tipo === 'alumno') {
       const r = leerRecogida(evento, wrap, id);
       if (r.error) return r;
@@ -551,6 +557,7 @@ function detalleInscripcion(i, evento) {
   const partes = [];
   if (evento.pide_alergias) partes.push(i.tiene_alergias ? 'Alergias: ' + (i.alergias || 'sí') : 'Sin alergias');
   if (i.respuesta_extra) partes.push(i.respuesta_extra);
+  (i.respuestas_extra || []).forEach(r => { if (r) partes.push(r); });
   if (i.responsable_nombre) partes.push('Va con ' + i.responsable_nombre);
   if (i.tipo_miembro === 'alumno') {
     const r = textoRecogida(i);

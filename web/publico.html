@@ -178,9 +178,10 @@ function formulario(ev, acts, precio) {
         <div class="field"><label>Curso</label><select class="aCurso"><option value="">Elige el curso</option>${cursos.map(c => `<option value="${esc(c.etapa)}|${esc(c.curso)}">${esc(c.curso)} ${esc(c.etapa)}</option>`).join('')}</select></div>
         ${ev.elegibilidad_modo === 'edad' ? '<div class="field"><label>Edad</label><input type="number" class="aEdad" min="0" max="20"></div>' : ''}
       </div>`;
-    if (ev.pregunta_extra && (ev.pregunta_opciones || []).length) {
+    if (ev.pregunta_extra && (ev.pregunta_opciones || []).length && ev.pregunta_para !== 'socios') {
       html += `<div class="field"><label>${esc(ev.pregunta_extra)}</label><select class="pregunta"><option value="">Elige una opción</option>${ev.pregunta_opciones.map(o => `<option>${esc(o)}</option>`).join('')}</select></div>`;
     }
+    html += htmlMasPreguntas(ev.preguntas_extra, idRec, 'no_socios');
     if (!ev.publico_solo_actividades) html += htmlRecogida(ev, idRec, true);   // talleres: quién lo recoge, instrucciones
   }
   if (ev.pide_alergias) {
@@ -222,6 +223,11 @@ function formulario(ev, acts, precio) {
       if (!datos.alumno_nombre || !datos.alumno_apellidos || !etapa) return error('Completa nombre, apellidos y curso del alumno.');
       if (f.querySelector('.aEdad') && !datos.edad) return error('Indica la edad del alumno.');
       if (f.querySelector('.pregunta')) { datos.respuesta_extra = val('.pregunta'); if (!datos.respuesta_extra) return error('Responde: ' + ev.pregunta_extra); }
+      if ((ev.preguntas_extra || []).length) {
+        const r = leerMasPreguntas(ev.preguntas_extra, f, idRec, 'no_socios');
+        if (r.error) return error(r.error);
+        datos.respuestas_extra = r.respuestas;
+      }
       const rec = ev.publico_solo_actividades ? { datos: {} } : leerRecogida(ev, f, idRec, true);
       if (rec.error) return error(rec.error);
       Object.assign(datos, rec.datos);
