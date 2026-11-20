@@ -269,6 +269,7 @@ function formulario(ev, acts, precio) {
       <div class="field"><label>Apellidos</label><input type="text" class="aApellidos"></div></div>
       <div class="dos">
         <div class="field"><label>Curso</label><select class="aCurso"><option value="">Elige el curso</option>${cursos.map(c => `<option value="${esc(c.etapa)}|${esc(c.curso)}">${esc(c.curso)} ${esc(c.etapa)}</option>`).join('')}</select></div>
+        <div class="field"><label>Aula</label><select class="aAula"><option value="">Elige el aula</option><option>A</option><option>B</option><option>C</option><option>D</option></select></div>
         ${ev.elegibilidad_modo === 'edad' ? '<div class="field"><label>Edad</label><input type="number" class="aEdad" min="0" max="20"></div>' : ''}
       </div>`;
     if (ev.pregunta_extra && (ev.pregunta_opciones || []).length && ev.pregunta_para !== 'socios') {
@@ -331,8 +332,9 @@ function formulario(ev, acts, precio) {
     const datos = { nombre_contacto: val('.cNombre'), email_contacto: val('.cEmail'), telefono_contacto: val('.cTel') };
     if (esAlumno) {
       const [etapa, curso] = val('.aCurso').split('|');
-      Object.assign(datos, { alumno_nombre: val('.aNombre'), alumno_apellidos: val('.aApellidos'), alumno_etapa: etapa || null, alumno_curso: curso || null, edad: val('.aEdad') });
+      Object.assign(datos, { alumno_nombre: val('.aNombre'), alumno_apellidos: val('.aApellidos'), alumno_etapa: etapa || null, alumno_curso: curso || null, alumno_aula: val('.aAula') || null, edad: val('.aEdad') });
       if (!datos.alumno_nombre || !datos.alumno_apellidos || !etapa) return error('Completa nombre, apellidos y curso del alumno.');
+      if (!datos.alumno_aula) return error('Elige el aula del alumno (por ejemplo, Primaria 2º B).');
       if (f.querySelector('.aEdad') && !datos.edad) return error('Indica la edad del alumno.');
       if (f.querySelector('.pregunta')) { datos.respuesta_extra = val('.pregunta'); if (!datos.respuesta_extra) return error('Responde: ' + ev.pregunta_extra); }
       if ((ev.preguntas_extra || []).length) {

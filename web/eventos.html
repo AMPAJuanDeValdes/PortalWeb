@@ -1249,7 +1249,10 @@ async function renderEventoPareja(evento) {
       zona.innerHTML = '';
       const f = document.createElement('div');
       f.className = 'mini-form';
-      f.innerHTML = `<div class="field"><label>Adulto</label><select class="selAd">${adultosLibres.map(a => `<option value="${a.id}">${esc(nombreCompleto(a))}</option>`).join('')}</select></div>
+      f.innerHTML = `<div class="field"><label>Adulto</label><select class="selAd">${adultosLibres.map(a => {
+          const p = puestoQueImpideAcompanar(a.id);
+          return `<option value="${a.id}"${p ? ' disabled' : ''}>${esc(nombreCompleto(a))}${p ? ` (se ha postulado como ${esc(NOMBRE_PUESTO[p.puesto])})` : ''}</option>`;
+        }).join('')}</select></div>
         <div class="adDatos"></div>
         <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;"><button type="button" class="btn btn-primary ok">Apuntar</button><button type="button" class="linklike cancel">Cancelar</button></div>
         <p class="msg-error" hidden></p>`;
@@ -1281,10 +1284,10 @@ function bloquePuestos(evento, ins, postulaciones, gate, card) {
   const b = document.createElement('div');
   b.className = 'bloque';
   const puestos = (evento.puestos || []).filter(p => NOMBRE_PUESTO[p]);
-  b.innerHTML = `<h3>Postularse a un puesto</h3><p class="ayuda">Los adultos de la familia pueden postularse a: ${esc(puestos.map(p => NOMBRE_PUESTO[p] + (PLAZAS_PUESTO[p] ? ` (${PLAZAS_PUESTO[p]} plazas)` : '')).join(', '))}. Cada persona, a un solo puesto. Quien va como acompañante de un alumno/a no puede postularse. Los puestos se sortean con el sorteo del evento.</p>`;
+  b.innerHTML = `<h3>Postularse a un puesto</h3><p class="ayuda">Los adultos de la familia pueden postularse a: ${esc(puestos.map(p => NOMBRE_PUESTO[p] + (PLAZAS_PUESTO[p] ? ` (${PLAZAS_PUESTO[p]} plazas)` : '')).join(', '))}. Cada persona, a un solo puesto. Cada adulto va en una sola función: quien está apuntado al evento (acompañando a un alumno/a o solo) no puede postularse. Los puestos se sortean con el sorteo del evento.</p>`;
   // Acompaña a un alumno/a: está en una pareja con un alumno/a que no ha quedado fuera del sorteo
-  const acompana = (adultoId) => ins.some(i => i.tipo_miembro === 'adulto' && i.adulto_id === adultoId && i.grupo_id && i.estado !== 'no_ganador'
-    && ins.some(n => n.grupo_id === i.grupo_id && n.tipo_miembro === 'alumno' && n.estado !== 'no_ganador'));
+  // Cada adulto va en una sola función: si ya está apuntado al evento (acompañante o solo), no se postula
+  const apuntado = (adultoId) => ins.some(i => i.tipo_miembro === 'adulto' && i.adulto_id === adultoId && !i.actividad_id && !i.es_voluntario && i.estado !== 'no_ganador');
   misAdultos.forEach(a => {
     const p = postulaciones.find(x => x.adulto_id === a.id);
     const fila = document.createElement('div');
@@ -1310,8 +1313,8 @@ function bloquePuestos(evento, ins, postulaciones, gate, card) {
     } else if (!gate.abierta) {
       accion.innerHTML = '<span class="estado-gris">Inscripción cerrada</span>';
     } else {
-      if (acompana(a.id)) {
-        accion.innerHTML = '<span class="estado-gris aviso-vol">Va como acompañante de un alumno/a: no puede postularse</span>';
+      if (apuntado(a.id)) {
+        accion.innerHTML = '<span class="estado-gris aviso-vol">Ya está apuntado/a al evento: no puede postularse</span>';
       } else {
         accion.innerHTML = `<select class="selPuesto" aria-label="Puesto para ${esc(nombreCompleto(a))}" style="width:auto;"><option value="">Elige un puesto</option>${puestos.map(x => `<option value="${x}">${esc(NOMBRE_PUESTO[x])}</option>`).join('')}</select>`;
         const btn = document.createElement('button'); btn.className = 'btn btn-outline'; btn.textContent = 'Postularse';

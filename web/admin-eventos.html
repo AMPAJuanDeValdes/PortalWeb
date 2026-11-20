@@ -111,7 +111,7 @@
     <div class="field"><label for="eLugar">Lugar (opcional)</label><input type="text" id="eLugar" placeholder="Por ejemplo: entrada del colegio"></div>
     <div class="field" id="puestosWrap" hidden>
       <p style="font-weight:700; margin:0 0 4px;">Puestos a los que se pueden postular</p>
-      <p class="ayuda" style="margin:0 0 8px;">Los adultos socios se postulan desde la web, cada uno a un solo puesto. Acompañante de un alumno/a, Responsable, Rey y Paje son excluyentes: quien acompaña a un alumno/a no puede postularse. Se sortean con el sorteo del evento.</p>
+      <p class="ayuda" style="margin:0 0 8px;">Los adultos socios se postulan desde la web, cada uno a un solo puesto. Acompañante de un alumno/a, adulto solo, Responsable, Rey y Paje son excluyentes: cada adulto va en una sola función. Se sortean con el sorteo del evento.</p>
       <div class="incompat-lista" id="ePuestos">
         <label><input type="checkbox" value="responsable"> <span>Responsable del Evento <small>(1)</small></span></label>
         <label><input type="checkbox" value="baltasar"> <span>Rey Baltasar <small>(1)</small></span></label>
@@ -1176,6 +1176,35 @@ async function cargarEventos() {
   aplicarPestanaEventos();
 }
 
+/* Adulto responsable de un alumno/a socio (lo usan el listado de inscritos y
+   la lista de recogida): si la familia dijo que lo recoge otra persona, esa;
+   si no, el adulto que lo acompaña, el adulto de la familia apuntado al
+   evento o, si no hay, el primer adulto de la familia. */
+async function adultosDeFamilias(ins) {
+  const socioIds = [...new Set(ins.filter(i => i.socio_id).map(i => i.socio_id))];
+  const respIds = [...new Set(ins.filter(i => i.responsable_adulto_id).map(i => i.responsable_adulto_id))];
+  const adultos = [];
+  for (let k = 0; k < socioIds.length; k += 150) {
+    const { data } = await sb.from('adultos').select('id, socio_id, nombre, apellidos, movil, email, created_at').in('socio_id', socioIds.slice(k, k + 150)).order('created_at');
+    adultos.push(...(data || []));
+  }
+  const faltan = respIds.filter(id => !adultos.find(a => a.id === id));
+  if (faltan.length) {
+    const { data } = await sb.from('adultos').select('id, socio_id, nombre, apellidos, movil, email, created_at').in('id', faltan);
+    adultos.push(...(data || []));
+  }
+  return adultos;
+}
+function responsableAlumno(i, ins, adultos) {
+  if (i.recoge_otra) return { nombre: nombreRecoge(i), movil: i.recoge_movil || '', email: '' };
+  const familia = adultos.filter(a => a.socio_id === i.socio_id);
+  const enEvento = ins.find(x => x.evento_id === i.evento_id && x.tipo_miembro === 'adulto' && x.socio_id === i.socio_id && !x.actividad_id);
+  const a = (i.responsable_adulto_id && adultos.find(x => x.id === i.responsable_adulto_id))
+    || (enEvento && familia.find(x => x.id === enEvento.adulto_id)) || familia[0];
+  if (a) return { nombre: (a.nombre + ' ' + a.apellidos).trim(), movil: a.movil || '', email: a.email || '' };
+  return { nombre: i.responsable_nombre || '', movil: '', email: '' };
+}
+
 /* ================= Listado de inscritos ================= */
 async function renderInscritos(panel, ev) {
   panel.innerHTML = '<p class="loading">Cargando inscritos...</p>';
@@ -1189,6 +1218,7 @@ async function renderInscritos(panel, ev) {
     return;
   }
 
+  const adultosFam = await adultosDeFamilias(data);
   const pagan = Number(ev.precio_invitado) > 0;
   // Gratis por una respuesta (p. ej. «¿Estás apuntado/a a la charla?» → «Sí»)
   const respuestaGratis = (i) => {
@@ -1235,7 +1265,7 @@ async function renderInscritos(panel, ev) {
       nombre = i.nombre_invitado; apellidos = i.apellidos_invitado || ''; tipo = 'Invitado no socio'; edad = i.edad ?? '';
     } else {
       tipo = 'Externo';
-      if (i.alumno_nombre) { nombre = i.alumno_nombre; apellidos = i.alumno_apellidos || ''; curso = i.alumno_curso ? `${i.alumno_curso} ${i.alumno_etapa}` : ''; edad = i.edad ?? ''; }
+      if (i.alumno_nombre) { nombre = i.alumno_nombre; apellidos = i.alumno_apellidos || ''; curso = i.alumno_curso ? `${i.alumno_curso} ${i.alumno_etapa}${i.alumno_aula ? ' ' + i.alumno_aula : ''}` : ''; edad = i.edad ?? ''; }
       else { nombre = i.nombre_contacto; }
     }
     const gratis = i.tipo_miembro === 'publico' && !i.actividad_id && esGratis(i);
@@ -1243,13 +1273,17 @@ async function renderInscritos(panel, ev) {
     const comp = (i.comprobantes_pago || [])[0];
     const sinAdulto = ev.alumnos_requieren_adulto && i.tipo_miembro === 'alumno' && !i.actividad_id && !i.es_voluntario
       && !familiasConAdulto.has(i.socio_id) && !(i.responsable_adulto_id && adultosApuntados.has(i.responsable_adulto_id));
+    // Responsable: de los alumnos/as socios, el de su familia; de los externos, quien los apuntó
+    const resp = i.tipo_miembro === 'alumno' && !i.es_voluntario ? responsableAlumno(i, data, adultosFam)
+      : i.tipo_miembro === 'publico' && i.alumno_nombre ? { nombre: i.nombre_contacto || '', movil: i.telefono_contacto || '', email: i.email_contacto || '' }
+      : { nombre: nombreRecoge(i) || i.responsable_nombre || '', movil: i.recoge_otra ? (i.recoge_movil || '') : '', email: '' };
     return {
       _sinAdulto: sinAdulto, _id: i.id, _ins: i, _pagado: !!(debePagar && comp),
       'Apartado': i.es_voluntario ? 'Voluntario' : (i.evento_actividades ? i.evento_actividades.nombre : 'Asistente'),
       'Nombre': nombre || '', 'Apellidos': apellidos || '', 'Tipo': tipo, 'Edad': edad, 'Curso': curso,
       'Alergias': i.tiene_alergias === true ? ('Sí: ' + (i.alergias || '')) : i.tiene_alergias === false ? 'No' : '',
-      'Adulto responsable': nombreRecoge(i) || i.responsable_nombre || (i.tipo_miembro === 'publico' && i.alumno_nombre ? i.nombre_contacto : '') || (sinAdulto ? 'FALTA ADULTO' : ''),
-      'Móvil responsable': i.recoge_otra ? (i.recoge_movil || '') : '',
+      'Adulto responsable': resp.nombre || (sinAdulto ? 'FALTA ADULTO' : ''),
+      'Móvil responsable': resp.movil,
       [ev.pregunta_extra || 'Respuesta']: i.respuesta_extra || '',
       ...Object.fromEntries((ev.preguntas_extra || []).map((p, k) => [p.pregunta, (i.respuestas_extra || [])[k] || ''])),
       ...(ev.pregunta_hijos_colegio ? { 'Hijos en el colegio': i.tipo_miembro === 'publico' ? (i.tiene_hijos_colegio === true ? 'Sí' : i.tiene_hijos_colegio === false ? 'No' : '') : 'Socio' } : {}),
@@ -1258,7 +1292,7 @@ async function renderInscritos(panel, ev) {
       ...(enCharla ? { 'En la charla': gratis ? (enCharla(i) ? 'Sí' : 'NO APARECE') : '' } : {}),
       'Sorteo': ev.metodo_asignacion === 'sorteo' && !i.es_voluntario && !i.actividad_id ? ({ pendiente: 'Pendiente', ganador: 'Con plaza', no_ganador: 'Sin plaza' }[i.estado] || '') : '',
       'Nº socio': numeroSocioBonito(i.socios?.numero_socio_completo),
-      'Email': i.email_contacto || '', 'Teléfono': i.telefono_contacto || ''
+      'Email': i.email_contacto || resp.email || '', 'Teléfono': i.telefono_contacto || resp.movil || ''
     };
   });
 
@@ -1437,22 +1471,11 @@ async function descargarListado(ev) {
   incompatiblesDe(ev.id).forEach(id => anadir(porId(id)));
   const ids = grupo.map(e => e.id);
   const { data: ins, error } = await sb.from('evento_inscripciones')
-    .select('evento_id, actividad_id, tipo_miembro, socio_id, alumno_id, adulto_id, responsable_adulto_id, responsable_nombre, respuesta_extra, es_voluntario, estado, nombre_contacto, telefono_contacto, instrucciones, sale_solo, recoge_otra, recoge_nombre, recoge_apellidos, recoge_movil, alumno_nombre, alumno_apellidos, alumno_etapa, alumno_curso, alumnos(nombre, apellidos, etapa, curso, aula)')
+    .select('evento_id, actividad_id, tipo_miembro, socio_id, alumno_id, adulto_id, responsable_adulto_id, responsable_nombre, respuesta_extra, es_voluntario, estado, nombre_contacto, telefono_contacto, instrucciones, sale_solo, recoge_otra, recoge_nombre, recoge_apellidos, recoge_movil, alumno_nombre, alumno_apellidos, alumno_etapa, alumno_curso, alumno_aula, alumnos(nombre, apellidos, etapa, curso, aula)')
     .in('evento_id', ids);
   if (error) throw error;
   // Adultos de las familias (para el responsable y su móvil)
-  const socioIds = [...new Set(ins.filter(i => i.socio_id).map(i => i.socio_id))];
-  const respIds = [...new Set(ins.filter(i => i.responsable_adulto_id).map(i => i.responsable_adulto_id))];
-  const adultos = [];
-  for (let k = 0; k < socioIds.length; k += 150) {
-    const { data } = await sb.from('adultos').select('id, socio_id, nombre, apellidos, movil, created_at').in('socio_id', socioIds.slice(k, k + 150)).order('created_at');
-    adultos.push(...(data || []));
-  }
-  if (respIds.some(id => !adultos.find(a => a.id === id))) {
-    const { data } = await sb.from('adultos').select('id, socio_id, nombre, apellidos, movil, created_at').in('id', respIds);
-    adultos.push(...(data || []));
-  }
-  const nombreAd = (a) => a ? (a.nombre + ' ' + a.apellidos).trim() : '';
+  const adultos = await adultosDeFamilias(ins);
 
   const sorteoHecho = (eid) => (grupo.find(e => e.id === eid) || {}).sorteo_realizado;
   const vale = (i) => !i.es_voluntario && (!sorteoHecho(i.evento_id) || i.estado === 'ganador');
@@ -1462,7 +1485,7 @@ async function descargarListado(ev) {
   const filas = ins.filter(i => ids.includes(i.evento_id) && !i.actividad_id && vale(i) && (i.tipo_miembro === 'alumno' || (i.tipo_miembro === 'publico' && i.alumno_nombre))).map(i => {
     if (i.tipo_miembro === 'publico') return {
       evento_id: i.evento_id,
-      etapa: i.alumno_etapa || '', curso: i.alumno_curso || '', aula: '',
+      etapa: i.alumno_etapa || '', curso: i.alumno_curso || '', aula: i.alumno_aula || '',
       alumno: ((i.alumno_nombre || '') + ' ' + (i.alumno_apellidos || '')).trim(),
       adulto: i.nombre_contacto || '', movil: i.telefono_contacto || '',
       notas: notasRecogida(i),
@@ -1470,17 +1493,12 @@ async function descargarListado(ev) {
       patines: /patines/i.test(i.respuesta_extra || '')
     };
     const al = i.alumnos || {};
-    const familia = adultos.filter(a => a.socio_id === i.socio_id);
-    const enEvento = ins.find(x => x.evento_id === i.evento_id && x.tipo_miembro === 'adulto' && x.socio_id === i.socio_id && !x.actividad_id);
-    const resp = (i.responsable_adulto_id && adultos.find(a => a.id === i.responsable_adulto_id))
-      || (enEvento && familia.find(a => a.id === enEvento.adulto_id)) || familia[0];
-    // Si la familia dijo que lo recoge otra persona, esa es el adulto responsable
+    const resp = responsableAlumno(i, ins, adultos);
     return {
       evento_id: i.evento_id,
       etapa: al.etapa || '', curso: al.curso || '', aula: al.aula || '',
       alumno: ((al.nombre || '') + ' ' + (al.apellidos || '')).trim(),
-      adulto: i.recoge_otra ? nombreRecoge(i) : resp ? nombreAd(resp) : (i.responsable_nombre || ''),
-      movil: i.recoge_otra ? (i.recoge_movil || '') : resp ? (resp.movil || '') : '',
+      adulto: resp.nombre, movil: resp.movil,
       notas: notasRecogida(i),
       naranja: enActividad.has(i.alumno_id), patines: /patines/i.test(i.respuesta_extra || '')
     };
@@ -1839,7 +1857,7 @@ async function renderPostulaciones(panel, ev) {
         <div class="pajeZona"></div>` +
         (de.length ? de.map(x => `<div class="puesto-fila" style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:center;">
             <span><b>${esc(x.nombre)} ${esc(x.apellidos)}</b>${x.estado === 'elegido' ? ' <b style="color:#1E7A46;">✓ Tiene el puesto</b>' : x.estado === 'no_elegido' ? ' <span style="color:var(--ink-soft);">No salió en el sorteo</span>' : ''}<br>
-              <small style="color:var(--ink-soft);">Socio nº ${esc(numeroSocioBonito(x.numero_socio))}${x.movil ? ' · ' + esc(x.movil) : ''}${x.acompana ? ' · acompaña a un alumno/a' : ''}</small></span>
+              <small style="color:var(--ink-soft);">Socio nº ${esc(numeroSocioBonito(x.numero_socio))}${x.movil ? ' · ' + esc(x.movil) : ''}${x.acompana ? ' · también está apuntado/a al evento' : ''}</small></span>
             <span style="display:flex; gap:8px; flex-wrap:wrap;">
               ${x.estado === 'elegido' ? `<button type="button" class="btn btn-outline solo-super" data-elegir="${x.id}" data-estado="${ev.sorteo_realizado ? 'no_elegido' : 'postulado'}">Quitar el puesto</button>`
                 : puedeElegir ? `<button type="button" class="btn btn-outline solo-super" data-elegir="${x.id}" data-estado="elegido">Darle el puesto</button>` : ''}

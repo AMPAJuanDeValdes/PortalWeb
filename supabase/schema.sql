@@ -8027,3 +8027,206 @@ begin
   return v_primera;
 end;
 $$;
+
+
+-- ==================================================================
+-- AULA OBLIGATORIA PARA LOS ALUMNOS/AS EXTERNOS (publico.html)
+--  · evento_inscripciones.alumno_aula; nivel, curso y aula obligatorios.
+-- Requiere migracion-charla-solo-familias.sql. Se puede ejecutar varias veces.
+-- ==================================================================
+
+alter table evento_inscripciones add column if not exists alumno_aula text;
+
+create or replace function evento_inscribir_publico(p_evento_id uuid, p_datos jsonb, p_actividades uuid[] default '{}')
+returns uuid language plpgsql security definer set search_path = public as $$
+declare
+  v_grupo uuid := gen_random_uuid();
+  v_primera uuid;
+  v_id uuid;
+  v_act uuid;
+  v_solo boolean;
+  v_charla boolean;
+  v_solo_familias boolean;
+begin
+  select publico_solo_actividades, pregunta_hijos_colegio, charla_solo_familias into v_solo, v_charla, v_solo_familias from eventos where id = p_evento_id;
+  if not found then raise exception 'El evento no existe.'; end if;
+  -- Alumno/a externo: nivel, curso y aula obligatorios (p. ej. Primaria 2º B)
+  if nullif(p_datos->>'alumno_nombre', '') is not null and (nullif(p_datos->>'alumno_etapa', '') is null
+      or nullif(p_datos->>'alumno_curso', '') is null or nullif(p_datos->>'alumno_aula', '') is null) then
+    raise exception 'Indica el nivel, el curso y el aula del alumno o alumna (por ejemplo, Primaria 2º B).';
+  end if;
+  -- Charla abierta: basta con el nombre y el teléfono
+  if v_charla and v_solo_familias and (p_datos->>'tiene_hijos_colegio')::boolean is not true then
+    raise exception 'Esta charla es solo para familias con alumnos o alumnas en el colegio.';
+  end if;
+  if v_charla then
+    if coalesce(btrim(p_datos->>'nombre_contacto'), '') = '' or coalesce(btrim(p_datos->>'telefono_contacto'), '') = '' then
+      raise exception 'Faltan el nombre y el teléfono.';
+    end if;
+  elsif coalesce(btrim(p_datos->>'nombre_contacto'), '') = '' or coalesce(btrim(p_datos->>'email_contacto'), '') = '' then
+    raise exception 'Faltan el nombre y el email del adulto responsable.';
+  end if;
+  if v_solo and coalesce(array_length(p_actividades, 1), 0) = 0 then
+    raise exception 'Elige al menos una actividad.';
+  end if;
+
+  if not v_solo then
+    insert into evento_inscripciones (evento_id, tipo_miembro, grupo_id, nombre_contacto, email_contacto, telefono_contacto,
+      alumno_nombre, alumno_apellidos, alumno_etapa, alumno_curso, alumno_aula, edad, tiene_alergias, alergias, respuesta_extra, respuestas_extra,
+      instrucciones, sale_solo, tiene_hijos_colegio)
+    values (p_evento_id, 'publico', v_grupo, p_datos->>'nombre_contacto', p_datos->>'email_contacto', p_datos->>'telefono_contacto',
+      p_datos->>'alumno_nombre', p_datos->>'alumno_apellidos', p_datos->>'alumno_etapa', p_datos->>'alumno_curso', nullif(p_datos->>'alumno_aula', ''),
+      nullif(p_datos->>'edad', '')::integer, (p_datos->>'tiene_alergias')::boolean, p_datos->>'alergias', p_datos->>'respuesta_extra', coalesce(p_datos->'respuestas_extra', '[]'::jsonb),
+      p_datos->>'instrucciones', (p_datos->>'sale_solo')::boolean, (p_datos->>'tiene_hijos_colegio')::boolean)
+    returning id into v_primera;
+  end if;
+
+  foreach v_act in array coalesce(p_actividades, '{}') loop
+    insert into evento_inscripciones (evento_id, actividad_id, tipo_miembro, grupo_id, nombre_contacto, email_contacto, telefono_contacto,
+      alumno_nombre, alumno_apellidos, alumno_etapa, alumno_curso, alumno_aula, edad, respuesta_extra, respuestas_extra)
+    values (p_evento_id, v_act, 'publico', v_grupo, p_datos->>'nombre_contacto', p_datos->>'email_contacto', p_datos->>'telefono_contacto',
+      p_datos->>'alumno_nombre', p_datos->>'alumno_apellidos', p_datos->>'alumno_etapa', p_datos->>'alumno_curso', nullif(p_datos->>'alumno_aula', ''),
+      nullif(p_datos->>'edad', '')::integer, p_datos->>'respuesta_extra', coalesce(p_datos->'respuestas_extra', '[]'::jsonb))
+    returning id into v_id;
+    v_primera := coalesce(v_primera, v_id);
+  end loop;
+  return v_primera;
+end;
+$$;
+
+
+-- ==================================================================
+-- CABALGATA: CADA ADULTO VA EN UNA SOLA FUNCIÓN
+--  · Quien se postula a un puesto (Responsable, Reyes, Pajes) no puede
+--    apuntarse al evento de ninguna otra forma: ni como acompañante de un
+--    alumno/a ni como adulto solo. Y al revés: quien está apuntado no puede
+--    postularse. Las inscripciones y postulaciones que ya existen no se tocan.
+-- Se puede ejecutar varias veces.
+-- ==================================================================
+
+-- ¿Este adulto está apuntado al evento (acompañante o solo), sin quedar fuera del sorteo?
+create or replace function _va_en_evento(p_evento uuid, p_adulto uuid)
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1 from evento_inscripciones a
+    where a.evento_id = p_evento and a.adulto_id = p_adulto and a.tipo_miembro = 'adulto'
+      and a.actividad_id is null and not a.es_voluntario and a.estado <> 'no_ganador');
+$$;
+revoke all on function _va_en_evento(uuid, uuid) from public, anon;
+
+create or replace function evento_postulaciones_reglas()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare
+  e eventos;
+  v_admin boolean := coalesce(is_admin(), false);
+  v_elegidos integer;
+  v_max integer;
+begin
+  if tg_op = 'DELETE' then
+    if not v_admin then
+      select * into e from eventos where id = old.evento_id;
+      if old.estado = 'elegido' then
+        raise exception 'Ya tiene el puesto de %. Si no podéis, escribid a la Junta.', _nombre_puesto(old.puesto);
+      end if;
+      if e.sorteo_realizado then raise exception 'El sorteo ya se hizo.'; end if;
+      if e.fecha_cierre_inscripcion is not null and e.fecha_cierre_inscripcion <= now() then
+        raise exception 'El plazo para postularse ya ha terminado.';
+      end if;
+    end if;
+    return old;
+  end if;
+
+  select * into e from eventos where id = new.evento_id;
+  if not found then raise exception 'Evento no encontrado.'; end if;
+  if not (new.puesto = any (coalesce(e.puestos, '{}'))) then
+    raise exception 'En este evento no se puede postular a %.', _nombre_puesto(new.puesto);
+  end if;
+  if not exists (select 1 from adultos where id = new.adulto_id and socio_id = new.socio_id) then
+    raise exception 'Ese adulto no es de la familia.';
+  end if;
+  if (select datos_revisados_en from socios where id = new.socio_id) is null then
+    if v_admin then
+      raise exception 'Esta familia no tiene los datos confirmados: no puede participar en eventos hasta que los confirme (Listados → Datos sin confirmar).';
+    end if;
+    raise exception 'Antes de postularos, revisad los datos de vuestra familia en Mis datos (etapa, curso y aula de cada alumno).';
+  end if;
+
+  if tg_op = 'INSERT' and not v_admin then
+    if e.sorteo_realizado then raise exception 'El sorteo ya se hizo.'; end if;
+    if e.fecha_apertura_socios is not null and e.fecha_apertura_socios > now() then
+      raise exception 'Todavía no se puede postular: la inscripción no está abierta.';
+    end if;
+    if e.fecha_cierre_inscripcion is not null and e.fecha_cierre_inscripcion <= now() then
+      raise exception 'El plazo para postularse ya ha terminado.';
+    end if;
+  end if;
+
+  if exists (select 1 from evento_postulaciones p where p.evento_id = new.evento_id and p.adulto_id = new.adulto_id and p.id <> new.id) then
+    raise exception 'Cada persona puede postularse a un solo puesto.';
+  end if;
+  -- (solo al postularse o cambiar de persona: el sorteo de puestos no se para por casos antiguos)
+  if (tg_op = 'INSERT' or new.adulto_id is distinct from old.adulto_id) and _va_en_evento(new.evento_id, new.adulto_id) then
+    raise exception 'Ya está apuntado/a al evento: cada adulto va en una sola función.';
+  end if;
+
+  if new.estado = 'elegido' and (tg_op = 'INSERT' or old.estado is distinct from 'elegido' or old.puesto is distinct from new.puesto) then
+    -- Antes del sorteo, a mano solo los pajes reservados; después, todas las plazas del puesto
+    v_max := case when e.sorteo_realizado then (case when new.puesto = 'paje' then 2 else 1 end)
+                  when new.puesto = 'paje' then e.pajes_reservados else 0 end;
+    select count(*) into v_elegidos from evento_postulaciones
+    where evento_id = new.evento_id and puesto = new.puesto and estado = 'elegido' and id <> new.id;
+    if v_elegidos >= v_max then
+      if not e.sorteo_realizado and v_max = 0 then
+        raise exception '% se sortea: no se puede asignar a mano antes del sorteo.', _nombre_puesto(new.puesto);
+      end if;
+      raise exception 'Ya están asignadas todas las plazas de %.', _nombre_puesto(new.puesto);
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+-- Al revés: quien se ha postulado a un puesto no puede apuntarse al evento
+-- (como adulto, solo o acompañante, ni dejar que se le añada un alumno/a)
+create or replace function evento_inscripciones_postulados()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare v_puesto text;
+begin
+  if new.actividad_id is not null or new.es_voluntario or new.estado = 'no_ganador' then return new; end if;
+  -- Solo al apuntarse o cambiar de persona o de pareja (el sorteo no se para por casos antiguos)
+  if tg_op = 'UPDATE' and new.adulto_id is not distinct from old.adulto_id and new.alumno_id is not distinct from old.alumno_id
+     and new.grupo_id is not distinct from old.grupo_id then return new; end if;
+  select p.puesto into v_puesto
+  from evento_postulaciones p
+  where p.evento_id = new.evento_id
+    and p.adulto_id in (
+      select new.adulto_id where new.tipo_miembro = 'adulto'
+      union
+      select a.adulto_id from evento_inscripciones a
+      where new.tipo_miembro = 'alumno' and new.grupo_id is not null and a.grupo_id = new.grupo_id
+        and a.tipo_miembro = 'adulto' and a.id <> new.id)
+  limit 1;
+  if v_puesto is not null then
+    raise exception 'Se ha postulado como %: cada adulto va en una sola función, no puede apuntarse también al evento.', _nombre_puesto(v_puesto);
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists trg_evento_inscripciones_postulados on evento_inscripciones;
+create trigger trg_evento_inscripciones_postulados before insert or update of grupo_id, adulto_id, alumno_id, estado on evento_inscripciones
+  for each row execute function evento_inscripciones_postulados();
+
+create or replace function evento_postulaciones_junta(p_evento uuid)
+returns table (id uuid, puesto text, estado text, adulto_id uuid, nombre text, apellidos text, movil text, email text,
+               numero_socio text, acompana boolean, created_at timestamptz)
+language plpgsql stable security definer set search_path = public as $$
+begin
+  if not coalesce(is_admin(), false) then raise exception 'Solo la Junta puede ver esto.'; end if;
+  return query
+  select p.id, p.puesto, p.estado, p.adulto_id, a.nombre, a.apellidos, a.movil, a.email, s.numero_socio_completo,
+         _va_en_evento(p.evento_id, p.adulto_id), p.created_at
+  from evento_postulaciones p join adultos a on a.id = p.adulto_id join socios s on s.id = p.socio_id
+  where p.evento_id = p_evento
+  order by p.created_at;
+end;
+$$;
