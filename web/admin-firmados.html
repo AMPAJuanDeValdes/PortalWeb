@@ -82,6 +82,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
 <script src="shared/supabaseClient.js"></script>
 <script src="shared/nav.js"></script>
 <script src="shared/helpers.js"></script>
@@ -108,7 +109,7 @@ async function cargar() {
       .select('socio_id, archivo_url, firmado_en, socios(numero_socio_completo), adultos!firmado_por(nombre, apellidos)')
       .order('firmado_en', { ascending: false })),
     todasLasFilas(() => sb.from('documentos_evento_respuestas')
-      .select('id, archivo_final_url, created_at, aviso_diferencias, socio_id, documentos_evento(titulo, evento_id, eventos(id, titulo, fecha)), socios(numero_socio_completo), adultos!adulto_id(nombre, apellidos), alumnos(nombre, apellidos), evento_inscripciones(nombre_invitado, apellidos_invitado)')
+      .select('id, archivo_final_url, created_at, aviso_diferencias, socio_id, documentos_evento(id, titulo, evento_id, archivo_base_url, campos, pagina_rellenable, eventos(id, titulo, fecha)), socios(numero_socio_completo), adultos!adulto_id(nombre, apellidos), alumnos(nombre, apellidos), evento_inscripciones(nombre_invitado, apellidos_invitado)')
       .order('created_at', { ascending: false })),
     todasLasFilas(() => sb.from('adultos').select('socio_id, nombre, apellidos, created_at').order('created_at'))
   ]);
@@ -168,7 +169,7 @@ async function cargar() {
     DOCS.eventos.push({ fecha: r.created_at, quien: familia(r.socio_id), socio: num(r.socios),
       doc: `${d.titulo || 'Documento'}${persona ? ' · ' + persona : ''}`,
       estado: chip('Firmado', 'ok') + (r.aviso_diferencias ? `<span class="chip aviso" title="Al firmar cambió algún dato respecto a los de la web">Datos cambiados</span>` : ''),
-      bucket: 'documentos-evento', ruta: r.archivo_final_url, eventoId: ev.id, eventoTitulo: ev.titulo });
+      bucket: 'documentos-evento', ruta: r.archivo_final_url, eventoId: ev.id, eventoTitulo: ev.titulo, plantilla: d.archivo_base_url ? d : null });
   });
 
   Object.values(DOCS).forEach(lista => lista.sort((a, b) => new Date(b.fecha) - new Date(a.fecha)));
@@ -220,6 +221,100 @@ function pintar() {
 /* Descargar en un ZIP los documentos que se ven (con el filtro puesto).
    Cada archivo: «Evento/fecha - Nº socio - familia - documento.pdf» */
 const limpio = (t) => String(t || '').replace(/\//g, '-').replace(/[\\:*?"<>|\n\r]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 110);
+/* Los documentos firmados se guardan como una imagen (PNG) con las páginas
+   que llevan datos o firma una debajo de otra. En el ZIP van en PDF y con
+   las mismas páginas que el PDF original del documento: las firmadas, con su
+   imagen; las demás, tal cual del original. */
+const plantillas = {};   // PDF original de cada documento, se baja una vez
+async function pdfOriginal(doc) {
+  if (!(doc.id in plantillas)) {
+    plantillas[doc.id] = (async () => {
+      const resp = await fetch(await urlArchivo('documentos-evento', doc.archivo_base_url));
+      if (!resp.ok) throw new Error('sin original');
+      return PDFLib.PDFDocument.load(await resp.arrayBuffer());
+    })().catch(() => null);
+  }
+  return plantillas[doc.id];
+}
+// Las páginas que salen en la imagen (igual que al firmar)
+function paginasFirmadas(doc) {
+  const set = new Set([doc.pagina_rellenable || 1]);
+  (doc.campos || []).forEach(c => { if (c.pagina) set.add(c.pagina); });
+  return [...set].sort((a, b) => a - b);
+}
+async function recorte(bmp, y, alto) {
+  const c = document.createElement('canvas'); c.width = bmp.width; c.height = alto;
+  c.getContext('2d').drawImage(bmp, 0, -y);
+  const png = await new Promise(res => c.toBlob(res, 'image/png'));
+  return new Uint8Array(await png.arrayBuffer());
+}
+async function documentoComoPdf(blob, doc) {
+  const original = await pdfOriginal(doc);
+  if (!original) return null;
+  const firmadas = paginasFirmadas(doc);
+  const paginas = original.getPages();
+  if (firmadas.some(n => n > paginas.length)) return null;
+  const bmp = await createImageBitmap(blob);
+  // Al firmar, cada página se pinta a la misma escala y se ponen una debajo de otra
+  const tam = firmadas.map(n => { const r = paginas[n - 1].getRotation().angle % 180 !== 0; const t = paginas[n - 1].getSize(); return r ? { w: t.height, h: t.width } : { w: t.width, h: t.height }; });
+  const escala = bmp.width / Math.max(...tam.map(t => t.w));
+  const altos = tam.map(t => Math.round(t.h * escala));
+  if (Math.abs(altos.reduce((a, b) => a + b, 0) - bmp.height) > firmadas.length * 2) return null;   // no cuadra con el original
+  const pdf = await PDFLib.PDFDocument.create();
+  const copias = await pdf.copyPages(original, paginas.map((_, k) => k));
+  let y = 0;
+  for (let k = 0; k < paginas.length; k++) {
+    const i = firmadas.indexOf(k + 1);
+    if (i < 0) { pdf.addPage(copias[k]); continue; }
+    const img = await pdf.embedPng(await recorte(bmp, y, altos[i]));
+    y += altos[i];
+    const pag = pdf.addPage([tam[i].w, tam[i].h]);
+    pag.drawImage(img, { x: 0, y: 0, width: tam[i].w, height: tam[i].h });
+  }
+  return await pdf.save();
+}
+
+// Cualquier otra imagen (justificantes, SEPA…): una página A4 con la imagen entera
+async function comoPdf(blob, doc) {
+  if (doc) { const hecho = await documentoComoPdf(blob, doc).catch(() => null); if (hecho) return hecho; }
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  const esPdf = bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46;   // %PDF
+  if (esPdf) return bytes;
+  const pdf = await PDFLib.PDFDocument.create();
+  const A4 = [595.28, 841.89];
+  // Un documento de varias páginas sin su original: la imagen se parte en sus páginas
+  const n = doc ? paginasFirmadas(doc).length : 1;
+  if (n > 1) {
+    const bmp = await createImageBitmap(blob);
+    const alto = Math.floor(bmp.height / n);
+    for (let k = 0; k < n; k++) {
+      const parte = await pdf.embedPng(await recorte(bmp, k * alto, alto));
+      const w = A4[0], h = A4[0] * alto / bmp.width;
+      pdf.addPage([w, h]).drawImage(parte, { x: 0, y: 0, width: w, height: h });
+    }
+    return await pdf.save();
+  }
+  const esPng = bytes[0] === 0x89 && bytes[1] === 0x50;
+  const esJpg = bytes[0] === 0xFF && bytes[1] === 0xD8;
+  let img;
+  if (esPng) img = await pdf.embedPng(bytes);
+  else if (esJpg) img = await pdf.embedJpg(bytes);
+  else {   // otro formato de imagen (webp…): se pasa a PNG
+    const bmp = await createImageBitmap(blob);
+    const c = document.createElement('canvas'); c.width = bmp.width; c.height = bmp.height;
+    c.getContext('2d').drawImage(bmp, 0, 0);
+    const png = await new Promise(res => c.toBlob(res, 'image/png'));
+    img = await pdf.embedPng(new Uint8Array(await png.arrayBuffer()));
+  }
+  // Una página A4 (apaisada si la imagen lo es) con la imagen entera
+  const margen = 18;
+  const ancho = img.width > img.height ? A4[1] : A4[0], alto = img.width > img.height ? A4[0] : A4[1];
+  const k = Math.min((ancho - 2 * margen) / img.width, (alto - 2 * margen) / img.height);
+  const pag = pdf.addPage([ancho, alto]);
+  pag.drawImage(img, { x: (ancho - img.width * k) / 2, y: (alto - img.height * k) / 2, width: img.width * k, height: img.height * k });
+  return await pdf.save();
+}
+
 document.getElementById('descargar').addEventListener('click', async (e) => {
   const lista = listaVisible().filter(d => d.ruta);
   if (!lista.length) return;
@@ -232,13 +327,13 @@ document.getElementById('descargar').addEventListener('click', async (e) => {
     try {
       const resp = await fetch(await urlArchivo(d.bucket, d.ruta));
       if (!resp.ok) throw new Error(resp.status);
-      const ext = ((String(d.ruta).split('?')[0].match(/\.([a-z0-9]{2,5})$/i) || [])[1] || 'pdf').toLowerCase();
+      const ext = 'pdf';
       const carpeta = pestana === 'eventos' && d.eventoTitulo ? limpio(d.eventoTitulo) + '/' : '';
       let base = carpeta + limpio([fecha(d.fecha).split('/').reverse().join('-'), d.socio, d.quien, d.doc].filter(Boolean).join(' - '));
       let nombreArchivo = base + '.' + ext, n = 2;
       while (usados.has(nombreArchivo)) nombreArchivo = `${base} (${n++}).${ext}`;
       usados.add(nombreArchivo);
-      zip.file(nombreArchivo, await resp.blob());
+      zip.file(nombreArchivo, await comoPdf(await resp.blob(), d.plantilla));
     } catch (err) { fallos.push(d.quien + ' · ' + d.doc); }
   }
   msg.textContent = 'Creando el ZIP…';
