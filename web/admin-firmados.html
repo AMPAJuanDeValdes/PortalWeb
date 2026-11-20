@@ -19,6 +19,7 @@
   .filtros{ display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; margin-bottom:12px; }
   .filtros .field{ margin:0; flex:1; min-width:200px; }
   .contador{ font-size:14px; color:var(--ink-soft); margin:0 0 6px; }
+  .descarga-fila{ display:flex; gap:14px; align-items:center; flex-wrap:wrap; margin-bottom:8px; } .descarga-fila .contador{ margin:0; }
   .card.card-lista{ overflow:visible; }   /* para que la cabecera de la tabla quede fija */
 
   /* Una línea por documento; lo que no cabe se corta con «…» (entero al pasar el ratón) */
@@ -68,7 +69,9 @@
       <div class="field"><label for="buscar">Buscar</label><input type="search" id="buscar" placeholder="Nombre, nº de socio, evento, documento..."></div>
       <div class="field" id="filtroEventoWrap" hidden style="max-width:340px;"><label for="filtroEvento">Evento</label><select id="filtroEvento"><option value="">Todos los eventos</option></select></div>
     </div>
-    <p class="contador" id="contador"></p>
+    <div class="descarga-fila"><p class="contador" id="contador"></p>
+      <button type="button" class="btn btn-outline" id="descargar">Descargar estos documentos</button>
+      <span class="contador" id="descargaMsg" hidden></span></div>
     <table class="tabla-docs">
       <colgroup><col class="c-fecha"><col class="c-quien"><col class="c-doc"><col class="c-estado"><col class="c-ver"></colgroup>
       <thead><tr><th>Fecha</th><th>Familia o persona</th><th>Documento</th><th>Estado</th><th></th></tr></thead>
@@ -78,6 +81,7 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="shared/supabaseClient.js"></script>
 <script src="shared/nav.js"></script>
 <script src="shared/helpers.js"></script>
@@ -180,10 +184,18 @@ async function cargar() {
     Object.entries(eventos).sort((a, b) => a[1].localeCompare(b[1], 'es')).map(([id, t]) => `<option value="${esc(id)}">${esc(t)}</option>`).join('');
 }
 
+// Lo que se ve ahora (pestaña, búsqueda y evento)
+function listaVisible() {
+  const q = document.getElementById('buscar').value.trim().toLowerCase();
+  const ev = pestana === 'eventos' ? document.getElementById('filtroEvento').value : '';
+  return DOCS[pestana].filter(d => (!q || d.buscar.includes(q)) && (!ev || d.eventoId === ev));
+}
+
 function pintar() {
   const q = document.getElementById('buscar').value.trim().toLowerCase();
   const ev = pestana === 'eventos' ? document.getElementById('filtroEvento').value : '';
-  const lista = DOCS[pestana].filter(d => (!q || d.buscar.includes(q)) && (!ev || d.eventoId === ev));
+  const lista = listaVisible();
+  document.getElementById('descargar').disabled = !lista.some(d => d.ruta);
   document.getElementById('filtroEventoWrap').hidden = pestana !== 'eventos';
   document.getElementById('contador').textContent = `${lista.length} documento${lista.length === 1 ? '' : 's'}`;
   const tbody = document.getElementById('tbody');
@@ -204,6 +216,43 @@ function pintar() {
     catch (e) { alert(e.message); }
   }));
 }
+
+/* Descargar en un ZIP los documentos que se ven (con el filtro puesto).
+   Cada archivo: «Evento/fecha - Nº socio - familia - documento.pdf» */
+const limpio = (t) => String(t || '').replace(/\//g, '-').replace(/[\\:*?"<>|\n\r]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 110);
+document.getElementById('descargar').addEventListener('click', async (e) => {
+  const lista = listaVisible().filter(d => d.ruta);
+  if (!lista.length) return;
+  const btn = e.currentTarget, msg = document.getElementById('descargaMsg');
+  btn.disabled = true; msg.hidden = false;
+  const zip = new JSZip(), usados = new Set(), fallos = [];
+  for (let k = 0; k < lista.length; k++) {
+    const d = lista[k];
+    msg.textContent = `Preparando ${k + 1} de ${lista.length}…`;
+    try {
+      const resp = await fetch(await urlArchivo(d.bucket, d.ruta));
+      if (!resp.ok) throw new Error(resp.status);
+      const ext = ((String(d.ruta).split('?')[0].match(/\.([a-z0-9]{2,5})$/i) || [])[1] || 'pdf').toLowerCase();
+      const carpeta = pestana === 'eventos' && d.eventoTitulo ? limpio(d.eventoTitulo) + '/' : '';
+      let base = carpeta + limpio([fecha(d.fecha).split('/').reverse().join('-'), d.socio, d.quien, d.doc].filter(Boolean).join(' - '));
+      let nombreArchivo = base + '.' + ext, n = 2;
+      while (usados.has(nombreArchivo)) nombreArchivo = `${base} (${n++}).${ext}`;
+      usados.add(nombreArchivo);
+      zip.file(nombreArchivo, await resp.blob());
+    } catch (err) { fallos.push(d.quien + ' · ' + d.doc); }
+  }
+  msg.textContent = 'Creando el ZIP…';
+  const blob = await zip.generateAsync({ type: 'blob' });
+  const ev = pestana === 'eventos' && document.getElementById('filtroEvento').value;
+  const titulo = ev ? limpio(document.getElementById('filtroEvento').selectedOptions[0].textContent) : document.querySelector('.tab-btn.active').textContent.replace(/\d+/g, '').trim();
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `Documentos firmados - ${limpio(titulo)}.zip`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+  msg.textContent = `Descargados ${lista.length - fallos.length} de ${lista.length}.` + (fallos.length ? ' No se pudieron descargar: ' + fallos.join('; ') : '');
+  btn.disabled = false;
+});
 
 document.querySelectorAll('.tab-btn').forEach(btn => btn.addEventListener('click', () => {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b === btn));
