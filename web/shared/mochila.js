@@ -3,6 +3,8 @@
 
 // Horarios de la Mochila Jugona Exploradora (los viernes). Los cambia la Junta
 // (mochila_config); mientras se leen, o si no se pueden leer, valen estos.
+// Dónde se recoge y se devuelve (siempre el mismo sitio)
+const MOCHILA_LUGAR = 'en la Biblioteca';
 let MOCHILA_HORA_RECOGIDA = 'de 17:30 a 18:00';
 let MOCHILA_HORA_DEVOLUCION = 'de 16:00 a 16:30';
 const mochilaHora = (t) => String(t || '').slice(0, 5);

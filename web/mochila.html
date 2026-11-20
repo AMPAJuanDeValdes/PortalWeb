@@ -60,8 +60,8 @@
     <li><div><b>Apuntaos a la lista de espera</b><span>Entráis al final de la lista. En Inicio veréis siempre vuestro puesto.</span></div></li>
     <li><div><b>Cuando os toque, os llega un email</b><span>La Junta os da el turno de la semana siguiente cuando sois los primeros de la lista, aunque otra familia la tenga todavía en casa.</span></div></li>
     <li><div><b>Tenéis 24 horas para aceptarla</b><span>Entrad en esta página y pulsad «La queremos». Si esa semana no os viene bien, pulsad «Esperar una semana más»: la siguiente familia pasa delante y vosotros quedáis segundos. Si en 24 horas no contestáis, salís de la lista y el turno pasa a la siguiente familia.</span></div></li>
-    <li><div><b>Recogedla el viernes, <span data-mochila-hora="recogida">de 17:30 a 18:00</span></b><span>Al recogerla se firma la carta de compromiso de buen uso. Cuando aceptéis el turno, podréis firmarla antes en esta página o a mano ese día.</span></div></li>
-    <li><div><b>Devolvedla el viernes siguiente, <span data-mochila-hora="devolucion">de 16:00 a 16:30</span></b><span>Con todos los juegos completos y en buen estado. Cuando os la entregan, la lista avanza y todas las familias suben un puesto.</span></div></li>
+    <li><div><b>Recogedla el viernes, <span data-mochila-hora="recogida">de 17:30 a 18:00</span>, en la Biblioteca</b><span>Al recogerla se firma la carta de compromiso de buen uso. Cuando aceptéis el turno, podréis firmarla antes en esta página o a mano ese día.</span></div></li>
+    <li><div><b>Devolvedla el viernes siguiente, <span data-mochila-hora="devolucion">de 16:00 a 16:30</span>, en la Biblioteca</b><span>Con todos los juegos completos y en buen estado. Cuando os la entregan, la lista avanza y todas las familias suben un puesto.</span></div></li>
   </ol>
 
   <!-- Solo aparece si la Junta ha añadido juegos -->
@@ -144,12 +144,12 @@ async function pintarLista() {
   }
   if (est.estado === 'la_tiene') {
     caja.innerHTML = `<p class="titulo-grande">La tenéis en casa</p>
-      <p>Devolvedla a la Junta el <b>${mochilaFecha(est.fecha_devolucion_prevista)}</b>, ${MOCHILA_HORA_DEVOLUCION}. ¡Que la disfrutéis!</p>`;
+      <p>Devolvedla a la Junta el <b>${mochilaFecha(est.fecha_devolucion_prevista)}</b>, ${MOCHILA_HORA_DEVOLUCION}, ${MOCHILA_LUGAR}. ¡Que la disfrutéis!</p>`;
     return;
   }
   if (est.estado === 'aceptada') {
     caja.innerHTML = `<p class="titulo-grande">¡La semana que viene la tenéis vosotros!</p>
-      <p>Recogedla el <b>${mochilaFecha(est.fecha_entrega)}</b>, ${MOCHILA_HORA_RECOGIDA}, y devolvedla el <b>${mochilaFecha(est.fecha_devolucion_prevista)}</b>, ${MOCHILA_HORA_DEVOLUCION}.</p>
+      <p>Recogedla el <b>${mochilaFecha(est.fecha_entrega)}</b>, ${MOCHILA_HORA_RECOGIDA}, y devolvedla el <b>${mochilaFecha(est.fecha_devolucion_prevista)}</b>, ${MOCHILA_HORA_DEVOLUCION}, siempre ${MOCHILA_LUGAR}.</p>
       <p class="nota">${est.carta_firmada_en ? 'Ya habéis firmado la carta de compromiso.' : 'Al recogerla hay que firmar la carta de compromiso: podéis firmarla ya aquí abajo.'}
         <button type="button" class="linklike" id="salirBtn">Desapuntarnos de la Mochila Jugona Exploradora</button></p>
       <p class="msg-error" id="listaMsg" hidden></p>`;
@@ -162,7 +162,7 @@ async function pintarLista() {
   if (est.estado === 'asignada') {
     caja.innerHTML = `<p class="titulo-grande">¡Os toca la Mochila Jugona Exploradora!</p>
       <p>Tenéis hasta el <b>${mochilaLimite(est)}</b> para aceptarla. Si no contestáis, saldréis de la lista.</p>
-      ${est.viernes_recogida ? `<p class="horario">Si la aceptáis, la recogeréis el <b>${mochilaFecha(est.viernes_recogida)}</b>, ${MOCHILA_HORA_RECOGIDA}, y la devolveréis el viernes siguiente, ${MOCHILA_HORA_DEVOLUCION}.</p>` : ''}
+      ${est.viernes_recogida ? `<p class="horario">Si la aceptáis, la recogeréis el <b>${mochilaFecha(est.viernes_recogida)}</b>, ${MOCHILA_HORA_RECOGIDA}, y la devolveréis el viernes siguiente, ${MOCHILA_HORA_DEVOLUCION}, siempre ${MOCHILA_LUGAR}.</p>` : ''}
       <div id="turno"></div>`;
     mochilaBotonesTurno(document.getElementById('turno'), est, pintarLista);
     return;

@@ -172,8 +172,8 @@ function plantillaMochilaTurno({ nombre, urlPortal, entrega, devolucion, horaRec
   // entrega / devolucion: 'YYYY-MM-DD' (las pone la Junta al asignar)
   const dia = (f) => new Date(f + 'T12:00:00Z').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Madrid' }).replace(',', '');
   const fechas = entrega
-    ? `La recogeréis el ${dia(entrega)}, ${horaRecogida}, y la devolveréis el ${devolucion ? dia(devolucion) : 'viernes siguiente'}, ${horaDevolucion}.\n\n`
-    : `Se recoge el viernes ${horaRecogida} y se devuelve el viernes siguiente ${horaDevolucion}.\n\n`;
+    ? `La recogeréis el ${dia(entrega)}, ${horaRecogida}, y la devolveréis el ${devolucion ? dia(devolucion) : 'viernes siguiente'}, ${horaDevolucion}, siempre en la Biblioteca.\n\n`
+    : `Se recoge el viernes ${horaRecogida} y se devuelve el viernes siguiente ${horaDevolucion}, siempre en la Biblioteca.\n\n`;
   return {
     subject: 'Os toca la Mochila Jugona Exploradora: tenéis 24 horas para aceptarla',
     text:
