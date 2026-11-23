@@ -1147,7 +1147,10 @@ async function renderEventoPareja(evento) {
     ? ` Solo pueden ir alumnos de ${evento.edad_min ?? 0} a ${evento.edad_max ?? 99} años (edad el día del evento).` : '';
   const sinFecha = evento.elegibilidad_modo === 'edad' && misAlumnos.some(a => !a.fecha_nacimiento)
     ? ' <b>A algún alumno le falta la fecha de nacimiento: añadidla en <a href="mis-datos.html">Mis datos</a>.</b>' : '';
-  b.innerHTML = '<h3>Quién va de tu familia</h3><p class="ayuda">Cada alumno o alumna tiene que ir con un adulto. También pueden ir adultos solos.' + rangoEdad + ' Las plazas son para alumnos y se sortean al cerrar el plazo; cada alumno que sale va con su adulto.' +
+  // Después del sorteo, todo se gestiona en la página de la Cabalgata
+  const gestion = evento.sorteo_realizado && evento.gestion_confirmar_hasta && Object.keys(grupos).length
+    ? `<p class="aviso" style="margin:0 0 14px;"><b>En la página de la Cabalgata veis quién ha salido de vuestra familia, confirmáis si va y tenéis lo que hay que preparar.</b><br><a class="btn btn-primary" style="margin-top:10px;" href="cabalgata.html?evento=${evento.id}">Ir a la página de la Cabalgata</a></p>` : '';
+  b.innerHTML = gestion + '<h3>Quién va de tu familia</h3><p class="ayuda">Cada alumno o alumna tiene que ir con un adulto. También pueden ir adultos solos.' + rangoEdad + ' Las plazas son para alumnos y se sortean al cerrar el plazo; cada alumno que sale va con su adulto.' +
     (sinTerminar !== null ? ' La inscripción solo está terminada cuando están firmados todos los documentos de abajo: solo entran en el sorteo las inscripciones terminadas.' : '') + sinFecha + '</p>';
   const ordenTipo = { alumno: 0, adulto: 1, invitado: 1 };
   Object.entries(grupos).forEach(([g, filas]) => {
@@ -1284,7 +1287,9 @@ function bloquePuestos(evento, ins, postulaciones, gate, card) {
   const b = document.createElement('div');
   b.className = 'bloque';
   const puestos = (evento.puestos || []).filter(p => NOMBRE_PUESTO[p]);
-  b.innerHTML = `<h3>Postularse a un puesto</h3><p class="ayuda">Los adultos de la familia pueden postularse a: ${esc(puestos.map(p => NOMBRE_PUESTO[p] + (PLAZAS_PUESTO[p] ? ` (${PLAZAS_PUESTO[p]} plazas)` : '')).join(', '))}. Cada persona, a un solo puesto. Cada adulto va en una sola función: quien está apuntado al evento (acompañando a un alumno/a o solo) no puede postularse. Los puestos se sortean con el sorteo del evento.</p>`;
+  const conPuesto = evento.sorteo_realizado && evento.gestion_confirmar_hasta && (postulaciones || []).length
+    && !ins.some(i => i.grupo_id && i.tipo_miembro === 'alumno');   // si ya sale arriba, no se repite
+  b.innerHTML = (conPuesto ? `<p class="aviso" style="margin:0 0 14px;"><b>En la página de la Cabalgata veis quién ha salido de vuestra familia, confirmáis si va y tenéis lo que hay que preparar.</b><br><a class="btn btn-primary" style="margin-top:10px;" href="cabalgata.html?evento=${evento.id}">Ir a la página de la Cabalgata</a></p>` : '') + `<h3>Postularse a un puesto</h3><p class="ayuda">Los adultos de la familia pueden postularse a: ${esc(puestos.map(p => NOMBRE_PUESTO[p] + (PLAZAS_PUESTO[p] ? ` (${PLAZAS_PUESTO[p]} plazas)` : '')).join(', '))}. Cada persona, a un solo puesto. Cada adulto va en una sola función: quien está apuntado al evento (acompañando a un alumno/a o solo) no puede postularse. Los puestos se sortean con el sorteo del evento.</p>`;
   // Acompaña a un alumno/a: está en una pareja con un alumno/a que no ha quedado fuera del sorteo
   // Cada adulto va en una sola función: si ya está apuntado al evento (acompañante o solo), no se postula
   const apuntado = (adultoId) => ins.some(i => i.tipo_miembro === 'adulto' && i.adulto_id === adultoId && !i.actividad_id && !i.es_voluntario && i.estado !== 'no_ganador');

@@ -17,6 +17,11 @@
 [functions."mochila-caducar"]
   schedule = "*/15 * * * *"
 
+# Cabalgata: cada 30 minutos, quien no ha confirmado a tiempo pierde la plaza
+# y entra el siguiente suplente
+[functions."cabalgata-caducar"]
+  schedule = "*/30 * * * *"
+
 # Avisos en el móvil: el service worker se comprueba siempre (si no, las
 # familias tardarían en recibir los cambios)
 [[headers]]

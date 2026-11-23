@@ -910,6 +910,7 @@ async function cargarEventos() {
           (ev.requiere_pareja_adulto_alumno && ev.sorteo_realizado ? '<button class="btn btn-outline toggleReservadasBtn solo-super">Plazas</button>'
             : ev.requiere_pareja_adulto_alumno && ev.plazas_reservadas > 0 ? '<button class="btn btn-outline toggleReservadasBtn solo-super">Plazas reservadas</button>' : '') +
           (eventosConDocs.has(ev.id) ? '<button class="btn btn-outline toggleIncompletasBtn">Inscripciones sin terminar</button>' : '') +
+          (ev.requiere_pareja_adulto_alumno && ev.sorteo_realizado ? `<a class="btn btn-outline" href="admin-cabalgata.html?evento=${ev.id}">Gestión tras el sorteo</a>` : '') +
           ((ev.puestos || []).length ? '<button class="btn btn-outline togglePostulacionesBtn">Postulaciones</button>' : '') +
           '<button class="btn btn-outline togglePremiosBtn">Premios</button>' +
           '<button class="btn btn-outline toggleFotosBtn">Fotos</button>' +

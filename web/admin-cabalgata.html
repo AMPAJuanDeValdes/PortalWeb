@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<meta name="theme-color" content="#16233A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="AMPA">
+<title>Gestión de la Cabalgata · Admin AMPA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared/styles.css">
+<style>
+  .bloque{ background:#fff; border:1px solid var(--line); border-radius:var(--radius-card); padding:22px 24px; margin-bottom:22px; }
+  .bloque h2{ margin:0 0 6px; font-size:24px; }
+  .bloque > .ayuda{ margin:0 0 14px; }
+  .dos{ display:grid; grid-template-columns:1fr 1fr; gap:12px 16px; }
+  @media (max-width:640px){ .dos{ grid-template-columns:1fr; } }
+  .fotos-admin{ display:flex; gap:12px; flex-wrap:wrap; margin:8px 0; }
+  .fotos-admin figure{ margin:0; width:150px; }
+  .fotos-admin img{ width:150px; height:150px; object-fit:contain; background:#F6F8FB; border:1px solid var(--line); border-radius:10px; display:block; }
+  .fotos-admin button{ margin-top:4px; }
+  table.gest{ width:100%; border-collapse:collapse; font-size:15px; }
+  table.gest th, table.gest td{ text-align:left; padding:9px 8px; border-bottom:1px solid var(--line); vertical-align:top; }
+  table.gest th{ font-size:13px; color:var(--ink-soft); font-weight:700; }
+  .tabla-scroll{ overflow-x:auto; }
+  .ok{ color:#2E7D32; font-weight:700; } .mal{ color:#B3261E; font-weight:700; } .espera{ color:#8A5A00; font-weight:700; }
+  .acciones-fila{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top:14px; }
+  .resumen{ display:flex; gap:22px; flex-wrap:wrap; margin:0 0 14px; }
+  .resumen div{ font-size:15px; color:var(--ink-soft); } .resumen b{ display:block; font-family:var(--font-title); font-size:30px; color:var(--ink); }
+  .vista-email{ border:1px solid var(--line); border-radius:12px; padding:14px; margin-top:12px; max-height:420px; overflow:auto; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav class="miga" aria-label="Estás en"><a href="admin.html">Panel</a><span aria-hidden="true">›</span><a href="admin-eventos.html">Eventos</a><span aria-hidden="true">›</span><span id="miga">Gestión de la Cabalgata</span></nav>
+  <h1 id="titulo">Gestión de la Cabalgata</h1>
+  <p class="msg-error" id="errorGeneral" hidden></p>
+
+  <section class="bloque">
+    <h2>Confirmar la asistencia</h2>
+    <p class="ayuda">Los elegidos (parejas y puestos) confirman en la web si van. Si dicen que no o no confirman a tiempo, la plaza pasa sola al primer suplente, que recibe un email y un aviso en el móvil.</p>
+    <div class="dos">
+      <div class="field"><label for="gHasta">Fecha límite para confirmar</label><input type="datetime-local" id="gHasta"></div>
+      <div class="field"><label for="gHoras">Horas para confirmar cuando entra un suplente</label><input type="number" id="gHoras" min="1" step="1"></div>
+    </div>
+    <p class="ayuda">Si al entrar un suplente ya ha pasado la fecha límite, tiene esas horas desde que le avisamos.</p>
+  </section>
+
+  <section class="bloque">
+    <h2>Disfraz de los alumnos/as</h2>
+    <p class="ayuda">Lo ven las familias de los alumnos/as que han salido en el sorteo, con los datos para pagarlo por transferencia y subir el justificante.</p>
+    <div class="dos">
+      <div class="field"><label for="gPrecio">Precio de cada disfraz (€)</label><input type="number" id="gPrecio" min="0" step="0.01"></div>
+      <div class="field"><label for="gIncluye">Qué incluye</label><input type="text" id="gIncluye" placeholder="Por ejemplo: chaqueta, pantalón, gorro y guantes"></div>
+    </div>
+    <div class="field"><label>Fotos del disfraz (hasta 3)</label>
+      <div class="fotos-admin" id="gFotos"></div>
+      <input type="file" id="gFotoFile" accept="image/*"><p class="ayuda" id="gFotoMsg" hidden></p>
+    </div>
+  </section>
+
+  <section class="bloque">
+    <h2>Para el día</h2>
+    <p class="ayuda">Lo que tienen que preparar o llevar las familias. Lo ven todos los que tienen plaza.</p>
+    <div class="field"><label for="gInstrucciones">Instrucciones</label><textarea id="gInstrucciones" rows="5"></textarea></div>
+    <div class="acciones-fila"><button type="button" class="btn btn-primary" id="gGuardar">Guardar</button><span class="ayuda" id="gGuardarMsg" hidden></span></div>
+    <p class="ayuda">Enlace para las familias: <a id="gEnlace" href="#" target="_blank" rel="noopener"></a></p>
+  </section>
+
+  <section class="bloque">
+    <h2>Elegidos</h2>
+    <div class="resumen" id="resumen"></div>
+    <div class="tabla-scroll" id="elegidos"></div>
+    <div class="acciones-fila"><button type="button" class="btn btn-outline" id="avisarVista">Vista previa del aviso a los que no han confirmado</button>
+      <button type="button" class="btn btn-outline" id="situacionVista">Vista previa del email con la situación de cada familia</button></div>
+    <div id="avisarZona"></div>
+  </section>
+
+  <section class="bloque">
+    <h2>Suplentes</h2>
+    <p class="ayuda">Por orden: cuando queda libre una plaza, entra el primero que quepa.</p>
+    <div class="tabla-scroll" id="suplentes"></div>
+    <div class="acciones-fila solo-super" id="ordenarZona" hidden><button type="button" class="btn btn-outline" id="ordenar">Sortear el orden de los suplentes</button><span class="ayuda" id="ordenarMsg"></span></div>
+  </section>
+
+  <section class="bloque" id="bajasBloque" hidden>
+    <h2>Han dejado la plaza</h2>
+    <div class="tabla-scroll" id="bajas"></div>
+  </section>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="shared/supabaseClient.js"></script>
+<script src="shared/nav.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (t) => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const NOMBRE_PUESTO = { responsable: 'Responsable', baltasar: 'Rey Baltasar', gaspar: 'Rey Gaspar', melchor: 'Rey Melchor', paje: 'Paje Real' };
+const aLocal = (iso) => { if (!iso) return ''; const d = new Date(iso); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16); };
+const aISO = (v) => v ? new Date(v).toISOString() : null;
+const fCorta = (f) => f ? new Date(f).toLocaleString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+const euros = (n) => Number(n).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' });
+const eventoId = new URLSearchParams(location.search).get('evento');
+let EV = null, FOTOS = [];
+
+async function llamar(cuerpo) {
+  const { data: { session } } = await sb.auth.getSession();
+  const r = await fetch('/.netlify/functions/cabalgata-admin', {
+    method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token },
+    body: JSON.stringify({ eventoId, ...cuerpo })
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || 'No se pudo hacer.');
+  return j;
+}
+
+/* ---------- Ajustes ---------- */
+function pintarFotos() {
+  $('gFotos').innerHTML = FOTOS.map((u, k) => `<figure><img src="${esc(u)}" alt="Foto ${k + 1} del disfraz"><button type="button" class="btn-danger-link" data-k="${k}">Quitar</button></figure>`).join('');
+  $('gFotos').querySelectorAll('[data-k]').forEach(b => b.addEventListener('click', () => { FOTOS.splice(+b.dataset.k, 1); pintarFotos(); }));
+  $('gFotoFile').disabled = FOTOS.length >= 3;
+}
+function reducirImagen(file) {
+  if (!/^image\/(jpeg|png|webp)$/.test(file.type)) return Promise.resolve(file);
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const k = Math.min(1, 1600 / Math.max(img.width, img.height));
+      if (k === 1 && file.size < 900 * 1024) { URL.revokeObjectURL(img.src); return resolve(file); }
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(img.src);
+      c.toBlob(b => resolve(b ? new File([b], file.name.replace(/\.\w+$/, '') + '.jpg', { type: 'image/jpeg' }) : file), 'image/jpeg', 0.85);
+    };
+    img.onerror = () => resolve(file);
+    img.src = URL.createObjectURL(file);
+  });
+}
+$('gFotoFile').addEventListener('change', async (e) => {
+  const file = e.target.files[0]; if (!file) return;
+  const msg = $('gFotoMsg'); msg.hidden = false; msg.textContent = 'Subiendo...';
+  const peque = await reducirImagen(file);
+  const path = `cabalgata/${eventoId}/${Date.now()}-${peque.name.replace(/[^a-zA-Z0-9.\-_]/g, '_')}`;
+  const { error } = await sb.storage.from('carrusel').upload(path, peque, { contentType: peque.type });
+  e.target.value = '';
+  if (error) { msg.textContent = 'No se pudo subir: ' + error.message; return; }
+  FOTOS.push(sb.storage.from('carrusel').getPublicUrl(path).data.publicUrl);
+  msg.textContent = 'Subida. Pulsa «Guardar» para que la vean las familias.';
+  pintarFotos();
+});
+$('gGuardar').addEventListener('click', async () => {
+  const msg = $('gGuardarMsg'); msg.hidden = false;
+  const precio = $('gPrecio').value;
+  const { error } = await sb.from('eventos').update({
+    gestion_confirmar_hasta: aISO($('gHasta').value),
+    gestion_horas_suplente: parseInt($('gHoras').value, 10) || 48,
+    disfraz_precio: precio === '' ? null : parseFloat(precio),
+    disfraz_incluye: $('gIncluye').value.trim() || null,
+    disfraz_fotos: FOTOS,
+    gestion_instrucciones: $('gInstrucciones').value.trim() || null
+  }).eq('id', eventoId);
+  msg.className = error ? 'msg-error' : 'msg-ok';
+  msg.textContent = error ? 'No se pudo guardar: ' + error.message + (/gestion_|disfraz_/.test(error.message) ? ' ¿Has ejecutado supabase/pendientes/migracion-cabalgata-gestion.sql?' : '') : 'Guardado.';
+  if (!error) cargar();
+});
+
+/* ---------- Elegidos y suplentes ---------- */
+const nombre = (f) => f.alumnos ? `${f.alumnos.nombre} ${f.alumnos.apellidos || ''}`.trim()
+  : f.adultos ? `${f.adultos.nombre} ${f.adultos.apellidos || ''}`.trim() : `${f.nombre_invitado || ''} ${f.apellidos_invitado || ''}`.trim();
+const familia = (f) => f.socios ? 'Socio nº ' + numeroSocioBonito(f.socios.numero_socio_completo) : '';
+function asistencia(x, plazo) {
+  if (x.asistencia === 'si') return `<span class="ok">Va</span>${x.asistencia_en ? `<br><small>${fCorta(x.asistencia_en)}</small>` : ''}`;
+  const vence = plazo ? new Date(plazo) : null;
+  return `<span class="espera">Sin contestar</span>${vence ? `<br><small>hasta el ${fCorta(vence)}${x.promovido_en ? ' (entró de suplente)' : ''}</small>` : ''}`;
+}
+
+async function cargar() {
+  const [{ data: ev }, { data: filas, error: e1 }, { data: posts }] = await Promise.all([
+    sb.from('eventos').select('*').eq('id', eventoId).maybeSingle(),
+    sb.from('evento_inscripciones').select('id, grupo_id, socio_id, tipo_miembro, estado, asignada_a_mano, suplente_orden, asistencia, asistencia_en, confirmar_hasta, promovido_en, nombre_invitado, apellidos_invitado, alumnos(nombre, apellidos, etapa, curso, aula), adultos(nombre, apellidos, movil), socios(numero_socio_completo), comprobantes_pago(id, tipo, archivo_url, verificado, created_at)')
+      .eq('evento_id', eventoId).is('actividad_id', null).eq('es_voluntario', false),
+    sb.from('evento_postulaciones').select('id, puesto, estado, suplente_orden, asistencia, asistencia_en, confirmar_hasta, promovido_en, adultos(nombre, apellidos, movil), socios(numero_socio_completo)').eq('evento_id', eventoId)
+  ]);
+  if (!ev) { $('errorGeneral').textContent = 'No se encuentra el evento.'; $('errorGeneral').hidden = false; return; }
+  if (e1) { $('errorGeneral').textContent = 'No se pudo cargar: ' + e1.message; $('errorGeneral').hidden = false; return; }
+  EV = ev;
+  document.title = 'Gestión: ' + ev.titulo + ' · Admin AMPA';
+  $('titulo').textContent = 'Gestión: ' + ev.titulo; $('miga').textContent = ev.titulo;
+  if (!$('gGuardar').dataset.relleno) {
+    $('gGuardar').dataset.relleno = '1';
+    $('gHasta').value = aLocal(ev.gestion_confirmar_hasta);
+    $('gHoras').value = ev.gestion_horas_suplente || 48;
+    // La primera vez, lo que dijo la Junta (se guarda al pulsar «Guardar»)
+    const nuevo = ev.disfraz_precio == null && !ev.disfraz_incluye && !ev.gestion_instrucciones;
+    $('gPrecio').value = ev.disfraz_precio ?? (nuevo ? '16.65' : '');
+    $('gIncluye').value = ev.disfraz_incluye || (nuevo ? 'Chaqueta, pantalón, gorro y guantes' : '');
+    $('gInstrucciones').value = ev.gestion_instrucciones || (nuevo ? 'Los padres tienen que comprarle las mallas blancas y abrigarles por debajo. Si llueve deben llevar cobertor de plástico transparente.' : '');
+    FOTOS = [...(ev.disfraz_fotos || [])]; pintarFotos();
+    const url = location.origin + '/cabalgata.html?evento=' + ev.id;
+    $('gEnlace').href = url; $('gEnlace').textContent = url;
+  }
+
+  // Parejas por grupo
+  const grupos = new Map();
+  (filas || []).forEach(f => { const g = f.grupo_id || f.id; if (!grupos.has(g)) grupos.set(g, []); grupos.get(g).push(f); });
+  const parejas = [...grupos.values()].map(fs => ({ filas: fs, al: fs.filter(f => f.tipo_miembro === 'alumno'), ad: fs.filter(f => f.tipo_miembro !== 'alumno') })).filter(p => p.al.length);
+  const elegidas = parejas.filter(p => p.al.every(f => f.estado === 'ganador'));
+  const plazo = (x) => x.confirmar_hasta || ev.gestion_confirmar_hasta;
+
+  const pagoDe = (f) => (f.comprobantes_pago || []).filter(c => c.tipo === 'disfraz_evento').sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
+  const celdaPago = (f) => {
+    if (!ev.disfraz_precio) return '';
+    const c = pagoDe(f);
+    if (!c) return '<span class="espera">Sin justificante</span>';
+    return c.verificado ? '<span class="ok">Pagado</span>'
+      : `<span class="espera">Por revisar</span><br><button type="button" class="linklike" data-ver="${esc(c.archivo_url)}">Ver</button> · <button type="button" class="linklike" data-verificar="${c.id}">Marcar pagado</button>`;
+  };
+  const elegidosPuestos = (posts || []).filter(p => p.estado === 'elegido').sort((a, b) => a.puesto.localeCompare(b.puesto));
+  const vanAl = elegidas.filter(p => p.al[0].asistencia === 'si').reduce((n, p) => n + p.al.length, 0);
+  const pagados = elegidas.flatMap(p => p.al).filter(f => (pagoDe(f) || {}).verificado).length;
+  $('resumen').innerHTML = `<div><b>${elegidas.reduce((n, p) => n + p.al.length, 0)}</b>alumnos/as con plaza</div><div><b>${vanAl}</b>han confirmado</div>` +
+    (ev.disfraz_precio ? `<div><b>${pagados}</b>disfraces pagados</div>` : '') + (elegidosPuestos.length ? `<div><b>${elegidosPuestos.filter(p => p.asistencia === 'si').length} de ${elegidosPuestos.length}</b>puestos confirmados</div>` : '');
+  $('elegidos').innerHTML = elegidas.length || elegidosPuestos.length ? `<table class="gest"><thead><tr><th>Alumno/a o puesto</th><th>Adulto</th><th>Familia</th><th>Asistencia</th><th>Disfraz</th></tr></thead><tbody>` +
+    elegidas.map(p => p.al.map((f, k) => `<tr><td>${esc(nombre(f))}${f.alumnos ? `<br><small>${esc([f.alumnos.etapa, f.alumnos.curso, f.alumnos.aula].filter(Boolean).join(' '))}</small>` : ''}${f.asignada_a_mano ? '<br><small>Plaza de la Junta</small>' : ''}</td>
+      <td>${k ? '' : p.ad.map(a => esc(nombre(a)) + (a.adultos && a.adultos.movil ? `<br><small>${esc(a.adultos.movil)}</small>` : '')).join('<br>')}</td>
+      <td>${esc(familia(f))}</td><td>${asistencia(f, plazo(f))}</td><td>${celdaPago(f)}</td></tr>`).join('')).join('') +
+    elegidosPuestos.map(p => `<tr><td><b>${esc(NOMBRE_PUESTO[p.puesto])}</b></td><td>${esc(nombre(p))}${p.adultos && p.adultos.movil ? `<br><small>${esc(p.adultos.movil)}</small>` : ''}</td><td>${esc(familia(p))}</td><td>${asistencia(p, plazo(p))}</td><td></td></tr>`).join('') +
+    '</tbody></table>' : '<p class="empty-hint">Todavía no hay elegidos: hay que hacer el sorteo.</p>';
+
+  // Suplentes
+  const supParejas = parejas.filter(p => p.al.every(f => f.estado === 'no_ganador') && p.al[0].suplente_orden != null).sort((a, b) => a.al[0].suplente_orden - b.al[0].suplente_orden);
+  const supPuestos = (posts || []).filter(p => p.estado === 'no_elegido' && p.suplente_orden != null).sort((a, b) => a.puesto.localeCompare(b.puesto) || a.suplente_orden - b.suplente_orden);
+  const sinOrden = parejas.filter(p => p.al.every(f => f.estado === 'no_ganador' && !f.asistencia) && p.al[0].suplente_orden == null).length
+    + (posts || []).filter(p => p.estado === 'no_elegido' && !p.asistencia && p.suplente_orden == null).length;
+  const posPuesto = {};
+  $('suplentes').innerHTML = (supParejas.length || supPuestos.length) ? `<table class="gest"><thead><tr><th>Suplente</th><th>Alumno/a o puesto</th><th>Adulto</th><th>Familia</th></tr></thead><tbody>` +
+    supParejas.map((p, i) => `<tr><td><b>${i + 1}.º</b></td><td>${p.al.map(f => esc(nombre(f))).join('<br>')}${p.al[0].asistencia === 'no' ? '<br><small>Tenía plaza y dijo que no podía ir</small>' : ''}</td><td>${p.ad.map(a => esc(nombre(a))).join('<br>')}</td><td>${esc(familia(p.al[0]))}</td></tr>`).join('') +
+    supPuestos.map(p => { posPuesto[p.puesto] = (posPuesto[p.puesto] || 0) + 1; return `<tr><td><b>${posPuesto[p.puesto]}.º</b></td><td>${esc(NOMBRE_PUESTO[p.puesto])}${p.asistencia === 'no' ? '<br><small>Tenía el puesto y dijo que no podía ir</small>' : ''}</td><td>${esc(nombre(p))}</td><td>${esc(familia(p))}</td></tr>`; }).join('') +
+    '</tbody></table>' : '<p class="empty-hint">No hay suplentes.</p>';
+  $('ordenarZona').hidden = !(ev.sorteo_realizado && sinOrden);
+  $('ordenarMsg').textContent = sinOrden ? `${sinOrden} sin número de suplente.` : '';
+
+  // Bajas
+  // Los que dijeron que no siguen en la lista de suplentes (al final); aquí, los que ya no están en ella
+  const bajas = parejas.filter(p => ['no', 'caducada'].includes(p.al[0].asistencia) && p.al[0].suplente_orden == null && p.al[0].estado !== 'ganador');
+  const bajasP = (posts || []).filter(p => ['no', 'caducada'].includes(p.asistencia) && p.suplente_orden == null && p.estado !== 'elegido');
+  $('bajasBloque').hidden = !(bajas.length || bajasP.length);
+  const motivo = (x) => x.asistencia === 'no' ? 'Dijo que no va' : 'No confirmó a tiempo';
+  $('bajas').innerHTML = `<table class="gest"><thead><tr><th>Alumno/a o puesto</th><th>Familia</th><th>Motivo</th><th>Cuándo</th></tr></thead><tbody>` +
+    bajas.map(p => `<tr><td>${p.al.map(f => esc(nombre(f))).join('<br>')}</td><td>${esc(familia(p.al[0]))}</td><td>${motivo(p.al[0])}</td><td>${fCorta(p.al[0].asistencia_en)}</td></tr>`).join('') +
+    bajasP.map(p => `<tr><td>${esc(NOMBRE_PUESTO[p.puesto])}: ${esc(nombre(p))}</td><td>${esc(familia(p))}</td><td>${motivo(p)}</td><td>${fCorta(p.asistencia_en)}</td></tr>`).join('') + '</tbody></table>';
+
+  $('elegidos').querySelectorAll('[data-ver]').forEach(b => b.addEventListener('click', async () => {
+    const url = await urlArchivo('comprobantes', b.dataset.ver);
+    if (url) window.open(url, '_blank', 'noopener'); else alert('No se pudo abrir el justificante.');
+  }));
+  $('elegidos').querySelectorAll('[data-verificar]').forEach(b => b.addEventListener('click', async () => {
+    b.disabled = true;
+    const { error } = await sb.from('comprobantes_pago').update({ verificado: true }).eq('id', b.dataset.verificar);
+    if (error) { alert('No se pudo marcar: ' + error.message); b.disabled = false; return; }
+    cargar();
+  }));
+}
+
+$('ordenar').addEventListener('click', async () => {
+  if (!confirm('Se sortea al azar el orden de los suplentes que todavía no tienen número. Los que ya lo tienen no cambian. ¿Seguir?')) return;
+  $('ordenar').disabled = true;
+  try { const r = await llamar({ accion: 'ordenar' }); $('ordenarMsg').textContent = `Ordenados: ${r.parejas} parejas${r.puestos ? ` y ${r.puestos} postulados a puestos` : ''}.`; cargar(); }
+  catch (e) { $('ordenarMsg').textContent = e.message; }
+  $('ordenar').disabled = false;
+});
+
+// Vista previa del email y, al confirmar, envío por tandas
+async function vistaYEnviar(accion, zona, explicar) {
+  zona.innerHTML = '<p class="ayuda">Preparando...</p>';
+  try {
+    const r = await llamar({ accion, vista: true });
+    const m = r.vista[0];
+    zona.innerHTML = `<p>${explicar(r.vista.length)} Así es el primero:</p>
+      <p><b>Para:</b> ${esc(m.a)}<br><b>Asunto:</b> ${esc(m.asunto)}</p><div class="vista-email">${m.html}</div>
+      <div class="acciones-fila"><button type="button" class="btn btn-primary enviar">Enviar</button><span class="ayuda msgEnvio"></span></div>`;
+    zona.querySelector('.enviar').addEventListener('click', async (e) => {
+      const b = e.currentTarget, msg = zona.querySelector('.msgEnvio');
+      b.disabled = true;
+      let inicio = 0, enviados = 0, total = 0, moviles = null; const fallos = [];
+      try {
+        while (inicio !== null) {
+          msg.textContent = `Enviando... ${enviados}${total ? ' de ' + total : ''}`;
+          const j = await llamar({ accion, inicio });
+          total = j.total; enviados += j.enviados; fallos.push(...j.fallos); if (j.moviles != null) moviles = j.moviles;
+          inicio = j.siguiente;
+        }
+        msg.textContent = `Enviados ${enviados} de ${total} emails${moviles != null ? ` y aviso al móvil a ${moviles} familias` : ''}.` + (fallos.length ? ' No se pudo enviar a: ' + fallos.join(', ') : '');
+      } catch (err) { msg.textContent = err.message; b.disabled = false; }
+    });
+  } catch (e) { zona.innerHTML = `<p class="msg-error">${esc(e.message)}</p>`; }
+}
+$('avisarVista').addEventListener('click', () => vistaYEnviar('avisar', $('avisarZona'),
+  (n) => `Se enviarán <b>${n}</b> emails, uno por cada alumno/a o puesto sin confirmar, con su nombre, y un aviso a los móviles de sus familias.`));
+$('situacionVista').addEventListener('click', () => vistaYEnviar('situacion', $('avisarZona'),
+  (n) => `Se enviará un email a cada familia socia inscrita (<b>${n}</b>), con todos sus inscritos/as y la situación de cada uno.`));
+
+(async () => {
+  const ctx = await requireAdmin();
+  if (!ctx) return;
+  renderNav('admin-eventos', ctx);
+  if (!eventoId) { $('errorGeneral').textContent = 'Falta el evento.'; $('errorGeneral').hidden = false; return; }
+  cargar();
+})();
+</script>
+<script src="shared/sonido.js"></script>
+<script src="shared/vida.js"></script>
+<script src="shared/visitas.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<meta name="theme-color" content="#16233A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="AMPA">
+<title>Cabalgata · AMPA Juan de Valdés</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared/styles.css">
+<style>
+  .wrap{ max-width:960px; }
+  h2.sec{ font-family:var(--font-title); font-weight:800; font-size:28px; margin:36px 0 14px; }
+  .plaza{ background:#fff; border:1px solid var(--line); border-radius:var(--radius-card); padding:20px 22px; margin-bottom:14px; }
+  .plaza.pendiente{ border:2px solid var(--eventos); }
+  .plaza h3{ margin:0 0 4px; font-size:21px; }
+  .plaza .quien{ margin:0; color:#3B4A60; }
+  .plaza .estado{ margin:12px 0 0; font-size:18px; }
+  .plaza .estado b{ font-family:var(--font-title); }
+  .plaza .botones{ display:flex; gap:12px; flex-wrap:wrap; margin-top:14px; }
+  .suplente-num{ white-space:nowrap; font-family:var(--font-title); font-weight:800; font-size:44px; line-height:1; color:var(--eventos); margin-right:12px; }
+  .suplente{ display:flex; align-items:center; margin-top:12px; }
+  .fotos{ display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:14px; }
+  .fotos a{ display:flex; align-items:center; justify-content:center; height:260px; background:#fff; border:1px solid var(--line); border-radius:var(--radius-card); padding:12px; }
+  .fotos img{ max-width:100%; max-height:100%; object-fit:contain; border-radius:8px; }
+  .precio{ font-size:19px; margin:14px 0; }
+  .pago{ background:#fff; border:1px solid var(--line); border-radius:var(--radius-card); padding:18px 20px; margin-top:12px; }
+  .pago h3{ margin:0 0 8px; font-size:19px; }
+  .instrucciones{ background:#fff; border:1px solid var(--line); border-radius:var(--radius-card); padding:20px 22px; white-space:pre-line; font-size:18px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="cab-servicio cs-eventos"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8l4 4 5-7 5 7 4-4-2 11H5z"/></svg><div><nav class="miga" aria-label="Estás en"><a href="dashboard.html">Inicio</a><span aria-hidden="true">›</span><a href="eventos.html">Eventos</a><span aria-hidden="true">›</span><span id="miga">Cabalgata</span></nav><h1 id="titulo">Cabalgata</h1><p id="subtitulo">Aquí confirmáis si va cada uno que ha salido en el sorteo y tenéis todo lo que hace falta para el día.</p></div></header>
+  <div id="contenido"><p class="empty-hint">Cargando...</p></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="shared/supabaseClient.js"></script>
+<script src="shared/nav.js"></script>
+<script src="shared/datos-ampa.js"></script>
+<script>
+const esc = (t) => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const NOMBRE_PUESTO = { responsable: 'Responsable', baltasar: 'Rey Baltasar', gaspar: 'Rey Gaspar', melchor: 'Rey Melchor', paje: 'Paje Real' };
+const fechaLarga = (f) => new Date(f).toLocaleString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }).replace(',', '');
+const euros = (n) => Number(n).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' });
+const eventoId = new URLSearchParams(location.search).get('evento');
+let ctxGlobal = null, EV = null;
+
+// Lo que pone cada plaza: confirmar, confirmada, suplente o sin plaza
+// Cada plaza con su nombre (en una familia puede salir uno y otro no):
+// quien = «Leo López» o «Ana López»; como = '' o ' como Paje Real'
+function estadoPlaza(x, plazo, tieneLaPlaza, quien, como) {
+  const q = esc(quien);
+  if (tieneLaPlaza) {
+    if (x.asistencia === 'si') return { clase: '', html: `<p class="estado"><b>Confirmado: ${q} va${esc(como)}.</b></p>`, botones: [['no', 'btn-outline', `${q} ya no puede ir`]] };
+    return { clase: 'pendiente', html: `<p class="estado"><b>¡${q} ha salido${esc(como)}!</b> Confirmad si va antes del <b>${esc(fechaLarga(plazo))}</b>. Si no, la plaza pasa al primer suplente.</p>`,
+      botones: [['si', 'btn-primary', `Sí, ${q} va`], ['no', 'btn-outline', `${q} no puede ir`]] };
+  }
+  if (x.asistencia === 'no' && x.suplente) return { clase: '', html: `<div class="suplente"><span class="suplente-num">${x.suplente}.º</span><span>Dijisteis que ${q} no podía ir${esc(como)}: su plaza pasó a otra persona y ahora es el ${x.suplente}.º suplente. Si queda libre una plaza, os avisamos por email y en el móvil.</span></div>`, botones: [] };
+  if (x.asistencia === 'no') return { clase: '', html: `<p class="estado">Dijisteis que ${q} no podía ir: la plaza ha pasado a otra persona.</p>`, botones: [] };
+  if (x.asistencia === 'caducada') return { clase: '', html: `<p class="estado">No confirmasteis a tiempo si ${q} iba: la plaza ha pasado a otra persona.</p>`, botones: [] };
+  if (x.suplente) return { clase: '', html: `<div class="suplente"><span class="suplente-num">${x.suplente}.º</span><span>${q} es el ${x.suplente}.º suplente${esc(como)}. Si queda libre una plaza, os avisamos por email y en el móvil.</span></div>`, botones: [] };
+  return { clase: '', html: `<p class="estado">${q} no ha salido en el sorteo${esc(como)}.</p>`, botones: [] };
+}
+
+async function responder(datos, va, boton) {
+  if (!va && !confirm(`¿Seguro que ${datos.quien} no puede ir? Su plaza pasará al primer suplente y ${datos.quien} quedará el último de la lista de suplentes. No se puede deshacer.`)) return;
+  boton.disabled = true;
+  const msg = boton.closest('.plaza').querySelector('.msg-error');
+  const { data: { session } } = await sb.auth.getSession();
+  const r = await fetch('/.netlify/functions/cabalgata-responder', {
+    method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token },
+    body: JSON.stringify({ eventoId, va, grupo: datos.grupo, postulacion: datos.postulacion })
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) { msg.textContent = j.error || 'No se pudo guardar.'; msg.hidden = false; boton.disabled = false; return; }
+  pintar();
+}
+
+async function subirJustificante(insc, alumno, input, msg) {
+  const file = input.files[0];
+  if (!file) { msg.textContent = 'Elige el justificante de la transferencia.'; msg.className = 'msg-error'; msg.hidden = false; return; }
+  msg.textContent = 'Subiendo...'; msg.className = 'ayuda'; msg.hidden = false;
+  const path = `${ctxGlobal.socio.id}/disfraz-${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_')}`;
+  const { error: upErr } = await sb.storage.from('comprobantes').upload(path, file);
+  const { error } = upErr ? { error: upErr } : await sb.from('comprobantes_pago').insert({
+    tipo: 'disfraz_evento', evento_inscripcion_id: insc, socio_id: ctxGlobal.socio.id, archivo_url: path, importe: EV.disfraz_precio });
+  if (error) { msg.textContent = 'No se pudo subir: ' + error.message; msg.className = 'msg-error'; return; }
+  pintar();
+}
+
+async function pintar() {
+  const cont = document.getElementById('contenido');
+  const [{ data: ev }, { data: est, error }] = await Promise.all([
+    sb.from('eventos').select('id, titulo, fecha, gestion_confirmar_hasta, disfraz_precio, disfraz_incluye, disfraz_fotos, gestion_instrucciones').eq('id', eventoId).maybeSingle(),
+    sb.rpc('cabalgata_mi_estado', { p_evento: eventoId })
+  ]);
+  if (!ev) { cont.innerHTML = '<p class="msg-error">No se encuentra el evento.</p>'; return; }
+  EV = ev;
+  document.title = ev.titulo + ' · AMPA Juan de Valdés';
+  document.getElementById('titulo').textContent = ev.titulo;
+  document.getElementById('miga').textContent = ev.titulo;
+  if (error) { cont.innerHTML = `<p class="msg-error">No se pudo cargar: ${esc(error.message)}</p>`; return; }
+  const parejas = (est.parejas || []).filter(p => p.personas.some(x => x.tipo === 'alumno'));
+  const puestos = est.puestos || [];
+  if (!parejas.length && !puestos.length) {
+    cont.innerHTML = '<p class="empty-hint">Esta página es para las familias que se apuntaron a la Cabalgata.</p>';
+    return;
+  }
+  if (!ev.gestion_confirmar_hasta) {
+    cont.innerHTML = '<p class="empty-hint">Todavía no se puede confirmar la plaza. Os avisaremos por email y en el móvil.</p>';
+    return;
+  }
+
+  let html = '<h2 class="sec">Quién ha salido de vuestra familia</h2>';
+  const tarjetas = [];
+  for (const p of parejas) {
+    const al = p.personas.filter(x => x.tipo === 'alumno');
+    const ad = p.personas.filter(x => x.tipo !== 'alumno');
+    const tiene = al.every(x => x.estado === 'ganador');
+    const e = estadoPlaza({ ...al[0], suplente: p.suplente }, al[0].confirmar_hasta || ev.gestion_confirmar_hasta, tiene, al.map(x => x.nombre).join(' y '), '');
+    tarjetas.push({ e, datos: { grupo: p.grupo }, quien: al.map(x => x.nombre).join(' y ') });
+    html += `<div class="plaza ${e.clase}" data-t="${tarjetas.length - 1}"><h3>${al.map(x => esc(x.nombre)).join(' y ')}</h3>
+      ${ad.length ? `<p class="quien">Con ${ad.map(x => esc(x.nombre)).join(' y ')}</p>` : ''}${e.html}
+      ${e.botones.length ? `<div class="botones">${e.botones.map(([v, c, t]) => `<button type="button" class="btn ${c}" data-va="${v}">${t}</button>`).join('')}</div>` : ''}
+      <p class="msg-error" hidden></p></div>`;
+  }
+  for (const p of puestos) {
+    const e = estadoPlaza(p, p.confirmar_hasta || ev.gestion_confirmar_hasta, p.estado === 'elegido', p.nombre, ' como ' + (NOMBRE_PUESTO[p.puesto] || p.puesto));
+    tarjetas.push({ e, datos: { postulacion: p.id }, quien: p.nombre });
+    html += `<div class="plaza ${e.clase}" data-t="${tarjetas.length - 1}"><h3>${esc(NOMBRE_PUESTO[p.puesto] || p.puesto)}</h3><p class="quien">${esc(p.nombre)}</p>${e.html}
+      ${e.botones.length ? `<div class="botones">${e.botones.map(([v, c, t]) => `<button type="button" class="btn ${c}" data-va="${v}">${t}</button>`).join('')}</div>` : ''}
+      <p class="msg-error" hidden></p></div>`;
+  }
+
+  // Disfraz: lo ven y lo pagan las familias de los alumnos/as que han salido
+  const conDisfraz = parejas.flatMap(p => p.personas).filter(x => x.tipo === 'alumno' && x.estado === 'ganador');
+  if (conDisfraz.length && ev.disfraz_precio) {
+    html += `<h2 class="sec">Disfraz</h2>
+      ${(ev.disfraz_fotos || []).length ? `<div class="fotos">${ev.disfraz_fotos.map(u => `<a href="${esc(u)}" target="_blank" rel="noopener" aria-label="Ver la foto en grande"><img src="${esc(u)}" alt="Disfraz" loading="lazy"></a>`).join('')}</div>` : ''}
+      <p class="precio">Cada disfraz: <b>${euros(ev.disfraz_precio)}</b>${ev.disfraz_incluye ? ` (${esc(ev.disfraz_incluye)})` : ''}. Pagadlo por transferencia y subid el justificante para que podamos comprarlo.</p>`;
+    for (const x of conDisfraz) {
+      const pago = x.pago;
+      html += `<div class="pago"><h3>Disfraz de ${esc(x.nombre)}</h3>` + (pago
+        ? `<p class="estado">${pago.verificado ? '<b>Pagado.</b> La Junta ha comprobado el pago.' : '<b>Justificante enviado.</b> La Junta lo revisará.'}</p>`
+        : `<div class="datos-pago">
+            <div><span>Importe</span><b>${euros(ev.disfraz_precio)}</b></div>
+            <div><span>IBAN</span><b class="iban">${AMPA_IBAN}</b></div>
+            <div><span>Titular</span><b>${esc(AMPA_TITULAR_CUENTA)}</b></div>
+            <div><span>Concepto</span><b>Disfraz ${esc(ev.titulo)} - ${esc(x.nombre)}</b></div></div>
+          <div class="field" style="margin-top:12px;"><label>Justificante de la transferencia</label><input type="file" class="justif" accept="image/*,.pdf"></div>
+          <button type="button" class="btn btn-primary subir" data-insc="${x.id}">Enviar justificante</button><p class="msg" hidden></p>`) + '</div>';
+    }
+  }
+  const algunaPlaza = parejas.some(p => p.personas.some(x => x.estado === 'ganador')) || puestos.some(p => p.estado === 'elegido');
+  if (algunaPlaza && ev.gestion_instrucciones) html += `<h2 class="sec">Para el día</h2><div class="instrucciones">${esc(ev.gestion_instrucciones)}</div>`;
+
+  cont.innerHTML = html;
+  cont.querySelectorAll('.plaza [data-va]').forEach(b => b.addEventListener('click', () => {
+    const t = tarjetas[b.closest('.plaza').dataset.t];
+    responder({ ...t.datos, quien: t.quien }, b.dataset.va === 'si', b);
+  }));
+  cont.querySelectorAll('.subir').forEach(b => b.addEventListener('click', () => {
+    const caja = b.closest('.pago');
+    subirJustificante(b.dataset.insc, '', caja.querySelector('.justif'), caja.querySelector('.msg'));
+  }));
+}
+
+(async () => {
+  const ctx = await requireAuth();
+  if (!ctx) return;
+  ctxGlobal = ctx;
+  renderNav('eventos', ctx);
+  if (!eventoId) { document.getElementById('contenido').innerHTML = '<p class="msg-error">Falta el evento.</p>'; return; }
+  pintar();
+})();
+</script>
+<script src="shared/sonido.js"></script>
+<script src="shared/vida.js"></script>
+<script src="shared/visitas.js" defer></script>
+</body>
+</html>

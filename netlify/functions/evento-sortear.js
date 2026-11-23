@@ -22,6 +22,7 @@
 
 const { createClient } = require('@supabase/supabase-js');
 const { esSuperadmin, SOLO_SUPERADMIN } = require('./_lib/superadmin');
+const { ordenarSuplentes } = require('./_lib/cabalgata');
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -200,6 +201,13 @@ exports.handler = async (event) => {
     }
   }
 
+  // Cabalgata: los que no han salido quedan ordenados como suplentes (1.º, 2.º…)
+  let suplentes = null;
+  if (reclamado.requiere_pareja_adulto_alumno) {
+    try { suplentes = await ordenarSuplentes(supabaseAdmin, eventoId); }
+    catch (e) { console.error('No se pudo ordenar a los suplentes:', e.message); }
+  }
+
   if (nuevosVisitantesAdultoIds.length > 0) {
     await supabaseAdmin.from('adultos')
       .update({ ya_visito_comedor: true })
@@ -214,7 +222,8 @@ exports.handler = async (event) => {
       ganadores: ganadoresIds.length,
       noGanadores: inscripciones.length - ganadoresIds.length,
       sinDocumentos: fueraPorDocumentos.length,   // filas (alumnos y adultos) que no entraron por no tener los documentos firmados
-      puestos: puestosSorteados
+      puestos: puestosSorteados,
+      suplentes
     })
   };
 };
