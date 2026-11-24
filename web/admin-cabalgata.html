@@ -53,21 +53,12 @@
 
   <section class="bloque">
     <h2>Vestuario de los alumnos y alumnas</h2>
-    <p class="ayuda">Lo ven las familias de los alumnos y alumnas que han salido en el sorteo: eligen color y, de ese color, la talla con un clic; el importe depende de la talla. Tienen los datos para pagarlo por transferencia y subir el justificante.</p>
-    <div class="dos">
-      <div class="field"><label for="gIncluye">Qué incluye</label><input type="text" id="gIncluye" placeholder="Por ejemplo: chaqueta, pantalón, gorro y guantes"></div>
-      <div class="field"><label for="gTallas">Tallas (separadas por comas)</label><input type="text" id="gTallas"></div>
-      <div class="field"><label for="gColores">Colores (separados por comas)</label><input type="text" id="gColores"></div>
-    </div>
-    <h3 style="margin:16px 0 6px;">Precio de cada talla (€)</h3>
-    <div class="dos" id="gPrecios"></div>
-    <h3 style="margin:16px 0 6px;">Cada color: sus tallas y hasta 3 fotos, cada una con su guía de tallas</h3>
-    <p class="ayuda">Al pulsar una foto, las familias ven la guía de tallas de esa foto.</p>
-    <div id="gColoresCfg"></div>
-    <div class="field" style="margin-top:14px;"><label>Guía de tallas general (opcional)</label>
-      <div class="fotos-admin" id="gGuia"></div>
-      <input type="file" id="gGuiaFile" accept="image/*"><p class="ayuda" id="gGuiaMsg">Se usa en las fotos que no tienen su propia guía.</p>
-    </div>
+    <p class="ayuda">Lo ven las familias de los alumnos y alumnas que han salido en el sorteo: eligen modelo y talla con un clic; el importe depende del modelo. Tienen los datos para pagarlo por transferencia y subir el justificante.</p>
+    <div class="field"><label for="gIncluye">Qué incluye</label><input type="text" id="gIncluye" placeholder="Por ejemplo: chaqueta, pantalón, gorro y guantes"></div>
+    <h3 style="margin:16px 0 6px;">Modelos</h3>
+    <p class="ayuda">Cada modelo es una foto con su nombre, su precio, sus tallas y su guía de tallas. Al pulsar la foto, las familias ven su guía.</p>
+    <div id="gModelos"></div>
+    <button type="button" class="btn btn-secondary" id="gModeloNuevo">Añadir modelo</button>
   </section>
 
   <section class="bloque">
@@ -93,7 +84,7 @@
     <p class="ayuda">Un email escrito por ti a las familias de los que han salido sorteados y tienen algo pendiente. Empieza con «Hola» y el nombre, y lleva la firma del AMPA.</p>
     <div class="field"><label for="escribirA">A quién</label><select id="escribirA">
       <option value="confirmar">No han confirmado si van</option>
-      <option value="vestuario">No han elegido talla o color del vestuario</option>
+      <option value="vestuario">No han elegido modelo o talla del vestuario</option>
       <option value="justificante">Han confirmado pero no han subido el justificante del vestuario</option></select></div>
     <div class="field"><label for="escribirAsunto">Asunto</label><input type="text" id="escribirAsunto"></div>
     <div class="field"><label for="escribirTexto">Mensaje</label><textarea id="escribirTexto" rows="7"></textarea></div>
@@ -140,62 +131,51 @@ async function llamar(cuerpo) {
 }
 
 /* ---------- Ajustes ---------- */
-// Configuración del vestuario: precio por talla y, de cada color, sus tallas y fotos
-let CFG = { precios: {}, colores: {} };
-const listaTallas = () => $('gTallas').value.split(',').map(t => t.trim()).filter(Boolean);
-const listaColores = () => $('gColores').value.split(',').map(t => t.trim()).filter(Boolean);
-function leerPrecios() {
-  $('gPrecios').querySelectorAll('[data-precio]').forEach(inp => { const v = inp.value.trim(); if (v === '') delete CFG.precios[inp.dataset.precio]; else CFG.precios[inp.dataset.precio] = parseFloat(v); });
+// Configuración del vestuario: modelos (foto, precio, tallas y guía de tallas)
+let MODELOS = [];
+async function subirImagen(file, prefijo) {
+  const peque = await reducirImagen(file);
+  const path = `cabalgata/${eventoId}/${prefijo}${Date.now()}-${peque.name.replace(/[^a-zA-Z0-9.\-_]/g, '_')}`;
+  const { error } = await sb.storage.from('carrusel').upload(path, peque, { contentType: peque.type });
+  if (error) throw error;
+  return sb.storage.from('carrusel').getPublicUrl(path).data.publicUrl;
 }
-function pintarCfg() {
-  leerPrecios();
-  const tallas = listaTallas();
-  $('gPrecios').innerHTML = tallas.map((t, k) => `<div class="field"><label for="gPr${k}">${esc(t)}</label><input type="number" id="gPr${k}" min="0" step="0.01" data-precio="${esc(t)}" value="${CFG.precios[t] ?? ''}"></div>`).join('') || '<p class="ayuda">Escribe antes las tallas.</p>';
-  $('gColoresCfg').innerHTML = listaColores().map((c, k) => {
-    const cc = CFG.colores[c] || (CFG.colores[c] = { tallas: [...tallas], fotos: [] });
-    if (!Array.isArray(cc.guias)) cc.guias = [];
-    return `<div class="color-cfg" data-color="${esc(c)}" style="border:1px solid var(--line); border-radius:12px; padding:12px 14px; margin-bottom:12px;">
-      <b>${esc(c)}</b>
-      <div style="display:flex; gap:14px; flex-wrap:wrap; margin:8px 0;">${tallas.map(t => `<label class="check"><input type="checkbox" data-talla="${esc(t)}" ${cc.tallas.includes(t) ? 'checked' : ''}> ${esc(t)}</label>`).join('')}</div>
-      <div class="fotos-admin">${cc.fotos.map((u, f) => `<figure><img src="${esc(u)}" alt="Foto ${f + 1} del vestuario ${esc(c)}"><button type="button" class="btn-danger-link" data-quitar="${f}">Quitar foto</button>
-        <span class="ayuda" style="display:block;margin-top:6px;">Guía de tallas:</span>
-        ${cc.guias[f] ? `<img src="${esc(cc.guias[f])}" alt="Guía de tallas de la foto ${f + 1} (${esc(c)})"><button type="button" class="btn-danger-link" data-quitar-guia="${f}">Quitar guía</button>` : `<input type="file" accept="image/*" data-guia="${f}" aria-label="Subir la guía de tallas de la foto ${f + 1} de ${esc(c)}" style="width:150px;">`}</figure>`).join('')}</div>
-      ${cc.fotos.length < 3 ? `<input type="file" accept="image/*" data-foto aria-label="Añadir foto del vestuario ${esc(c)}">` : ''}<span class="ayuda" data-msg></span></div>`;
-  }).join('') || '<p class="ayuda">Escribe antes los colores.</p>';
-  $('gColoresCfg').querySelectorAll('.color-cfg').forEach(caja => {
-    const cc = CFG.colores[caja.dataset.color];
-    caja.querySelectorAll('[data-talla]').forEach(ch => ch.addEventListener('change', () => {
-      cc.tallas = [...caja.querySelectorAll('[data-talla]:checked')].map(x => x.dataset.talla);
-    }));
-    caja.querySelectorAll('[data-quitar]').forEach(b => b.addEventListener('click', () => { cc.fotos.splice(+b.dataset.quitar, 1); cc.guias.splice(+b.dataset.quitar, 1); pintarCfg(); }));
-    caja.querySelectorAll('[data-quitar-guia]').forEach(b => b.addEventListener('click', () => { cc.guias[+b.dataset.quitarGuia] = null; pintarCfg(); }));
-    caja.querySelectorAll('[data-guia]').forEach(gi => gi.addEventListener('change', async () => {
-      const file = gi.files[0]; if (!file) return;
-      const msg = caja.querySelector('[data-msg]'); msg.textContent = ' Subiendo la guía...';
-      const peque = await reducirImagen(file);
-      const path = `cabalgata/${eventoId}/guia-${Date.now()}-${peque.name.replace(/[^a-zA-Z0-9.\-_]/g, '_')}`;
-      const { error } = await sb.storage.from('carrusel').upload(path, peque, { contentType: peque.type });
-      if (error) { msg.textContent = ' No se pudo subir: ' + error.message; gi.value = ''; return; }
-      cc.guias[+gi.dataset.guia] = sb.storage.from('carrusel').getPublicUrl(path).data.publicUrl;
-      pintarCfg();
-      $('gGuardarMsg').hidden = false; $('gGuardarMsg').className = 'ayuda'; $('gGuardarMsg').textContent = 'Guía subida. Pulsa «Guardar» para que la vean las familias.';
-    }));
-    const inp = caja.querySelector('[data-foto]');
-    if (inp) inp.addEventListener('change', async () => {
-      const file = inp.files[0]; if (!file) return;
-      const msg = caja.querySelector('[data-msg]'); msg.textContent = ' Subiendo...';
-      const peque = await reducirImagen(file);
-      const path = `cabalgata/${eventoId}/${Date.now()}-${peque.name.replace(/[^a-zA-Z0-9.\-_]/g, '_')}`;
-      const { error } = await sb.storage.from('carrusel').upload(path, peque, { contentType: peque.type });
-      if (error) { msg.textContent = ' No se pudo subir: ' + error.message; return; }
-      cc.fotos.push(sb.storage.from('carrusel').getPublicUrl(path).data.publicUrl);
-      pintarCfg();
-      $('gGuardarMsg').hidden = false; $('gGuardarMsg').className = 'ayuda'; $('gGuardarMsg').textContent = 'Foto subida. Pulsa «Guardar» para que la vean las familias.';
-    });
+function leerModelos() {
+  $('gModelos').querySelectorAll('.modelo-cfg').forEach(caja => {
+    const m = MODELOS[+caja.dataset.k];
+    m.nombre = caja.querySelector('[data-nombre]').value.trim();
+    const v = caja.querySelector('[data-precio]').value.trim(); m.precio = v === '' ? null : parseFloat(v);
+    m.tallas = caja.querySelector('[data-tallas]').value.split(',').map(t => t.trim()).filter(Boolean);
   });
 }
-$('gTallas').addEventListener('change', pintarCfg);
-$('gColores').addEventListener('change', pintarCfg);
+function pintarModelos() {
+  $('gModelos').innerHTML = MODELOS.map((m, k) => `<div class="modelo-cfg" data-k="${k}" style="border:1px solid var(--line); border-radius:12px; padding:12px 14px; margin-bottom:12px;">
+    <div class="dos">
+      <div class="field"><label for="gMn${k}">Nombre</label><input type="text" id="gMn${k}" data-nombre value="${esc(m.nombre || '')}" placeholder="Por ejemplo: Verde niño/a"></div>
+      <div class="field"><label for="gMp${k}">Precio (€)</label><input type="number" id="gMp${k}" data-precio min="0" step="0.01" value="${m.precio ?? ''}"></div>
+    </div>
+    <div class="field"><label for="gMt${k}">Tallas (separadas por comas)</label><input type="text" id="gMt${k}" data-tallas value="${esc((m.tallas || []).join(', '))}" placeholder="Por ejemplo: 3-4, 5-6, 7-9, 10-12"></div>
+    <div class="fotos-admin">
+      <figure><span class="ayuda">Foto</span>${m.foto ? `<img src="${esc(m.foto)}" alt="Foto de ${esc(m.nombre || 'modelo')}"><button type="button" class="btn-danger-link" data-quitar="foto">Quitar foto</button>` : `<input type="file" accept="image/*" data-subir="foto" style="width:150px;">`}</figure>
+      <figure><span class="ayuda">Guía de tallas</span>${m.guia ? `<img src="${esc(m.guia)}" alt="Guía de tallas de ${esc(m.nombre || 'modelo')}"><button type="button" class="btn-danger-link" data-quitar="guia">Quitar guía</button>` : `<input type="file" accept="image/*" data-subir="guia" style="width:150px;">`}</figure>
+    </div>
+    <button type="button" class="btn-danger-link" data-borrar>Quitar este modelo</button><span class="ayuda" data-msg></span></div>`).join('') || '<p class="ayuda">Todavía no hay modelos.</p>';
+  $('gModelos').querySelectorAll('.modelo-cfg').forEach(caja => {
+    const k = +caja.dataset.k;
+    caja.querySelectorAll('[data-quitar]').forEach(b => b.addEventListener('click', () => { leerModelos(); MODELOS[k][b.dataset.quitar] = null; pintarModelos(); }));
+    caja.querySelector('[data-borrar]').addEventListener('click', () => { leerModelos(); MODELOS.splice(k, 1); pintarModelos(); });
+    caja.querySelectorAll('[data-subir]').forEach(inp => inp.addEventListener('change', async () => {
+      const file = inp.files[0]; if (!file) return;
+      const msg = caja.querySelector('[data-msg]'); msg.textContent = ' Subiendo...';
+      try {
+        const url = await subirImagen(file, inp.dataset.subir === 'guia' ? 'guia-' : '');
+        leerModelos(); MODELOS[k][inp.dataset.subir] = url; pintarModelos();
+        $('gGuardarMsg').hidden = false; $('gGuardarMsg').className = 'ayuda'; $('gGuardarMsg').textContent = 'Imagen subida. Pulsa «Guardar» para que la vean las familias.';
+      } catch (e) { msg.textContent = ' No se pudo subir: ' + e.message; inp.value = ''; }
+    }));
+  });
+}
+$('gModeloNuevo').addEventListener('click', () => { leerModelos(); MODELOS.push({ nombre: '', precio: null, tallas: [], foto: null, guia: null }); pintarModelos(); });
 function reducirImagen(file) {
   if (!/^image\/(jpeg|png|webp)$/.test(file.type)) return Promise.resolve(file);
   return new Promise((resolve) => {
@@ -213,40 +193,24 @@ function reducirImagen(file) {
     img.src = URL.createObjectURL(file);
   });
 }
-// Guía de tallas (una imagen)
-let GUIA = null;
-function pintarGuia() {
-  $('gGuia').innerHTML = GUIA ? `<figure><img src="${esc(GUIA)}" alt="Guía de tallas"><button type="button" class="btn-danger-link" id="gGuiaQuitar">Quitar</button></figure>` : '';
-  if (GUIA) $('gGuiaQuitar').addEventListener('click', () => { GUIA = null; pintarGuia(); });
-}
-$('gGuiaFile').addEventListener('change', async (e) => {
-  const file = e.target.files[0]; if (!file) return;
-  const msg = $('gGuiaMsg'); msg.textContent = 'Subiendo...';
-  const peque = await reducirImagen(file);
-  const path = `cabalgata/${eventoId}/guia-${Date.now()}-${peque.name.replace(/[^a-zA-Z0-9.\-_]/g, '_')}`;
-  const { error } = await sb.storage.from('carrusel').upload(path, peque, { contentType: peque.type });
-  e.target.value = '';
-  if (error) { msg.textContent = 'No se pudo subir: ' + error.message; return; }
-  GUIA = sb.storage.from('carrusel').getPublicUrl(path).data.publicUrl;
-  msg.textContent = 'Subida. Pulsa «Guardar» para que la vean las familias.';
-  pintarGuia();
-});
 $('gGuardar').addEventListener('click', async () => {
   const msg = $('gGuardarMsg'); msg.hidden = false;
-  leerPrecios();
-  const tallas = listaTallas(), colores = listaColores();
-  const precios = Object.fromEntries(tallas.filter(t => CFG.precios[t] != null && !isNaN(CFG.precios[t])).map(t => [t, CFG.precios[t]]));
-  const config = { precios, colores: Object.fromEntries(colores.map(c => [c, { tallas: (CFG.colores[c] || { tallas: tallas }).tallas.filter(t => tallas.includes(t)), fotos: (CFG.colores[c] || { fotos: [] }).fotos, guias: ((CFG.colores[c] || {}).guias || []).slice(0, ((CFG.colores[c] || { fotos: [] }).fotos).length).map(g => g || null) }])) };
-  if (tallas.some(t => precios[t] == null)) { msg.className = 'msg-error'; msg.textContent = 'Pon el precio de todas las tallas.'; return; }
+  leerModelos();
+  const mods = MODELOS.filter(m => m.nombre || m.foto || m.guia || m.tallas.length || m.precio != null);
+  if (mods.some(m => !m.nombre)) { msg.className = 'msg-error'; msg.textContent = 'Pon el nombre de todos los modelos.'; return; }
+  if (new Set(mods.map(m => m.nombre)).size !== mods.length) { msg.className = 'msg-error'; msg.textContent = 'Dos modelos no pueden tener el mismo nombre.'; return; }
+  if (mods.some(m => m.precio == null || isNaN(m.precio))) { msg.className = 'msg-error'; msg.textContent = 'Pon el precio de todos los modelos.'; return; }
+  if (mods.some(m => !m.tallas.length)) { msg.className = 'msg-error'; msg.textContent = 'Pon las tallas de todos los modelos.'; return; }
+  const config = { modelos: mods.map(m => ({ nombre: m.nombre, precio: m.precio, tallas: m.tallas, foto: m.foto || null, guia: m.guia || null })) };
   const { error } = await sb.from('eventos').update({
     gestion_confirmar_hasta: aISO($('gHasta').value),
     gestion_horas_suplente: parseInt($('gHoras').value, 10) || 48,
-    disfraz_precio: tallas.length ? Math.min(...tallas.map(t => precios[t])) : null,   // con precio = hay vestuario
+    disfraz_precio: mods.length ? Math.min(...mods.map(m => m.precio)) : null,   // con precio = hay vestuario
     disfraz_config: config,
     disfraz_incluye: $('gIncluye').value.trim() || null,
-    disfraz_tallas: $('gTallas').value.split(',').map(t => t.trim()).filter(Boolean),
-    disfraz_colores: $('gColores').value.split(',').map(t => t.trim()).filter(Boolean),
-    disfraz_guia_tallas: GUIA,
+    disfraz_tallas: [...new Set(mods.flatMap(m => m.tallas))],   // la función de la base de datos comprueba contra estas listas
+    disfraz_colores: mods.map(m => m.nombre),
+    disfraz_guia_tallas: null,
     gestion_instrucciones: $('gInstrucciones').value.trim() || null
   }).eq('id', eventoId);
   msg.className = error ? 'msg-error' : 'msg-ok';
@@ -276,7 +240,7 @@ async function cargar() {
       .eq('evento_id', eventoId).is('actividad_id', null).eq('es_voluntario', false),
     sb.from('evento_postulaciones').select('id, socio_id, puesto, estado, suplente_orden, asistencia, asistencia_en, confirmar_hasta, promovido_en, adultos!adulto_id(nombre, apellidos, movil), socios(numero_socio_completo)').eq('evento_id', eventoId)
   ]);
-  // Talla y color que ha elegido cada familia
+  // Modelo y talla que ha elegido cada familia
   const ids = (filas || []).filter(f => f.tipo_miembro === 'alumno' && f.estado === 'ganador').map(f => f.id);
   const { data: disfraces } = ids.length ? await sb.from('evento_disfraces').select('evento_inscripcion_id, talla, color').in('evento_inscripcion_id', ids) : { data: [] };
   const disfrazDe = (f) => (disfraces || []).find(d => d.evento_inscripcion_id === f.id) || {};
@@ -292,15 +256,16 @@ async function cargar() {
     // La primera vez, lo que dijo la Junta (se guarda al pulsar «Guardar»)
     const nuevo = ev.disfraz_precio == null && !ev.disfraz_incluye && !ev.gestion_instrucciones;
     $('gIncluye').value = ev.disfraz_incluye || (nuevo ? 'Chaqueta, pantalón, gorro y guantes' : '');
-    $('gTallas').value = (ev.disfraz_tallas || []).join(', ');
-    $('gColores').value = (ev.disfraz_colores || []).join(', ');
     $('gInstrucciones').value = ev.gestion_instrucciones || (nuevo ? 'Los padres tienen que comprarle las mallas blancas y abrigarles por debajo. Si llueve deben llevar cobertor de plástico transparente.' : '');
-    CFG = JSON.parse(JSON.stringify(ev.disfraz_config || {}));
-    CFG.precios = CFG.precios || {}; CFG.colores = CFG.colores || {};
-    // La primera vez: el precio que había para todas las tallas
-    if (!Object.keys(CFG.precios).length) (ev.disfraz_tallas || []).forEach(t => { CFG.precios[t] = ev.disfraz_precio ?? (nuevo ? 16.65 : null); if (CFG.precios[t] == null) delete CFG.precios[t]; });
-    pintarCfg();
-    GUIA = ev.disfraz_guia_tallas || null; pintarGuia();
+    const cfg = ev.disfraz_config || {};
+    MODELOS = Array.isArray(cfg.modelos) ? JSON.parse(JSON.stringify(cfg.modelos))
+      // Lo guardado antes por colores: cada foto pasa a ser un modelo
+      : (ev.disfraz_colores || []).flatMap(c => { const cc = (cfg.colores || {})[c] || {}; const fotos = cc.fotos && cc.fotos.length ? cc.fotos : [null];
+          const tallas = Array.isArray(cc.tallas) ? cc.tallas : (ev.disfraz_tallas || []);
+          const precios = tallas.map(t => (cfg.precios || {})[t]).filter(v => v != null);
+          return fotos.map((f, i) => ({ nombre: fotos.length > 1 ? `${c} ${i + 1}` : c, precio: precios.length ? Math.min(...precios) : (ev.disfraz_precio ?? null), tallas, foto: f, guia: (cc.guias || [])[i] || null })); });
+    if (!MODELOS.length && nuevo) MODELOS = [{ nombre: '', precio: 16.65, tallas: [], foto: null, guia: null }];
+    pintarModelos();
     const url = location.origin + '/cabalgata.html?evento=' + ev.id;
     $('gEnlace').href = url; $('gEnlace').textContent = url;
   }
@@ -316,7 +281,7 @@ async function cargar() {
   const celdaPago = (f) => {
     if (!ev.disfraz_precio) return '';
     const d = disfrazDe(f);
-    return `${d.talla || d.color ? `<b>${esc([d.talla, d.color].filter(Boolean).join(' · '))}</b>${d.talla && d.color ? '' : '<br><small>Falta ' + (d.talla ? 'el color' : 'la talla') + '</small>'}` : '<span class="espera">Sin talla ni color</span>'}<br>${celdaJustificante(f)}`;
+    return `${d.talla || d.color ? `<b>${esc([d.color, d.talla].filter(Boolean).join(' · '))}</b>${d.talla && d.color ? '' : '<br><small>Falta ' + (d.talla ? 'el modelo' : 'la talla') + '</small>'}` : '<span class="espera">Sin talla ni color</span>'}<br>${celdaJustificante(f)}`;
   };
   const celdaJustificante = (f) => {
     const c = pagoDe(f);
@@ -329,14 +294,15 @@ async function cargar() {
   const pagados = elegidas.flatMap(p => p.al).filter(f => (pagoDe(f) || {}).verificado).length;
   $('resumen').innerHTML = `<div><b>${elegidas.reduce((n, p) => n + p.al.length, 0)}</b>alumnos y alumnas con plaza</div><div><b>${vanAl}</b>han confirmado</div>` +
     (ev.disfraz_precio ? `<div><b>${pagados}</b>vestuarios pagados</div>` : '') + (elegidosPuestos.length ? `<div><b>${elegidosPuestos.filter(p => p.asistencia === 'si').length} de ${elegidosPuestos.length}</b>puestos confirmados</div>` : '');
-  // Para el encargo: cuántos disfraces de cada talla y color
+  // Para el encargo: cuántos de cada modelo y talla
   const al = elegidas.flatMap(p => p.al);
-  const tallas = ev.disfraz_tallas || [], colores = ev.disfraz_colores || [];
-  const cuenta = (t, c) => al.filter(f => disfrazDe(f).talla === t && disfrazDe(f).color === c).length;
+    const cuenta = (t, c) => al.filter(f => disfrazDe(f).talla === t && disfrazDe(f).color === c).length;
   const sinElegir = al.filter(f => !disfrazDe(f).talla || !disfrazDe(f).color).length;
-  $('encargo').innerHTML = ev.disfraz_precio && al.length ? `<h3 style="margin:18px 0 8px;">Vestuarios por talla y color</h3><div class="tabla-scroll"><table class="gest"><thead><tr><th>Talla</th>${colores.map(c => `<th>${esc(c)}</th>`).join('')}<th>Total</th></tr></thead><tbody>` +
-    tallas.map(t => `<tr><td>${esc(t)}</td>${colores.map(c => `<td>${cuenta(t, c) || ''}</td>`).join('')}<td><b>${colores.reduce((n, c) => n + cuenta(t, c), 0)}</b></td></tr>`).join('') +
-    `</tbody></table></div>${sinElegir ? `<p class="ayuda">${sinElegir} ${sinElegir === 1 ? 'alumno o alumna no ha elegido' : 'alumnos y alumnas no han elegido'} todavía talla y color.</p>` : ''}` : '';
+  const mods = ((ev.disfraz_config || {}).modelos || []);
+  const filasEnc = mods.flatMap(m => (m.tallas || []).map(t => ({ m: m.nombre, t, n: cuenta(t, m.nombre) }))).filter(r => r.n);
+  $('encargo').innerHTML = ev.disfraz_precio && al.length ? `<h3 style="margin:18px 0 8px;">Vestuarios por modelo y talla</h3><div class="tabla-scroll"><table class="gest"><thead><tr><th>Modelo</th><th>Talla</th><th>Cantidad</th></tr></thead><tbody>` +
+    filasEnc.map(r => `<tr><td>${esc(r.m)}</td><td>${esc(r.t)}</td><td><b>${r.n}</b></td></tr>`).join('') +
+    `<tr><td colspan="2"><b>Total</b></td><td><b>${filasEnc.reduce((n, r) => n + r.n, 0)}</b></td></tr></tbody></table></div>${sinElegir ? `<p class="ayuda">${sinElegir} ${sinElegir === 1 ? 'alumno o alumna no ha elegido' : 'alumnos y alumnas no han elegido'} todavía modelo y talla.</p>` : ''}` : '';
   $('elegidos').innerHTML = elegidas.length || elegidosPuestos.length ? `<table class="gest"><thead><tr><th>Alumno, alumna o puesto</th><th>Adulto</th><th>Familia</th><th>Asistencia</th><th>Vestuario</th></tr></thead><tbody>` +
     elegidas.map(p => p.al.map((f, k) => `<tr><td>${esc(nombre(f))}${f.alumnos ? `<br><small>${esc([f.alumnos.etapa, f.alumnos.curso, f.alumnos.aula].filter(Boolean).join(' '))}</small>` : ''}${f.asignada_a_mano ? '<br><small>Plaza de la Junta</small>' : ''}</td>
       <td>${k ? '' : p.ad.map(a => esc(nombre(a)) + (a.adultos && a.adultos.movil ? `<br><small>${esc(a.adultos.movil)}</small>` : '')).join('<br>')}</td>
@@ -423,7 +389,7 @@ async function vistaYEnviar(accion, zona, explicar, extra = {}) {
 $('avisarVista').addEventListener('click', () => vistaYEnviar('avisar', $('avisarZona'),
   (n) => `Se enviarán <b>${n}</b> emails, uno por cada alumno, alumna o puesto sin confirmar, con su nombre, y un aviso a los móviles de sus familias.`));
 $('escribirVista').addEventListener('click', () => {
-  const que = { confirmar: 'no han confirmado si van', vestuario: 'no han elegido la talla o el color del vestuario', justificante: 'han confirmado que van pero no han subido el justificante del vestuario' }[$('escribirA').value];
+  const que = { confirmar: 'no han confirmado si van', vestuario: 'no han elegido el modelo o la talla del vestuario', justificante: 'han confirmado que van pero no han subido el justificante del vestuario' }[$('escribirA').value];
   vistaYEnviar('escribir', $('escribirZona'), (n) => `Se enviará tu email a <b>${n}</b> familias que ${que} (uno por familia, aunque tenga más de un alumno o alumna).`,
     { a: $('escribirA').value, asunto: $('escribirAsunto').value, texto: $('escribirTexto').value });
 });
