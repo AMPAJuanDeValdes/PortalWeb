@@ -8429,3 +8429,55 @@ returns jsonb language sql stable security definer set search_path = public as $
 $$;
 revoke all on function cabalgata_mi_estado(uuid) from public, anon;
 grant execute on function cabalgata_mi_estado(uuid) to authenticated;
+
+
+-- ==================================================================
+-- CABALGATA: LA JUNTA VE LA PÁGINA COMO LA VE UNA FAMILIA
+--  · cabalgata_estado_familia(evento, socio): lo mismo que ve esa familia
+--    en cabalgata.html (solo superadmin; no cambia nada).
+-- Requiere migracion-cabalgata-disfraz.sql. Se puede ejecutar varias veces.
+-- ==================================================================
+
+create or replace function cabalgata_estado_familia(p_evento uuid, p_socio uuid)
+returns jsonb language sql stable security definer set search_path = public as $$
+  -- Solo la cuenta principal (superadmin), para ver la página como la ve una familia
+  with suplentes as (
+    select grupo_id, dense_rank() over (order by suplente_orden) as puesto_suplente
+    from evento_inscripciones
+    where evento_id = p_evento and suplente_orden is not null and estado = 'no_ganador'
+      and actividad_id is null and not es_voluntario and tipo_miembro = 'alumno'
+  ), mias as (
+    select i.grupo_id,
+      jsonb_agg(jsonb_build_object(
+        'id', i.id, 'tipo', i.tipo_miembro, 'estado', i.estado, 'asistencia', i.asistencia,
+        'confirmar_hasta', i.confirmar_hasta, 'promovido_en', i.promovido_en,
+        'nombre', coalesce(trim(al.nombre || ' ' || coalesce(al.apellidos, '')), trim(ad.nombre || ' ' || coalesce(ad.apellidos, '')),
+                           trim(coalesce(i.nombre_invitado, '') || ' ' || coalesce(i.apellidos_invitado, ''))),
+        'disfraz', (select jsonb_build_object('talla', d.talla, 'color', d.color) from evento_disfraces d where d.evento_inscripcion_id = i.id),
+        'pago', (select jsonb_build_object('verificado', c.verificado, 'subido', c.created_at)
+                 from comprobantes_pago c where c.evento_inscripcion_id = i.id and c.tipo = 'disfraz_evento'
+                 order by c.created_at desc limit 1)
+      ) order by i.tipo_miembro desc) as personas
+    from evento_inscripciones i
+    left join alumnos al on al.id = i.alumno_id
+    left join adultos ad on ad.id = i.adulto_id
+    where i.evento_id = p_evento and i.socio_id = p_socio and i.actividad_id is null
+      and not i.es_voluntario and i.grupo_id is not null
+    group by i.grupo_id
+  )
+  select jsonb_build_object(
+    'parejas', coalesce((select jsonb_agg(jsonb_build_object('grupo', m.grupo_id, 'personas', m.personas,
+                         'suplente', (select s.puesto_suplente from suplentes s where s.grupo_id = m.grupo_id limit 1))) from mias m), '[]'),
+    'puestos', coalesce((select jsonb_agg(jsonb_build_object(
+        'id', p.id, 'puesto', p.puesto, 'estado', p.estado, 'asistencia', p.asistencia,
+        'confirmar_hasta', p.confirmar_hasta, 'promovido_en', p.promovido_en,
+        'nombre', trim(ad.nombre || ' ' || coalesce(ad.apellidos, '')),
+        'suplente', case when p.suplente_orden is not null and p.estado = 'no_elegido' then
+          (select count(*) from evento_postulaciones q where q.evento_id = p.evento_id and q.puesto = p.puesto
+             and q.estado = 'no_elegido' and q.suplente_orden is not null and q.suplente_orden <= p.suplente_orden) end))
+      from evento_postulaciones p join adultos ad on ad.id = p.adulto_id
+      where p.evento_id = p_evento and p.socio_id = p_socio), '[]'))
+  where coalesce(es_admin_principal(), false);
+$$;
+revoke all on function cabalgata_estado_familia(uuid, uuid) from public, anon;
+grant execute on function cabalgata_estado_familia(uuid, uuid) to authenticated;

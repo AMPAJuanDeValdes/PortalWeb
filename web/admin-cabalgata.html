@@ -195,7 +195,7 @@ async function cargar() {
     sb.from('eventos').select('*').eq('id', eventoId).maybeSingle(),
     sb.from('evento_inscripciones').select('id, grupo_id, socio_id, tipo_miembro, estado, asignada_a_mano, suplente_orden, asistencia, asistencia_en, confirmar_hasta, promovido_en, nombre_invitado, apellidos_invitado, alumnos!alumno_id(nombre, apellidos, etapa, curso, aula), adultos!adulto_id(nombre, apellidos, movil), socios(numero_socio_completo), comprobantes_pago(id, tipo, archivo_url, verificado, created_at)')
       .eq('evento_id', eventoId).is('actividad_id', null).eq('es_voluntario', false),
-    sb.from('evento_postulaciones').select('id, puesto, estado, suplente_orden, asistencia, asistencia_en, confirmar_hasta, promovido_en, adultos!adulto_id(nombre, apellidos, movil), socios(numero_socio_completo)').eq('evento_id', eventoId)
+    sb.from('evento_postulaciones').select('id, socio_id, puesto, estado, suplente_orden, asistencia, asistencia_en, confirmar_hasta, promovido_en, adultos!adulto_id(nombre, apellidos, movil), socios(numero_socio_completo)').eq('evento_id', eventoId)
   ]);
   // Talla y color que ha elegido cada familia
   const ids = (filas || []).filter(f => f.tipo_miembro === 'alumno' && f.estado === 'ganador').map(f => f.id);
@@ -257,8 +257,8 @@ async function cargar() {
   $('elegidos').innerHTML = elegidas.length || elegidosPuestos.length ? `<table class="gest"><thead><tr><th>Alumno/a o puesto</th><th>Adulto</th><th>Familia</th><th>Asistencia</th><th>Disfraz</th></tr></thead><tbody>` +
     elegidas.map(p => p.al.map((f, k) => `<tr><td>${esc(nombre(f))}${f.alumnos ? `<br><small>${esc([f.alumnos.etapa, f.alumnos.curso, f.alumnos.aula].filter(Boolean).join(' '))}</small>` : ''}${f.asignada_a_mano ? '<br><small>Plaza de la Junta</small>' : ''}</td>
       <td>${k ? '' : p.ad.map(a => esc(nombre(a)) + (a.adultos && a.adultos.movil ? `<br><small>${esc(a.adultos.movil)}</small>` : '')).join('<br>')}</td>
-      <td>${esc(familia(f))}</td><td>${asistencia(f, plazo(f))}</td><td>${celdaPago(f)}</td></tr>`).join('')).join('') +
-    elegidosPuestos.map(p => `<tr><td><b>${esc(NOMBRE_PUESTO[p.puesto])}</b></td><td>${esc(nombre(p))}${p.adultos && p.adultos.movil ? `<br><small>${esc(p.adultos.movil)}</small>` : ''}</td><td>${esc(familia(p))}</td><td>${asistencia(p, plazo(p))}</td><td></td></tr>`).join('') +
+      <td>${esc(familia(f))}${k ? '' : `<br><a class="solo-super" href="cabalgata.html?evento=${ev.id}&familia=${f.socio_id}">Ver como la ve la familia</a>`}</td><td>${asistencia(f, plazo(f))}</td><td>${celdaPago(f)}</td></tr>`).join('')).join('') +
+    elegidosPuestos.map(p => `<tr><td><b>${esc(NOMBRE_PUESTO[p.puesto])}</b></td><td>${esc(nombre(p))}${p.adultos && p.adultos.movil ? `<br><small>${esc(p.adultos.movil)}</small>` : ''}</td><td>${esc(familia(p))}<br><a class="solo-super" href="cabalgata.html?evento=${ev.id}&familia=${p.socio_id}">Ver como la ve la familia</a></td><td>${asistencia(p, plazo(p))}</td><td></td></tr>`).join('') +
     '</tbody></table>' : '<p class="empty-hint">Todavía no hay elegidos: hay que hacer el sorteo.</p>';
 
   // Suplentes
@@ -268,7 +268,7 @@ async function cargar() {
     + (posts || []).filter(p => p.estado === 'no_elegido' && !p.asistencia && p.suplente_orden == null).length;
   const posPuesto = {};
   $('suplentes').innerHTML = (supParejas.length || supPuestos.length) ? `<table class="gest"><thead><tr><th>Suplente</th><th>Alumno/a o puesto</th><th>Adulto</th><th>Familia</th><th class="solo-super">Orden</th></tr></thead><tbody>` +
-    supParejas.map((p, i) => `<tr><td><b>${i + 1}.º</b></td><td>${p.al.map(f => esc(nombre(f))).join('<br>')}${p.al[0].asistencia === 'no' ? '<br><small>Tenía plaza y dijo que no podía ir</small>' : ''}</td><td>${p.ad.map(a => esc(nombre(a))).join('<br>')}</td><td>${esc(familia(p.al[0]))}</td><td class="solo-super">${mover('grupo', p.al[0].grupo_id || p.al[0].id, i === 0, i === supParejas.length - 1)}</td></tr>`).join('') +
+    supParejas.map((p, i) => `<tr><td><b>${i + 1}.º</b></td><td>${p.al.map(f => esc(nombre(f))).join('<br>')}${p.al[0].asistencia === 'no' ? '<br><small>Tenía plaza y dijo que no podía ir</small>' : ''}</td><td>${p.ad.map(a => esc(nombre(a))).join('<br>')}</td><td>${esc(familia(p.al[0]))}<br><a class="solo-super" href="cabalgata.html?evento=${ev.id}&familia=${p.al[0].socio_id}">Ver como la ve la familia</a></td><td class="solo-super">${mover('grupo', p.al[0].grupo_id || p.al[0].id, i === 0, i === supParejas.length - 1)}</td></tr>`).join('') +
     supPuestos.map(p => { posPuesto[p.puesto] = (posPuesto[p.puesto] || 0) + 1; const ultimo = posPuesto[p.puesto] === supPuestos.filter(q => q.puesto === p.puesto).length; return `<tr><td><b>${posPuesto[p.puesto]}.º</b></td><td>${esc(NOMBRE_PUESTO[p.puesto])}${p.asistencia === 'no' ? '<br><small>Tenía el puesto y dijo que no podía ir</small>' : ''}</td><td>${esc(nombre(p))}</td><td>${esc(familia(p))}</td><td class="solo-super">${mover('postulacion', p.id, posPuesto[p.puesto] === 1, ultimo)}</td></tr>`; }).join('') +
     '</tbody></table>' : '<p class="empty-hint">No hay suplentes.</p>';
   $('ordenarZona').hidden = !(ev.sorteo_realizado && sinOrden);

@@ -56,9 +56,11 @@ const NOMBRE_PUESTO = { responsable: 'Responsable', baltasar: 'Rey Baltasar', ga
 const fechaLarga = (f) => new Date(f).toLocaleString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }).replace(',', '');
 const euros = (n) => Number(n).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' });
 const eventoId = new URLSearchParams(location.search).get('evento');
+// La Junta puede ver la página como la ve una familia (?familia=<socio>): solo mirar
+let VISTA_FAMILIA = new URLSearchParams(location.search).get('familia');
 // Muestra de color en los botones (si la Junta pone otro color, sale gris)
 const COLOR_MUESTRA = { verde: '#2E9E4F', azul: '#2563C9', rojo: '#D23A32', amarillo: '#F2C230', morado: '#7B4BB7', blanco: '#fff', negro: '#222', dorado: '#C9A227', plateado: '#B8BEC6' };
-let ctxGlobal = null, EV = null;
+let ctxGlobal = null, EV = null, VISTA_NOMBRE = '';
 
 // Lo que pone cada plaza: confirmar, confirmada, suplente o sin plaza
 // Cada plaza con su nombre (en una familia puede salir uno y otro no):
@@ -107,7 +109,7 @@ async function pintar() {
   const cont = document.getElementById('contenido');
   const [{ data: ev }, { data: est, error }] = await Promise.all([
     sb.from('eventos').select('id, titulo, fecha, gestion_confirmar_hasta, disfraz_precio, disfraz_incluye, disfraz_fotos, disfraz_tallas, disfraz_colores, gestion_instrucciones').eq('id', eventoId).maybeSingle(),
-    sb.rpc('cabalgata_mi_estado', { p_evento: eventoId })
+    VISTA_FAMILIA ? sb.rpc('cabalgata_estado_familia', { p_evento: eventoId, p_socio: VISTA_FAMILIA }) : sb.rpc('cabalgata_mi_estado', { p_evento: eventoId })
   ]);
   if (!ev) { cont.innerHTML = '<p class="msg-error">No se encuentra el evento.</p>'; return; }
   EV = ev;
@@ -115,6 +117,7 @@ async function pintar() {
   document.getElementById('titulo').textContent = ev.titulo;
   document.getElementById('miga').textContent = ev.titulo;
   if (error) { cont.innerHTML = `<p class="msg-error">No se pudo cargar: ${esc(error.message)}</p>`; return; }
+  if (VISTA_FAMILIA && !est) { cont.innerHTML = '<p class="msg-error">Solo la cuenta principal del AMPA puede ver la página como la ve una familia.</p>'; return; }
   const parejas = (est.parejas || []).filter(p => p.personas.some(x => x.tipo === 'alumno'));
   const puestos = est.puestos || [];
   if (!parejas.length && !puestos.length) {
@@ -173,7 +176,9 @@ async function pintar() {
   const algunaPlaza = parejas.some(p => p.personas.some(x => x.estado === 'ganador')) || puestos.some(p => p.estado === 'elegido');
   if (algunaPlaza && ev.gestion_instrucciones) html += `<h2 class="sec">Para el día</h2><div class="instrucciones">${esc(ev.gestion_instrucciones)}</div>`;
 
+  if (VISTA_FAMILIA) html = `<p class="aviso" style="margin-top:20px;"><b>Vista previa:</b> así ve esta página la familia${VISTA_NOMBRE ? ' ' + esc(VISTA_NOMBRE) : ''}. Desde aquí no se puede confirmar ni cambiar nada. <a href="admin-cabalgata.html?evento=${esc(eventoId)}">Volver a la gestión</a></p>` + html;
   cont.innerHTML = html;
+  if (VISTA_FAMILIA) cont.querySelectorAll('button, input').forEach(el => { el.disabled = true; });
   cont.querySelectorAll('.plaza [data-va]').forEach(b => b.addEventListener('click', () => {
     const t = tarjetas[b.closest('.plaza').dataset.t];
     responder({ ...t.datos, quien: t.quien }, b.dataset.va === 'si', b);
@@ -200,6 +205,11 @@ async function pintar() {
   const ctx = await requireAuth();
   if (!ctx) return;
   ctxGlobal = ctx;
+  if (VISTA_FAMILIA && (!ctx.adulto || ctx.adulto.role !== 'admin')) VISTA_FAMILIA = null;   // solo la Junta
+  if (VISTA_FAMILIA) {
+    const { data: n } = await sb.from('socios').select('numero_socio_completo').eq('id', VISTA_FAMILIA).maybeSingle();
+    VISTA_NOMBRE = n ? 'con socio nº ' + numeroSocioBonito(n.numero_socio_completo) : '';
+  }
   renderNav('eventos', ctx);
   if (!eventoId) { document.getElementById('contenido').innerHTML = '<p class="msg-error">Falta el evento.</p>'; return; }
   pintar();
