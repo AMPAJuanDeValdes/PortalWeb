@@ -30,6 +30,8 @@
   .acciones-fila{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top:14px; }
   .resumen{ display:flex; gap:22px; flex-wrap:wrap; margin:0 0 14px; }
   .resumen div{ font-size:15px; color:var(--ink-soft); } .resumen b{ display:block; font-family:var(--font-title); font-size:30px; color:var(--ink); }
+  .btn-mini{ min-width:40px; min-height:36px; border:1px solid var(--line); border-radius:8px; background:#fff; font-size:18px; cursor:pointer; }
+  .btn-mini:disabled{ opacity:.35; cursor:default; }
   .vista-email{ border:1px solid var(--line); border-radius:12px; padding:14px; margin-top:12px; max-height:420px; overflow:auto; }
 </style>
 </head>
@@ -84,7 +86,7 @@
 
   <section class="bloque">
     <h2>Suplentes</h2>
-    <p class="ayuda">Por orden: cuando queda libre una plaza, entra el primero que quepa.</p>
+    <p class="ayuda">Por orden: cuando queda libre una plaza, entra el primero que quepa.<span class="solo-super"> Con las flechas puedes cambiar el orden a mano.</span></p>
     <div class="tabla-scroll" id="suplentes"></div>
     <div class="acciones-fila solo-super" id="ordenarZona" hidden><button type="button" class="btn btn-outline" id="ordenar">Sortear el orden de los suplentes</button><span class="ayuda" id="ordenarMsg"></span></div>
   </section>
@@ -183,6 +185,11 @@ function asistencia(x, plazo) {
   return `<span class="espera">Sin contestar</span>${vence ? `<br><small>hasta el ${fCorta(vence)}${x.promovido_en ? ' (entró de suplente)' : ''}</small>` : ''}`;
 }
 
+// Botones para cambiar a mano el orden de un suplente (solo la cuenta principal)
+const mover = (tipo, id, primero, ultimo) =>
+  `<button type="button" class="btn-mini" data-mover="${tipo}" data-id="${esc(id)}" data-sube="1" ${primero ? 'disabled' : ''} aria-label="Subir">↑</button>
+   <button type="button" class="btn-mini" data-mover="${tipo}" data-id="${esc(id)}" data-sube="0" ${ultimo ? 'disabled' : ''} aria-label="Bajar">↓</button>`;
+
 async function cargar() {
   const [{ data: ev }, { data: filas, error: e1 }, { data: posts }] = await Promise.all([
     sb.from('eventos').select('*').eq('id', eventoId).maybeSingle(),
@@ -260,12 +267,19 @@ async function cargar() {
   const sinOrden = parejas.filter(p => p.al.every(f => f.estado === 'no_ganador' && !f.asistencia) && p.al[0].suplente_orden == null).length
     + (posts || []).filter(p => p.estado === 'no_elegido' && !p.asistencia && p.suplente_orden == null).length;
   const posPuesto = {};
-  $('suplentes').innerHTML = (supParejas.length || supPuestos.length) ? `<table class="gest"><thead><tr><th>Suplente</th><th>Alumno/a o puesto</th><th>Adulto</th><th>Familia</th></tr></thead><tbody>` +
-    supParejas.map((p, i) => `<tr><td><b>${i + 1}.º</b></td><td>${p.al.map(f => esc(nombre(f))).join('<br>')}${p.al[0].asistencia === 'no' ? '<br><small>Tenía plaza y dijo que no podía ir</small>' : ''}</td><td>${p.ad.map(a => esc(nombre(a))).join('<br>')}</td><td>${esc(familia(p.al[0]))}</td></tr>`).join('') +
-    supPuestos.map(p => { posPuesto[p.puesto] = (posPuesto[p.puesto] || 0) + 1; return `<tr><td><b>${posPuesto[p.puesto]}.º</b></td><td>${esc(NOMBRE_PUESTO[p.puesto])}${p.asistencia === 'no' ? '<br><small>Tenía el puesto y dijo que no podía ir</small>' : ''}</td><td>${esc(nombre(p))}</td><td>${esc(familia(p))}</td></tr>`; }).join('') +
+  $('suplentes').innerHTML = (supParejas.length || supPuestos.length) ? `<table class="gest"><thead><tr><th>Suplente</th><th>Alumno/a o puesto</th><th>Adulto</th><th>Familia</th><th class="solo-super">Orden</th></tr></thead><tbody>` +
+    supParejas.map((p, i) => `<tr><td><b>${i + 1}.º</b></td><td>${p.al.map(f => esc(nombre(f))).join('<br>')}${p.al[0].asistencia === 'no' ? '<br><small>Tenía plaza y dijo que no podía ir</small>' : ''}</td><td>${p.ad.map(a => esc(nombre(a))).join('<br>')}</td><td>${esc(familia(p.al[0]))}</td><td class="solo-super">${mover('grupo', p.al[0].grupo_id || p.al[0].id, i === 0, i === supParejas.length - 1)}</td></tr>`).join('') +
+    supPuestos.map(p => { posPuesto[p.puesto] = (posPuesto[p.puesto] || 0) + 1; const ultimo = posPuesto[p.puesto] === supPuestos.filter(q => q.puesto === p.puesto).length; return `<tr><td><b>${posPuesto[p.puesto]}.º</b></td><td>${esc(NOMBRE_PUESTO[p.puesto])}${p.asistencia === 'no' ? '<br><small>Tenía el puesto y dijo que no podía ir</small>' : ''}</td><td>${esc(nombre(p))}</td><td>${esc(familia(p))}</td><td class="solo-super">${mover('postulacion', p.id, posPuesto[p.puesto] === 1, ultimo)}</td></tr>`; }).join('') +
     '</tbody></table>' : '<p class="empty-hint">No hay suplentes.</p>';
   $('ordenarZona').hidden = !(ev.sorteo_realizado && sinOrden);
   $('ordenarMsg').textContent = sinOrden ? `${sinOrden} sin número de suplente.` : '';
+
+  $('suplentes').querySelectorAll('[data-mover]').forEach(b => b.addEventListener('click', async () => {
+    $('suplentes').querySelectorAll('[data-mover]').forEach(x => x.disabled = true);
+    try { await llamar({ accion: 'mover', [b.dataset.mover]: b.dataset.id, sube: b.dataset.sube === '1' }); }
+    catch (e) { alert(e.message); }
+    cargar();
+  }));
 
   // Bajas
   // Los que dijeron que no siguen en la lista de suplentes (al final); aquí, los que ya no están en ella

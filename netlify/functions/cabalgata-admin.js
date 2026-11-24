@@ -4,6 +4,7 @@
 //   POST { eventoId, accion: 'avisar', inicio }          → email + aviso al móvil a los elegidos que no han
 //        confirmado, por tandas (Netlify corta a los 10 s): la pantalla llama con inicio = 0, 2, 4…
 //        hasta que «siguiente» es null. El aviso al móvil sale en la primera tanda.
+//   POST { eventoId, accion: 'mover', grupo | postulacion, sube } → cambia a mano el orden de un suplente (solo superadmin)
 //   POST { eventoId, accion: 'situacion', vista | inicio } → un email por familia socia con todos sus
 //        inscritos y la situación de cada uno (igual: vista previa y luego por tandas)
 
@@ -32,6 +33,10 @@ exports.handler = async (event) => {
     if (p.accion === 'ordenar') {
       if (!(await esSuperadmin(sb, u.user.id))) return json(403, { error: SOLO_SUPERADMIN });
       return json(200, { ok: true, ...(await ordenarSuplentes(sb, String(p.eventoId || ''))) });
+    }
+    if (p.accion === 'mover') {
+      if (!(await esSuperadmin(sb, u.user.id))) return json(403, { error: SOLO_SUPERADMIN });
+      return json(200, await moverSuplente(sb, p));
     }
     if (p.accion === 'situacion') return json(200, await situacion(sb, p, u.user.id));
     if (p.accion !== 'avisar') return json(400, { error: 'Acción desconocida.' });
@@ -187,4 +192,33 @@ async function situacion(sb, p, adultoId) {
   const siguiente = inicio + TANDA < mensajes.length ? inicio + TANDA : null;
   if (siguiente === null) await registrarDifusion(sb, { tipo: 'evento', refId: ev.id, canal: 'cabalgata-situacion', familias: mensajes.length, adultoId });
   return { ok: true, total: mensajes.length, siguiente, enviados, fallos };
+}
+
+// Sube o baja un puesto a un suplente (intercambia el número con el de al lado)
+async function moverSuplente(sb, p) {
+  const { grupos, posts } = await cargar(sb, String(p.eventoId || ''));
+  const sube = p.sube === true;
+  if (p.grupo) {
+    const lista = [...grupos.entries()].filter(([, f]) => alumnosDe(f).length && f.every(x => x.estado === 'no_ganador') && f.some(x => x.suplente_orden != null))
+      .map(([g, f]) => ({ g, f, orden: Math.min(...f.map(x => x.suplente_orden ?? 1e9)) })).sort((a, b) => a.orden - b.orden);
+    const i = lista.findIndex(x => x.g === String(p.grupo));
+    if (i < 0) throw new Error('Esa pareja no está en la lista de suplentes.');
+    const j = sube ? i - 1 : i + 1;
+    if (j < 0 || j >= lista.length) return { ok: true };
+    for (const [x, orden] of [[lista[i], lista[j].orden], [lista[j], lista[i].orden]]) {
+      const { error } = await sb.from('evento_inscripciones').update({ suplente_orden: orden }).in('id', x.f.map(f => f.id));
+      if (error) throw error;
+    }
+    return { ok: true };
+  }
+  const yo = posts.find(x => x.id === String(p.postulacion || ''));
+  if (!yo || yo.estado !== 'no_elegido' || yo.suplente_orden == null) throw new Error('Ese postulado no está en la lista de suplentes.');
+  const lista = posts.filter(x => x.puesto === yo.puesto && x.estado === 'no_elegido' && x.suplente_orden != null).sort((a, b) => a.suplente_orden - b.suplente_orden);
+  const i = lista.indexOf(yo), j = sube ? i - 1 : i + 1;
+  if (j < 0 || j >= lista.length) return { ok: true };
+  for (const [x, orden] of [[lista[i], lista[j].suplente_orden], [lista[j], lista[i].suplente_orden]]) {
+    const { error } = await sb.from('evento_postulaciones').update({ suplente_orden: orden }).eq('id', x.id);
+    if (error) throw error;
+  }
+  return { ok: true };
 }
