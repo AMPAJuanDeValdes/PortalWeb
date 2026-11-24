@@ -8482,3 +8482,63 @@ returns jsonb language sql stable security definer set search_path = public as $
 $$;
 revoke all on function cabalgata_estado_familia(uuid, uuid) from public, anon;
 grant execute on function cabalgata_estado_familia(uuid, uuid) to authenticated;
+
+
+-- Cabalgata: imagen con la guía de tallas del vestuario
+alter table eventos add column if not exists disfraz_guia_tallas text;
+
+
+-- ==================================================================
+-- CABALGATA: VESTUARIO POR COLORES, CON PRECIO POR TALLA
+--  · eventos.disfraz_config = {
+--      "precios": { "5 a 6 años": 16.65, ... },                 precio de cada talla
+--      "colores": { "Verde": { "fotos": [url, url, url],        hasta 3 fotos por color
+--                              "tallas": ["5 a 6 años", ...] } } tallas que hay de ese color
+--    }
+--  · La familia elige color y, de ese color, una talla de las que hay.
+--    Si cambia a un color que no tiene la talla elegida, la talla se borra.
+--  · El justificante solo se puede subir con color y talla elegidos.
+-- Requiere migracion-cabalgata-disfraz.sql. Se puede ejecutar varias veces.
+-- ==================================================================
+
+alter table eventos add column if not exists disfraz_config jsonb not null default '{}';
+
+create or replace function cabalgata_elegir_disfraz(p_inscripcion uuid, p_talla text, p_color text)
+returns void language plpgsql security definer set search_path = public as $$
+declare
+  v eventos%rowtype;
+  v_talla text; v_color text;
+  v_tallas_color jsonb;
+begin
+  select e.* into v from evento_inscripciones i join eventos e on e.id = i.evento_id
+   where i.id = p_inscripcion and i.socio_id = mi_socio_id() and i.tipo_miembro = 'alumno' and i.estado = 'ganador';
+  if not found then raise exception 'Este alumno o alumna no tiene plaza.'; end if;
+  select talla, color into v_talla, v_color from evento_disfraces where evento_inscripcion_id = p_inscripcion;
+  v_talla := coalesce(p_talla, v_talla);
+  v_color := coalesce(p_color, v_color);
+  if p_color is not null and not (p_color = any (v.disfraz_colores)) then raise exception 'Ese color no está disponible.'; end if;
+  if p_talla is not null and not (p_talla = any (v.disfraz_tallas)) then raise exception 'Esa talla no está disponible.'; end if;
+  -- Tallas que hay de ese color (si la Junta las ha marcado)
+  v_tallas_color := v.disfraz_config -> 'colores' -> v_color -> 'tallas';
+  if v_color is not null and v_talla is not null and jsonb_typeof(v_tallas_color) = 'array' and not (v_tallas_color ? v_talla) then
+    if p_talla is not null then raise exception 'Esa talla no la hay en ese color.'; end if;
+    v_talla := null;   -- ha cambiado de color y su talla no está: tiene que volver a elegirla
+  end if;
+  insert into evento_disfraces (evento_inscripcion_id, talla, color, updated_at)
+  values (p_inscripcion, v_talla, v_color, now())
+  on conflict (evento_inscripcion_id) do update set talla = excluded.talla, color = excluded.color, updated_at = now();
+end;
+$$;
+revoke all on function cabalgata_elegir_disfraz(uuid, text, text) from public, anon;
+grant execute on function cabalgata_elegir_disfraz(uuid, text, text) to authenticated;
+
+-- El justificante, solo con color y talla elegidos
+drop policy if exists "familia sube el justificante del disfraz" on comprobantes_pago;
+create policy "familia sube el justificante del disfraz" on comprobantes_pago for insert
+  with check (
+    tipo = 'disfraz_evento' and socio_id = mi_socio_id() and not verificado
+    and exists (select 1 from evento_inscripciones i
+                join evento_disfraces d on d.evento_inscripcion_id = i.id and d.talla is not null and d.color is not null
+                where i.id = evento_inscripcion_id and i.socio_id = mi_socio_id()
+                  and i.tipo_miembro = 'alumno' and i.estado = 'ganador'));
+

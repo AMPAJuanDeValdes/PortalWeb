@@ -53,16 +53,20 @@
 
   <section class="bloque">
     <h2>Vestuario de los alumnos y alumnas</h2>
-    <p class="ayuda">Lo ven las familias de los alumnos y alumnas que han salido en el sorteo: eligen talla y color con un clic, y tienen los datos para pagarlo por transferencia y subir el justificante.</p>
+    <p class="ayuda">Lo ven las familias de los alumnos y alumnas que han salido en el sorteo: eligen color y, de ese color, la talla con un clic; el importe depende de la talla. Tienen los datos para pagarlo por transferencia y subir el justificante.</p>
     <div class="dos">
-      <div class="field"><label for="gPrecio">Precio de cada vestuario (€)</label><input type="number" id="gPrecio" min="0" step="0.01"></div>
       <div class="field"><label for="gIncluye">Qué incluye</label><input type="text" id="gIncluye" placeholder="Por ejemplo: chaqueta, pantalón, gorro y guantes"></div>
       <div class="field"><label for="gTallas">Tallas (separadas por comas)</label><input type="text" id="gTallas"></div>
       <div class="field"><label for="gColores">Colores (separados por comas)</label><input type="text" id="gColores"></div>
     </div>
-    <div class="field"><label>Fotos del vestuario (hasta 3)</label>
-      <div class="fotos-admin" id="gFotos"></div>
-      <input type="file" id="gFotoFile" accept="image/*"><p class="ayuda" id="gFotoMsg" hidden></p>
+    <h3 style="margin:16px 0 6px;">Precio de cada talla (€)</h3>
+    <div class="dos" id="gPrecios"></div>
+    <h3 style="margin:16px 0 6px;">Cada color: sus tallas y hasta 3 fotos, cada una con su guía de tallas</h3>
+    <p class="ayuda">Al pulsar una foto, las familias ven la guía de tallas de esa foto.</p>
+    <div id="gColoresCfg"></div>
+    <div class="field" style="margin-top:14px;"><label>Guía de tallas general (opcional)</label>
+      <div class="fotos-admin" id="gGuia"></div>
+      <input type="file" id="gGuiaFile" accept="image/*"><p class="ayuda" id="gGuiaMsg">Se usa en las fotos que no tienen su propia guía.</p>
     </div>
   </section>
 
@@ -122,7 +126,7 @@ const aISO = (v) => v ? new Date(v).toISOString() : null;
 const fCorta = (f) => f ? new Date(f).toLocaleString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
 const euros = (n) => Number(n).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' });
 let eventoId = new URLSearchParams(location.search).get('evento');
-let EV = null, FOTOS = [];
+let EV = null;
 
 async function llamar(cuerpo) {
   const { data: { session } } = await sb.auth.getSession();
@@ -136,11 +140,62 @@ async function llamar(cuerpo) {
 }
 
 /* ---------- Ajustes ---------- */
-function pintarFotos() {
-  $('gFotos').innerHTML = FOTOS.map((u, k) => `<figure><img src="${esc(u)}" alt="Foto ${k + 1} del vestuario"><button type="button" class="btn-danger-link" data-k="${k}">Quitar</button></figure>`).join('');
-  $('gFotos').querySelectorAll('[data-k]').forEach(b => b.addEventListener('click', () => { FOTOS.splice(+b.dataset.k, 1); pintarFotos(); }));
-  $('gFotoFile').disabled = FOTOS.length >= 3;
+// Configuración del vestuario: precio por talla y, de cada color, sus tallas y fotos
+let CFG = { precios: {}, colores: {} };
+const listaTallas = () => $('gTallas').value.split(',').map(t => t.trim()).filter(Boolean);
+const listaColores = () => $('gColores').value.split(',').map(t => t.trim()).filter(Boolean);
+function leerPrecios() {
+  $('gPrecios').querySelectorAll('[data-precio]').forEach(inp => { const v = inp.value.trim(); if (v === '') delete CFG.precios[inp.dataset.precio]; else CFG.precios[inp.dataset.precio] = parseFloat(v); });
 }
+function pintarCfg() {
+  leerPrecios();
+  const tallas = listaTallas();
+  $('gPrecios').innerHTML = tallas.map((t, k) => `<div class="field"><label for="gPr${k}">${esc(t)}</label><input type="number" id="gPr${k}" min="0" step="0.01" data-precio="${esc(t)}" value="${CFG.precios[t] ?? ''}"></div>`).join('') || '<p class="ayuda">Escribe antes las tallas.</p>';
+  $('gColoresCfg').innerHTML = listaColores().map((c, k) => {
+    const cc = CFG.colores[c] || (CFG.colores[c] = { tallas: [...tallas], fotos: [] });
+    if (!Array.isArray(cc.guias)) cc.guias = [];
+    return `<div class="color-cfg" data-color="${esc(c)}" style="border:1px solid var(--line); border-radius:12px; padding:12px 14px; margin-bottom:12px;">
+      <b>${esc(c)}</b>
+      <div style="display:flex; gap:14px; flex-wrap:wrap; margin:8px 0;">${tallas.map(t => `<label class="check"><input type="checkbox" data-talla="${esc(t)}" ${cc.tallas.includes(t) ? 'checked' : ''}> ${esc(t)}</label>`).join('')}</div>
+      <div class="fotos-admin">${cc.fotos.map((u, f) => `<figure><img src="${esc(u)}" alt="Foto ${f + 1} del vestuario ${esc(c)}"><button type="button" class="btn-danger-link" data-quitar="${f}">Quitar foto</button>
+        <span class="ayuda" style="display:block;margin-top:6px;">Guía de tallas:</span>
+        ${cc.guias[f] ? `<img src="${esc(cc.guias[f])}" alt="Guía de tallas de la foto ${f + 1} (${esc(c)})"><button type="button" class="btn-danger-link" data-quitar-guia="${f}">Quitar guía</button>` : `<input type="file" accept="image/*" data-guia="${f}" aria-label="Subir la guía de tallas de la foto ${f + 1} de ${esc(c)}" style="width:150px;">`}</figure>`).join('')}</div>
+      ${cc.fotos.length < 3 ? `<input type="file" accept="image/*" data-foto aria-label="Añadir foto del vestuario ${esc(c)}">` : ''}<span class="ayuda" data-msg></span></div>`;
+  }).join('') || '<p class="ayuda">Escribe antes los colores.</p>';
+  $('gColoresCfg').querySelectorAll('.color-cfg').forEach(caja => {
+    const cc = CFG.colores[caja.dataset.color];
+    caja.querySelectorAll('[data-talla]').forEach(ch => ch.addEventListener('change', () => {
+      cc.tallas = [...caja.querySelectorAll('[data-talla]:checked')].map(x => x.dataset.talla);
+    }));
+    caja.querySelectorAll('[data-quitar]').forEach(b => b.addEventListener('click', () => { cc.fotos.splice(+b.dataset.quitar, 1); cc.guias.splice(+b.dataset.quitar, 1); pintarCfg(); }));
+    caja.querySelectorAll('[data-quitar-guia]').forEach(b => b.addEventListener('click', () => { cc.guias[+b.dataset.quitarGuia] = null; pintarCfg(); }));
+    caja.querySelectorAll('[data-guia]').forEach(gi => gi.addEventListener('change', async () => {
+      const file = gi.files[0]; if (!file) return;
+      const msg = caja.querySelector('[data-msg]'); msg.textContent = ' Subiendo la guía...';
+      const peque = await reducirImagen(file);
+      const path = `cabalgata/${eventoId}/guia-${Date.now()}-${peque.name.replace(/[^a-zA-Z0-9.\-_]/g, '_')}`;
+      const { error } = await sb.storage.from('carrusel').upload(path, peque, { contentType: peque.type });
+      if (error) { msg.textContent = ' No se pudo subir: ' + error.message; gi.value = ''; return; }
+      cc.guias[+gi.dataset.guia] = sb.storage.from('carrusel').getPublicUrl(path).data.publicUrl;
+      pintarCfg();
+      $('gGuardarMsg').hidden = false; $('gGuardarMsg').className = 'ayuda'; $('gGuardarMsg').textContent = 'Guía subida. Pulsa «Guardar» para que la vean las familias.';
+    }));
+    const inp = caja.querySelector('[data-foto]');
+    if (inp) inp.addEventListener('change', async () => {
+      const file = inp.files[0]; if (!file) return;
+      const msg = caja.querySelector('[data-msg]'); msg.textContent = ' Subiendo...';
+      const peque = await reducirImagen(file);
+      const path = `cabalgata/${eventoId}/${Date.now()}-${peque.name.replace(/[^a-zA-Z0-9.\-_]/g, '_')}`;
+      const { error } = await sb.storage.from('carrusel').upload(path, peque, { contentType: peque.type });
+      if (error) { msg.textContent = ' No se pudo subir: ' + error.message; return; }
+      cc.fotos.push(sb.storage.from('carrusel').getPublicUrl(path).data.publicUrl);
+      pintarCfg();
+      $('gGuardarMsg').hidden = false; $('gGuardarMsg').className = 'ayuda'; $('gGuardarMsg').textContent = 'Foto subida. Pulsa «Guardar» para que la vean las familias.';
+    });
+  });
+}
+$('gTallas').addEventListener('change', pintarCfg);
+$('gColores').addEventListener('change', pintarCfg);
 function reducirImagen(file) {
   if (!/^image\/(jpeg|png|webp)$/.test(file.type)) return Promise.resolve(file);
   return new Promise((resolve) => {
@@ -158,29 +213,40 @@ function reducirImagen(file) {
     img.src = URL.createObjectURL(file);
   });
 }
-$('gFotoFile').addEventListener('change', async (e) => {
+// Guía de tallas (una imagen)
+let GUIA = null;
+function pintarGuia() {
+  $('gGuia').innerHTML = GUIA ? `<figure><img src="${esc(GUIA)}" alt="Guía de tallas"><button type="button" class="btn-danger-link" id="gGuiaQuitar">Quitar</button></figure>` : '';
+  if (GUIA) $('gGuiaQuitar').addEventListener('click', () => { GUIA = null; pintarGuia(); });
+}
+$('gGuiaFile').addEventListener('change', async (e) => {
   const file = e.target.files[0]; if (!file) return;
-  const msg = $('gFotoMsg'); msg.hidden = false; msg.textContent = 'Subiendo...';
+  const msg = $('gGuiaMsg'); msg.textContent = 'Subiendo...';
   const peque = await reducirImagen(file);
-  const path = `cabalgata/${eventoId}/${Date.now()}-${peque.name.replace(/[^a-zA-Z0-9.\-_]/g, '_')}`;
+  const path = `cabalgata/${eventoId}/guia-${Date.now()}-${peque.name.replace(/[^a-zA-Z0-9.\-_]/g, '_')}`;
   const { error } = await sb.storage.from('carrusel').upload(path, peque, { contentType: peque.type });
   e.target.value = '';
   if (error) { msg.textContent = 'No se pudo subir: ' + error.message; return; }
-  FOTOS.push(sb.storage.from('carrusel').getPublicUrl(path).data.publicUrl);
+  GUIA = sb.storage.from('carrusel').getPublicUrl(path).data.publicUrl;
   msg.textContent = 'Subida. Pulsa «Guardar» para que la vean las familias.';
-  pintarFotos();
+  pintarGuia();
 });
 $('gGuardar').addEventListener('click', async () => {
   const msg = $('gGuardarMsg'); msg.hidden = false;
-  const precio = $('gPrecio').value;
+  leerPrecios();
+  const tallas = listaTallas(), colores = listaColores();
+  const precios = Object.fromEntries(tallas.filter(t => CFG.precios[t] != null && !isNaN(CFG.precios[t])).map(t => [t, CFG.precios[t]]));
+  const config = { precios, colores: Object.fromEntries(colores.map(c => [c, { tallas: (CFG.colores[c] || { tallas: tallas }).tallas.filter(t => tallas.includes(t)), fotos: (CFG.colores[c] || { fotos: [] }).fotos, guias: ((CFG.colores[c] || {}).guias || []).slice(0, ((CFG.colores[c] || { fotos: [] }).fotos).length).map(g => g || null) }])) };
+  if (tallas.some(t => precios[t] == null)) { msg.className = 'msg-error'; msg.textContent = 'Pon el precio de todas las tallas.'; return; }
   const { error } = await sb.from('eventos').update({
     gestion_confirmar_hasta: aISO($('gHasta').value),
     gestion_horas_suplente: parseInt($('gHoras').value, 10) || 48,
-    disfraz_precio: precio === '' ? null : parseFloat(precio),
+    disfraz_precio: tallas.length ? Math.min(...tallas.map(t => precios[t])) : null,   // con precio = hay vestuario
+    disfraz_config: config,
     disfraz_incluye: $('gIncluye').value.trim() || null,
     disfraz_tallas: $('gTallas').value.split(',').map(t => t.trim()).filter(Boolean),
     disfraz_colores: $('gColores').value.split(',').map(t => t.trim()).filter(Boolean),
-    disfraz_fotos: FOTOS,
+    disfraz_guia_tallas: GUIA,
     gestion_instrucciones: $('gInstrucciones').value.trim() || null
   }).eq('id', eventoId);
   msg.className = error ? 'msg-error' : 'msg-ok';
@@ -225,12 +291,16 @@ async function cargar() {
     $('gHoras').value = ev.gestion_horas_suplente || 48;
     // La primera vez, lo que dijo la Junta (se guarda al pulsar «Guardar»)
     const nuevo = ev.disfraz_precio == null && !ev.disfraz_incluye && !ev.gestion_instrucciones;
-    $('gPrecio').value = ev.disfraz_precio ?? (nuevo ? '16.65' : '');
     $('gIncluye').value = ev.disfraz_incluye || (nuevo ? 'Chaqueta, pantalón, gorro y guantes' : '');
     $('gTallas').value = (ev.disfraz_tallas || []).join(', ');
     $('gColores').value = (ev.disfraz_colores || []).join(', ');
     $('gInstrucciones').value = ev.gestion_instrucciones || (nuevo ? 'Los padres tienen que comprarle las mallas blancas y abrigarles por debajo. Si llueve deben llevar cobertor de plástico transparente.' : '');
-    FOTOS = [...(ev.disfraz_fotos || [])]; pintarFotos();
+    CFG = JSON.parse(JSON.stringify(ev.disfraz_config || {}));
+    CFG.precios = CFG.precios || {}; CFG.colores = CFG.colores || {};
+    // La primera vez: el precio que había para todas las tallas
+    if (!Object.keys(CFG.precios).length) (ev.disfraz_tallas || []).forEach(t => { CFG.precios[t] = ev.disfraz_precio ?? (nuevo ? 16.65 : null); if (CFG.precios[t] == null) delete CFG.precios[t]; });
+    pintarCfg();
+    GUIA = ev.disfraz_guia_tallas || null; pintarGuia();
     const url = location.origin + '/cabalgata.html?evento=' + ev.id;
     $('gEnlace').href = url; $('gEnlace').textContent = url;
   }

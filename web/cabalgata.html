@@ -31,6 +31,15 @@
   .pago{ background:#fff; border:1px solid var(--line); border-radius:var(--radius-card); padding:18px 20px; margin-top:12px; }
   .pago h3{ margin:0 0 8px; font-size:19px; }
   .elige-tit{ font-weight:700; margin:12px 0 6px; }
+  .elige-tit .guia{ font-weight:400; margin-left:8px; }
+  .colores{ display:grid; gap:16px; }
+  .color-caja{ background:#fff; border:1px solid var(--line); border-radius:var(--radius-card); padding:16px 18px; }
+  .color-caja h3{ display:flex; align-items:center; gap:10px; margin:0 0 10px; font-size:20px; }
+  .color-caja .fotos{ grid-template-columns:repeat(3, 1fr); }
+  .color-caja .fotos a{ height:180px; }
+  .tallas-color{ margin:10px 0 0; }
+  @media (max-width:520px){ .color-caja .fotos a{ height:120px; padding:6px; } }
+  .guia-tallas{ display:block; margin:14px 0; max-width:520px; } .guia-tallas img{ width:100%; border:1px solid var(--line); border-radius:12px; }
   .elige{ display:flex; gap:8px; flex-wrap:wrap; }
   .opcion{ display:inline-flex; align-items:center; gap:8px; min-height:44px; padding:8px 16px; border:2px solid var(--line); border-radius:999px; background:#fff; font:inherit; font-size:17px; color:var(--ink); cursor:pointer; }
   .opcion.sel{ border-color:var(--ink); background:var(--ink); color:#fff; font-weight:700; }
@@ -95,7 +104,7 @@ async function responder(datos, va, boton) {
 
 // Sube el justificante del vestuario. El mensaje va siempre en el mismo
 // párrafo (.msg-subida), así se puede volver a intentar sin recargar.
-async function subirJustificante(insc, input, msg, boton) {
+async function subirJustificante(insc, importe, input, msg, boton) {
   const avisar = (texto, error) => { msg.textContent = texto; msg.classList.toggle('msg-error', !!error); msg.classList.toggle('ayuda', !error); msg.hidden = false; };
   const file = input.files[0];
   if (!file) { avisar('Elige el justificante de la transferencia.', true); return; }
@@ -106,7 +115,7 @@ async function subirJustificante(insc, input, msg, boton) {
     const { error: upErr } = await sb.storage.from('comprobantes').upload(path, file);
     if (upErr) throw upErr;
     const { error } = await sb.from('comprobantes_pago').insert({
-      tipo: 'disfraz_evento', evento_inscripcion_id: insc, socio_id: ctxGlobal.socio.id, archivo_url: path, importe: EV.disfraz_precio });
+      tipo: 'disfraz_evento', evento_inscripcion_id: insc, socio_id: ctxGlobal.socio.id, archivo_url: path, importe });
     if (error) throw error;
   } catch (e) {
     avisar('No se pudo subir: ' + (e.message || e) + '. Vuelve a intentarlo y, si sigue sin funcionar, escribe a la Junta.', true);
@@ -119,7 +128,7 @@ async function subirJustificante(insc, input, msg, boton) {
 async function pintar() {
   const cont = document.getElementById('contenido');
   const [{ data: ev }, { data: est, error }] = await Promise.all([
-    sb.from('eventos').select('id, titulo, fecha, gestion_confirmar_hasta, disfraz_precio, disfraz_incluye, disfraz_fotos, disfraz_tallas, disfraz_colores, gestion_instrucciones').eq('id', eventoId).maybeSingle(),
+    sb.from('eventos').select('id, titulo, fecha, gestion_confirmar_hasta, disfraz_precio, disfraz_incluye, disfraz_fotos, disfraz_tallas, disfraz_colores, disfraz_guia_tallas, disfraz_config, gestion_instrucciones').eq('id', eventoId).maybeSingle(),
     VISTA_FAMILIA ? sb.rpc('cabalgata_estado_familia', { p_evento: eventoId, p_socio: VISTA_FAMILIA }) : sb.rpc('cabalgata_mi_estado', { p_evento: eventoId })
   ]);
   if (!ev) { cont.innerHTML = '<p class="msg-error">No se encuentra el evento.</p>'; return; }
@@ -161,28 +170,44 @@ async function pintar() {
       <p class="msg-error" hidden></p></div>`;
   }
 
-  // Disfraz: lo ven y lo pagan las familias de los alumnos y alumnas que han salido
+  // Vestuario: lo ven y lo pagan las familias de los alumnos y alumnas que han salido.
+  // Cada color tiene sus fotos y sus tallas; el precio depende de la talla.
   const conDisfraz = parejas.flatMap(p => p.personas).filter(x => x.tipo === 'alumno' && x.estado === 'ganador');
   if (conDisfraz.length && ev.disfraz_precio) {
+    const cfg = ev.disfraz_config || {};
+    const precioDe = (t) => (cfg.precios && cfg.precios[t] != null) ? cfg.precios[t] : ev.disfraz_precio;
+    const tallasDe = (c) => (cfg.colores && cfg.colores[c] && Array.isArray(cfg.colores[c].tallas)) ? (ev.disfraz_tallas || []).filter(t => cfg.colores[c].tallas.includes(t)) : (ev.disfraz_tallas || []);
+    const fotosDe = (c) => (cfg.colores && cfg.colores[c] && cfg.colores[c].fotos) || [];
+    const muestra = (c) => `<span class="muestra" style="background:${COLOR_MUESTRA[c.toLowerCase()] || '#ccc'}"></span>`;
+    // Al pulsar una foto se abre la guía de tallas (si no hay guía, la foto en grande)
+    const guiasDe = (c) => (cfg.colores && cfg.colores[c] && cfg.colores[c].guias) || [];
+    const guiaDe = (c, f) => guiasDe(c)[f] || ev.disfraz_guia_tallas || null;
+    const hayGuia = (ev.disfraz_colores || []).some(c => fotosDe(c).some((u, f) => guiaDe(c, f)));
     html += `<h2 class="sec">Vestuario</h2>
       <p class="precio"><b>Es obligatorio adquirir el vestuario para participar en la Cabalgata.</b></p>
-      ${(ev.disfraz_fotos || []).length ? `<div class="fotos">${ev.disfraz_fotos.map(u => `<a href="${esc(u)}" target="_blank" rel="noopener" aria-label="Ver la foto en grande"><img src="${esc(u)}" alt="Vestuario" loading="lazy"></a>`).join('')}</div>` : ''}
-      <p class="precio">Cada vestuario: <b>${euros(ev.disfraz_precio)}</b>${ev.disfraz_incluye ? ` (${esc(ev.disfraz_incluye)})` : ''}. Pagadlo por transferencia y subid el justificante para que podamos comprarlo.</p>`;
+      <p class="precio">${ev.disfraz_incluye ? `Incluye: ${esc(ev.disfraz_incluye)}. ` : ''}El precio depende de la talla. Pagadlo por transferencia y subid el justificante para que podamos comprarlo.${hayGuia ? ' Pulsad una foto para ver su guía de tallas.' : ''}</p>
+      <div class="colores">${(ev.disfraz_colores || []).map(c => `<div class="color-caja"><h3>${muestra(c)}${esc(c)}</h3>
+        ${fotosDe(c).length ? `<div class="fotos">${fotosDe(c).map((u, f) => `<a href="${esc(guiaDe(c, f) || u)}" target="_blank" rel="noopener" aria-label="${guiaDe(c, f) ? 'Ver la guía de tallas' : 'Ver la foto en grande'}"><img src="${esc(u)}" alt="Vestuario ${esc(c)}" loading="lazy"></a>`).join('')}</div>` : ''}
+        <p class="tallas-color"><b>Tallas:</b> ${tallasDe(c).map(t => `${esc(t)} (${euros(precioDe(t))})`).join(', ') || 'ninguna'}</p></div>`).join('')}</div>`;
     for (const x of conDisfraz) {
       const pago = x.pago;
       const d = x.disfraz || {};
+      const tallas = d.color ? tallasDe(d.color) : [];
+      const listo = d.color && d.talla && tallas.includes(d.talla);
       html += `<div class="pago" data-insc="${x.id}"><h3>Vestuario de ${esc(x.nombre)}</h3>
-        <p class="elige-tit">Talla</p><div class="elige" role="group" aria-label="Talla de ${esc(x.nombre)}">${(ev.disfraz_tallas || []).map(t => `<button type="button" class="opcion${d.talla === t ? ' sel' : ''}" aria-pressed="${d.talla === t}" data-talla="${esc(t)}">${esc(t)}</button>`).join('')}</div>
-        <p class="elige-tit">Color</p><div class="elige" role="group" aria-label="Color de ${esc(x.nombre)}">${(ev.disfraz_colores || []).map(c => `<button type="button" class="opcion${d.color === c ? ' sel' : ''}" aria-pressed="${d.color === c}" data-color="${esc(c)}"><span class="muestra" style="background:${COLOR_MUESTRA[c.toLowerCase()] || '#ccc'}"></span>${esc(c)}</button>`).join('')}</div>
+        <p class="elige-tit">Color</p><div class="elige" role="group" aria-label="Color de ${esc(x.nombre)}">${(ev.disfraz_colores || []).map(c => `<button type="button" class="opcion${d.color === c ? ' sel' : ''}" aria-pressed="${d.color === c}" data-color="${esc(c)}">${muestra(c)}${esc(c)}</button>`).join('')}</div>
+        <p class="elige-tit">Talla${(() => { if (!d.color) return ''; const gs = [...new Set(fotosDe(d.color).map((u, f) => guiaDe(d.color, f)).filter(Boolean))]; if (!gs.length && ev.disfraz_guia_tallas) gs.push(ev.disfraz_guia_tallas); return gs.map((g, k) => ` <a class="guia" href="${esc(g)}" target="_blank" rel="noopener">Ver la guía de tallas${gs.length > 1 ? ' ' + (k + 1) : ''}</a>`).join(''); })()}</p>
+        ${d.color ? `<div class="elige" role="group" aria-label="Talla de ${esc(x.nombre)}">${tallas.map(t => `<button type="button" class="opcion${d.talla === t ? ' sel' : ''}" aria-pressed="${d.talla === t}" data-talla="${esc(t)}">${esc(t)} · ${euros(precioDe(t))}</button>`).join('')}</div>` : '<p class="ayuda">Elegid primero el color.</p>'}
         <p class="msg-error elige-error" hidden></p>` + (pago
         ? `<p class="estado">${pago.verificado ? '<b>Pagado.</b> La Junta ha comprobado el pago.' : '<b>Justificante enviado.</b> La Junta lo revisará.'}</p>`
+        : !listo ? '<p class="ayuda" style="margin-top:14px;">Cuando elijáis el color y la talla, aquí saldrán el importe y los datos para pagar.</p>'
         : `<div class="datos-pago">
-            <div><span>Importe</span><b>${euros(ev.disfraz_precio)}</b></div>
+            <div><span>Importe</span><b>${euros(precioDe(d.talla))}</b></div>
             <div><span>IBAN</span><b class="iban">${AMPA_IBAN}</b></div>
             <div><span>Titular</span><b>${esc(AMPA_TITULAR_CUENTA)}</b></div>
             <div><span>Concepto</span><b>Vestuario ${esc(ev.titulo)} - ${esc(x.nombre)}</b></div></div>
           <div class="field" style="margin-top:12px;"><label>Justificante de la transferencia</label><input type="file" class="justif" accept="image/*,.pdf"></div>
-          <button type="button" class="btn btn-primary subir" data-insc="${x.id}">Enviar justificante</button><p class="msg-subida" hidden></p>`) + '</div>';
+          <button type="button" class="btn btn-primary subir" data-insc="${x.id}" data-importe="${precioDe(d.talla)}">Enviar justificante</button><p class="msg-subida" hidden></p>`) + '</div>';
     }
   }
   const algunaPlaza = parejas.some(p => p.personas.some(x => x.estado === 'ganador')) || puestos.some(p => p.estado === 'elegido');
@@ -205,11 +230,13 @@ async function pintar() {
     if (error) {
       err.textContent = 'No se pudo guardar: ' + error.message;
       grupo.querySelectorAll('.opcion').forEach(o => { o.classList.toggle('sel', o === antes); o.setAttribute('aria-pressed', o === antes); });
+      return;
     }
+    pintar();   // las tallas dependen del color y el importe de la talla
   }));
   cont.querySelectorAll('.subir').forEach(b => b.addEventListener('click', () => {
     const caja = b.closest('.pago');
-    subirJustificante(b.dataset.insc, caja.querySelector('.justif'), caja.querySelector('.msg-subida'), b);
+    subirJustificante(b.dataset.insc, Number(b.dataset.importe), caja.querySelector('.justif'), caja.querySelector('.msg-subida'), b);
   }));
 }
 
