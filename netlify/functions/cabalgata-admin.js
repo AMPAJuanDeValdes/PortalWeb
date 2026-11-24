@@ -5,6 +5,8 @@
 //        confirmado, por tandas (Netlify corta a los 10 s): la pantalla llama con inicio = 0, 2, 4…
 //        hasta que «siguiente» es null. El aviso al móvil sale en la primera tanda.
 //   POST { eventoId, accion: 'mover', grupo | postulacion, sube } → cambia a mano el orden de un suplente (solo superadmin)
+//   POST { eventoId, accion: 'escribir', a: 'confirmar' | 'vestuario' | 'justificante', asunto, texto, vista | inicio }
+//        → un email escrito por la Junta a las familias que tienen eso pendiente (uno por familia)
 //   POST { eventoId, accion: 'situacion', vista | inicio } → un email por familia socia con todos sus
 //        inscritos y la situación de cada uno (igual: vista previa y luego por tandas)
 
@@ -39,6 +41,7 @@ exports.handler = async (event) => {
       return json(200, await moverSuplente(sb, p));
     }
     if (p.accion === 'situacion') return json(200, await situacion(sb, p, u.user.id));
+    if (p.accion === 'escribir') return json(200, await escribir(sb, p, u.user.id));
     if (p.accion !== 'avisar') return json(400, { error: 'Acción desconocida.' });
 
     const { ev, grupos, posts } = await cargar(sb, String(p.eventoId || ''));
@@ -221,4 +224,58 @@ async function moverSuplente(sb, p) {
     if (error) throw error;
   }
   return { ok: true };
+}
+
+// Email escrito por la Junta a las familias con algo pendiente:
+//   confirmar    → alguien con plaza que no ha dicho si va
+//   vestuario    → alumno o alumna con plaza sin talla o sin color
+//   justificante → alumno o alumna con plaza sin justificante del vestuario
+async function escribir(sb, p, adultoId) {
+  const asunto = String(p.asunto || '').trim(), texto = String(p.texto || '').trim();
+  if (!asunto || !texto) throw new Error('Escribe el asunto y el mensaje.');
+  const { ev, grupos, posts } = await cargar(sb, String(p.eventoId || ''));
+  const conPlaza = [...grupos.values()].flatMap(f => alumnosDe(f)).filter(f => f.estado === 'ganador');
+  const ids = conPlaza.map(f => f.id);
+  const [{ data: disfraces }, { data: comprobantes }] = await Promise.all([
+    ids.length ? sb.from('evento_disfraces').select('evento_inscripcion_id, talla, color').in('evento_inscripcion_id', ids) : { data: [] },
+    ids.length ? sb.from('comprobantes_pago').select('evento_inscripcion_id').eq('tipo', 'disfraz_evento').in('evento_inscripcion_id', ids) : { data: [] }
+  ]);
+  const pendiente = new Map();   // socio_id → [nombres]
+  const anotar = (sid, n) => { if (sid) pendiente.set(sid, [...(pendiente.get(sid) || []), n]); };
+  if (p.a === 'confirmar') {
+    for (const [, filas] of grupos) {
+      const al = alumnosDe(filas);
+      if (al.length && al.every(f => f.estado === 'ganador' && !f.asistencia)) anotar(filas[0].socio_id, al.map(nombreFila).join(' y '));
+    }
+    posts.filter(x => x.estado === 'elegido' && !x.asistencia).forEach(x => anotar(x.socio_id, `${x.adultos?.nombre || ''} ${x.adultos?.apellidos || ''}`.trim()));
+  } else if (p.a === 'vestuario') {
+    conPlaza.filter(f => { const d = (disfraces || []).find(x => x.evento_inscripcion_id === f.id); return !d || !d.talla || !d.color; }).forEach(f => anotar(f.socio_id, nombreFila(f)));
+  } else if (p.a === 'justificante') {
+    conPlaza.filter(f => !(comprobantes || []).some(c => c.evento_inscripcion_id === f.id)).forEach(f => anotar(f.socio_id, nombreFila(f)));
+  } else throw new Error('Elige a quién va el email.');
+  const socios = [...pendiente.keys()].sort();
+  if (!socios.length) throw new Error('No hay ninguna familia con eso pendiente.');
+  const { data: adultos } = await sb.from('adultos').select('socio_id, nombre, email, created_at').in('socio_id', socios).order('created_at');
+  const mensajes = [];
+  for (const sid of socios) {
+    const ads = (adultos || []).filter(a => a.socio_id === sid && a.email);
+    if (!ads.length) continue;
+    mensajes.push({ socio: sid, familia: ads.map(a => a.nombre).join(' y '), pendiente: pendiente.get(sid), a: ads.map(a => a.email).join(', '),
+      subject: asunto, text: `Hola ${ads.map(a => a.nombre).join(' y ')},\n\n${texto}\n` });
+  }
+  if (!mensajes.length) throw new Error('Las familias con eso pendiente no tienen email.');
+  const web = (process.env.SITE_URL || '').replace(/\/$/, '');
+  if (p.vista) {
+    return { ok: true, vista: mensajes.map(m => ({ familia: m.familia, pendiente: m.pendiente, a: m.a, asunto: m.subject,
+      html: conFirma({ subject: m.subject, text: m.text }).html.replace(/src="cid:[^"]+"/g, `src="${web}/assets/logo-ampa-email.jpg"`) })) };
+  }
+  const inicio = Math.max(0, parseInt(p.inicio, 10) || 0);
+  let enviados = 0; const fallos = [];
+  for (const m of mensajes.slice(inicio, inicio + TANDA)) {
+    try { await enviarEmail({ to: m.a, subject: m.subject, text: m.text }); enviados++; }
+    catch (e) { fallos.push(m.a); }
+  }
+  const siguiente = inicio + TANDA < mensajes.length ? inicio + TANDA : null;
+  if (siguiente === null) await registrarDifusion(sb, { tipo: 'evento', refId: ev.id, canal: 'aviso', familias: mensajes.length, adultoId });
+  return { ok: true, total: mensajes.length, siguiente, enviados, fallos };
 }

@@ -85,6 +85,19 @@
   </section>
 
   <section class="bloque">
+    <h2>Escribir a las familias</h2>
+    <p class="ayuda">Un email escrito por ti a las familias de los que han salido sorteados y tienen algo pendiente. Empieza con «Hola» y el nombre, y lleva la firma del AMPA.</p>
+    <div class="field"><label for="escribirA">A quién</label><select id="escribirA">
+      <option value="confirmar">No han confirmado si van</option>
+      <option value="vestuario">No han elegido talla o color del vestuario</option>
+      <option value="justificante">No han subido el justificante del vestuario</option></select></div>
+    <div class="field"><label for="escribirAsunto">Asunto</label><input type="text" id="escribirAsunto"></div>
+    <div class="field"><label for="escribirTexto">Mensaje</label><textarea id="escribirTexto" rows="7"></textarea></div>
+    <div class="acciones-fila"><button type="button" class="btn btn-outline" id="escribirVista">Vista previa</button></div>
+    <div id="escribirZona"></div>
+  </section>
+
+  <section class="bloque">
     <h2>Suplentes</h2>
     <p class="ayuda">Por orden: cuando queda libre una plaza, entra el primero que quepa.<span class="solo-super"> Con las flechas puedes cambiar el orden a mano.</span></p>
     <div class="tabla-scroll" id="suplentes"></div>
@@ -108,7 +121,7 @@ const aLocal = (iso) => { if (!iso) return ''; const d = new Date(iso); return n
 const aISO = (v) => v ? new Date(v).toISOString() : null;
 const fCorta = (f) => f ? new Date(f).toLocaleString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
 const euros = (n) => Number(n).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' });
-const eventoId = new URLSearchParams(location.search).get('evento');
+let eventoId = new URLSearchParams(location.search).get('evento');
 let EV = null, FOTOS = [];
 
 async function llamar(cuerpo) {
@@ -312,13 +325,14 @@ $('ordenar').addEventListener('click', async () => {
 });
 
 // Vista previa del email y, al confirmar, envío por tandas
-async function vistaYEnviar(accion, zona, explicar) {
+async function vistaYEnviar(accion, zona, explicar, extra = {}) {
   zona.innerHTML = '<p class="ayuda">Preparando...</p>';
   try {
-    const r = await llamar({ accion, vista: true });
+    const r = await llamar({ accion, ...extra, vista: true });
     const m = r.vista[0];
     zona.innerHTML = `<p>${explicar(r.vista.length)} Así es el primero:</p>
       <p><b>Para:</b> ${esc(m.a)}<br><b>Asunto:</b> ${esc(m.asunto)}</p><div class="vista-email">${m.html}</div>
+      ${r.vista[0].pendiente ? `<details style="margin-top:10px;"><summary>A quién se envía (${r.vista.length} familias)</summary><ul>${r.vista.map(v => `<li>${esc(v.familia)}: ${esc(v.pendiente.join(', '))}</li>`).join('')}</ul></details>` : ''}
       <div class="acciones-fila"><button type="button" class="btn btn-primary enviar">Enviar</button><span class="ayuda msgEnvio"></span></div>`;
     zona.querySelector('.enviar').addEventListener('click', async (e) => {
       const b = e.currentTarget, msg = zona.querySelector('.msgEnvio');
@@ -327,7 +341,7 @@ async function vistaYEnviar(accion, zona, explicar) {
       try {
         while (inicio !== null) {
           msg.textContent = `Enviando... ${enviados}${total ? ' de ' + total : ''}`;
-          const j = await llamar({ accion, inicio });
+          const j = await llamar({ accion, ...extra, inicio });
           total = j.total; enviados += j.enviados; fallos.push(...j.fallos); if (j.moviles != null) moviles = j.moviles;
           inicio = j.siguiente;
         }
@@ -338,14 +352,25 @@ async function vistaYEnviar(accion, zona, explicar) {
 }
 $('avisarVista').addEventListener('click', () => vistaYEnviar('avisar', $('avisarZona'),
   (n) => `Se enviarán <b>${n}</b> emails, uno por cada alumno, alumna o puesto sin confirmar, con su nombre, y un aviso a los móviles de sus familias.`));
+$('escribirVista').addEventListener('click', () => {
+  const que = { confirmar: 'no han confirmado si van', vestuario: 'no han elegido la talla o el color del vestuario', justificante: 'no han subido el justificante del vestuario' }[$('escribirA').value];
+  vistaYEnviar('escribir', $('escribirZona'), (n) => `Se enviará tu email a <b>${n}</b> familias que ${que} (uno por familia, aunque tenga más de un alumno o alumna).`,
+    { a: $('escribirA').value, asunto: $('escribirAsunto').value, texto: $('escribirTexto').value });
+});
 $('situacionVista').addEventListener('click', () => vistaYEnviar('situacion', $('avisarZona'),
   (n) => `Se enviará un email a cada familia socia inscrita (<b>${n}</b>), con todos sus inscritos/as y la situación de cada uno.`));
 
 (async () => {
   const ctx = await requireAdmin();
   if (!ctx) return;
-  renderNav('admin-eventos', ctx);
-  if (!eventoId) { $('errorGeneral').textContent = 'Falta el evento.'; $('errorGeneral').hidden = false; return; }
+  renderNav('admin-cabalgata', ctx);
+  // Desde el menú, sin evento: la Cabalgata más reciente (la de este curso)
+  if (!eventoId) {
+    const { data } = await sb.from('eventos').select('id').eq('requiere_pareja_adulto_alumno', true).order('fecha', { ascending: false }).limit(1);
+    eventoId = data && data[0] && data[0].id;
+    if (!eventoId) { $('errorGeneral').textContent = 'Todavía no hay ninguna Cabalgata creada en Eventos.'; $('errorGeneral').hidden = false; return; }
+    history.replaceState(null, '', '?evento=' + eventoId);
+  }
   cargar();
 })();
 </script>
