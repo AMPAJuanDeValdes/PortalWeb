@@ -69,7 +69,7 @@ function estadoPlaza(x, plazo, tieneLaPlaza, quien, como) {
   const q = esc(quien);
   if (tieneLaPlaza) {
     if (x.asistencia === 'si') return { clase: '', html: `<p class="estado"><b>Confirmado: ${q} va${esc(como)}.</b></p>`, botones: [['no', 'btn-outline', `${q} ya no puede ir`]] };
-    return { clase: 'pendiente', html: `<p class="estado"><b>¡${q} ha salido${esc(como)}!</b> Confirmad si va antes del <b>${esc(fechaLarga(plazo))}</b>. Si no, la plaza pasa al primer suplente.</p>`,
+    return { clase: 'pendiente', html: `<p class="estado"><b>¡${q} ha salido sorteado/a${esc(como)}!</b> Confirmad si va antes del <b>${esc(fechaLarga(plazo))}</b>. Si no, la plaza pasa al primer suplente.</p>`,
       botones: [['si', 'btn-primary', `Sí, ${q} va`], ['no', 'btn-outline', `${q} no puede ir`]] };
   }
   if (x.asistencia === 'no' && x.suplente) return { clase: '', html: `<div class="suplente"><span class="suplente-num">${x.suplente}.º</span><span>Dijisteis que ${q} no podía ir${esc(como)}: su plaza pasó a otra persona y ahora es el ${x.suplente}.º suplente. Si queda libre una plaza, os avisamos por email y en el móvil.</span></div>`, botones: [] };
@@ -150,16 +150,17 @@ async function pintar() {
       <p class="msg-error" hidden></p></div>`;
   }
 
-  // Disfraz: lo ven y lo pagan las familias de los alumnos/as que han salido
+  // Disfraz: lo ven y lo pagan las familias de los alumnos y alumnas que han salido
   const conDisfraz = parejas.flatMap(p => p.personas).filter(x => x.tipo === 'alumno' && x.estado === 'ganador');
   if (conDisfraz.length && ev.disfraz_precio) {
-    html += `<h2 class="sec">Disfraz</h2>
-      ${(ev.disfraz_fotos || []).length ? `<div class="fotos">${ev.disfraz_fotos.map(u => `<a href="${esc(u)}" target="_blank" rel="noopener" aria-label="Ver la foto en grande"><img src="${esc(u)}" alt="Disfraz" loading="lazy"></a>`).join('')}</div>` : ''}
-      <p class="precio">Cada disfraz: <b>${euros(ev.disfraz_precio)}</b>${ev.disfraz_incluye ? ` (${esc(ev.disfraz_incluye)})` : ''}. Pagadlo por transferencia y subid el justificante para que podamos comprarlo.</p>`;
+    html += `<h2 class="sec">Vestuario</h2>
+      <p class="precio"><b>Es obligatorio adquirir el vestuario para participar en la Cabalgata.</b></p>
+      ${(ev.disfraz_fotos || []).length ? `<div class="fotos">${ev.disfraz_fotos.map(u => `<a href="${esc(u)}" target="_blank" rel="noopener" aria-label="Ver la foto en grande"><img src="${esc(u)}" alt="Vestuario" loading="lazy"></a>`).join('')}</div>` : ''}
+      <p class="precio">Cada vestuario: <b>${euros(ev.disfraz_precio)}</b>${ev.disfraz_incluye ? ` (${esc(ev.disfraz_incluye)})` : ''}. Pagadlo por transferencia y subid el justificante para que podamos comprarlo.</p>`;
     for (const x of conDisfraz) {
       const pago = x.pago;
       const d = x.disfraz || {};
-      html += `<div class="pago" data-insc="${x.id}"><h3>Disfraz de ${esc(x.nombre)}</h3>
+      html += `<div class="pago" data-insc="${x.id}"><h3>Vestuario de ${esc(x.nombre)}</h3>
         <p class="elige-tit">Talla</p><div class="elige" role="group" aria-label="Talla de ${esc(x.nombre)}">${(ev.disfraz_tallas || []).map(t => `<button type="button" class="opcion${d.talla === t ? ' sel' : ''}" aria-pressed="${d.talla === t}" data-talla="${esc(t)}">${esc(t)}</button>`).join('')}</div>
         <p class="elige-tit">Color</p><div class="elige" role="group" aria-label="Color de ${esc(x.nombre)}">${(ev.disfraz_colores || []).map(c => `<button type="button" class="opcion${d.color === c ? ' sel' : ''}" aria-pressed="${d.color === c}" data-color="${esc(c)}"><span class="muestra" style="background:${COLOR_MUESTRA[c.toLowerCase()] || '#ccc'}"></span>${esc(c)}</button>`).join('')}</div>
         <p class="msg-error elige-error" hidden></p>` + (pago
@@ -168,7 +169,7 @@ async function pintar() {
             <div><span>Importe</span><b>${euros(ev.disfraz_precio)}</b></div>
             <div><span>IBAN</span><b class="iban">${AMPA_IBAN}</b></div>
             <div><span>Titular</span><b>${esc(AMPA_TITULAR_CUENTA)}</b></div>
-            <div><span>Concepto</span><b>Disfraz ${esc(ev.titulo)} - ${esc(x.nombre)}</b></div></div>
+            <div><span>Concepto</span><b>Vestuario ${esc(ev.titulo)} - ${esc(x.nombre)}</b></div></div>
           <div class="field" style="margin-top:12px;"><label>Justificante de la transferencia</label><input type="file" class="justif" accept="image/*,.pdf"></div>
           <button type="button" class="btn btn-primary subir" data-insc="${x.id}">Enviar justificante</button><p class="msg" hidden></p>`) + '</div>';
     }

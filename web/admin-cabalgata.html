@@ -52,15 +52,15 @@
   </section>
 
   <section class="bloque">
-    <h2>Disfraz de los alumnos/as</h2>
-    <p class="ayuda">Lo ven las familias de los alumnos/as que han salido en el sorteo: eligen talla y color con un clic, y tienen los datos para pagarlo por transferencia y subir el justificante.</p>
+    <h2>Vestuario de los alumnos y alumnas</h2>
+    <p class="ayuda">Lo ven las familias de los alumnos y alumnas que han salido en el sorteo: eligen talla y color con un clic, y tienen los datos para pagarlo por transferencia y subir el justificante.</p>
     <div class="dos">
-      <div class="field"><label for="gPrecio">Precio de cada disfraz (€)</label><input type="number" id="gPrecio" min="0" step="0.01"></div>
+      <div class="field"><label for="gPrecio">Precio de cada vestuario (€)</label><input type="number" id="gPrecio" min="0" step="0.01"></div>
       <div class="field"><label for="gIncluye">Qué incluye</label><input type="text" id="gIncluye" placeholder="Por ejemplo: chaqueta, pantalón, gorro y guantes"></div>
       <div class="field"><label for="gTallas">Tallas (separadas por comas)</label><input type="text" id="gTallas"></div>
       <div class="field"><label for="gColores">Colores (separados por comas)</label><input type="text" id="gColores"></div>
     </div>
-    <div class="field"><label>Fotos del disfraz (hasta 3)</label>
+    <div class="field"><label>Fotos del vestuario (hasta 3)</label>
       <div class="fotos-admin" id="gFotos"></div>
       <input type="file" id="gFotoFile" accept="image/*"><p class="ayuda" id="gFotoMsg" hidden></p>
     </div>
@@ -124,7 +124,7 @@ async function llamar(cuerpo) {
 
 /* ---------- Ajustes ---------- */
 function pintarFotos() {
-  $('gFotos').innerHTML = FOTOS.map((u, k) => `<figure><img src="${esc(u)}" alt="Foto ${k + 1} del disfraz"><button type="button" class="btn-danger-link" data-k="${k}">Quitar</button></figure>`).join('');
+  $('gFotos').innerHTML = FOTOS.map((u, k) => `<figure><img src="${esc(u)}" alt="Foto ${k + 1} del vestuario"><button type="button" class="btn-danger-link" data-k="${k}">Quitar</button></figure>`).join('');
   $('gFotos').querySelectorAll('[data-k]').forEach(b => b.addEventListener('click', () => { FOTOS.splice(+b.dataset.k, 1); pintarFotos(); }));
   $('gFotoFile').disabled = FOTOS.length >= 3;
 }
@@ -244,17 +244,17 @@ async function cargar() {
   const elegidosPuestos = (posts || []).filter(p => p.estado === 'elegido').sort((a, b) => a.puesto.localeCompare(b.puesto));
   const vanAl = elegidas.filter(p => p.al[0].asistencia === 'si').reduce((n, p) => n + p.al.length, 0);
   const pagados = elegidas.flatMap(p => p.al).filter(f => (pagoDe(f) || {}).verificado).length;
-  $('resumen').innerHTML = `<div><b>${elegidas.reduce((n, p) => n + p.al.length, 0)}</b>alumnos/as con plaza</div><div><b>${vanAl}</b>han confirmado</div>` +
-    (ev.disfraz_precio ? `<div><b>${pagados}</b>disfraces pagados</div>` : '') + (elegidosPuestos.length ? `<div><b>${elegidosPuestos.filter(p => p.asistencia === 'si').length} de ${elegidosPuestos.length}</b>puestos confirmados</div>` : '');
+  $('resumen').innerHTML = `<div><b>${elegidas.reduce((n, p) => n + p.al.length, 0)}</b>alumnos y alumnas con plaza</div><div><b>${vanAl}</b>han confirmado</div>` +
+    (ev.disfraz_precio ? `<div><b>${pagados}</b>vestuarios pagados</div>` : '') + (elegidosPuestos.length ? `<div><b>${elegidosPuestos.filter(p => p.asistencia === 'si').length} de ${elegidosPuestos.length}</b>puestos confirmados</div>` : '');
   // Para el encargo: cuántos disfraces de cada talla y color
   const al = elegidas.flatMap(p => p.al);
   const tallas = ev.disfraz_tallas || [], colores = ev.disfraz_colores || [];
   const cuenta = (t, c) => al.filter(f => disfrazDe(f).talla === t && disfrazDe(f).color === c).length;
   const sinElegir = al.filter(f => !disfrazDe(f).talla || !disfrazDe(f).color).length;
-  $('encargo').innerHTML = ev.disfraz_precio && al.length ? `<h3 style="margin:18px 0 8px;">Disfraces por talla y color</h3><div class="tabla-scroll"><table class="gest"><thead><tr><th>Talla</th>${colores.map(c => `<th>${esc(c)}</th>`).join('')}<th>Total</th></tr></thead><tbody>` +
+  $('encargo').innerHTML = ev.disfraz_precio && al.length ? `<h3 style="margin:18px 0 8px;">Vestuarios por talla y color</h3><div class="tabla-scroll"><table class="gest"><thead><tr><th>Talla</th>${colores.map(c => `<th>${esc(c)}</th>`).join('')}<th>Total</th></tr></thead><tbody>` +
     tallas.map(t => `<tr><td>${esc(t)}</td>${colores.map(c => `<td>${cuenta(t, c) || ''}</td>`).join('')}<td><b>${colores.reduce((n, c) => n + cuenta(t, c), 0)}</b></td></tr>`).join('') +
-    `</tbody></table></div>${sinElegir ? `<p class="ayuda">${sinElegir} ${sinElegir === 1 ? 'alumno/a no ha elegido' : 'alumnos/as no han elegido'} todavía talla y color.</p>` : ''}` : '';
-  $('elegidos').innerHTML = elegidas.length || elegidosPuestos.length ? `<table class="gest"><thead><tr><th>Alumno/a o puesto</th><th>Adulto</th><th>Familia</th><th>Asistencia</th><th>Disfraz</th></tr></thead><tbody>` +
+    `</tbody></table></div>${sinElegir ? `<p class="ayuda">${sinElegir} ${sinElegir === 1 ? 'alumno o alumna no ha elegido' : 'alumnos y alumnas no han elegido'} todavía talla y color.</p>` : ''}` : '';
+  $('elegidos').innerHTML = elegidas.length || elegidosPuestos.length ? `<table class="gest"><thead><tr><th>Alumno, alumna o puesto</th><th>Adulto</th><th>Familia</th><th>Asistencia</th><th>Vestuario</th></tr></thead><tbody>` +
     elegidas.map(p => p.al.map((f, k) => `<tr><td>${esc(nombre(f))}${f.alumnos ? `<br><small>${esc([f.alumnos.etapa, f.alumnos.curso, f.alumnos.aula].filter(Boolean).join(' '))}</small>` : ''}${f.asignada_a_mano ? '<br><small>Plaza de la Junta</small>' : ''}</td>
       <td>${k ? '' : p.ad.map(a => esc(nombre(a)) + (a.adultos && a.adultos.movil ? `<br><small>${esc(a.adultos.movil)}</small>` : '')).join('<br>')}</td>
       <td>${esc(familia(f))}${k ? '' : `<br><a class="solo-super" href="cabalgata.html?evento=${ev.id}&familia=${f.socio_id}">Ver como la ve la familia</a>`}</td><td>${asistencia(f, plazo(f))}</td><td>${celdaPago(f)}</td></tr>`).join('')).join('') +
@@ -267,7 +267,7 @@ async function cargar() {
   const sinOrden = parejas.filter(p => p.al.every(f => f.estado === 'no_ganador' && !f.asistencia) && p.al[0].suplente_orden == null).length
     + (posts || []).filter(p => p.estado === 'no_elegido' && !p.asistencia && p.suplente_orden == null).length;
   const posPuesto = {};
-  $('suplentes').innerHTML = (supParejas.length || supPuestos.length) ? `<table class="gest"><thead><tr><th>Suplente</th><th>Alumno/a o puesto</th><th>Adulto</th><th>Familia</th><th class="solo-super">Orden</th></tr></thead><tbody>` +
+  $('suplentes').innerHTML = (supParejas.length || supPuestos.length) ? `<table class="gest"><thead><tr><th>Suplente</th><th>Alumno, alumna o puesto</th><th>Adulto</th><th>Familia</th><th class="solo-super">Orden</th></tr></thead><tbody>` +
     supParejas.map((p, i) => `<tr><td><b>${i + 1}.º</b></td><td>${p.al.map(f => esc(nombre(f))).join('<br>')}${p.al[0].asistencia === 'no' ? '<br><small>Tenía plaza y dijo que no podía ir</small>' : ''}</td><td>${p.ad.map(a => esc(nombre(a))).join('<br>')}</td><td>${esc(familia(p.al[0]))}<br><a class="solo-super" href="cabalgata.html?evento=${ev.id}&familia=${p.al[0].socio_id}">Ver como la ve la familia</a></td><td class="solo-super">${mover('grupo', p.al[0].grupo_id || p.al[0].id, i === 0, i === supParejas.length - 1)}</td></tr>`).join('') +
     supPuestos.map(p => { posPuesto[p.puesto] = (posPuesto[p.puesto] || 0) + 1; const ultimo = posPuesto[p.puesto] === supPuestos.filter(q => q.puesto === p.puesto).length; return `<tr><td><b>${posPuesto[p.puesto]}.º</b></td><td>${esc(NOMBRE_PUESTO[p.puesto])}${p.asistencia === 'no' ? '<br><small>Tenía el puesto y dijo que no podía ir</small>' : ''}</td><td>${esc(nombre(p))}</td><td>${esc(familia(p))}</td><td class="solo-super">${mover('postulacion', p.id, posPuesto[p.puesto] === 1, ultimo)}</td></tr>`; }).join('') +
     '</tbody></table>' : '<p class="empty-hint">No hay suplentes.</p>';
@@ -287,7 +287,7 @@ async function cargar() {
   const bajasP = (posts || []).filter(p => ['no', 'caducada'].includes(p.asistencia) && p.suplente_orden == null && p.estado !== 'elegido');
   $('bajasBloque').hidden = !(bajas.length || bajasP.length);
   const motivo = (x) => x.asistencia === 'no' ? 'Dijo que no va' : 'No confirmó a tiempo';
-  $('bajas').innerHTML = `<table class="gest"><thead><tr><th>Alumno/a o puesto</th><th>Familia</th><th>Motivo</th><th>Cuándo</th></tr></thead><tbody>` +
+  $('bajas').innerHTML = `<table class="gest"><thead><tr><th>Alumno, alumna o puesto</th><th>Familia</th><th>Motivo</th><th>Cuándo</th></tr></thead><tbody>` +
     bajas.map(p => `<tr><td>${p.al.map(f => esc(nombre(f))).join('<br>')}</td><td>${esc(familia(p.al[0]))}</td><td>${motivo(p.al[0])}</td><td>${fCorta(p.al[0].asistencia_en)}</td></tr>`).join('') +
     bajasP.map(p => `<tr><td>${esc(NOMBRE_PUESTO[p.puesto])}: ${esc(nombre(p))}</td><td>${esc(familia(p))}</td><td>${motivo(p)}</td><td>${fCorta(p.asistencia_en)}</td></tr>`).join('') + '</tbody></table>';
 
@@ -337,7 +337,7 @@ async function vistaYEnviar(accion, zona, explicar) {
   } catch (e) { zona.innerHTML = `<p class="msg-error">${esc(e.message)}</p>`; }
 }
 $('avisarVista').addEventListener('click', () => vistaYEnviar('avisar', $('avisarZona'),
-  (n) => `Se enviarán <b>${n}</b> emails, uno por cada alumno/a o puesto sin confirmar, con su nombre, y un aviso a los móviles de sus familias.`));
+  (n) => `Se enviarán <b>${n}</b> emails, uno por cada alumno, alumna o puesto sin confirmar, con su nombre, y un aviso a los móviles de sus familias.`));
 $('situacionVista').addEventListener('click', () => vistaYEnviar('situacion', $('avisarZona'),
   (n) => `Se enviará un email a cada familia socia inscrita (<b>${n}</b>), con todos sus inscritos/as y la situación de cada uno.`));
 

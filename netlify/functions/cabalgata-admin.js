@@ -63,7 +63,7 @@ exports.handler = async (event) => {
     for (const x of plazas) {
       const ads = (adultos || []).filter(a => a.socio_id === x.socio_id && a.email);
       if (!ads.length) continue;
-      const salio = x.tipo === 'puesto' ? `${x.quien[0]} ha salido como ${NOMBRE_PUESTO[x.puesto]}` : `${x.quien.join(' y ')} ha salido${x.con.length ? ` (con ${x.con.join(' y ')})` : ''}`;
+      const salio = x.tipo === 'puesto' ? `${x.quien[0]} ha salido sorteado/a como ${NOMBRE_PUESTO[x.puesto]}` : `${x.quien.join(' y ')} ha salido sorteado/a${x.con.length ? ` (con ${x.con.join(' y ')})` : ''}`;
       mensajes.push({
         socio: x.socio_id, clave: x.clave, familia: ads.map(a => a.nombre).join(' y '), a: ads.map(a => a.email).join(', '), plazo: x.plazo,
         movil: `${x.quien.join(' y ')}: confirmad si va`,
@@ -126,8 +126,8 @@ async function situacion(sb, p, adultoId) {
 
   const situacionDe = (x, tiene, suplente, terminada) => {
     if (tiene) {
-      if (x.asistencia === 'si') return 'ha salido y habéis confirmado que va.';
-      return ev.gestion_confirmar_hasta ? `ha salido. Tenéis que confirmar en la web si va antes del ${plazoDe(x)}; si no, la plaza pasa al primer suplente.` : 'ha salido.';
+      if (x.asistencia === 'si') return 'ha salido sorteado/a y habéis confirmado que va.';
+      return ev.gestion_confirmar_hasta ? `ha salido sorteado/a. Tenéis que confirmar en la web si va antes del ${plazoDe(x)}; si no, la plaza pasa al primer suplente.` : 'ha salido sorteado/a.';
     }
     if (x.asistencia === 'no' && suplente) return `dijisteis que no podía ir: su plaza pasó a otra persona y ahora es el ${suplente}.º suplente.`;
     if (x.asistencia === 'no') return 'dijisteis que no podía ir: la plaza ha pasado a otra persona.';
@@ -143,7 +143,7 @@ async function situacion(sb, p, adultoId) {
     const al = alumnosDe(filas);
     const ad = filas.filter(f => f.tipo_miembro !== 'alumno');
     if (!al.length) {   // adulto que va solo
-      ad.forEach(f => anotar(f.socio_id, `${nombreFila(f)} (adulto sin alumno/a): ${f.estado === 'ganador' ? 'va.' : 'no va.'}`));
+      ad.forEach(f => anotar(f.socio_id, `${nombreFila(f)} (adulto sin alumno ni alumna): ${f.estado === 'ganador' ? 'va.' : 'no va.'}`));
       continue;
     }
     const pos = supParejas.indexOf(g);
