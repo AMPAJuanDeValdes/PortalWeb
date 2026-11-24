@@ -8279,6 +8279,7 @@ alter table evento_postulaciones add constraint evento_postulaciones_asistencia_
 alter table comprobantes_pago drop constraint if exists comprobantes_pago_tipo_check;
 alter table comprobantes_pago add constraint comprobantes_pago_tipo_check
   check (tipo in ('cuota_socio', 'invitado_evento', 'mochila_no_socio', 'disfraz_evento'));
+alter table comprobantes_pago drop constraint if exists comprobantes_pago_referencia_check;   -- nombre que tiene en Supabase
 alter table comprobantes_pago drop constraint if exists comprobantes_pago_check;
 alter table comprobantes_pago add constraint comprobantes_pago_check check (
   (tipo = 'cuota_socio' and socio_id is not null) or
