@@ -229,7 +229,7 @@ async function moverSuplente(sb, p) {
 // Email escrito por la Junta a las familias con algo pendiente:
 //   confirmar    → alguien con plaza que no ha dicho si va
 //   vestuario    → alumno o alumna con plaza sin talla o sin color
-//   justificante → alumno o alumna con plaza sin justificante del vestuario
+//   justificante → alumno o alumna que ha confirmado que va y no ha subido el justificante del vestuario
 async function escribir(sb, p, adultoId) {
   const asunto = String(p.asunto || '').trim(), texto = String(p.texto || '').trim();
   if (!asunto || !texto) throw new Error('Escribe el asunto y el mensaje.');
@@ -251,7 +251,8 @@ async function escribir(sb, p, adultoId) {
   } else if (p.a === 'vestuario') {
     conPlaza.filter(f => { const d = (disfraces || []).find(x => x.evento_inscripcion_id === f.id); return !d || !d.talla || !d.color; }).forEach(f => anotar(f.socio_id, nombreFila(f)));
   } else if (p.a === 'justificante') {
-    conPlaza.filter(f => !(comprobantes || []).some(c => c.evento_inscripcion_id === f.id)).forEach(f => anotar(f.socio_id, nombreFila(f)));
+    // Solo los que ya han confirmado que van (a los demás se les escribe para que confirmen)
+    conPlaza.filter(f => f.asistencia === 'si' && !(comprobantes || []).some(c => c.evento_inscripcion_id === f.id)).forEach(f => anotar(f.socio_id, nombreFila(f)));
   } else throw new Error('Elige a quién va el email.');
   const socios = [...pendiente.keys()].sort();
   if (!socios.length) throw new Error('No hay ninguna familia con eso pendiente.');

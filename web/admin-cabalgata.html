@@ -90,7 +90,7 @@
     <div class="field"><label for="escribirA">A quién</label><select id="escribirA">
       <option value="confirmar">No han confirmado si van</option>
       <option value="vestuario">No han elegido talla o color del vestuario</option>
-      <option value="justificante">No han subido el justificante del vestuario</option></select></div>
+      <option value="justificante">Han confirmado pero no han subido el justificante del vestuario</option></select></div>
     <div class="field"><label for="escribirAsunto">Asunto</label><input type="text" id="escribirAsunto"></div>
     <div class="field"><label for="escribirTexto">Mensaje</label><textarea id="escribirTexto" rows="7"></textarea></div>
     <div class="acciones-fila"><button type="button" class="btn btn-outline" id="escribirVista">Vista previa</button></div>
@@ -353,7 +353,7 @@ async function vistaYEnviar(accion, zona, explicar, extra = {}) {
 $('avisarVista').addEventListener('click', () => vistaYEnviar('avisar', $('avisarZona'),
   (n) => `Se enviarán <b>${n}</b> emails, uno por cada alumno, alumna o puesto sin confirmar, con su nombre, y un aviso a los móviles de sus familias.`));
 $('escribirVista').addEventListener('click', () => {
-  const que = { confirmar: 'no han confirmado si van', vestuario: 'no han elegido la talla o el color del vestuario', justificante: 'no han subido el justificante del vestuario' }[$('escribirA').value];
+  const que = { confirmar: 'no han confirmado si van', vestuario: 'no han elegido la talla o el color del vestuario', justificante: 'han confirmado que van pero no han subido el justificante del vestuario' }[$('escribirA').value];
   vistaYEnviar('escribir', $('escribirZona'), (n) => `Se enviará tu email a <b>${n}</b> familias que ${que} (uno por familia, aunque tenga más de un alumno o alumna).`,
     { a: $('escribirA').value, asunto: $('escribirAsunto').value, texto: $('escribirTexto').value });
 });
