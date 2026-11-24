@@ -185,7 +185,7 @@ async function pintar() {
     const MODELOS = ((ev.disfraz_config || {}).modelos || []).filter(m => m && m.nombre);
     const modeloDe = (n) => MODELOS.find(m => m.nombre === n) || null;
     html += `<h2 class="sec">Vestuario</h2>
-      <p class="precio"><b>Es obligatorio adquirir el vestuario para participar en la Cabalgata.</b></p>
+      <p class="precio"><b>Los alumnos y alumnas tienen que adquirir obligatoriamente el vestuario para participar en la Cabalgata.</b></p>
       <p class="precio">${ev.disfraz_incluye ? `Incluye: ${esc(ev.disfraz_incluye)}. ` : ''}Elegid un modelo y su talla. Pulsad una foto para ver su guía de tallas. Pagadlo por transferencia y subid el justificante para que podamos comprarlo.</p>
       <div class="modelos">${MODELOS.map(m => `<div class="modelo-caja">
         ${m.foto ? `<a class="modelo-foto" href="${esc(m.guia || m.foto)}" target="_blank" rel="noopener" aria-label="${m.guia ? 'Ver la guía de tallas de ' : 'Ver en grande '}${esc(m.nombre)}"><img src="${esc(m.foto)}" alt="Vestuario ${esc(m.nombre)}" loading="lazy"></a>` : ''}
@@ -214,6 +214,9 @@ async function pintar() {
           <button type="button" class="btn btn-primary subir" data-insc="${x.id}" data-importe="${m.precio}">Enviar justificante</button><p class="msg-subida" hidden></p>`) + '</div>';
     }
   }
+  // Rey y pajes: su vestuario lo provee el Ayuntamiento
+  if (puestos.some(p => p.estado === 'elegido')) html += `${conDisfraz.length && ev.disfraz_precio ? '' : '<h2 class="sec">Vestuario</h2>'}
+      <p class="precio">El vestuario del Rey y de los pajes lo provee el Ayuntamiento. Cuando todos hayan confirmado, se explicará a los seleccionados lo que tienen que hacer.</p>`;
   const algunaPlaza = parejas.some(p => p.personas.some(x => x.estado === 'ganador')) || puestos.some(p => p.estado === 'elegido');
   if (algunaPlaza && ev.gestion_instrucciones) html += `<h2 class="sec">Para el día</h2><div class="instrucciones">${esc(ev.gestion_instrucciones)}</div>`;
 
