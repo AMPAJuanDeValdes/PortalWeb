@@ -8340,3 +8340,92 @@ grant execute on function cabalgata_mi_estado(uuid) to authenticated;
 -- Historial de avisos: el aviso a los elegidos para que confirmen
 alter table difusiones drop constraint if exists difusiones_canal_check;
 alter table difusiones add constraint difusiones_canal_check check (canal in ('aviso', 'circular', 'recogida', 'incompletas', 'sin_recoger', 'cabalgata-confirmar', 'cabalgata-situacion'));
+
+
+-- ==================================================================
+-- CABALGATA: TALLA Y COLOR DEL DISFRAZ
+--  · El evento tiene sus tallas y colores (por defecto: 5 a 6 años,
+--    7 a 9 años, 10 a 12 años; Verde, Azul, Rojo).
+--  · Cada familia elige, con un clic, la talla y el color del disfraz de
+--    cada alumno/a que ha salido en el sorteo (evento_disfraces).
+-- Requiere migracion-cabalgata-gestion.sql. Se puede ejecutar varias veces.
+-- ==================================================================
+
+alter table eventos add column if not exists disfraz_tallas text[] not null default '{"5 a 6 años","7 a 9 años","10 a 12 años"}';
+alter table eventos add column if not exists disfraz_colores text[] not null default '{"Verde","Azul","Rojo"}';
+
+create table if not exists evento_disfraces (
+  evento_inscripcion_id uuid primary key references evento_inscripciones(id) on delete cascade,
+  talla text,
+  color text,
+  updated_at timestamptz not null default now()
+);
+alter table evento_disfraces enable row level security;
+
+drop policy if exists "admin ve los disfraces" on evento_disfraces;
+create policy "admin ve los disfraces" on evento_disfraces for select using (is_admin());
+
+-- La familia elige la talla y el color: solo de sus alumnos/as con plaza y
+-- solo entre las tallas y colores del evento
+create or replace function cabalgata_elegir_disfraz(p_inscripcion uuid, p_talla text, p_color text)
+returns void language plpgsql security definer set search_path = public as $$
+declare v eventos%rowtype;
+begin
+  select e.* into v from evento_inscripciones i join eventos e on e.id = i.evento_id
+   where i.id = p_inscripcion and i.socio_id = mi_socio_id() and i.tipo_miembro = 'alumno' and i.estado = 'ganador';
+  if not found then raise exception 'Este alumno o alumna no tiene plaza.'; end if;
+  if p_talla is not null and not (p_talla = any (v.disfraz_tallas)) then raise exception 'Esa talla no está disponible.'; end if;
+  if p_color is not null and not (p_color = any (v.disfraz_colores)) then raise exception 'Ese color no está disponible.'; end if;
+  insert into evento_disfraces (evento_inscripcion_id, talla, color, updated_at)
+  values (p_inscripcion, p_talla, p_color, now())
+  on conflict (evento_inscripcion_id) do update
+    set talla = coalesce(excluded.talla, evento_disfraces.talla),
+        color = coalesce(excluded.color, evento_disfraces.color),
+        updated_at = now();
+end;
+$$;
+revoke all on function cabalgata_elegir_disfraz(uuid, text, text) from public, anon;
+grant execute on function cabalgata_elegir_disfraz(uuid, text, text) to authenticated;
+
+-- Lo que ve la familia: también la talla y el color elegidos
+create or replace function cabalgata_mi_estado(p_evento uuid)
+returns jsonb language sql stable security definer set search_path = public as $$
+  with suplentes as (
+    select grupo_id, dense_rank() over (order by suplente_orden) as puesto_suplente
+    from evento_inscripciones
+    where evento_id = p_evento and suplente_orden is not null and estado = 'no_ganador'
+      and actividad_id is null and not es_voluntario and tipo_miembro = 'alumno'
+  ), mias as (
+    select i.grupo_id,
+      jsonb_agg(jsonb_build_object(
+        'id', i.id, 'tipo', i.tipo_miembro, 'estado', i.estado, 'asistencia', i.asistencia,
+        'confirmar_hasta', i.confirmar_hasta, 'promovido_en', i.promovido_en,
+        'nombre', coalesce(trim(al.nombre || ' ' || coalesce(al.apellidos, '')), trim(ad.nombre || ' ' || coalesce(ad.apellidos, '')),
+                           trim(coalesce(i.nombre_invitado, '') || ' ' || coalesce(i.apellidos_invitado, ''))),
+        'disfraz', (select jsonb_build_object('talla', d.talla, 'color', d.color) from evento_disfraces d where d.evento_inscripcion_id = i.id),
+        'pago', (select jsonb_build_object('verificado', c.verificado, 'subido', c.created_at)
+                 from comprobantes_pago c where c.evento_inscripcion_id = i.id and c.tipo = 'disfraz_evento'
+                 order by c.created_at desc limit 1)
+      ) order by i.tipo_miembro desc) as personas
+    from evento_inscripciones i
+    left join alumnos al on al.id = i.alumno_id
+    left join adultos ad on ad.id = i.adulto_id
+    where i.evento_id = p_evento and i.socio_id = mi_socio_id() and i.actividad_id is null
+      and not i.es_voluntario and i.grupo_id is not null
+    group by i.grupo_id
+  )
+  select jsonb_build_object(
+    'parejas', coalesce((select jsonb_agg(jsonb_build_object('grupo', m.grupo_id, 'personas', m.personas,
+                         'suplente', (select s.puesto_suplente from suplentes s where s.grupo_id = m.grupo_id limit 1))) from mias m), '[]'),
+    'puestos', coalesce((select jsonb_agg(jsonb_build_object(
+        'id', p.id, 'puesto', p.puesto, 'estado', p.estado, 'asistencia', p.asistencia,
+        'confirmar_hasta', p.confirmar_hasta, 'promovido_en', p.promovido_en,
+        'nombre', trim(ad.nombre || ' ' || coalesce(ad.apellidos, '')),
+        'suplente', case when p.suplente_orden is not null and p.estado = 'no_elegido' then
+          (select count(*) from evento_postulaciones q where q.evento_id = p.evento_id and q.puesto = p.puesto
+             and q.estado = 'no_elegido' and q.suplente_orden is not null and q.suplente_orden <= p.suplente_orden) end))
+      from evento_postulaciones p join adultos ad on ad.id = p.adulto_id
+      where p.evento_id = p_evento and p.socio_id = mi_socio_id()), '[]'));
+$$;
+revoke all on function cabalgata_mi_estado(uuid) from public, anon;
+grant execute on function cabalgata_mi_estado(uuid) to authenticated;

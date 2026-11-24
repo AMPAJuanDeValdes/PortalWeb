@@ -30,6 +30,13 @@
   .precio{ font-size:19px; margin:14px 0; }
   .pago{ background:#fff; border:1px solid var(--line); border-radius:var(--radius-card); padding:18px 20px; margin-top:12px; }
   .pago h3{ margin:0 0 8px; font-size:19px; }
+  .elige-tit{ font-weight:700; margin:12px 0 6px; }
+  .elige{ display:flex; gap:8px; flex-wrap:wrap; }
+  .opcion{ display:inline-flex; align-items:center; gap:8px; min-height:44px; padding:8px 16px; border:2px solid var(--line); border-radius:999px; background:#fff; font:inherit; font-size:17px; color:var(--ink); cursor:pointer; }
+  .opcion.sel{ border-color:var(--ink); background:var(--ink); color:#fff; font-weight:700; }
+  .opcion:focus-visible{ outline:3px solid #2F6FB2; outline-offset:2px; }
+  .muestra{ width:18px; height:18px; border-radius:50%; border:1px solid rgba(0,0,0,.25); }
+  .pago .datos-pago{ margin-top:16px; }
   .instrucciones{ background:#fff; border:1px solid var(--line); border-radius:var(--radius-card); padding:20px 22px; white-space:pre-line; font-size:18px; }
 </style>
 </head>
@@ -49,6 +56,8 @@ const NOMBRE_PUESTO = { responsable: 'Responsable', baltasar: 'Rey Baltasar', ga
 const fechaLarga = (f) => new Date(f).toLocaleString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }).replace(',', '');
 const euros = (n) => Number(n).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' });
 const eventoId = new URLSearchParams(location.search).get('evento');
+// Muestra de color en los botones (si la Junta pone otro color, sale gris)
+const COLOR_MUESTRA = { verde: '#2E9E4F', azul: '#2563C9', rojo: '#D23A32', amarillo: '#F2C230', morado: '#7B4BB7', blanco: '#fff', negro: '#222', dorado: '#C9A227', plateado: '#B8BEC6' };
 let ctxGlobal = null, EV = null;
 
 // Lo que pone cada plaza: confirmar, confirmada, suplente o sin plaza
@@ -97,7 +106,7 @@ async function subirJustificante(insc, alumno, input, msg) {
 async function pintar() {
   const cont = document.getElementById('contenido');
   const [{ data: ev }, { data: est, error }] = await Promise.all([
-    sb.from('eventos').select('id, titulo, fecha, gestion_confirmar_hasta, disfraz_precio, disfraz_incluye, disfraz_fotos, gestion_instrucciones').eq('id', eventoId).maybeSingle(),
+    sb.from('eventos').select('id, titulo, fecha, gestion_confirmar_hasta, disfraz_precio, disfraz_incluye, disfraz_fotos, disfraz_tallas, disfraz_colores, gestion_instrucciones').eq('id', eventoId).maybeSingle(),
     sb.rpc('cabalgata_mi_estado', { p_evento: eventoId })
   ]);
   if (!ev) { cont.innerHTML = '<p class="msg-error">No se encuentra el evento.</p>'; return; }
@@ -146,7 +155,11 @@ async function pintar() {
       <p class="precio">Cada disfraz: <b>${euros(ev.disfraz_precio)}</b>${ev.disfraz_incluye ? ` (${esc(ev.disfraz_incluye)})` : ''}. Pagadlo por transferencia y subid el justificante para que podamos comprarlo.</p>`;
     for (const x of conDisfraz) {
       const pago = x.pago;
-      html += `<div class="pago"><h3>Disfraz de ${esc(x.nombre)}</h3>` + (pago
+      const d = x.disfraz || {};
+      html += `<div class="pago" data-insc="${x.id}"><h3>Disfraz de ${esc(x.nombre)}</h3>
+        <p class="elige-tit">Talla</p><div class="elige" role="group" aria-label="Talla de ${esc(x.nombre)}">${(ev.disfraz_tallas || []).map(t => `<button type="button" class="opcion${d.talla === t ? ' sel' : ''}" aria-pressed="${d.talla === t}" data-talla="${esc(t)}">${esc(t)}</button>`).join('')}</div>
+        <p class="elige-tit">Color</p><div class="elige" role="group" aria-label="Color de ${esc(x.nombre)}">${(ev.disfraz_colores || []).map(c => `<button type="button" class="opcion${d.color === c ? ' sel' : ''}" aria-pressed="${d.color === c}" data-color="${esc(c)}"><span class="muestra" style="background:${COLOR_MUESTRA[c.toLowerCase()] || '#ccc'}"></span>${esc(c)}</button>`).join('')}</div>
+        <p class="msg-error elige-error" hidden></p>` + (pago
         ? `<p class="estado">${pago.verificado ? '<b>Pagado.</b> La Junta ha comprobado el pago.' : '<b>Justificante enviado.</b> La Junta lo revisará.'}</p>`
         : `<div class="datos-pago">
             <div><span>Importe</span><b>${euros(ev.disfraz_precio)}</b></div>
@@ -164,6 +177,18 @@ async function pintar() {
   cont.querySelectorAll('.plaza [data-va]').forEach(b => b.addEventListener('click', () => {
     const t = tarjetas[b.closest('.plaza').dataset.t];
     responder({ ...t.datos, quien: t.quien }, b.dataset.va === 'si', b);
+  }));
+  // Talla y color: se guardan con un clic
+  cont.querySelectorAll('.elige .opcion').forEach(b => b.addEventListener('click', async () => {
+    const caja = b.closest('.pago'), grupo = b.closest('.elige'), err = caja.querySelector('.elige-error');
+    const antes = grupo.querySelector('.sel');
+    grupo.querySelectorAll('.opcion').forEach(o => { o.classList.toggle('sel', o === b); o.setAttribute('aria-pressed', o === b); });
+    const { error } = await sb.rpc('cabalgata_elegir_disfraz', { p_inscripcion: caja.dataset.insc, p_talla: b.dataset.talla || null, p_color: b.dataset.color || null });
+    err.hidden = !error;
+    if (error) {
+      err.textContent = 'No se pudo guardar: ' + error.message;
+      grupo.querySelectorAll('.opcion').forEach(o => { o.classList.toggle('sel', o === antes); o.setAttribute('aria-pressed', o === antes); });
+    }
   }));
   cont.querySelectorAll('.subir').forEach(b => b.addEventListener('click', () => {
     const caja = b.closest('.pago');
