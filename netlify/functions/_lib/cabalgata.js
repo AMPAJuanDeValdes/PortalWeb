@@ -38,7 +38,7 @@ async function cargar(sb, eventoId) {
   if (error) throw error;
   if (!ev) throw new Error('El evento no existe.');
   const { data: filas, error: e2 } = await sb.from('evento_inscripciones')
-    .select('id, socio_id, grupo_id, tipo_miembro, estado, asignada_a_mano, suplente_orden, asistencia, confirmar_hasta, alumno_id, adulto_id, nombre_invitado, apellidos_invitado, alumnos(nombre, apellidos), adultos(nombre, apellidos)')
+    .select('id, socio_id, grupo_id, tipo_miembro, estado, asignada_a_mano, suplente_orden, asistencia, confirmar_hasta, alumno_id, adulto_id, nombre_invitado, apellidos_invitado, alumnos!alumno_id(nombre, apellidos), adultos!adulto_id(nombre, apellidos)')
     .eq('evento_id', eventoId).is('actividad_id', null).eq('es_voluntario', false);
   if (e2) throw e2;
   const grupos = new Map();
@@ -48,7 +48,7 @@ async function cargar(sb, eventoId) {
     grupos.get(g).push(f);
   }
   const { data: posts, error: e3 } = await sb.from('evento_postulaciones')
-    .select('id, socio_id, adulto_id, puesto, estado, suplente_orden, asistencia, confirmar_hasta, adultos(nombre, apellidos)')
+    .select('id, socio_id, adulto_id, puesto, estado, suplente_orden, asistencia, confirmar_hasta, adultos!adulto_id(nombre, apellidos)')
     .eq('evento_id', eventoId);
   if (e3) throw e3;
   return { ev, grupos, posts: posts || [] };

@@ -186,9 +186,9 @@ function asistencia(x, plazo) {
 async function cargar() {
   const [{ data: ev }, { data: filas, error: e1 }, { data: posts }] = await Promise.all([
     sb.from('eventos').select('*').eq('id', eventoId).maybeSingle(),
-    sb.from('evento_inscripciones').select('id, grupo_id, socio_id, tipo_miembro, estado, asignada_a_mano, suplente_orden, asistencia, asistencia_en, confirmar_hasta, promovido_en, nombre_invitado, apellidos_invitado, alumnos(nombre, apellidos, etapa, curso, aula), adultos(nombre, apellidos, movil), socios(numero_socio_completo), comprobantes_pago(id, tipo, archivo_url, verificado, created_at)')
+    sb.from('evento_inscripciones').select('id, grupo_id, socio_id, tipo_miembro, estado, asignada_a_mano, suplente_orden, asistencia, asistencia_en, confirmar_hasta, promovido_en, nombre_invitado, apellidos_invitado, alumnos!alumno_id(nombre, apellidos, etapa, curso, aula), adultos!adulto_id(nombre, apellidos, movil), socios(numero_socio_completo), comprobantes_pago(id, tipo, archivo_url, verificado, created_at)')
       .eq('evento_id', eventoId).is('actividad_id', null).eq('es_voluntario', false),
-    sb.from('evento_postulaciones').select('id, puesto, estado, suplente_orden, asistencia, asistencia_en, confirmar_hasta, promovido_en, adultos(nombre, apellidos, movil), socios(numero_socio_completo)').eq('evento_id', eventoId)
+    sb.from('evento_postulaciones').select('id, puesto, estado, suplente_orden, asistencia, asistencia_en, confirmar_hasta, promovido_en, adultos!adulto_id(nombre, apellidos, movil), socios(numero_socio_completo)').eq('evento_id', eventoId)
   ]);
   // Talla y color que ha elegido cada familia
   const ids = (filas || []).filter(f => f.tipo_miembro === 'alumno' && f.estado === 'ganador').map(f => f.id);
