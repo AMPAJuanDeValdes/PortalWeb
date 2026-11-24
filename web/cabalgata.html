@@ -93,15 +93,26 @@ async function responder(datos, va, boton) {
   pintar();
 }
 
-async function subirJustificante(insc, alumno, input, msg) {
+// Sube el justificante del vestuario. El mensaje va siempre en el mismo
+// párrafo (.msg-subida), así se puede volver a intentar sin recargar.
+async function subirJustificante(insc, input, msg, boton) {
+  const avisar = (texto, error) => { msg.textContent = texto; msg.classList.toggle('msg-error', !!error); msg.classList.toggle('ayuda', !error); msg.hidden = false; };
   const file = input.files[0];
-  if (!file) { msg.textContent = 'Elige el justificante de la transferencia.'; msg.className = 'msg-error'; msg.hidden = false; return; }
-  msg.textContent = 'Subiendo...'; msg.className = 'ayuda'; msg.hidden = false;
-  const path = `${ctxGlobal.socio.id}/disfraz-${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_')}`;
-  const { error: upErr } = await sb.storage.from('comprobantes').upload(path, file);
-  const { error } = upErr ? { error: upErr } : await sb.from('comprobantes_pago').insert({
-    tipo: 'disfraz_evento', evento_inscripcion_id: insc, socio_id: ctxGlobal.socio.id, archivo_url: path, importe: EV.disfraz_precio });
-  if (error) { msg.textContent = 'No se pudo subir: ' + error.message; msg.className = 'msg-error'; return; }
+  if (!file) { avisar('Elige el justificante de la transferencia.', true); return; }
+  boton.disabled = true;
+  avisar('Subiendo...');
+  try {
+    const path = `${ctxGlobal.socio.id}/disfraz-${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_')}`;
+    const { error: upErr } = await sb.storage.from('comprobantes').upload(path, file);
+    if (upErr) throw upErr;
+    const { error } = await sb.from('comprobantes_pago').insert({
+      tipo: 'disfraz_evento', evento_inscripcion_id: insc, socio_id: ctxGlobal.socio.id, archivo_url: path, importe: EV.disfraz_precio });
+    if (error) throw error;
+  } catch (e) {
+    avisar('No se pudo subir: ' + (e.message || e) + '. Vuelve a intentarlo y, si sigue sin funcionar, escribe a la Junta.', true);
+    boton.disabled = false;
+    return;
+  }
   pintar();
 }
 
@@ -171,7 +182,7 @@ async function pintar() {
             <div><span>Titular</span><b>${esc(AMPA_TITULAR_CUENTA)}</b></div>
             <div><span>Concepto</span><b>Vestuario ${esc(ev.titulo)} - ${esc(x.nombre)}</b></div></div>
           <div class="field" style="margin-top:12px;"><label>Justificante de la transferencia</label><input type="file" class="justif" accept="image/*,.pdf"></div>
-          <button type="button" class="btn btn-primary subir" data-insc="${x.id}">Enviar justificante</button><p class="msg" hidden></p>`) + '</div>';
+          <button type="button" class="btn btn-primary subir" data-insc="${x.id}">Enviar justificante</button><p class="msg-subida" hidden></p>`) + '</div>';
     }
   }
   const algunaPlaza = parejas.some(p => p.personas.some(x => x.estado === 'ganador')) || puestos.some(p => p.estado === 'elegido');
@@ -198,7 +209,7 @@ async function pintar() {
   }));
   cont.querySelectorAll('.subir').forEach(b => b.addEventListener('click', () => {
     const caja = b.closest('.pago');
-    subirJustificante(b.dataset.insc, '', caja.querySelector('.justif'), caja.querySelector('.msg'));
+    subirJustificante(b.dataset.insc, caja.querySelector('.justif'), caja.querySelector('.msg-subida'), b);
   }));
 }
 
