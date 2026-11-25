@@ -8542,3 +8542,32 @@ create policy "familia sube el justificante del disfraz" on comprobantes_pago fo
                 where i.id = evento_inscripcion_id and i.socio_id = mi_socio_id()
                   and i.tipo_miembro = 'alumno' and i.estado = 'ganador'));
 
+
+-- ============================================================
+-- Arreglo: las familias no podían registrar el justificante del vestuario.
+-- La regla comprobaba la talla elegida leyendo evento_disfraces, que las familias
+-- no pueden leer, así que siempre salía "no". Además no comprobaba que el
+-- justificante fuera del alumno o alumna para el que se sube.
+-- Ahora la comprobación la hace una función que sí puede leerlo.
+
+create or replace function puede_subir_justificante_vestuario(p_inscripcion uuid)
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1
+    from evento_inscripciones i
+    join evento_disfraces d on d.evento_inscripcion_id = i.id
+    where i.id = p_inscripcion
+      and i.socio_id = mi_socio_id()
+      and i.tipo_miembro = 'alumno'
+      and i.estado = 'ganador'
+      and d.talla is not null and d.color is not null);
+$$;
+revoke all on function puede_subir_justificante_vestuario(uuid) from public, anon;
+grant execute on function puede_subir_justificante_vestuario(uuid) to authenticated;
+
+drop policy if exists "familia sube el justificante del disfraz" on comprobantes_pago;
+create policy "familia sube el justificante del disfraz" on comprobantes_pago for insert
+  with check (
+    tipo = 'disfraz_evento' and socio_id = mi_socio_id() and not verificado
+    and puede_subir_justificante_vestuario(comprobantes_pago.evento_inscripcion_id));
+
