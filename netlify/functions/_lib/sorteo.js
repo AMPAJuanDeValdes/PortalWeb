@@ -29,7 +29,7 @@ async function cargar(sb, eventoId) {
   if (error) throw error;
   if (!ev) throw new Error('El evento no existe.');
   const { data: filas, error: e2 } = await sb.from('evento_inscripciones')
-    .select('id, socio_id, grupo_id, tipo_miembro, estado, suplente_orden, promovido_en, asignada_a_mano, nombre_invitado, apellidos_invitado, nombre_contacto, email_contacto, created_at, alumnos!alumno_id(nombre, apellidos), adultos!adulto_id(nombre, apellidos)')
+    .select('id, socio_id, grupo_id, tipo_miembro, adulto_id, estado, suplente_orden, promovido_en, asignada_a_mano, nombre_invitado, apellidos_invitado, nombre_contacto, email_contacto, created_at, alumnos!alumno_id(nombre, apellidos), adultos!adulto_id(nombre, apellidos)')
     .eq('evento_id', eventoId).is('actividad_id', null).eq('es_voluntario', false)
     .order('created_at');
   if (e2) throw e2;
@@ -59,7 +59,15 @@ async function sacarSuplentes(sb, eventoId) {
   const sinTerminar = new Set((incompletas || []).map(x => x.grupo));
   const ya = suplentesDe(filas);
   const faltan = Math.max(0, (ev.num_suplentes || 0) - ya.length);
-  const candidatos = mezclar(filas.filter(f => f.estado === 'no_ganador' && f.suplente_orden == null && !sinTerminar.has(f.grupo_id || f.id)));
+  let candidatos = mezclar(filas.filter(f => f.estado === 'no_ganador' && f.suplente_orden == null && !sinTerminar.has(f.grupo_id || f.id)));
+  // Con prioridad (visita al comedor): primero los que no han ido nunca, igual que en el sorteo
+  if (ev.usa_prioridad_historial) {
+    const ids = [...new Set(candidatos.map(f => f.adulto_id).filter(Boolean))];
+    const { data: ads, error: e2 } = ids.length ? await sb.from('adultos').select('id, ya_visito_comedor').in('id', ids) : { data: [] };
+    if (e2) throw e2;
+    const ya = new Set((ads || []).filter(a => a.ya_visito_comedor).map(a => a.id));
+    candidatos = [...candidatos.filter(f => !ya.has(f.adulto_id)), ...candidatos.filter(f => ya.has(f.adulto_id))];
+  }
   let n = ya.length ? ya[ya.length - 1].suplente_orden + 1 : 1;
   const salen = candidatos.slice(0, faltan);
   for (const f of salen) await comprobar(await sb.from('evento_inscripciones').update({ suplente_orden: n++ }).eq('id', f.id), 'Sacar suplentes');

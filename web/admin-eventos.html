@@ -1745,6 +1745,7 @@ async function renderResultadoSorteo(panel, ev) {
         (k > 0 ? `<button type="button" class="btn-danger-link solo-super" data-mover="${f.id}" data-dir="-1" aria-label="Subir">↑</button>` : '') +
         (k < sup.length - 1 ? `<button type="button" class="btn-danger-link solo-super" data-mover="${f.id}" data-dir="1" aria-label="Bajar">↓</button>` : '') +
         bot(f, 'plaza', 'Darle plaza') + bot(f, 'sin', 'Quitar de suplentes'))).join('') || '<div class="puesto-fila"><span class="empty-hint">No hay suplentes.</span></div>'}
+      ${sup.length && d.numSuplentes ? `<div class="puesto-fila solo-super"><button type="button" class="btn-danger-link resResortear">Volver a sacar los suplentes desde cero</button></div>` : ''}
       ${faltanSup && sin.length ? `<div class="puesto-fila solo-super"><button type="button" class="btn btn-outline resSacar">Sacar ${Math.min(faltanSup, sin.length)} suplente${Math.min(faltanSup, sin.length) === 1 ? '' : 's'} al azar</button></div>` : ''}</div>
     <div class="puesto-caja"><div class="puesto-cab"><b>Sin plaza</b></div>
       ${sin.map(f => fila(f, bot(f, 'plaza', 'Darle plaza') + bot(f, 'suplente', 'Hacer suplente (al final)'))).join('') || '<div class="puesto-fila"><span class="empty-hint">Nadie.</span></div>'}</div>
@@ -1779,6 +1780,11 @@ async function renderResultadoSorteo(panel, ev) {
     accionar(b, { accion: 'cambiar', id: b.dataset.cambiar, a: b.dataset.a }, () => 'Cambiado.')));
   panel.querySelectorAll('[data-mover]').forEach(b => b.addEventListener('click', () =>
     accionar(b, { accion: 'mover', id: b.dataset.mover, dir: +b.dataset.dir }, () => '')));
+  const resortear = panel.querySelector('.resResortear');
+  if (resortear) resortear.addEventListener('click', () => {
+    if (!confirm('¿Quitar a todos los suplentes y volver a sacarlos al azar?' + (ev.usa_prioridad_historial ? ' Primero entran los que no han ido nunca.' : ''))) return;
+    accionar(resortear, { accion: 'resortear' }, r => `${r.sacados} suplente${r.sacados === 1 ? '' : 's'} sacado${r.sacados === 1 ? '' : 's'} de nuevo.`);
+  });
   const sacar = panel.querySelector('.resSacar');
   if (sacar) sacar.addEventListener('click', () => accionar(sacar, { accion: 'suplentes' }, r => `${r.sacados} suplente${r.sacados === 1 ? '' : 's'} sacado${r.sacados === 1 ? '' : 's'} al azar.`));
   panel.querySelector('.resDeshacer').addEventListener('click', async (e) => {

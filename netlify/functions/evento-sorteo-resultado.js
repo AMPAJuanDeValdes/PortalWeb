@@ -5,6 +5,7 @@
 //        → { ok, total, siguiente, enviados, fallos }
 // Solo la cuenta principal (superadmin):
 //   POST { eventoId, accion: 'suplentes' }                 → saca al azar los suplentes que faltan (hasta «Suplentes» del evento)
+//   POST { eventoId, accion: 'resortear' }                 → quita a todos los suplentes y los vuelve a sacar desde cero
 //   POST { eventoId, accion: 'cambiar', id, a: 'plaza' | 'suplente' | 'sin' }
 //   POST { eventoId, accion: 'mover', id, dir: -1 | 1 }    → sube o baja un suplente
 //   POST { eventoId, accion: 'deshacer' }                  → deshace el sorteo: todos vuelven a «pendiente»
@@ -35,7 +36,7 @@ exports.handler = async (event) => {
   try {
     const { ev, filas } = await cargar(sb, eventoId);
     if (ev.metodo_asignacion !== 'sorteo') return json(400, { error: 'Este evento no es por sorteo.' });
-    const soloSuper = ['suplentes', 'cambiar', 'mover', 'deshacer'].includes(accion);
+    const soloSuper = ['suplentes', 'resortear', 'cambiar', 'mover', 'deshacer'].includes(accion);
     if (soloSuper && !(await esSuperadmin(sb, u.user.id))) return json(403, { error: SOLO_SUPERADMIN });
     if (accion !== 'deshacer' && !ev.sorteo_realizado) return json(400, { error: 'Todavía no se ha hecho el sorteo.' });
     if (ev.requiere_pareja_adulto_alumno) {
@@ -51,6 +52,14 @@ exports.handler = async (event) => {
       const n = await sacarSuplentes(sb, ev.id);
       const entran = await promover(sb, ev.id);
       return json(200, { ok: true, sacados: n, entran: entran.length });
+    }
+
+    // Vuelve a sacar a todos los suplentes desde cero (con la prioridad del evento, si la tiene)
+    if (accion === 'resortear') {
+      const ids = suplentesDe(filas).map(f => f.id);
+      if (ids.length) { const { error } = await sb.from('evento_inscripciones').update({ suplente_orden: null }).in('id', ids); if (error) throw error; }
+      const n = await sacarSuplentes(sb, ev.id);
+      return json(200, { ok: true, sacados: n });
     }
 
     if (accion === 'cambiar') {

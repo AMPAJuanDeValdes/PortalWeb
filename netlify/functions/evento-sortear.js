@@ -14,8 +14,8 @@
 //   - Con prioridad histórica (usa_prioridad_historial, ej. Comedor):
 //     quienes no han participado antes (adultos.ya_visito_comedor =
 //     false) entran primero al sorteo; los que ya participaron solo
-//     compiten por las plazas que sobren. Los ganadores nuevos quedan
-//     marcados como "ya visitó" de cara a futuras ediciones.
+//     compiten por las plazas que sobren. El sorteo NO marca a nadie como
+//     "ya visitó": lo marca a mano la Junta (Socios) después de la visita.
 //
 // Solo puede ejecutarse una vez por evento (reclamo atómico), igual que
 // los repartos de préstamo y uniformes.
@@ -126,7 +126,6 @@ exports.handler = async (event) => {
 
   const cupo = reclamado.aforo_total; // null = sin límite (no debería pasar en un sorteo real, pero por si acaso)
   let ganadoresIds = [];
-  let nuevosVisitantesAdultoIds = [];
   let ordenSorteo = [];   // los que no salen, en el orden del sorteo: los primeros son los suplentes
 
   if (reclamado.requiere_pareja_adulto_alumno) {
@@ -164,7 +163,6 @@ exports.handler = async (event) => {
 
     ganadoresIds = [...ganadoresNuevos, ...ganadoresRepiten].map(i => i.id);
     ordenSorteo = [...nuevos.slice(ganadoresNuevos.length), ...repiten.slice(ganadoresRepiten.length)];
-    nuevosVisitantesAdultoIds = ganadoresNuevos.map(i => i.adulto_id).filter(Boolean);
 
   } else {
     const mezclados = mezclar([...inscripciones]);
@@ -212,12 +210,6 @@ exports.handler = async (event) => {
   if (reclamado.requiere_pareja_adulto_alumno) {
     try { suplentes = await ordenarSuplentes(supabaseAdmin, eventoId); }
     catch (e) { console.error('No se pudo ordenar a los suplentes:', e.message); }
-  }
-
-  if (nuevosVisitantesAdultoIds.length > 0) {
-    await supabaseAdmin.from('adultos')
-      .update({ ya_visito_comedor: true })
-      .in('id', nuevosVisitantesAdultoIds);
   }
 
   return {
