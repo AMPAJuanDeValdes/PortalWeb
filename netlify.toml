@@ -22,6 +22,11 @@
 [functions."cabalgata-caducar"]
   schedule = "*/30 * * * *"
 
+# Sorteos (menos la Cabalgata): cada 15 minutos, si ha quedado libre una plaza,
+# entra el primer suplente y le llega un email
+[functions."evento-suplentes"]
+  schedule = "*/15 * * * *"
+
 # Avisos en el móvil: el service worker se comprueba siempre (si no, las
 # familias tardarían en recibir los cambios)
 [[headers]]

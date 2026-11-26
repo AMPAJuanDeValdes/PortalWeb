@@ -8,7 +8,6 @@
 
 const { createClient } = require('@supabase/supabase-js');
 const { enviarEmail, conFirma } = require('./_lib/email');
-const { registrarDifusion } = require('./_lib/avisos');
 
 const json = (statusCode, obj) => ({ statusCode, body: JSON.stringify(obj) });
 const ZONA = { timeZone: 'Europe/Madrid' };
@@ -108,8 +107,5 @@ exports.handler = async (event) => {
     } catch (e) { fallos.push(m.a); }
   }
   const siguiente = inicio + TANDA < mensajes.length ? inicio + TANDA : null;
-  if (siguiente === null) {
-    try { await registrarDifusion(sb, { tipo: 'evento', refId: ev.id, canal: 'aviso', familias: mensajes.length, adultoId: u.user.id }); } catch (e) { /* el envío ya está hecho */ }
-  }
   return json(200, { ok: true, total: mensajes.length, siguiente, enviados, fallos });
 };

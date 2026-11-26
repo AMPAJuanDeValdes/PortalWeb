@@ -8571,3 +8571,19 @@ create policy "familia sube el justificante del disfraz" on comprobantes_pago fo
     tipo = 'disfraz_evento' and socio_id = mi_socio_id() and not verificado
     and puede_subir_justificante_vestuario(comprobantes_pago.evento_inscripcion_id));
 
+
+-- ============================================================
+-- Sorteos (todos los eventos menos la Cabalgata, que ya los tiene):
+-- número de suplentes que se sacan en el sorteo. Los suplentes quedan con
+-- estado 'no_ganador' y suplente_orden 1, 2, 3…; si queda libre una plaza,
+-- entra solo el primero (función programada evento-suplentes).
+alter table eventos add column if not exists num_suplentes integer not null default 0;
+do $$ begin
+  if not exists (select 1 from pg_constraint where conname = 'eventos_num_suplentes_check') then
+    alter table eventos add constraint eventos_num_suplentes_check check (num_suplentes >= 0);
+  end if;
+end $$;
+-- (evento_inscripciones.suplente_orden y promovido_en ya existen: migración de la gestión de la Cabalgata)
+alter table evento_inscripciones add column if not exists suplente_orden integer;
+alter table evento_inscripciones add column if not exists promovido_en timestamptz;
+

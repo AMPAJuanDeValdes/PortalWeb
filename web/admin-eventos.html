@@ -102,6 +102,8 @@
       <div class="field"><label for="eFecha">Fecha y hora</label><input type="datetime-local" id="eFecha"></div>
       <div class="field"><label for="eAforo">Aforo total (vacío = sin límite)</label><input type="number" id="eAforo" min="1"></div>
     </div>
+    <div class="field" id="suplentesWrap"><label for="eSuplentes">Suplentes (solo en sorteos)</label><input type="number" id="eSuplentes" min="0" value="0" style="max-width:160px;">
+      <p class="ayuda" style="margin:4px 0 0;">Cuántos suplentes salen en el sorteo, en orden. Si queda libre una plaza, entra solo el primer suplente y le llega un email. En la Cabalgata no se usa: tiene su propia gestión.</p></div>
     <div class="field" id="reservasWrap" hidden>
       <label for="ePlazasReservadas">Plazas de alumnos reservadas</label>
       <input type="number" id="ePlazasReservadas" min="0" style="max-width:220px;">
@@ -522,6 +524,7 @@ function rellenarFormulario(ev) {
   $('eFecha').value = aLocal(e.fecha);
   $('eHoraFin').value = horaLocal(e.fecha_fin);
   $('eAforo').value = e.aforo_total ?? '';
+  $('eSuplentes').value = e.num_suplentes || 0;
   $('eLugar').value = e.lugar || '';
   $('eTipoEspecial').value = e.sin_inscripcion ? 'informativo' : e.usa_concurso_texto ? 'concurso' : 'normal';
   $('eTipoElegibilidad').value = e.tipo_elegibilidad;
@@ -588,6 +591,7 @@ function leerFormulario() {
     fecha: aISO($('eFecha').value),
     fecha_fin: finISO($('eFecha').value, $('eHoraFin').value),
     aforo_total: num($('eAforo').value, true),
+    num_suplentes: Math.max(0, parseInt($('eSuplentes').value, 10) || 0),
     lugar: $('eLugar').value.trim() || null,
     sin_inscripcion: tipoEsp === 'informativo',
     usa_concurso_texto: tipoEsp === 'concurso',
@@ -910,6 +914,7 @@ async function cargarEventos() {
           (ev.requiere_pareja_adulto_alumno && ev.sorteo_realizado ? '<button class="btn btn-outline toggleReservadasBtn solo-super">Plazas</button>'
             : ev.requiere_pareja_adulto_alumno && ev.plazas_reservadas > 0 ? '<button class="btn btn-outline toggleReservadasBtn solo-super">Plazas reservadas</button>' : '') +
           (eventosConDocs.has(ev.id) ? '<button class="btn btn-outline toggleIncompletasBtn">Inscripciones sin terminar</button>' : '') +
+          (ev.metodo_asignacion === 'sorteo' && ev.sorteo_realizado && !ev.requiere_pareja_adulto_alumno ? '<button class="btn btn-outline toggleResultadoBtn">Resultado del sorteo</button>' : '') +
           (ev.requiere_pareja_adulto_alumno && ev.sorteo_realizado ? `<a class="btn btn-outline" href="admin-cabalgata.html?evento=${ev.id}">Gestión tras el sorteo</a>` : '') +
           ((ev.puestos || []).length ? '<button class="btn btn-outline togglePostulacionesBtn">Postulaciones</button>' : '') +
           '<button class="btn btn-outline togglePremiosBtn">Premios</button>' +
@@ -933,6 +938,7 @@ async function cargarEventos() {
       '<div class="actividadesPanel" style="display:none; margin-top:14px;"></div>' +
       '<div class="reservadasPanel" style="display:none; margin-top:14px;"></div>' +
       '<div class="incompletasPanel" style="display:none; margin-top:14px;"></div>' +
+      '<div class="resultadoPanel" style="display:none; margin-top:14px;"></div>' +
       '<div class="postulacionesPanel" style="display:none; margin-top:14px;"></div>' +
       '<div class="premiosPanel" style="display:none; margin-top:14px;"></div>' +
       '<div class="fotosPanel" style="display:none; margin-top:14px;"></div>' +
@@ -990,6 +996,13 @@ async function cargarEventos() {
       });
     }
 
+    const resultadoPanel = row.querySelector('.resultadoPanel');
+    const toggleResultadoBtn = row.querySelector('.toggleResultadoBtn');
+    if (toggleResultadoBtn) toggleResultadoBtn.addEventListener('click', async () => {
+      const visible = resultadoPanel.style.display === 'block';
+      resultadoPanel.style.display = visible ? 'none' : 'block';
+      if (!visible) await renderResultadoSorteo(resultadoPanel, ev);
+    });
     const incPanel = row.querySelector('.incompletasPanel');
     const toggleIncBtn = row.querySelector('.toggleIncompletasBtn');
     if (toggleIncBtn) toggleIncBtn.addEventListener('click', async () => {
@@ -1162,7 +1175,7 @@ async function cargarEventos() {
           const data = await resp.json();
           if (!resp.ok) throw new Error(data.error || 'Error al sortear');
           msg.style.display = 'block'; msg.className = 'sortearMsg msg-ok';
-          msg.textContent = `Sorteado ✓ — ${data.ganadores} ganador(es), ${data.noGanadores} sin plaza${data.puestos ? `, ${data.puestos} puesto(s) asignados` : ''}${data.sinDocumentos ? `. No entraron por no tener los documentos firmados: ${data.sinDocumentos} persona(s)` : ''}.`;
+          msg.textContent = `Sorteado ✓ — ${data.ganadores} ganador(es), ${data.noGanadores} sin plaza${!ev.requiere_pareja_adulto_alumno && data.suplentes ? ` (${data.suplentes} de ellos suplentes)` : ''}${data.puestos ? `, ${data.puestos} puesto(s) asignados` : ''}${data.sinDocumentos ? `. No entraron por no tener los documentos firmados: ${data.sinDocumentos} persona(s)` : ''}.`;
           cargarEventos();
         } catch (err) {
           msg.style.display = 'block'; msg.className = 'sortearMsg msg-error'; msg.textContent = err.message;
@@ -1291,7 +1304,7 @@ async function renderInscritos(panel, ev) {
       'Notas': notasRecogida(i),
       'Pago': gratis ? 'Gratis («' + ev.gratis_si.respuesta + '»)' : debePagar ? (comp ? (comp.verificado ? 'Verificado' : 'Justificante por revisar') : 'Sin justificante') : '',
       ...(enCharla ? { 'En la charla': gratis ? (enCharla(i) ? 'Sí' : 'NO APARECE') : '' } : {}),
-      'Sorteo': ev.metodo_asignacion === 'sorteo' && !i.es_voluntario && !i.actividad_id ? ({ pendiente: 'Pendiente', ganador: 'Con plaza', no_ganador: 'Sin plaza' }[i.estado] || '') : '',
+      'Sorteo': ev.metodo_asignacion === 'sorteo' && !i.es_voluntario && !i.actividad_id ? (i.estado === 'no_ganador' && i.suplente_orden != null ? 'Suplente ' + i.suplente_orden : ({ pendiente: 'Pendiente', ganador: 'Con plaza', no_ganador: 'Sin plaza' }[i.estado] || '')) : '',
       'Nº socio': numeroSocioBonito(i.socios?.numero_socio_completo),
       'Email': i.email_contacto || resp.email || '', 'Teléfono': i.telefono_contacto || resp.movil || ''
     };
@@ -1692,6 +1705,123 @@ async function renderSesiones(panel, ev) {
       avisoS(!fallos.length, `Enviado a ${enviados} familia${enviados === 1 ? '' : 's'}.` + (fallos.length ? ` No se pudo enviar a: ${fallos.join(', ')}` : ''));
     } catch (err) {
       avisoS(false, err.message + ' Puedes volver a pulsar «Enviar email»: no se repite a las familias socias que ya lo recibieron.');
+      e.target.disabled = false;
+    }
+  });
+}
+
+/* ================= Resultado del sorteo =================
+   Eventos con sorteo (menos la Cabalgata). Toda la Junta ve el resultado y
+   envía el email a los inscritos (con vista previa). Solo la cuenta
+   principal cambia resultados, ordena suplentes o deshace el sorteo. */
+async function renderResultadoSorteo(panel, ev) {
+  panel.innerHTML = '<p class="loading">Cargando...</p>';
+  const llamar = async (cuerpo) => {
+    const session = await getSession();
+    const r = await fetch('/.netlify/functions/evento-sorteo-resultado', { method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
+      body: JSON.stringify({ eventoId: ev.id, ...cuerpo }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || 'No se pudo completar (error ' + r.status + ').');
+    return j;
+  };
+  let d;
+  try { d = await llamar({ accion: 'ver' }); }
+  catch (err) { panel.innerHTML = '<p class="msg-error">' + esc(err.message) + (/num_suplentes|suplente_orden/.test(err.message) ? ' ¿Has ejecutado supabase/pendientes/migracion-sorteo-suplentes.sql?' : '') + '</p>'; return; }
+  const con = d.filas.filter(f => f.estado === 'ganador');
+  const sup = d.filas.filter(f => f.estado === 'no_ganador' && f.suplente_orden != null).sort((a, b) => a.suplente_orden - b.suplente_orden);
+  const sin = d.filas.filter(f => f.estado !== 'ganador' && f.suplente_orden == null);
+  const faltanSup = Math.max(0, d.numSuplentes - sup.length);
+  const bot = (f, a, t) => `<button type="button" class="btn-danger-link solo-super" data-cambiar="${f.id}" data-a="${a}">${t}</button>`;
+  const fila = (f, extra) => `<div class="puesto-fila" style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:center;">
+      <span>${esc(f.nombre)}${f.promovido ? ' <small style="color:var(--ink-soft);">(entró de suplente)</small>' : ''}${f.estado === 'pendiente' ? ' <small style="color:var(--ink-soft);">(pendiente)</small>' : ''}</span><span style="display:flex; gap:12px; flex-wrap:wrap;">${extra}</span></div>`;
+  panel.innerHTML = `<p class="section-label">Resultado del sorteo</p>
+    <p class="ayuda" style="margin:0 0 10px;"><b>${con.length}</b> con plaza${d.aforo != null ? ' de ' + d.aforo : ''} · <b>${sup.length}</b> suplente${sup.length === 1 ? '' : 's'} · <b>${sin.length}</b> sin plaza. Si queda libre una plaza, entra solo el primer suplente y le llega un email.</p>
+    <p class="resMsg" hidden></p>
+    <div class="puesto-caja"><div class="puesto-cab"><b>Con plaza</b></div>
+      ${con.map(f => fila(f, bot(f, 'suplente', 'Pasar a suplente') + bot(f, 'sin', 'Quitar la plaza'))).join('') || '<div class="puesto-fila"><span class="empty-hint">Nadie.</span></div>'}</div>
+    <div class="puesto-caja"><div class="puesto-cab"><b>Suplentes, en orden</b></div>
+      ${sup.map((f, k) => fila({ ...f, nombre: f.suplente_orden + '.º ' + f.nombre },
+        (k > 0 ? `<button type="button" class="btn-danger-link solo-super" data-mover="${f.id}" data-dir="-1" aria-label="Subir">↑</button>` : '') +
+        (k < sup.length - 1 ? `<button type="button" class="btn-danger-link solo-super" data-mover="${f.id}" data-dir="1" aria-label="Bajar">↓</button>` : '') +
+        bot(f, 'plaza', 'Darle plaza') + bot(f, 'sin', 'Quitar de suplentes'))).join('') || '<div class="puesto-fila"><span class="empty-hint">No hay suplentes.</span></div>'}
+      ${faltanSup && sin.length ? `<div class="puesto-fila solo-super"><button type="button" class="btn btn-outline resSacar">Sacar ${Math.min(faltanSup, sin.length)} suplente${Math.min(faltanSup, sin.length) === 1 ? '' : 's'} al azar</button></div>` : ''}</div>
+    <div class="puesto-caja"><div class="puesto-cab"><b>Sin plaza</b></div>
+      ${sin.map(f => fila(f, bot(f, 'plaza', 'Darle plaza') + bot(f, 'suplente', 'Hacer suplente (al final)'))).join('') || '<div class="puesto-fila"><span class="empty-hint">Nadie.</span></div>'}</div>
+    <p class="ayuda solo-super" style="margin:6px 0 0;">Para cambiar una plaza por otra, da primero la plaza a quien quieras y después quítasela al otro; si no, entra solo el primer suplente.</p>
+    <div style="margin-top:18px; border-top:1px solid var(--line); padding-top:14px;">
+      <p class="section-label">Enviar el resultado por email</p>
+      <p class="ayuda" style="margin:0 0 10px;">A todos los inscritos: a cada familia, si cada uno tiene plaza, es suplente (con su número) o no ha salido.</p>
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <button type="button" class="btn btn-outline resVista">Vista previa del email</button>
+        <button type="button" class="btn btn-primary resEnviar" disabled title="Mira antes la vista previa">Enviar email</button>
+      </div>
+      <p class="resEnvMsg" hidden></p>
+      <div class="resVistaZona" hidden style="margin-top:12px;"></div>
+    </div>
+    <div class="solo-super" style="margin-top:18px; border-top:1px solid var(--line); padding-top:14px;">
+      <button type="button" class="btn-danger-link resDeshacer">Deshacer el sorteo</button>
+      <span class="ayuda"> Todos vuelven a «pendiente» y se puede sortear otra vez.</span>
+    </div>`;
+  const msg = panel.querySelector('.resMsg');
+  const aviso = (el, ok, t) => { el.hidden = false; el.className = el.className.split(' ')[0] + ' ' + (ok ? 'msg-ok' : 'msg-error'); el.textContent = t; };
+  const accionar = async (b, cuerpo, okTexto) => {
+    b.disabled = true; msg.hidden = true;
+    try {
+      const r = await llamar(cuerpo);
+      await renderResultadoSorteo(panel, ev);
+      const m = panel.querySelector('.resMsg');
+      const t = okTexto(r) + (r.entran && r.entran.length ? ` Ha entrado de suplente: ${Array.isArray(r.entran) ? r.entran.join(', ') : r.entran} (le ha llegado un email).` : '');
+      if (t) aviso(m, true, t);
+    } catch (err) { aviso(msg, false, err.message); b.disabled = false; }
+  };
+  panel.querySelectorAll('[data-cambiar]').forEach(b => b.addEventListener('click', () =>
+    accionar(b, { accion: 'cambiar', id: b.dataset.cambiar, a: b.dataset.a }, () => 'Cambiado.')));
+  panel.querySelectorAll('[data-mover]').forEach(b => b.addEventListener('click', () =>
+    accionar(b, { accion: 'mover', id: b.dataset.mover, dir: +b.dataset.dir }, () => '')));
+  const sacar = panel.querySelector('.resSacar');
+  if (sacar) sacar.addEventListener('click', () => accionar(sacar, { accion: 'suplentes' }, r => `${r.sacados} suplente${r.sacados === 1 ? '' : 's'} sacado${r.sacados === 1 ? '' : 's'} al azar.`));
+  panel.querySelector('.resDeshacer').addEventListener('click', async (e) => {
+    if (!confirm('¿Deshacer el sorteo? Todos vuelven a «pendiente» (con plaza, suplentes y sin plaza). Las familias no reciben ningún aviso.')) return;
+    e.target.disabled = true;
+    try { await llamar({ accion: 'deshacer' }); cargarEventos(); }
+    catch (err) { aviso(msg, false, err.message); e.target.disabled = false; }
+  });
+  // Email con el resultado
+  const envMsg = panel.querySelector('.resEnvMsg');
+  let total = 0, envioId = null;
+  panel.querySelector('.resVista').addEventListener('click', async (e) => {
+    e.target.disabled = true; envMsg.hidden = true;
+    try {
+      const r = await llamar({ accion: 'vista' });
+      total = r.vista.length;
+      envioId = (window.crypto && crypto.randomUUID) ? crypto.randomUUID()
+        : '10000000-1000-4000-8000-100000000000'.replace(/[018]/g, c => (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16));
+      const zona = panel.querySelector('.resVistaZona');
+      zona.hidden = false;
+      zona.innerHTML = `<p style="margin:0 0 6px;">Se enviará a <b>${total}</b> familia${total === 1 ? '' : 's'} (cada una con su resultado). Así le llega a la primera:</p>
+        <p style="margin:0 0 6px; font-size:14px;"><b>Para:</b> ${esc(r.vista[0].a)}<br><b>Asunto:</b> ${esc(r.vista[0].asunto)}</p>
+        <iframe title="Vista previa del email" sandbox="" style="width:100%; min-height:320px; border:1px solid var(--line); border-radius:12px; background:#fff;"></iframe>
+        <details style="margin-top:8px;"><summary>A quién se envía y qué le dice</summary><ul>${r.vista.map(v => `<li><b>${esc(v.familia)}</b> (${esc(v.a)}): ${esc(v.resumen.join('; '))}</li>`).join('')}</ul></details>`;
+      zona.querySelector('iframe').srcdoc = '<!doctype html><meta charset="utf-8"><body style="margin:16px;">' + r.vista[0].html + '</body>';
+      panel.querySelector('.resEnviar').disabled = false;
+    } catch (err) { aviso(envMsg, false, err.message); }
+    e.target.disabled = false;
+  });
+  panel.querySelector('.resEnviar').addEventListener('click', async (e) => {
+    if (!confirm('¿Enviar ahora el resultado del sorteo a todos los inscritos?')) return;
+    e.target.disabled = true;
+    let inicio = 0, enviados = 0; const fallos = [];
+    try {
+      while (inicio !== null) {
+        aviso(envMsg, true, `Enviando… ${enviados} de ${total}`);
+        const r = await llamar({ accion: 'enviar', envioId, inicio });
+        enviados += r.enviados; fallos.push(...(r.fallos || []));
+        inicio = r.siguiente;
+      }
+      aviso(envMsg, !fallos.length, `Enviado a ${enviados} familia${enviados === 1 ? '' : 's'}.` + (fallos.length ? ` No se pudo enviar a: ${fallos.join(', ')}` : ''));
+    } catch (err) {
+      aviso(envMsg, false, err.message + ' Puedes volver a pulsar «Enviar email»: no se repite a las familias socias que ya lo recibieron.');
       e.target.disabled = false;
     }
   });

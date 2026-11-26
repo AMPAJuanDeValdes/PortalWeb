@@ -675,6 +675,7 @@ async function renderEventoNormal(evento) {
     if (evento.sorteo_realizado) {
       accion.innerHTML = !i ? '<span class="estado-gris">No participó</span>'
         : i.estado === 'ganador' ? '<span class="estado-ok">Tiene plaza</span>'
+        : i.estado === 'no_ganador' && i.suplente_orden != null && !evento.requiere_pareja_adulto_alumno ? `<span class="estado-gris">Suplente nº ${i.suplente_orden}</span>`
         : i.estado === 'no_ganador' ? '<span class="estado-no">No salió en el sorteo</span>' : '<span class="estado-gris">Pendiente</span>';
     } else if (i) {
       accion.innerHTML = `<span class="estado-ok">Apuntado/a</span>`;

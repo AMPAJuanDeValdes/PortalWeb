@@ -127,6 +127,7 @@ exports.handler = async (event) => {
   const cupo = reclamado.aforo_total; // null = sin límite (no debería pasar en un sorteo real, pero por si acaso)
   let ganadoresIds = [];
   let nuevosVisitantesAdultoIds = [];
+  let ordenSorteo = [];   // los que no salen, en el orden del sorteo: los primeros son los suplentes
 
   if (reclamado.requiere_pareja_adulto_alumno) {
     const grupos = {};
@@ -162,18 +163,23 @@ exports.handler = async (event) => {
     const ganadoresRepiten = restante > 0 ? repiten.slice(0, restante) : [];
 
     ganadoresIds = [...ganadoresNuevos, ...ganadoresRepiten].map(i => i.id);
+    ordenSorteo = [...nuevos.slice(ganadoresNuevos.length), ...repiten.slice(ganadoresRepiten.length)];
     nuevosVisitantesAdultoIds = ganadoresNuevos.map(i => i.adulto_id).filter(Boolean);
 
   } else {
     const mezclados = mezclar([...inscripciones]);
     const ganadores = cupo != null ? mezclados.slice(0, cupo) : mezclados;
     ganadoresIds = ganadores.map(i => i.id);
+    ordenSorteo = mezclados.slice(ganadores.length);
   }
 
   const ganadoresSet = new Set(ganadoresIds);
+  // Suplentes (menos la Cabalgata, que los ordena aparte): los N siguientes del sorteo
+  const numSuplentes = reclamado.requiere_pareja_adulto_alumno ? 0 : (reclamado.num_suplentes || 0);
+  const ordenSuplente = new Map(ordenSorteo.slice(0, numSuplentes).map((i, k) => [i.id, k + 1]));
   await actualizarEnLotes(todasPendientes, async (i) => {
     await supabaseAdmin.from('evento_inscripciones')
-      .update({ estado: ganadoresSet.has(i.id) ? 'ganador' : 'no_ganador' })
+      .update({ estado: ganadoresSet.has(i.id) ? 'ganador' : 'no_ganador', suplente_orden: ordenSuplente.get(i.id) ?? null })
       .eq('id', i.id);
   });
 
@@ -223,7 +229,7 @@ exports.handler = async (event) => {
       noGanadores: inscripciones.length - ganadoresIds.length,
       sinDocumentos: fueraPorDocumentos.length,   // filas (alumnos y adultos) que no entraron por no tener los documentos firmados
       puestos: puestosSorteados,
-      suplentes
+      suplentes: reclamado.requiere_pareja_adulto_alumno ? suplentes : ordenSuplente.size
     })
   };
 };
