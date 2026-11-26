@@ -1753,6 +1753,9 @@ async function renderResultadoSorteo(panel, ev) {
     <div style="margin-top:18px; border-top:1px solid var(--line); padding-top:14px;">
       <p class="section-label">Enviar el resultado por email</p>
       <p class="ayuda" style="margin:0 0 10px;">A todos los inscritos: a cada familia, si cada uno tiene plaza, es suplente (con su número) o no ha salido.</p>
+      <div class="field"><label>Texto para los que tienen plaza (opcional)</label>
+        <textarea class="resTextoPlaza" rows="4">${esc(ev.usa_prioridad_historial ? 'Tenéis 24 horas para confirmar vuestra plaza y vuestra presencia. Si tenéis alguna alergia alimentaria o petición especial para el comedor, comunicadla por email, también en las próximas 24 horas.' : '')}</textarea>
+        <p class="ayuda" style="margin:4px 0 0;">Solo lo reciben las familias con alguien con plaza. Cámbialo si quieres antes de la vista previa.</p></div>
       <div style="display:flex; gap:10px; flex-wrap:wrap;">
         <button type="button" class="btn btn-outline resVista">Vista previa del email</button>
         <button type="button" class="btn btn-primary resEnviar" disabled title="Mira antes la vista previa">Enviar email</button>
@@ -1796,10 +1799,11 @@ async function renderResultadoSorteo(panel, ev) {
   // Email con el resultado
   const envMsg = panel.querySelector('.resEnvMsg');
   let total = 0, envioId = null;
+  panel.querySelector('.resTextoPlaza').addEventListener('input', () => { panel.querySelector('.resEnviar').disabled = true; });
   panel.querySelector('.resVista').addEventListener('click', async (e) => {
     e.target.disabled = true; envMsg.hidden = true;
     try {
-      const r = await llamar({ accion: 'vista' });
+      const r = await llamar({ accion: 'vista', textoPlaza: panel.querySelector('.resTextoPlaza').value });
       total = r.vista.length;
       envioId = (window.crypto && crypto.randomUUID) ? crypto.randomUUID()
         : '10000000-1000-4000-8000-100000000000'.replace(/[018]/g, c => (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16));
@@ -1821,7 +1825,7 @@ async function renderResultadoSorteo(panel, ev) {
     try {
       while (inicio !== null) {
         aviso(envMsg, true, `Enviando… ${enviados} de ${total}`);
-        const r = await llamar({ accion: 'enviar', envioId, inicio });
+        const r = await llamar({ accion: 'enviar', envioId, inicio, textoPlaza: panel.querySelector('.resTextoPlaza').value });
         enviados += r.enviados; fallos.push(...(r.fallos || []));
         inicio = r.siguiente;
       }

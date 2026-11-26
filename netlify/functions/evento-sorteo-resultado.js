@@ -1,5 +1,6 @@
 // Panel → Eventos → «Resultado del sorteo» (eventos con sorteo, menos la Cabalgata).
 //   POST { eventoId, accion: 'ver' }                       → { ok, filas: [{ id, nombre, estado, suplente_orden }] }   (Junta)
+//   (vista y enviar aceptan textoPlaza: texto que se añade solo a las familias con alguien con plaza)
 //   POST { eventoId, accion: 'vista' }                     → { ok, vista: [{ familia, a, asunto, html, resumen }] }   (Junta; no envía nada)
 //   POST { eventoId, accion: 'enviar', envioId, inicio }   → email con el resultado a todos los inscritos, por tandas (Junta)
 //        → { ok, total, siguiente, enviados, fallos }
@@ -109,7 +110,7 @@ exports.handler = async (event) => {
 
     // El email con el resultado, a todos los inscritos
     if (accion === 'vista' || accion === 'enviar') {
-      let mensajes = await mensajesResultado(sb, ev, filas);
+      let mensajes = await mensajesResultado(sb, ev, filas, String(p.textoPlaza || '').slice(0, 3000));
       if (ev.solo_pruebas) {
         const { data: prueba } = await sb.from('adultos').select('socio_id').ilike('email', '%ampa-prueba-%');
         const { data: reales } = await sb.from('pruebas_familias').select('socio_id');

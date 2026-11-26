@@ -142,7 +142,7 @@ function resultadoDe(f) {
   if (f.estado === 'no_ganador') return 'no ha salido en el sorteo';
   return 'pendiente del sorteo';
 }
-async function mensajesResultado(sb, ev, filas) {
+async function mensajesResultado(sb, ev, filas, textoPlaza = '') {
   const web = (process.env.SITE_URL || '').replace(/\/$/, '');
   const lista = await destinatarios(sb, filas.filter(f => f.estado === 'ganador' || f.estado === 'no_ganador'));
   return lista.map(d => {
@@ -150,6 +150,7 @@ async function mensajesResultado(sb, ev, filas) {
     const text = `Hola${d.nombre ? ' ' + d.nombre : ''},\n\n` +
       `Ya se ha hecho el sorteo de «${ev.titulo}». Este es el resultado:\n\n` +
       d.filas.map(f => `- ${nombre(f)}: ${resultadoDe(f)}.`).join('\n') + '\n\n' +
+      (textoPlaza && d.filas.some(f => f.estado === 'ganador') ? textoPlaza.trim() + '\n\n' : '') +
       (haySuplente ? 'Si queda libre una plaza, entra el siguiente suplente y le llega un email.\n\n' : '') +
       (ev.fecha ? `Fecha: ${fechaLarga(ev.fecha)}\n\n` : '') +
       `Puedes verlo en la web:\n${web}/eventos.html#ev-${ev.id}\n`;
