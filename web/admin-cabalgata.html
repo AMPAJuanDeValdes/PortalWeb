@@ -81,8 +81,9 @@
 
   <section class="bloque">
     <h2>Escribir a las familias</h2>
-    <p class="ayuda">Un email escrito por ti a las familias de los que han salido sorteados y tienen algo pendiente. Empieza con «Hola» y el nombre, y lleva la firma del AMPA.</p>
+    <p class="ayuda">Un email escrito por ti a las familias de los que han salido sorteados: a todas o a las que tienen algo pendiente. En la vista previa puedes quitar las que no quieras. Empieza con «Hola» y el nombre, y lleva la firma del AMPA.</p>
     <div class="field"><label for="escribirA">A quién</label><select id="escribirA">
+      <option value="todos">Todas las familias seleccionadas</option>
       <option value="confirmar">No han confirmado si van</option>
       <option value="vestuario">No han elegido modelo o talla del vestuario</option>
       <option value="justificante">Han confirmado pero no han subido el justificante del vestuario</option></select></div>
@@ -285,9 +286,10 @@ async function cargar() {
   };
   const celdaJustificante = (f) => {
     const c = pagoDe(f);
-    if (!c) return '<span class="espera">Sin justificante</span>';
+    const subir = `<span class="solo-super"><br><label class="linklike" style="cursor:pointer;">${c ? 'Subir otro justificante' : 'Subir justificante'}<input type="file" accept="image/*,.pdf" data-subir-justif="${f.id}" hidden></label></span>`;
+    if (!c) return '<span class="espera">Sin justificante</span>' + subir;
     return c.verificado ? '<span class="ok">Pagado</span>'
-      : `<span class="espera">Por revisar</span><br><button type="button" class="linklike" data-ver="${esc(c.archivo_url)}">Ver</button> · <button type="button" class="linklike" data-verificar="${c.id}">Marcar pagado</button>`;
+      : `<span class="espera">Por revisar</span><br><button type="button" class="linklike" data-ver="${esc(c.archivo_url)}">Ver</button> · <button type="button" class="linklike" data-verificar="${c.id}">Marcar pagado</button>` + subir;
   };
   const elegidosPuestos = (posts || []).filter(p => p.estado === 'elegido').sort((a, b) => a.puesto.localeCompare(b.puesto));
   const vanAl = elegidas.filter(p => p.al[0].asistencia === 'si').reduce((n, p) => n + p.al.length, 0);
@@ -344,6 +346,23 @@ async function cargar() {
     const url = await urlArchivo('comprobantes', b.dataset.ver);
     if (url) window.open(url, '_blank', 'noopener'); else alert('No se pudo abrir el justificante.');
   }));
+  // Superadmin: sube el justificante por la familia (p. ej. si se lo han mandado por email)
+  $('elegidos').querySelectorAll('[data-subir-justif]').forEach(inp => inp.addEventListener('change', async () => {
+    const file = inp.files[0]; if (!file) return;
+    const f = (filas || []).find(x => x.id === inp.dataset.subirJustif);
+    if (!f || !f.socio_id) { alert('Esta inscripción no tiene familia.'); return; }
+    const d = disfrazDe(f);
+    const m = ((ev.disfraz_config || {}).modelos || []).find(x => x.nombre === d.color);
+    const etiqueta = inp.closest('label'); etiqueta.style.opacity = '.5';
+    const ext = (file.name.match(/\.[a-zA-Z0-9]+$/) || [''])[0];
+    const path = `${f.socio_id}/disfraz-${Date.now()}-junta${ext}`;
+    const { error: e1 } = await sb.storage.from('comprobantes').upload(path, file, { contentType: file.type || undefined });
+    if (e1) { alert('No se pudo subir el archivo: ' + e1.message); etiqueta.style.opacity = ''; inp.value = ''; return; }
+    const { error: e2 } = await sb.from('comprobantes_pago').insert({ tipo: 'disfraz_evento', evento_inscripcion_id: f.id, socio_id: f.socio_id,
+      archivo_url: path, importe: m ? m.precio : (ev.disfraz_precio ?? null) });
+    if (e2) { alert('El archivo se ha subido, pero no se pudo registrar: ' + e2.message); etiqueta.style.opacity = ''; inp.value = ''; return; }
+    cargar();
+  }));
   $('elegidos').querySelectorAll('[data-verificar]').forEach(b => b.addEventListener('click', async () => {
     b.disabled = true;
     const { error } = await sb.from('comprobantes_pago').update({ verificado: true }).eq('id', b.dataset.verificar);
@@ -368,16 +387,20 @@ async function vistaYEnviar(accion, zona, explicar, extra = {}) {
     const m = r.vista[0];
     zona.innerHTML = `<p>${explicar(r.vista.length)} Así es el primero:</p>
       <p><b>Para:</b> ${esc(m.a)}<br><b>Asunto:</b> ${esc(m.asunto)}</p><div class="vista-email">${m.html}</div>
-      ${r.vista[0].pendiente ? `<details style="margin-top:10px;"><summary>A quién se envía (${r.vista.length} familias)</summary><ul>${r.vista.map(v => `<li>${esc(v.familia)}: ${esc(v.pendiente.join(', '))}</li>`).join('')}</ul></details>` : ''}
+      ${r.vista[0].pendiente ? (accion === 'escribir'
+        ? `<div style="margin-top:10px;"><p><b>A quién se envía</b> (quita las que no quieras):</p>${r.vista.map(v => `<label class="check" style="display:flex;margin:4px 0;"><input type="checkbox" class="dest" value="${esc(v.socio)}" checked> ${esc(v.familia)}: ${esc(v.pendiente.join(', '))}</label>`).join('')}</div>`
+        : `<details style="margin-top:10px;"><summary>A quién se envía (${r.vista.length} familias)</summary><ul>${r.vista.map(v => `<li>${esc(v.familia)}: ${esc(v.pendiente.join(', '))}</li>`).join('')}</ul></details>`) : ''}
       <div class="acciones-fila"><button type="button" class="btn btn-primary enviar">Enviar</button><span class="ayuda msgEnvio"></span></div>`;
     zona.querySelector('.enviar').addEventListener('click', async (e) => {
       const b = e.currentTarget, msg = zona.querySelector('.msgEnvio');
-      b.disabled = true;
+      const quitadas = [...zona.querySelectorAll('.dest:not(:checked)')].map(c => c.value);
+      if (zona.querySelector('.dest') && !zona.querySelector('.dest:checked')) { msg.textContent = 'No has dejado ninguna familia.'; return; }
+      b.disabled = true; zona.querySelectorAll('.dest').forEach(c => { c.disabled = true; });
       let inicio = 0, enviados = 0, total = 0, moviles = null; const fallos = [];
       try {
         while (inicio !== null) {
           msg.textContent = `Enviando... ${enviados}${total ? ' de ' + total : ''}`;
-          const j = await llamar({ accion, ...extra, inicio });
+          const j = await llamar({ accion, ...extra, excluir: quitadas, inicio });
           total = j.total; enviados += j.enviados; fallos.push(...j.fallos); if (j.moviles != null) moviles = j.moviles;
           inicio = j.siguiente;
         }
@@ -389,7 +412,7 @@ async function vistaYEnviar(accion, zona, explicar, extra = {}) {
 $('avisarVista').addEventListener('click', () => vistaYEnviar('avisar', $('avisarZona'),
   (n) => `Se enviarán <b>${n}</b> emails, uno por cada alumno, alumna o puesto sin confirmar, con su nombre, y un aviso a los móviles de sus familias.`));
 $('escribirVista').addEventListener('click', () => {
-  const que = { confirmar: 'no han confirmado si van', vestuario: 'no han elegido el modelo o la talla del vestuario', justificante: 'han confirmado que van pero no han subido el justificante del vestuario' }[$('escribirA').value];
+  const que = { todos: 'tienen a alguien seleccionado', confirmar: 'no han confirmado si van', vestuario: 'no han elegido el modelo o la talla del vestuario', justificante: 'han confirmado que van pero no han subido el justificante del vestuario' }[$('escribirA').value];
   vistaYEnviar('escribir', $('escribirZona'), (n) => `Se enviará tu email a <b>${n}</b> familias que ${que} (uno por familia, aunque tenga más de un alumno o alumna).`,
     { a: $('escribirA').value, asunto: $('escribirAsunto').value, texto: $('escribirTexto').value });
 });

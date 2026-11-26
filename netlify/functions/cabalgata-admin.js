@@ -227,6 +227,7 @@ async function moverSuplente(sb, p) {
 }
 
 // Email escrito por la Junta a las familias con algo pendiente:
+//   todos        → todas las familias con alguien seleccionado (alumno, alumna o puesto)
 //   confirmar    → alguien con plaza que no ha dicho si va
 //   vestuario    → alumno o alumna con plaza sin talla o sin color
 //   justificante → alumno o alumna que ha confirmado que va y no ha subido el justificante del vestuario
@@ -242,7 +243,10 @@ async function escribir(sb, p, adultoId) {
   ]);
   const pendiente = new Map();   // socio_id → [nombres]
   const anotar = (sid, n) => { if (sid) pendiente.set(sid, [...(pendiente.get(sid) || []), n]); };
-  if (p.a === 'confirmar') {
+  if (p.a === 'todos') {
+    conPlaza.forEach(f => anotar(f.socio_id, nombreFila(f)));
+    posts.filter(x => x.estado === 'elegido').forEach(x => anotar(x.socio_id, `${x.adultos?.nombre || ''} ${x.adultos?.apellidos || ''}`.trim()));
+  } else if (p.a === 'confirmar') {
     for (const [, filas] of grupos) {
       const al = alumnosDe(filas);
       if (al.length && al.every(f => f.estado === 'ganador' && !f.asistencia)) anotar(filas[0].socio_id, al.map(nombreFila).join(' y '));
@@ -254,8 +258,10 @@ async function escribir(sb, p, adultoId) {
     // Solo los que ya han confirmado que van (a los demás se les escribe para que confirmen)
     conPlaza.filter(f => f.asistencia === 'si' && !(comprobantes || []).some(c => c.evento_inscripcion_id === f.id)).forEach(f => anotar(f.socio_id, nombreFila(f)));
   } else throw new Error('Elige a quién va el email.');
-  const socios = [...pendiente.keys()].sort();
-  if (!socios.length) throw new Error('No hay ninguna familia con eso pendiente.');
+  // Las familias que la Junta ha quitado de la lista
+  const excluir = new Set(Array.isArray(p.excluir) ? p.excluir.map(String) : []);
+  const socios = [...pendiente.keys()].filter(sid => !excluir.has(String(sid))).sort();
+  if (!socios.length) throw new Error(excluir.size ? 'Has quitado todas las familias.' : 'No hay ninguna familia con eso pendiente.');
   const { data: adultos } = await sb.from('adultos').select('socio_id, nombre, email, created_at').in('socio_id', socios).order('created_at');
   const mensajes = [];
   for (const sid of socios) {
@@ -267,7 +273,7 @@ async function escribir(sb, p, adultoId) {
   if (!mensajes.length) throw new Error('Las familias con eso pendiente no tienen email.');
   const web = (process.env.SITE_URL || '').replace(/\/$/, '');
   if (p.vista) {
-    return { ok: true, vista: mensajes.map(m => ({ familia: m.familia, pendiente: m.pendiente, a: m.a, asunto: m.subject,
+    return { ok: true, vista: mensajes.map(m => ({ socio: m.socio, familia: m.familia, pendiente: m.pendiente, a: m.a, asunto: m.subject,
       html: conFirma({ subject: m.subject, text: m.text }).html.replace(/src="cid:[^"]+"/g, `src="${web}/assets/logo-ampa-email.jpg"`) })) };
   }
   const inicio = Math.max(0, parseInt(p.inicio, 10) || 0);
