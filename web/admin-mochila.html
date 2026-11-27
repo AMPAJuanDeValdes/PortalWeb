@@ -162,6 +162,9 @@ async function cargar() {
   if (error) { document.getElementById('ahora').innerHTML = '<p class="msg-error">No se pudo cargar la lista: ' + esc(error.message) + '</p>'; return; }
   cola = data || [];
   edicion = null;
+  // Horarios propios de algunos días (los pone la Junta al asignar o al cambiar fechas)
+  const { data: dias } = await sb.from('mochila_dias').select('*');
+  DIAS = Object.fromEntries((dias || []).map(d => [d.fecha, d]));
   await cargarCartas();
   pintarAhora();
   pintarLista();
@@ -169,6 +172,25 @@ async function cargar() {
 
 // Horario de recogida y devolución (lo cambia la Junta aquí: mochila_config)
 let HORA_RECOGIDA = MOCHILA_HORA_RECOGIDA, HORA_DEVOLUCION = MOCHILA_HORA_DEVOLUCION;
+let CONF_H = { recogida_desde: '17:30', recogida_hasta: '18:00', devolucion_desde: '16:00', devolucion_hasta: '16:30' };
+let DIAS = {};   // fecha -> horario propio de ese día (mochila_dias)
+// Horas de un día: las suyas si las tiene; si no, las del horario general
+const horasDia = (f, tipo) => {
+  const d = DIAS[f] || {};
+  return { desde: mochilaHora(d[tipo + '_desde'] || CONF_H[tipo + '_desde']), hasta: mochilaHora(d[tipo + '_hasta'] || CONF_H[tipo + '_hasta']) };
+};
+const tramoDia = (f, tipo) => { const h = horasDia(f, tipo); return mochilaTramo(h.desde, h.hasta); };
+// Campos de día y horas (entrega o devolución)
+const camposDia = (pre, etiqueta, fecha, tipo, soloHora) => `<div class="field"><label for="${pre}F">${etiqueta}</label>
+    ${soloHora ? `<p style="margin:0;">${viernes(fecha)}</p><input type="hidden" id="${pre}F" value="${fecha}">` : `<input type="date" id="${pre}F" value="${fecha || ''}">`}
+    <div style="display:flex; gap:6px; align-items:center; margin-top:6px;"><span>de</span><input type="time" id="${pre}D" value="${horasDia(fecha, tipo).desde}" style="max-width:120px;"><span>a</span><input type="time" id="${pre}H" value="${horasDia(fecha, tipo).hasta}" style="max-width:120px;"></div></div>`;
+async function guardarHorasDia(pre, tipo) {
+  const f = document.getElementById(pre + 'F').value, d = document.getElementById(pre + 'D').value, h = document.getElementById(pre + 'H').value;
+  if (!f || !d || !h) throw new Error('Pon el día y las horas.');
+  if (d >= h) throw new Error('La hora de fin tiene que ser después de la de inicio.');
+  const { error } = await sb.rpc('mochila_admin_horario', { p_fecha: f, p_tipo: tipo, p_desde: d, p_hasta: h });
+  if (error) throw new Error(/mochila_admin_horario|mochila_dias/.test(error.message) ? 'Falta ejecutar supabase/pendientes/migracion-mochila-fechas-a-mano.sql.' : error.message);
+}
 async function cargarHorario() {
   const { data, error } = await sb.from('mochila_config').select('recogida_desde, recogida_hasta, devolucion_desde, devolucion_hasta').eq('id', 1).maybeSingle();
   const msg = document.getElementById('hMsg');
@@ -181,6 +203,7 @@ async function cargarHorario() {
   document.getElementById('hRecHasta').value = mochilaHora(data.recogida_hasta);
   document.getElementById('hDevDesde').value = mochilaHora(data.devolucion_desde);
   document.getElementById('hDevHasta').value = mochilaHora(data.devolucion_hasta);
+  CONF_H = data;
   HORA_RECOGIDA = mochilaTramo(data.recogida_desde, data.recogida_hasta);
   HORA_DEVOLUCION = mochilaTramo(data.devolucion_desde, data.devolucion_hasta);
   document.querySelectorAll('[data-mochila-hora]').forEach(el => {
@@ -238,12 +261,13 @@ function pintarAhora() {
   if (tiene) {
     const tarde = tiene.fecha_devolucion_prevista && new Date(tiene.fecha_devolucion_prevista + 'T23:59:59') < new Date();
     casa = `<h2>La tiene ${esc(nombreFamilia(tiene))}</h2>
-      <p>Se la llevó el ${fecha(tiene.fecha_entrega)}. ${tarde ? '<b style="color:#B3261E;">Tenía que devolverla el ' + viernes(tiene.fecha_devolucion_prevista) + '.</b>' : 'La devuelve el ' + viernes(tiene.fecha_devolucion_prevista) + ' ' + HORA_DEVOLUCION + '.'}</p>
+      <p>Se la llevó el ${fecha(tiene.fecha_entrega)}. ${tarde ? '<b style="color:#B3261E;">Tenía que devolverla el ' + viernes(tiene.fecha_devolucion_prevista) + '.</b>' : 'La devuelve el ' + viernes(tiene.fecha_devolucion_prevista) + ' ' + tramoDia(tiene.fecha_devolucion_prevista, 'devolucion') + '.'}</p>
       <div class="acciones">
         <button type="button" class="btn btn-primary" id="recibirBtn">Recibir mochila</button>
         <button type="button" class="btn btn-outline emailFamiliaBtn" data-cola="${tiene.id}">Escribir a la familia</button>
+        <button type="button" class="btn btn-outline cambiarFechasBtn" data-cola="${tiene.id}">Cambiar día y hora de devolución</button>
         <span class="nota">Cuando la devuelvan. Sale de la lista y queda en el AMPA.</span>
-      </div>`;
+      </div><div class="cambiarFechas" data-para="${tiene.id}" hidden></div>`;
   } else {
     casa = '<h2>La Mochila Jugona Exploradora está en el AMPA</h2>';
   }
@@ -253,25 +277,27 @@ function pintarAhora() {
     const fin = new Date(new Date(turno.notificado_en).getTime() + 24 * 3600 * 1000);
     sig = `<h3>Siguiente: ${esc(nombreFamilia(turno))}</h3>
       <p>Tiene el turno desde el ${fechaHora(turno.notificado_en)} y hasta el ${fechaHora(fin)} para aceptarla en la web; si no, sale de la lista y el turno pasa a la siguiente familia.</p>
-      ${turno.fecha_entrega ? `<p>Entrega el ${viernes(turno.fecha_entrega)} ${HORA_RECOGIDA}; devolución el ${viernes(turno.fecha_devolucion_prevista)} ${HORA_DEVOLUCION}.</p>` : ''}`;
+      ${turno.fecha_entrega ? `<p>Entrega el ${viernes(turno.fecha_entrega)} ${tramoDia(turno.fecha_entrega, 'recogida')}; devolución el ${viernes(turno.fecha_devolucion_prevista)} ${tramoDia(turno.fecha_devolucion_prevista, 'devolucion')}.</p>` : ''}`;
   } else if (turno) {
     sig = `<h3>Siguiente: ${esc(nombreFamilia(turno))}</h3>
       <div class="acciones" style="margin:4px 0 8px;"><button type="button" class="btn btn-outline emailFamiliaBtn" data-cola="${turno.id}">Escribir a la familia</button></div>
-      <p>La ha aceptado. La recoge el ${viernes(turno.fecha_entrega)} ${HORA_RECOGIDA} y la devuelve el ${viernes(turno.fecha_devolucion_prevista)} ${HORA_DEVOLUCION}.</p>`;
+      <p>La ha aceptado. La recoge el ${viernes(turno.fecha_entrega)} ${tramoDia(turno.fecha_entrega, 'recogida')} y la devuelve el ${viernes(turno.fecha_devolucion_prevista)} ${tramoDia(turno.fecha_devolucion_prevista, 'devolucion')}.</p>`;
   } else if (siguiente) {
     sig = `<h3>Siguiente en la lista: ${esc(nombreFamilia(siguiente))}</h3>
       <p>Al asignarla le llega un email y tiene 24 h para aceptarla. Se puede asignar aunque otra familia la tenga en casa.</p>
       <div class="fechas-asignar">
-        <div class="field"><label for="aEntrega">Fecha de entrega <span class="opc">(${HORA_RECOGIDA})</span></label><input type="date" id="aEntrega" value="${fechaRecogidaPorDefecto(tiene)}"></div>
-        <div class="field"><label for="aDevolucion">Fecha de devolución <span class="opc">(${HORA_DEVOLUCION})</span></label><input type="date" id="aDevolucion" value="${masDias(fechaRecogidaPorDefecto(tiene), 7)}"></div>
+        ${camposDia('aEnt', 'Entrega', fechaRecogidaPorDefecto(tiene), 'recogida')}
+        ${camposDia('aDev', 'Devolución', masDias(fechaRecogidaPorDefecto(tiene), 7), 'devolucion')}
       </div>
       <div class="acciones"><button type="button" class="btn btn-cta" id="asignarBtn">Asignar mochila</button>
-        <span class="nota">Las fechas le llegan en el email.</span></div>`;
+        <span class="nota">El día y la hora le llegan en el email.</span></div>`;
   } else {
     sig = '<p>No hay ninguna familia esperando en la lista.</p>';
   }
   if (turno) {
-    sig += `<p class="carta-linea">${cartaTxt(turno) || 'Cuando acepte el turno podrá firmar la carta de compromiso en la web.'}</p>
+    sig += `<div class="acciones" style="margin:4px 0 8px;"><button type="button" class="btn btn-outline cambiarFechasBtn" data-cola="${turno.id}">Cambiar día y hora</button></div>
+      <div class="cambiarFechas" data-para="${turno.id}" hidden></div>
+      <p class="carta-linea">${cartaTxt(turno) || 'Cuando acepte el turno podrá firmar la carta de compromiso en la web.'}</p>
       <div class="acciones">
         <button type="button" class="btn btn-cta" id="entregarBtn" ${tiene ? 'disabled' : ''}>Entregar mochila</button>
         <span class="nota">${tiene ? 'Se podrá entregar cuando la recibáis de ' + esc(nombreFamilia(tiene)) + '.' : 'Pulsa cuando se la des en mano.'}</span>
@@ -304,18 +330,48 @@ function pintarAhora() {
     cargarValoraciones();
   });
   if (!turno && siguiente) {
-    const ent = document.getElementById('aEntrega'), dev = document.getElementById('aDevolucion');
-    ent.addEventListener('change', () => { if (ent.value) dev.value = masDias(ent.value, 7); });
+    const ent = document.getElementById('aEntF'), dev = document.getElementById('aDevF');
+    const horasDe = (pre, f, tipo) => { const h = horasDia(f, tipo); document.getElementById(pre + 'D').value = h.desde; document.getElementById(pre + 'H').value = h.hasta; };
+    ent.addEventListener('change', () => { if (ent.value) { dev.value = masDias(ent.value, 7); horasDe('aEnt', ent.value, 'recogida'); horasDe('aDev', dev.value, 'devolucion'); } });
+    dev.addEventListener('change', () => { if (dev.value) horasDe('aDev', dev.value, 'devolucion'); });
     const b = document.getElementById('asignarBtn');
     b.addEventListener('click', async () => {
       if (!ent.value || !dev.value) { err('Pon la fecha de entrega y la de devolución.'); return; }
       if (dev.value <= ent.value) { err('La fecha de devolución tiene que ser posterior a la de entrega.'); return; }
-      if (!confirm(`Se le dará el turno a ${nombreFamilia(siguiente)} (entrega el ${viernes(ent.value)}, devolución el ${viernes(dev.value)}) y le llegará un email. ¿Seguimos?`)) return;
+      const hE = `de ${document.getElementById('aEntD').value} a ${document.getElementById('aEntH').value}`, hD = `de ${document.getElementById('aDevD').value} a ${document.getElementById('aDevH').value}`;
+      if (!confirm(`Se le dará el turno a ${nombreFamilia(siguiente)} (entrega el ${viernes(ent.value)} ${hE}, devolución el ${viernes(dev.value)} ${hD}) y le llegará un email. ¿Seguimos?`)) return;
       b.disabled = true;
-      try { await mochilaNetlify('mochila-admin-asignar', { entrega: ent.value, devolucion: dev.value }); await cargar(); }
+      try { await guardarHorasDia('aEnt', 'recogida'); await guardarHorasDia('aDev', 'devolucion'); await mochilaNetlify('mochila-admin-asignar', { entrega: ent.value, devolucion: dev.value }); await cargar(); }
       catch (e) { err(e); b.disabled = false; }
     });
   }
+  // Cambiar día y hora de una familia con turno o con la mochila en casa
+  caja.querySelectorAll('.cambiarFechasBtn').forEach(b => b.addEventListener('click', () => {
+    const x = cola.find(c => c.id === b.dataset.cola);
+    const zona = caja.querySelector(`.cambiarFechas[data-para="${x.id}"]`);
+    if (!zona.hidden) { zona.hidden = true; return; }
+    const enCasa = x.estado === 'la_tiene';
+    zona.hidden = false;
+    zona.innerHTML = `<div class="fechas-asignar">
+        ${enCasa ? '' : camposDia('cEnt', 'Entrega', x.fecha_entrega, 'recogida')}
+        ${camposDia('cDev', 'Devolución', x.fecha_devolucion_prevista, 'devolucion')}
+      </div>
+      <div class="acciones"><button type="button" class="btn btn-primary cGuardar">Guardar</button>
+        <span class="nota">A la familia no le llega ningún aviso: escríbele con «Escribir a la familia».</span></div>`;
+    zona.querySelector('.cGuardar').addEventListener('click', async (e) => {
+      const fEnt = enCasa ? x.fecha_entrega : document.getElementById('cEntF').value, fDev = document.getElementById('cDevF').value;
+      if (!fEnt || !fDev) { err('Pon la fecha de entrega y la de devolución.'); return; }
+      if (fDev <= fEnt) { err('La fecha de devolución tiene que ser posterior a la de entrega.'); return; }
+      e.target.disabled = true;
+      try {
+        if (!enCasa) await guardarHorasDia('cEnt', 'recogida');
+        await guardarHorasDia('cDev', 'devolucion');
+        const { error } = await sb.rpc('mochila_admin_fechas', { p_id: x.id, p_entrega: fEnt, p_devolucion: fDev });
+        if (error) throw new Error(error.message);
+        await cargar();
+      } catch (er) { err(er); e.target.disabled = false; }
+    });
+  }));
   if (turno) accion('entregarBtn', '¿Confirmas que ' + nombreFamilia(turno) + ' se lleva hoy la mochila?', () => rpc('mochila_admin_entregada'));
   // Escribir a la familia que la tiene o que la ha aceptado (con vista previa)
   caja.querySelectorAll('.emailFamiliaBtn').forEach(b => b.addEventListener('click', () => {

@@ -144,12 +144,12 @@ async function pintarLista() {
   }
   if (est.estado === 'la_tiene') {
     caja.innerHTML = `<p class="titulo-grande">La tenéis en casa</p>
-      <p>Devolvedla a la Junta el <b>${mochilaFecha(est.fecha_devolucion_prevista)}</b>, ${MOCHILA_HORA_DEVOLUCION}, ${MOCHILA_LUGAR}. ¡Que la disfrutéis!</p>`;
+      <p>Devolvedla a la Junta el <b>${mochilaFecha(est.fecha_devolucion_prevista)}</b>, ${est.hora_devolucion || MOCHILA_HORA_DEVOLUCION}, ${MOCHILA_LUGAR}. ¡Que la disfrutéis!</p>`;
     return;
   }
   if (est.estado === 'aceptada') {
     caja.innerHTML = `<p class="titulo-grande">¡La semana que viene la tenéis vosotros!</p>
-      <p>Recogedla el <b>${mochilaFecha(est.fecha_entrega)}</b>, ${MOCHILA_HORA_RECOGIDA}, y devolvedla el <b>${mochilaFecha(est.fecha_devolucion_prevista)}</b>, ${MOCHILA_HORA_DEVOLUCION}, siempre ${MOCHILA_LUGAR}.</p>
+      <p>Recogedla el <b>${mochilaFecha(est.fecha_entrega)}</b>, ${est.hora_recogida || MOCHILA_HORA_RECOGIDA}, y devolvedla el <b>${mochilaFecha(est.fecha_devolucion_prevista)}</b>, ${est.hora_devolucion || MOCHILA_HORA_DEVOLUCION}, siempre ${MOCHILA_LUGAR}.</p>
       <p class="nota">${est.carta_firmada_en ? 'Ya habéis firmado la carta de compromiso.' : 'Al recogerla hay que firmar la carta de compromiso: podéis firmarla ya aquí abajo.'}
         <button type="button" class="linklike" id="salirBtn">Desapuntarnos de la Mochila Jugona Exploradora</button></p>
       <p class="msg-error" id="listaMsg" hidden></p>`;
@@ -162,7 +162,7 @@ async function pintarLista() {
   if (est.estado === 'asignada') {
     caja.innerHTML = `<p class="titulo-grande">¡Os toca la Mochila Jugona Exploradora!</p>
       <p>Tenéis hasta el <b>${mochilaLimite(est)}</b> para aceptarla. Si no contestáis, saldréis de la lista.</p>
-      ${est.viernes_recogida ? `<p class="horario">Si la aceptáis, la recogeréis el <b>${mochilaFecha(est.viernes_recogida)}</b>, ${MOCHILA_HORA_RECOGIDA}, y la devolveréis el viernes siguiente, ${MOCHILA_HORA_DEVOLUCION}, siempre ${MOCHILA_LUGAR}.</p>` : ''}
+      ${est.viernes_recogida ? `<p class="horario">Si la aceptáis, la recogeréis el <b>${mochilaFecha(est.viernes_recogida)}</b>, ${est.hora_recogida || MOCHILA_HORA_RECOGIDA}, y la devolveréis el viernes siguiente, ${est.hora_devolucion || MOCHILA_HORA_DEVOLUCION}, siempre ${MOCHILA_LUGAR}.</p>` : ''}
       <div id="turno"></div>`;
     mochilaBotonesTurno(document.getElementById('turno'), est, pintarLista);
     return;

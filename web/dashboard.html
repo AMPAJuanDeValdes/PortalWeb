@@ -399,12 +399,12 @@ async function cargarMochila() {
   }
   if (est.estado === 'la_tiene') {
     wrap.innerHTML = `<p class="mochila-grande">La tenéis en casa.</p>
-      <p>Devolvedla a la Junta el <b>${mochilaFecha(est.fecha_devolucion_prevista)}</b>, ${MOCHILA_HORA_DEVOLUCION}, ${MOCHILA_LUGAR}. ¡Que la disfrutéis!</p>`;
+      <p>Devolvedla a la Junta el <b>${mochilaFecha(est.fecha_devolucion_prevista)}</b>, ${est.hora_devolucion || MOCHILA_HORA_DEVOLUCION}, ${MOCHILA_LUGAR}. ¡Que la disfrutéis!</p>`;
     return;
   }
   if (est.estado === 'aceptada') {
     wrap.innerHTML = `<p class="mochila-grande">¡La semana que viene la tenéis vosotros!</p>
-      <p>Recogedla el <b>${mochilaFecha(est.fecha_entrega)}</b>, ${MOCHILA_HORA_RECOGIDA}, ${MOCHILA_LUGAR}.</p>
+      <p>Recogedla el <b>${mochilaFecha(est.fecha_entrega)}</b>, ${est.hora_recogida || MOCHILA_HORA_RECOGIDA}, ${MOCHILA_LUGAR}.</p>
       <p class="mochila-links"><a href="mochila.html#carta">${est.carta_firmada_en ? 'Ver la carta de compromiso firmada' : 'Firmar la carta de compromiso'}</a></p>`;
     return;
   }
@@ -412,7 +412,7 @@ async function cargarMochila() {
     pendienteMochila = { tipo: 'mochila', href: '#mochilaTitulo', titulo: '¡Os toca la Mochila Jugona Exploradora!', accion: 'Aceptarla',
       detalle: 'Tenéis hasta el ' + mochilaLimite(est) + ' para aceptarla.' };
     wrap.innerHTML = `<p class="mochila-grande">¡Os toca la Mochila Jugona Exploradora!</p>
-      <p>Tenéis hasta el <b>${mochilaLimite(est)}</b> para aceptarla. Si no, saldréis de la lista.${est.viernes_recogida ? ` La recogeríais el <b>${mochilaFecha(est.viernes_recogida)}</b>, ${MOCHILA_HORA_RECOGIDA}, ${MOCHILA_LUGAR}.` : ''}</p>
+      <p>Tenéis hasta el <b>${mochilaLimite(est)}</b> para aceptarla. Si no, saldréis de la lista.${est.viernes_recogida ? ` La recogeríais el <b>${mochilaFecha(est.viernes_recogida)}</b>, ${est.hora_recogida || MOCHILA_HORA_RECOGIDA}, ${MOCHILA_LUGAR}.` : ''}</p>
       <div id="mochilaTurno"></div>
       <p class="mochila-links"><a href="mochila.html">Ver los juegos y cómo funciona</a></p>`;
     mochilaBotonesTurno(document.getElementById('mochilaTurno'), est, () => location.reload());

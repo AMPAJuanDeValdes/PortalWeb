@@ -42,6 +42,12 @@ async function notificarNuevoTurno(supabaseAdmin, nuevoP1Id) {
   const tramo = (d, h) => `de ${String(d).slice(0, 5)} a ${String(h).slice(0, 5)}`;
   const horario = conf && conf.recogida_desde
     ? { horaRecogida: tramo(conf.recogida_desde, conf.recogida_hasta), horaDevolucion: tramo(conf.devolucion_desde, conf.devolucion_hasta) } : {};
+  // Si la Junta ha puesto otro horario para esos días, vale ese
+  const tramoDia = async (fecha, tipo) => { if (!fecha) return null; const { data } = await supabaseAdmin.rpc('mochila_tramo', { p_fecha: fecha, p_tipo: tipo }); return data || null; };
+  const hRec = await tramoDia(entrada.fecha_entrega, 'recogida');
+  const hDev = await tramoDia(entrada.fecha_devolucion_prevista, 'devolucion');
+  if (hRec) horario.horaRecogida = hRec;
+  if (hDev) horario.horaDevolucion = hDev;
   const { subject, text } = plantillaMochilaTurno({ nombre, entrega: entrada.fecha_entrega, devolucion: entrada.fecha_devolucion_prevista, ...horario });
   // Si el correo falla, la acción sobre la cola YA se ha hecho: no debe
   // devolver error al usuario (antes, un fallo de SMTP hacía que

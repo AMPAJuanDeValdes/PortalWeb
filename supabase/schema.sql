@@ -8587,3 +8587,113 @@ end $$;
 alter table evento_inscripciones add column if not exists suplente_orden integer;
 alter table evento_inscripciones add column if not exists promovido_en timestamptz;
 
+
+-- ============================================================
+-- Mochila: la Junta (cualquier admin) cambia a mano el día y la hora de la
+-- entrega y de la devolución, antes de asignar o después (turno asignado,
+-- aceptado o con la mochila en casa).
+-- Las horas van por día: si un día tiene horario propio, vale ese; si no,
+-- el horario general (mochila_config). Así, si el turno pasa a otra familia
+-- con las mismas fechas, las horas van con las fechas.
+
+create table if not exists mochila_dias (
+  fecha date primary key,
+  recogida_desde time, recogida_hasta time,
+  devolucion_desde time, devolucion_hasta time,
+  updated_at timestamptz not null default now(),
+  check (recogida_desde is null or recogida_hasta is null or recogida_desde < recogida_hasta),
+  check (devolucion_desde is null or devolucion_hasta is null or devolucion_desde < devolucion_hasta)
+);
+alter table mochila_dias enable row level security;
+drop policy if exists "todos ven los horarios de la mochila" on mochila_dias;
+create policy "todos ven los horarios de la mochila" on mochila_dias for select using (true);
+grant select on mochila_dias to anon, authenticated;
+
+-- Tramo de un día: 'de 17:30 a 18:00' (p_tipo: 'recogida' o 'devolucion')
+create or replace function mochila_tramo(p_fecha date, p_tipo text)
+returns text language sql stable security definer set search_path = public as $$
+  select 'de ' || to_char(coalesce(case when p_tipo = 'recogida' then d.recogida_desde else d.devolucion_desde end,
+                                   case when p_tipo = 'recogida' then c.recogida_desde else c.devolucion_desde end), 'HH24:MI')
+      || ' a ' || to_char(coalesce(case when p_tipo = 'recogida' then d.recogida_hasta else d.devolucion_hasta end,
+                                   case when p_tipo = 'recogida' then c.recogida_hasta else c.devolucion_hasta end), 'HH24:MI')
+  from mochila_config c left join mochila_dias d on d.fecha = p_fecha
+  where c.id = 1;
+$$;
+grant execute on function mochila_tramo(date, text) to anon, authenticated;
+
+-- Horario de un día concreto (la Junta)
+create or replace function mochila_admin_horario(p_fecha date, p_tipo text, p_desde time, p_hasta time)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if not is_admin() then raise exception 'Solo la Junta puede hacer esto.'; end if;
+  if p_fecha is null or p_desde is null or p_hasta is null then raise exception 'Pon el día y las horas.'; end if;
+  if p_desde >= p_hasta then raise exception 'La hora de fin tiene que ser después de la de inicio.'; end if;
+  if p_tipo = 'recogida' then
+    insert into mochila_dias (fecha, recogida_desde, recogida_hasta) values (p_fecha, p_desde, p_hasta)
+    on conflict (fecha) do update set recogida_desde = p_desde, recogida_hasta = p_hasta, updated_at = now();
+  elsif p_tipo = 'devolucion' then
+    insert into mochila_dias (fecha, devolucion_desde, devolucion_hasta) values (p_fecha, p_desde, p_hasta)
+    on conflict (fecha) do update set devolucion_desde = p_desde, devolucion_hasta = p_hasta, updated_at = now();
+  else raise exception 'Tipo de horario no válido.';
+  end if;
+end;
+$$;
+revoke all on function mochila_admin_horario(date, text, time, time) from public, anon;
+grant execute on function mochila_admin_horario(date, text, time, time) to authenticated;
+
+-- Cambiar las fechas de una familia con turno o con la mochila (la Junta)
+create or replace function mochila_admin_fechas(p_id uuid, p_entrega date, p_devolucion date)
+returns void language plpgsql security definer set search_path = public as $$
+declare e mochila_cola;
+begin
+  if not is_admin() then raise exception 'Solo la Junta puede hacer esto.'; end if;
+  select * into e from mochila_cola where id = p_id for update;
+  if not found then raise exception 'Esa familia ya no está en la lista.'; end if;
+  if e.estado not in ('asignada', 'aceptada', 'la_tiene') then raise exception 'Esa familia no tiene turno.'; end if;
+  if e.estado = 'la_tiene' then p_entrega := e.fecha_entrega; end if;   -- ya se la llevó
+  if p_entrega is null or p_devolucion is null then raise exception 'Pon la fecha de entrega y la de devolución.'; end if;
+  if p_devolucion <= p_entrega then raise exception 'La fecha de devolución tiene que ser posterior a la de entrega.'; end if;
+  update mochila_cola set fecha_entrega = p_entrega, fecha_devolucion_prevista = p_devolucion where id = p_id;
+end;
+$$;
+revoke all on function mochila_admin_fechas(uuid, date, date) from public, anon;
+grant execute on function mochila_admin_fechas(uuid, date, date) to authenticated;
+
+-- Lo que ve la familia: también las horas de sus días
+create or replace function mochila_mi_estado()
+returns jsonb language plpgsql security definer set search_path = public stable as $$
+declare
+  e mochila_cola;
+  v_esperan integer;
+  v_prestada boolean;
+  v_carta timestamptz;
+  v_viernes date;
+begin
+  select count(*) filter (where estado <> 'la_tiene'), bool_or(estado = 'la_tiene')
+    into v_esperan, v_prestada from mochila_cola;
+  select firmado_en into v_carta from mochila_compromisos where socio_id = mi_socio_id();
+  select * into e from mochila_cola where socio_id = mi_socio_id();
+  if not found then
+    return jsonb_build_object('apuntada', false, 'esperan', v_esperan, 'prestada', coalesce(v_prestada, false), 'carta_firmada_en', v_carta);
+  end if;
+  v_viernes := case when e.estado = 'asignada' then coalesce(e.fecha_entrega, mochila_viernes_recogida()) end;
+  return jsonb_build_object(
+    'apuntada', true,
+    'estado', e.estado,
+    'puesto', e.posicion - case when coalesce(v_prestada, false) and e.estado <> 'la_tiene' then 1 else 0 end,
+    'esperan', v_esperan,
+    'prestada', coalesce(v_prestada, false),
+    'hay_detras', exists (select 1 from mochila_cola where estado = 'espera' and posicion > e.posicion),
+    'notificado_en', e.notificado_en,
+    'fecha_entrega', e.fecha_entrega,
+    'fecha_devolucion_prevista', e.fecha_devolucion_prevista,
+    -- con turno pero sin aceptar: qué viernes la recogería
+    'viernes_recogida', v_viernes,
+    'hora_recogida', mochila_tramo(coalesce(e.fecha_entrega, v_viernes), 'recogida'),
+    'hora_devolucion', mochila_tramo(coalesce(e.fecha_devolucion_prevista, coalesce(e.fecha_entrega, v_viernes) + 7), 'devolucion'),
+    'carta_firmada_en', v_carta
+  );
+end;
+$$;
+grant execute on function mochila_mi_estado() to authenticated;
+
